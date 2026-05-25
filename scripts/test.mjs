@@ -16,6 +16,7 @@ const itemFactorySource = read('src/systems/equipment/itemFactory.js');
 const dismantleSource = read('src/systems/equipment/dismantle.js');
 const equipmentDropsSource = read('src/systems/drops/equipmentDrops.js');
 const recentLootSource = read('src/systems/drops/recentLoot.js');
+const lootModelSource = read('src/systems/drops/lootModel.js');
 
 const requiredLegacyFunctions = [
   'createDefaultState',
@@ -53,6 +54,8 @@ assert.match(game, /RuneFrontierLegacyEquipmentContext/, 'Legacy runtime must ex
 assert.match(game, /RuneFrontierEquipmentRuntime/, 'Classic equipment entry points must forward to module implementations.');
 assert.match(game, /RuneFrontierLegacyDropsContext/, 'Legacy runtime must expose online drop dependencies.');
 assert.match(game, /RuneFrontierDropsRuntime/, 'Classic online drop entry points must forward to module implementations.');
+assert.match(game, /runtime\.normalizeLootRewards/, 'Loot summary view data must forward to the drops runtime.');
+assert.match(game, /runtime\.getLatestRecentLootRewards/, 'Recent-loot viewing must forward to the drops runtime.');
 assert.match(game, /if\s*\(!options\.offline\s*&&\s*runtime\s*&&\s*typeof runtime\.addEquipmentToInventory/, 'Offline inventory settlement must remain on the legacy path.');
 assert.match(game, /if\s*\(!options\.offline\s*&&\s*runtime\s*&&\s*typeof runtime\.rollEquipmentTableDrops/, 'Offline drop settlement must remain on the legacy path.');
 assert.equal((game.match(/requestAnimationFrame\(loop\);/g) || []).length, 2, 'Loop registration shape changed unexpectedly.');
@@ -215,4 +218,44 @@ const dropContext = {
 assert.equal(equipmentDrops.rollEquipmentTableDrops({}, {}, dropContext), 1, 'Online equipment table drop count changed.');
 assert.equal(accepted[0].id, 'table-drop', 'Online equipment table drops must enter the module acceptance path.');
 
-console.log('Migration batch 3 tests passed: startup, equipment reads, online equipment mutation, and recent-loot routing are intact.');
+const lootModel = await importSource(lootModelSource);
+const lootModelContext = {
+  createEmptyRewards: () => ({ equipments: [], cards: [], materials: [], autoSalvagedMaterials: {} }),
+  normalizeBaseRewards: (raw = {}) => ({
+    ...raw,
+    equipments: Array.isArray(raw.equipments) ? raw.equipments : Array.isArray(raw.equipment) ? raw.equipment : [],
+    cards: Array.isArray(raw.cards) ? raw.cards : [],
+    materials: Array.isArray(raw.materials) ? raw.materials : Object.entries(raw.materials || {}).map(([materialId, qty]) => ({ materialId, qty })),
+    autoSalvagedMaterials: raw.autoSalvagedMaterials || raw.salvagedMaterials || {},
+    skippedEquipment: Number(raw.skippedEquipment || 0),
+  }),
+  normalizeEquipment: (item) => ({ ...item, normalized: true }),
+  objectTotal: (entries = {}) => Object.values(entries).reduce((sum, qty) => sum + Number(qty || 0), 0),
+};
+const normalizedLoot = lootModel.normalizeLootRewards({
+  seconds: 3,
+  materials: { dust: 2 },
+  equipments: [{ id: 'kept' }, { id: 'pending' }],
+  skippedEquipment: 1,
+  salvagedMaterials: { ore: 1 },
+}, lootModelContext);
+assert.equal(normalizedLoot.equipment.length, 1, 'Claimed equipment should remain separate from pending equipment in loot views.');
+assert.equal(normalizedLoot.pendingEquipment[0].id, 'pending', 'Legacy pending-equipment inference changed.');
+assert.equal(normalizedLoot.materials[0].materialId, 'dust', 'Legacy material-object normalization changed.');
+assert.equal(normalizedLoot.autoSalvaged, 1, 'Auto-salvage material totals must be safe in loot views.');
+const mergedLoot = lootModel.mergeLootRewards([
+  { equipment: [{ id: 'old' }], materials: [{ materialId: 'dust', qty: 1 }] },
+  { pendingEquipment: [{ id: 'new-pending' }], skippedEquipment: 1, materials: [{ materialId: 'dust', qty: 2 }] },
+], lootModelContext);
+assert.equal(mergedLoot.materials[0].qty, 3, 'Merged loot material counts changed.');
+assert.equal(mergedLoot.pendingEquipment.length, 1, 'Merged pending equipment should be preserved.');
+const recentView = lootModel.getLatestRecentLootRewards({
+  recentLoot: [
+    { time: 100, rewards: { equipment: [{ id: 'older' }] } },
+    { time: 105, rewards: { equipment: [{ id: 'newer' }] } },
+    { time: 30000, rewards: { equipment: [{ id: 'latest' }] } },
+  ],
+}, lootModelContext);
+assert.equal(recentView.equipment[0].id, 'latest', 'Latest-loot view must not be replaced by stale batches.');
+
+console.log('Migration batch 4 stage 1 tests passed: startup, equipment routing, recent loot, and loot view normalization are intact.');

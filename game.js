@@ -7466,12 +7466,12 @@ function recordLootFeedEntry(rewards, source = "最近战利品", time = Date.no
   ]);
 }
 
-function getLatestRecentLootRewards() {
+function legacyGetLatestRecentLootRewards() {
   state.recentLoot = normalizeRecentLoot(state.recentLoot);
   if (!state.recentLoot.length) return null;
   const newest = state.recentLoot[0].time;
   const batch = state.recentLoot.filter((entry) => newest - entry.time <= 10000).slice(0, 8);
-  return mergeRecentLootRewards(batch.map((entry) => entry.rewards));
+  return legacyMergeRecentLootRewards(batch.map((entry) => entry.rewards));
 }
 
 function markRecentLootViewed() {
@@ -7479,7 +7479,7 @@ function markRecentLootViewed() {
   state.lastLootViewedAt = Date.now();
 }
 
-function mergeRecentLootRewards(rewardsList = []) {
+function legacyMergeRecentLootRewards(rewardsList = []) {
   const merged = defaultOfflineRewards();
   rewardsList.reverse().forEach((raw) => {
     const rewards = normalizeOfflineRewards(raw);
@@ -7496,6 +7496,22 @@ function mergeRecentLootRewards(rewardsList = []) {
     merged.skippedEquipment += rewards.skippedEquipment || 0;
   });
   return merged;
+}
+
+function getLatestRecentLootRewards() {
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.getLatestRecentLootRewards === "function") {
+    return runtime.getLatestRecentLootRewards(state);
+  }
+  return legacyGetLatestRecentLootRewards();
+}
+
+function mergeRecentLootRewards(rewardsList = []) {
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.mergeLootRewards === "function") {
+    return runtime.mergeLootRewards(rewardsList);
+  }
+  return legacyMergeRecentLootRewards(rewardsList);
 }
 
 function normalizeQuests(quests = {}) {
@@ -7834,7 +7850,7 @@ function renderOfflineRewardSummary(rewards) {
   }
 }
 
-function normalizeLootRewards(input = {}) {
+function legacyNormalizeLootRewards(input = {}) {
   const rewards = input || {};
   const normalized = normalizeOfflineRewards(rewards);
   const pendingCount = Math.min(Number(normalized.skippedEquipment || 0), normalized.equipments.length);
@@ -7864,6 +7880,14 @@ function normalizeLootRewards(input = {}) {
     noRewardsReason: normalized.noRewardsReason || "",
     errors: Array.isArray(rewards.errors) ? rewards.errors : [],
   };
+}
+
+function normalizeLootRewards(input = {}) {
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.normalizeLootRewards === "function") {
+    return runtime.normalizeLootRewards(input);
+  }
+  return legacyNormalizeLootRewards(input);
 }
 
 function renderLootSummaryCard(rewards) {
@@ -13432,6 +13456,9 @@ window.RuneFrontierLegacyDropsContext = () => Object.freeze({
   createEntryId(time) {
     return `loot-${time.toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
   },
+  createEmptyRewards: defaultOfflineRewards,
+  normalizeBaseRewards: normalizeOfflineRewards,
+  normalizeEquipment: normalizeItem,
   normalizeRewards: normalizeOfflineRewards,
   objectTotal: offlineObjectTotal,
   currentMap,
