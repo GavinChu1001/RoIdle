@@ -12,11 +12,15 @@ export * from './dropStats.js';
 import { configureEquipmentDropsContext, rollEquipmentDropsFromTable, rollEquipmentTableDrops } from './equipmentDrops.js';
 import { configureRecentLootContext, normalizeRecentLoot, recordRecentLoot } from './recentLoot.js';
 import { configureLootModelContext, getLatestRecentLootRewards, mergeLootRewards, normalizeLootRewards } from './lootModel.js';
+import { configureMaterialDropsContext, grantMaterialDrop, grantMutationMaterial, maybeDropDarkGoldFragments, maybeDropMythicEssence, maybeDropSocketMaterials, rollMapMaterialDrops } from './materialDrops.js';
+import { configureCardDropsContext, grantCardDrop, maybeDropBossCardFragments, rollCardDropsFromTable } from './cardDrops.js';
 
 export function installDropsRuntime(context = {}) {
   configureRecentLootContext(context);
   configureEquipmentDropsContext(context);
   configureLootModelContext(context);
+  configureMaterialDropsContext(context);
+  configureCardDropsContext(context);
   const runtime = Object.freeze({
     normalizeRecentLoot,
     recordRecentLoot,
@@ -25,6 +29,15 @@ export function installDropsRuntime(context = {}) {
     getLatestRecentLootRewards,
     rollEquipmentTableDrops,
     rollEquipmentDropsFromTable,
+    grantMaterialDrop,
+    grantMutationMaterial,
+    maybeDropDarkGoldFragments,
+    maybeDropMythicEssence,
+    maybeDropSocketMaterials,
+    rollMapMaterialDrops,
+    grantCardDrop,
+    maybeDropBossCardFragments,
+    rollCardDropsFromTable,
   });
   window.RuneFrontierDropsRuntime = runtime;
   return runtime;

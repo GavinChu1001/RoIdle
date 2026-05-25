@@ -15,6 +15,8 @@ const itemScoreSource = read('src/systems/equipment/itemScore.js');
 const itemFactorySource = read('src/systems/equipment/itemFactory.js');
 const dismantleSource = read('src/systems/equipment/dismantle.js');
 const equipmentDropsSource = read('src/systems/drops/equipmentDrops.js');
+const materialDropsSource = read('src/systems/drops/materialDrops.js');
+const cardDropsSource = read('src/systems/drops/cardDrops.js');
 const recentLootSource = read('src/systems/drops/recentLoot.js');
 const lootModelSource = read('src/systems/drops/lootModel.js');
 const offlineSource = read('src/systems/offline.js');
@@ -56,6 +58,9 @@ assert.match(game, /RuneFrontierLegacyEquipmentContext/, 'Legacy runtime must ex
 assert.match(game, /RuneFrontierEquipmentRuntime/, 'Classic equipment entry points must forward to module implementations.');
 assert.match(game, /RuneFrontierLegacyDropsContext/, 'Legacy runtime must expose online drop dependencies.');
 assert.match(game, /RuneFrontierDropsRuntime/, 'Classic online drop entry points must forward to module implementations.');
+assert.match(game, /runtime\.rollMapMaterialDrops/, 'Material drop entry points must forward to the drops runtime.');
+assert.match(game, /runtime\.rollCardDropsFromTable/, 'Card drop entry points must forward to the drops runtime.');
+assert.match(game, /runtime\.maybeDropBossCardFragments/, 'Boss card fragment entry points must forward to the drops runtime.');
 assert.match(game, /runtime\.normalizeLootRewards/, 'Loot summary view data must forward to the drops runtime.');
 assert.match(game, /runtime\.getLatestRecentLootRewards/, 'Recent-loot viewing must forward to the drops runtime.');
 assert.match(game, /RuneFrontierLegacyOfflineContext/, 'Legacy runtime must expose offline settlement dependencies.');
@@ -222,6 +227,68 @@ const dropContext = {
 };
 assert.equal(equipmentDrops.rollEquipmentTableDrops({}, {}, dropContext), 1, 'Online equipment table drop count changed.');
 assert.equal(accepted[0].id, 'table-drop', 'Online equipment table drops must enter the module acceptance path.');
+
+const materialDrops = await importSource(materialDropsSource);
+const materialState = { currentMap: 4, materials: {} };
+const materialRecent = [];
+let materialSession = 0;
+const materialContext = {
+  getState: () => materialState,
+  currentMap: () => ({ id: 'grass' }),
+  currentDifficulty: () => 'abyss',
+  getDifficultyConfig: () => ({ materialDrop: 1 }),
+  getMaterialDropTable: () => [{ materialId: 'ore', dropRate: 1, minQty: 2, maxQty: 2 }],
+  getMaterialName: (id) => ({ ore: '\u7cbe\u70bc\u77ff', socketStone: '\u6253\u5b54\u77f3', advancedSocketStone: '\u9ad8\u7ea7\u6253\u5b54\u77f3', mythicSocketStone: '\u795e\u8bdd\u6253\u5b54\u77f3', cardRemover: '\u5361\u7247\u62c6\u9664\u5668', darkGoldFragment: '\u6697\u91d1\u788e\u7247', mythicEssence: '\u795e\u8bdd\u7cbe\u7cb9' }[id] || id),
+  getMaterialRarity: () => 'epic',
+  getDarkGoldFragmentDropConfig: () => ({ minMapIndex: 0, rate: 1, qty: [2, 2] }),
+  random: () => 0,
+  randomInt: (min) => min,
+  applyMaterialQuantityBonus: (qty) => qty,
+  recordSessionReward: ({ materials }) => { materialSession += materials; },
+  recordRecentLoot: (reward, source) => materialRecent.push({ reward, source }),
+  addLog: () => {},
+  computeStats: () => ({ mutationMaterialDoubleChance: 0 }),
+};
+assert.equal(materialDrops.rollMapMaterialDrops({ dropBonus: 0 }, {}, materialContext), 2, 'Online map material quantity changed.');
+assert.equal(materialState.materials.ore, 2, 'Map material grants must update inventory once.');
+assert.equal(materialDrops.maybeDropDarkGoldFragments({}, { boss: true }, materialContext), 2, 'Boss dark-gold fragment quantity changed.');
+assert.equal(materialState.materials.darkGoldFragment, 2, 'Dark-gold fragments must be granted through material service.');
+assert.equal(materialDrops.maybeDropMythicEssence({}, {}, materialContext), 1, 'Abyss mythic essence routing changed.');
+assert.equal(materialState.materials.mythicEssence, 1, 'Mythic essence must be granted through material service.');
+materialDrops.maybeDropSocketMaterials({}, { boss: true }, materialContext);
+assert.equal(materialState.materials.socketStone, 1, 'Boss socket stone route changed.');
+assert.equal(materialState.materials.mythicSocketStone, 1, 'Abyss mythic socket stone route changed.');
+assert.equal(materialSession, 8, 'Online material session totals changed unexpectedly.');
+assert.equal(materialRecent.length, 7, 'Each generated material category must record exactly one loot entry.');
+
+const cardDrops = await importSource(cardDropsSource);
+const cardState = { cards: {}, cardCodex: {}, materials: {} };
+const cardRecent = [];
+let cardRewards = 0;
+let cardMaterialRewards = 0;
+const cardContext = {
+  getState: () => cardState,
+  currentMap: () => ({ id: 'grass' }),
+  currentDifficulty: () => 'abyss',
+  getDifficultyConfig: () => ({ cardDrop: 1 }),
+  getCardDropTable: () => [{ cardId: 'card-a', dropRate: 1, rarity: 'legend', bossOnly: true }],
+  getCard: () => ({ id: 'card-a', name: 'Boss Card', rarity: 'legend' }),
+  getMaterialName: () => '\u0042\u006f\u0073\u0073\u5361\u7247\u788e\u7247',
+  random: () => 0,
+  randomInt: (min) => min,
+  now: () => 100,
+  recordSessionReward: ({ cards = 0, materials = 0 }) => { cardRewards += cards; cardMaterialRewards += materials; },
+  recordRecentLoot: (reward, source) => cardRecent.push({ reward, source }),
+  addLog: () => {},
+};
+assert.equal(cardDrops.rollCardDropsFromTable({}, { boss: true }, cardContext), 1, 'Boss card table grant changed.');
+assert.equal(cardState.cards['card-a'], 1, 'Card reward must update owned card count once.');
+assert.equal(cardState.cardCodex['card-a'].obtainCount, 1, 'Card reward must update codex once.');
+assert.equal(cardDrops.maybeDropBossCardFragments({}, { boss: true }, cardContext), 2, 'Abyss Boss fragment quantity changed.');
+assert.equal(cardState.materials.bossCardShard, 2, 'Boss fragment grants must update material inventory once.');
+assert.equal(cardRewards, 1, 'Card session count changed.');
+assert.equal(cardMaterialRewards, 2, 'Boss fragment session count changed.');
+assert.equal(cardRecent.length, 2, 'Card and fragment reward records must remain separate.');
 
 const lootModel = await importSource(lootModelSource);
 const lootModelContext = {

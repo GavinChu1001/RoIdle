@@ -5492,7 +5492,7 @@ function rollDrops(options = {}) {
   return equipmentDropCount + zodiacDropCount + transitionDropCount + mythicDropCount;
 }
 
-function grantCardDrop(card, rarity = "rare", source = "卡片掉落") {
+function legacyGrantCardDrop(card, rarity = "rare", source = "卡片掉落") {
   if (!card?.id) return;
   state.cards[card.id] = (state.cards[card.id] || 0) + 1;
   state.cardCodex[card.id] = state.cardCodex[card.id] || { obtained: false, obtainCount: 0, firstObtainedAt: 0 };
@@ -5504,7 +5504,15 @@ function grantCardDrop(card, rarity = "rare", source = "卡片掉落") {
   addLog(`${source}：${card.name}。`);
 }
 
-function rollCardDropsFromTable(stats = computeStats(), options = {}) {
+function grantCardDrop(card, rarity = "rare", source = "卡片掉落") {
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.grantCardDrop === "function") {
+    return runtime.grantCardDrop(card, rarity, source);
+  }
+  return legacyGrantCardDrop(card, rarity, source);
+}
+
+function legacyRollCardDropsFromTable(stats = computeStats(), options = {}) {
   const rows = cardDropTables[currentMap().id] || [];
   const difficulty = currentDifficultyConfig();
   const isBoss = Boolean(options.boss);
@@ -5519,7 +5527,15 @@ function rollCardDropsFromTable(stats = computeStats(), options = {}) {
   });
 }
 
-function maybeDropBossCardFragments(stats = computeStats(), options = {}) {
+function rollCardDropsFromTable(stats = computeStats(), options = {}) {
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.rollCardDropsFromTable === "function") {
+    return runtime.rollCardDropsFromTable(stats, options);
+  }
+  return legacyRollCardDropsFromTable(stats, options);
+}
+
+function legacyMaybeDropBossCardFragments(stats = computeStats(), options = {}) {
   if (!options.boss) return;
   const difficulty = state.currentDifficulty || "normal";
   const baseRate = difficulty === "abyss" ? 0.85 : difficulty === "hard" ? 0.45 : 0.25;
@@ -5532,7 +5548,15 @@ function maybeDropBossCardFragments(stats = computeStats(), options = {}) {
   addLog(`获得 ${materialNames.bossCardShard} ×${qty}。`);
 }
 
-function maybeDropSocketMaterials(stats = computeStats(), options = {}) {
+function maybeDropBossCardFragments(stats = computeStats(), options = {}) {
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.maybeDropBossCardFragments === "function") {
+    return runtime.maybeDropBossCardFragments(stats, options);
+  }
+  return legacyMaybeDropBossCardFragments(stats, options);
+}
+
+function legacyMaybeDropSocketMaterials(stats = computeStats(), options = {}) {
   const difficultyId = state.currentDifficulty || "normal";
   const isBoss = Boolean(options.boss);
   const entries = [
@@ -5553,7 +5577,15 @@ function maybeDropSocketMaterials(stats = computeStats(), options = {}) {
   });
 }
 
-function maybeDropDarkGoldFragments(stats = computeStats(), options = {}) {
+function maybeDropSocketMaterials(stats = computeStats(), options = {}) {
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.maybeDropSocketMaterials === "function") {
+    return runtime.maybeDropSocketMaterials(stats, options);
+  }
+  return legacyMaybeDropSocketMaterials(stats, options);
+}
+
+function legacyMaybeDropDarkGoldFragments(stats = computeStats(), options = {}) {
   if (!options.boss) return;
   const difficultyId = state.currentDifficulty || "normal";
   const config = DARK_GOLD_FRAGMENT_DROPS[difficultyId] || DARK_GOLD_FRAGMENT_DROPS.normal;
@@ -5570,6 +5602,14 @@ function maybeDropDarkGoldFragments(stats = computeStats(), options = {}) {
   addLog(`获得 ${materialNames.darkGoldFragment} ×${qty}。`);
 }
 
+function maybeDropDarkGoldFragments(stats = computeStats(), options = {}) {
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.maybeDropDarkGoldFragments === "function") {
+    return runtime.maybeDropDarkGoldFragments(stats, options);
+  }
+  return legacyMaybeDropDarkGoldFragments(stats, options);
+}
+
 function rollMythicEquipmentDrop(monster, stats, options = {}) {
   if (state.currentDifficulty !== "abyss") return 0;
   const isBoss = Boolean(options.boss);
@@ -5584,7 +5624,7 @@ function rollMythicEquipmentDrop(monster, stats, options = {}) {
   return 1;
 }
 
-function rollMapMaterialDrops(stats, options = {}) {
+function legacyRollMapMaterialDrops(stats, options = {}) {
   const rows = materialDropTables[currentMap().id] || [];
   if (!rows.length) return;
   const difficulty = currentDifficultyConfig();
@@ -5599,6 +5639,14 @@ function rollMapMaterialDrops(stats, options = {}) {
     recordRecentLoot({ materials: [{ materialId: drop.materialId, name: materialNames[drop.materialId] || drop.materialId, qty }] }, options.boss ? "Boss材料" : "材料掉落");
     addLog(`获得材料：${materialNames[drop.materialId] || drop.materialId} × ${qty}。`);
   });
+}
+
+function rollMapMaterialDrops(stats, options = {}) {
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.rollMapMaterialDrops === "function") {
+    return runtime.rollMapMaterialDrops(stats, options);
+  }
+  return legacyRollMapMaterialDrops(stats, options);
 }
 
 function rollZodiacSetDrops(monster, stats, options = {}) {
@@ -5820,7 +5868,7 @@ function rollMutationExtraDrops(monster, stats, existingEquipmentDrops = 0) {
   return 0;
 }
 
-function grantMutationMaterial(rareOnly = false) {
+function legacyGrantMutationMaterial(rareOnly = false) {
   const pool = rareOnly ? ["rune", "ancientCore", "starShard"] : ["ore", "crystal", "rune"];
   const material = pool[Math.min(pool.length - 1, Math.floor(Math.random() * pool.length))];
   const stats = computeStats();
@@ -5832,13 +5880,29 @@ function grantMutationMaterial(rareOnly = false) {
   addLog(`变异怪额外掉落 ${materialNames[material] || material} × ${amount}。`);
 }
 
-function maybeDropMythicEssence(stats = computeStats(), options = {}) {
+function grantMutationMaterial(rareOnly = false) {
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.grantMutationMaterial === "function") {
+    return runtime.grantMutationMaterial(rareOnly);
+  }
+  return legacyGrantMutationMaterial(rareOnly);
+}
+
+function legacyMaybeDropMythicEssence(stats = computeStats(), options = {}) {
   if (state.currentDifficulty !== "abyss") return;
   const rate = 0.002 * (options.boss ? 3 : 1) * (1 + (stats.mythicEssenceDropBonus || 0));
   if (Math.random() >= rate) return;
   state.materials.mythicEssence = (state.materials.mythicEssence || 0) + 1;
   recordRecentLoot({ materials: [{ materialId: "mythicEssence", name: materialNames.mythicEssence, qty: 1 }] }, options.boss ? "深渊Boss材料" : "深渊材料");
   addLog("深渊凝结出 神话精粹 ×1。");
+}
+
+function maybeDropMythicEssence(stats = computeStats(), options = {}) {
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.maybeDropMythicEssence === "function") {
+    return runtime.maybeDropMythicEssence(stats, options);
+  }
+  return legacyMaybeDropMythicEssence(stats, options);
 }
 
 function createMutationEquipment(rarity) {
@@ -13487,6 +13551,30 @@ window.RuneFrontierLegacyDropsContext = () => Object.freeze({
   normalizeRewards: normalizeOfflineRewards,
   objectTotal: offlineObjectTotal,
   currentMap,
+  getDifficultyConfig: currentDifficultyConfig,
+  computeStats,
+  getMaterialDropTable(mapId) {
+    return materialDropTables[mapId] || [];
+  },
+  getCardDropTable(mapId) {
+    return cardDropTables[mapId] || [];
+  },
+  getCard(cardId) {
+    return getSocketCard(cardId);
+  },
+  getMaterialName(materialId) {
+    return materialNames[materialId] || materialId;
+  },
+  getMaterialRarity(materialId) {
+    return MATERIAL_DB[materialId]?.rarity || "";
+  },
+  getDarkGoldFragmentDropConfig(difficultyId) {
+    return DARK_GOLD_FRAGMENT_DROPS[difficultyId] || DARK_GOLD_FRAGMENT_DROPS.normal;
+  },
+  applyMaterialQuantityBonus,
+  recordSessionReward,
+  recordRecentLoot,
+  addLog,
   getDropTableId(mapId) {
     return mapDropTableAlias[mapId] || mapId;
   },
