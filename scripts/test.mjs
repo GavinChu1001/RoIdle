@@ -23,6 +23,7 @@ const lootRollSource = read('src/systems/drops/lootRoll.js');
 const recentLootSource = read('src/systems/drops/recentLoot.js');
 const lootModelSource = read('src/systems/drops/lootModel.js');
 const offlineSource = read('src/systems/offline.js');
+const settlementSource = read('src/systems/combat/settlement.js');
 
 const requiredLegacyFunctions = [
   'createDefaultState',
@@ -46,9 +47,11 @@ assert.match(main, /bootstrapOwner:\s*'src\/main\.js'/, 'Module entry must own s
 assert.match(main, /installEquipmentRuntime\(equipmentContext\)/, 'Equipment read runtime must be installed before startup.');
 assert.match(main, /window\.bootstrapLegacyRuntime\(\)/, 'Module entry must start the classic runtime through its bridge.');
 assert.match(main, /migrated:\s*\[[^\]]*'equipment-online-mutations'[^\]]*'online-equipment-drops'[^\]]*'online-reward-categories'[^\]]*'recent-loot-recording'[^\]]*'offline-equipment-settlement'[^\]]*'offline-reward-categories'/s, 'Reward-category migration status is incomplete.');
-assert.match(main, /bridged:\s*\[[^\]]*'offline-time-and-exp-calculation'[^\]]*'boss-victory-rewards'[^\]]*'combat'/s, 'Deferred bridge status is incomplete.');
+assert.match(main, /bridged:\s*\[[^\]]*'offline-time-and-exp-calculation'[^\]]*'combat-rounds-and-boss-entry'/s, 'Deferred bridge status is incomplete.');
 assert.match(main, /installDropsRuntime\(dropsContext\)/, 'Drops runtime must be installed before startup.');
 assert.match(main, /installOfflineRuntime\(offlineContext\)/, 'Offline runtime must be installed before startup.');
+assert.match(main, /installCombatRuntime\(combatContext\)/, 'Combat settlement runtime must be installed before startup.');
+assert.match(main, /migrated:\s*\[[^\]]*'kill-and-boss-settlement'/s, 'Combat settlement migration status is incomplete.');
 assert.match(stateSurface, /loadGame/);
 assert.match(stateSurface, /migrateSave/);
 assert.match(stateSurface, /normalizePlayerState/);
@@ -76,6 +79,9 @@ assert.match(game, /runtime\.claimOfflineRewards/, 'Offline claiming must forwar
 assert.match(game, /runtime\.processGeneratedOfflineEquipment/, 'Offline generated equipment must forward to the offline runtime.');
 assert.match(game, /if\s*\(runtime\s*&&\s*typeof runtime\.addEquipmentToInventory/, 'Offline inventory settlement must use the shared equipment runtime.');
 assert.match(game, /if\s*\(!options\.offline\s*&&\s*runtime\s*&&\s*typeof runtime\.rollEquipmentTableDrops/, 'Offline drop settlement must remain on the legacy path.');
+assert.match(game, /RuneFrontierLegacyCombatContext/, 'Legacy runtime must expose combat settlement dependencies.');
+assert.match(game, /runtime\.settleDefeatedEnemy/, 'Kill settlement must forward to the combat runtime.');
+assert.match(game, /runtime\.grantBossEssence/, 'Boss essence settlement must forward to the combat runtime.');
 assert.equal((game.match(/requestAnimationFrame\(loop\);/g) || []).length, 2, 'Loop registration shape changed unexpectedly.');
 
 const itemStats = await importSource(itemStatsSource);
@@ -495,4 +501,102 @@ assert.equal(offlineCategoryRewards.cards[0].cardId, 'offline-card', 'Offline ca
 assert.equal(offlineCategoryRewards.materials[0].materialId, 'ore', 'Offline material reward routing changed.');
 assert.deepEqual(offlineCategoryRewards.equipments.map((item) => item.id), ['offline-zodiac-piece', 'offline-transition-piece'], 'Offline special equipment candidates changed.');
 
-console.log('Migration batch 5 tests passed: online and offline reward-category routing are intact.');
+const settlement = await importSource(settlementSource);
+const killState = {
+  hero: { jobId: 'novice' },
+  gold: 0,
+  totalKills: 0,
+  areaKills: 0,
+  enemyBoss: false,
+  currentDifficulty: 'normal',
+  equipmentPityKills: 0,
+  monsterCodex: {},
+  materials: {},
+  vip: {},
+  mapDifficultyProgress: {},
+};
+const killCalls = { drop: 0, next: 0, spawn: 0, daily: 0, quest: 0 };
+const baseCombatContext = {
+  getState: () => killState,
+  currentMap: () => ({ id: 'grass', name: 'Grass' }),
+  currentMonsterStats: () => ({ id: 'poring', gold: 10, exp: 5, jobExp: 3 }),
+  computeStats: () => ({ goldMultiplier: 1, monsterGoldMultiplier: 1, baseExpMultiplier: 1, jobExpMultiplier: 1 }),
+  updateActiveEnemyHpInGroup: () => {},
+  presentKillRewards: () => {},
+  gainExp: () => {},
+  recordSessionReward: () => {},
+  recordRecentLoot: () => {},
+  updateDailyGoalProgress: () => { killCalls.daily += 1; },
+  bossRequirement: () => 10,
+  hasLivingEncounterMembers: () => true,
+  isBossChallengeReady: () => false,
+  getAutoBossEnabled: () => false,
+  rollDrops: () => { killCalls.drop += 1; return 1; },
+  rollMutationExtraDrops: () => 0,
+  grantPassiveSkillKillExp: () => {},
+  updateQuestProgress: () => { killCalls.quest += 1; },
+  explorationGainForKill: () => 1,
+  gainMapExploration: () => {},
+  trackKillAchievements: () => {},
+  getEquipmentPityThreshold: () => 5,
+  rollGuaranteedEquipmentDrop: () => 0,
+  challengeBoss: () => {},
+  syncActiveEnemyFromGroup: () => { killCalls.next += 1; },
+  spawnEnemy: () => { killCalls.spawn += 1; },
+  render: () => {},
+};
+const regularKill = settlement.settleDefeatedEnemy({}, baseCombatContext);
+assert.equal(regularKill.nextAction, 'nextEncounter', 'Living encounter members must advance instead of respawning.');
+assert.equal(killState.gold, 10, 'Regular kill gold settlement changed.');
+assert.equal(killState.areaKills, 1, 'Regular kill Boss gauge progress changed.');
+assert.equal(killCalls.drop, 1, 'Regular kill must invoke drops exactly once.');
+assert.equal(killCalls.next, 1, 'Regular encounter progression changed.');
+assert.equal(killCalls.spawn, 0, 'Regular encounter must not respawn while members remain.');
+
+const bossState = {
+  hero: { jobId: 'knight' },
+  gold: 0,
+  totalKills: 0,
+  areaKills: 10,
+  enemyBoss: true,
+  currentDifficulty: 'normal',
+  currentMap: 0,
+  monsterCodex: {},
+  materials: {},
+  vip: {},
+  mapDifficultyProgress: {},
+  bestMap: 0,
+};
+let bossVipExp = 0;
+const bossContext = {
+  ...baseCombatContext,
+  getState: () => bossState,
+  currentMap: () => ({ id: 'grass', name: 'Grass' }),
+  currentMapIndex: () => 0,
+  getMaps: () => [{ id: 'grass', name: 'Grass' }, { id: 'forest', name: 'Forest' }],
+  getBossEssenceId: () => 'grassEssence',
+  getMaterialName: () => 'Grass Essence',
+  getDifficultyLabel: () => 'Normal',
+  applyMaterialQuantityBonus: (qty) => qty,
+  getAutoBossEnabled: () => false,
+  gainVipExp: (amount) => { bossVipExp += amount; },
+  hasLivingEncounterMembers: () => false,
+  rollDrops: () => 0,
+  spawnEnemy: () => {},
+};
+const firstBoss = settlement.settleDefeatedEnemy({
+  map: { id: 'grass', name: 'Grass' },
+  monster: { id: 'boss', gold: 10, exp: 5, jobExp: 3 },
+  isBoss: true,
+  difficulty: 'normal',
+}, bossContext);
+assert.equal(firstBoss.firstBossClear, true, 'First Boss clear reward must be recorded once.');
+assert.equal(bossState.materials.grassEssence, 1, 'Boss essence quantity changed.');
+assert.equal(bossState.areaKills, 0, 'Boss victory must reset Boss gauge.');
+assert.equal(bossState.mapDifficultyProgress.grass.hard.unlocked, true, 'Normal Boss victory must unlock hard difficulty.');
+assert.equal(bossState.mapDifficultyProgress.forest.normal.unlocked, true, 'Normal Boss victory must unlock the next map.');
+assert.equal(bossVipExp, 100, 'First Boss honor reward changed.');
+settlement.settleBossVictory({ map: { id: 'grass', name: 'Grass' }, difficulty: 'normal' }, bossContext);
+assert.equal(bossVipExp, 100, 'First Boss honor reward must not be issued twice.');
+
+console.log('Migration batch 6 tests passed: reward routing and kill settlement are intact.');

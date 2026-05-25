@@ -22,7 +22,7 @@ import './systems/vip.js';
 import './systems/codex.js';
 import { installEquipmentRuntime } from './systems/equipment/index.js';
 import { installDropsRuntime } from './systems/drops/index.js';
-import './systems/combat/index.js';
+import { installCombatRuntime } from './systems/combat/index.js';
 import { installOfflineRuntime } from './systems/offline.js';
 
 // UI layer (delegates to game.js via window)
@@ -34,8 +34,8 @@ export const RUNTIME_AUTHORITY = 'game.js';
 window.RuneFrontierModuleStatus = Object.freeze({
   authority: RUNTIME_AUTHORITY,
   bootstrapOwner: 'src/main.js',
-  migrated: ['platform', 'storage-adapter', 'utils-surface', 'state-surface', 'equipment-read-calculations', 'equipment-online-mutations', 'online-equipment-drops', 'online-reward-categories', 'recent-loot-recording', 'loot-view-model', 'offline-equipment-settlement', 'offline-reward-categories', 'dev-diagnostics'],
-  bridged: ['offline-time-and-exp-calculation', 'boss-victory-rewards', 'combat', 'vip', 'codex', 'ui'],
+  migrated: ['platform', 'storage-adapter', 'utils-surface', 'state-surface', 'equipment-read-calculations', 'equipment-online-mutations', 'online-equipment-drops', 'online-reward-categories', 'recent-loot-recording', 'loot-view-model', 'offline-equipment-settlement', 'offline-reward-categories', 'kill-and-boss-settlement', 'dev-diagnostics'],
+  bridged: ['offline-time-and-exp-calculation', 'combat-rounds-and-boss-entry', 'vip', 'codex', 'ui'],
 });
 
 const equipmentContext = typeof window.RuneFrontierLegacyEquipmentContext === 'function'
@@ -50,6 +50,10 @@ const offlineContext = typeof window.RuneFrontierLegacyOfflineContext === 'funct
   ? window.RuneFrontierLegacyOfflineContext()
   : {};
 installOfflineRuntime(offlineContext);
+const combatContext = typeof window.RuneFrontierLegacyCombatContext === 'function'
+  ? window.RuneFrontierLegacyCombatContext()
+  : {};
+installCombatRuntime(combatContext);
 
 if (typeof window.bootstrapLegacyRuntime === 'function') {
   window.bootstrapLegacyRuntime();
@@ -98,4 +102,4 @@ window.addEventListener('DOMContentLoaded', () => {
   applyOverrides();
 });
 
-console.log('[Rune Frontier] Module system initialized. Phase 3 batch 5.');
+console.log('[Rune Frontier] Module system initialized. Phase 3 batch 6.');

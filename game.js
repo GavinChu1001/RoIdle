@@ -5020,13 +5020,21 @@ function sanitizeDamage(value, allowZero = false) {
   return normalizeDamage(value, { allowZero });
 }
 
-function grantBossEssence(mapIndex) {
+function legacyGrantBossEssence(mapIndex) {
   const id = bossEssenceByMap[mapIndex] || bossEssenceByMap[0];
   const amount = applyMaterialQuantityBonus(1 + Math.floor(mapIndex / 2));
   state.materials[id] = (state.materials[id] || 0) + amount;
   recordSessionReward({ materials: amount });
   recordRecentLoot({ materials: [{ materialId: id, name: materialNames[id] || id, qty: amount }] }, "Boss战利品");
   addLog(`获得 ${materialNames[id]} × ${amount}。`);
+}
+
+function grantBossEssence(mapIndex) {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.grantBossEssence === "function") {
+    return runtime.grantBossEssence(mapIndex);
+  }
+  return legacyGrantBossEssence(mapIndex);
 }
 
 function applyMaterialQuantityBonus(amount, stats = computeStats()) {
@@ -5036,7 +5044,7 @@ function applyMaterialQuantityBonus(amount, stats = computeStats()) {
   return whole + (Math.random() < boosted - whole ? 1 : 0);
 }
 
-function defeatEnemy() {
+function legacyDefeatEnemy() {
   const map = currentMap();
   const monster = currentMonsterStats();
   updateActiveEnemyHpInGroup();
@@ -5143,6 +5151,20 @@ function defeatEnemy() {
     spawnEnemy(false);
   }
   renderAll();
+}
+
+function defeatEnemy() {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.settleDefeatedEnemy === "function") {
+    return runtime.settleDefeatedEnemy({
+      map: currentMap(),
+      monster: currentMonsterStats(),
+      isBoss: Boolean(state.enemyBoss),
+      difficulty: state.currentDifficulty,
+      stats: computeStats(),
+    });
+  }
+  return legacyDefeatEnemy();
 }
 
 function spawnEnemy(isBoss) {
@@ -13852,6 +13874,62 @@ window.RuneFrontierLegacyOfflineContext = () => Object.freeze({
   rollOfflineTransitionSetDrops,
   rollOfflineMythicDrops,
   rollOfflineMutationExtraDrops,
+});
+
+window.RuneFrontierLegacyCombatContext = () => Object.freeze({
+  getState() {
+    return state;
+  },
+  currentMap,
+  currentMonsterStats,
+  currentMapIndex() {
+    return state.currentMap || 0;
+  },
+  getMaps() {
+    return maps;
+  },
+  getBossEssenceId(mapIndex) {
+    return bossEssenceByMap[mapIndex] || bossEssenceByMap[0];
+  },
+  getMaterialName(materialId) {
+    return materialNames[materialId] || materialId;
+  },
+  getDifficultyLabel(difficulty) {
+    return DIFFICULTY_CONFIG[difficulty]?.label || difficulty;
+  },
+  applyMaterialQuantityBonus,
+  computeStats,
+  gainExp,
+  gainVipExp,
+  getAutoBossEnabled,
+  bossRequirement,
+  updateDailyGoalProgress,
+  recordSessionReward,
+  recordRecentLoot,
+  addLog,
+  presentKillRewards({ monster, baseExpGain, jobExpGain }) {
+    showMonsterDeathFeedback(monster);
+    addFloatText(`+${formatNumber(baseExpGain)} BASE`, 330, 168, "#456e91");
+    addFloatText(`+${formatNumber(jobExpGain)} JOB`, 330, 202, "#6a5f9f");
+  },
+  updateActiveEnemyHpInGroup,
+  hasLivingEncounterMembers,
+  isBossChallengeReady,
+  rollDrops,
+  rollMutationExtraDrops,
+  grantPassiveSkillKillExp,
+  updateQuestProgress,
+  explorationGainForKill,
+  gainMapExploration,
+  trackKillAchievements,
+  getEquipmentPityThreshold,
+  rollGuaranteedEquipmentDrop() {
+    return rollEquipmentTableDrops(computeStats(), { boss: false, guaranteed: true });
+  },
+  challengeBoss,
+  syncActiveEnemyFromGroup,
+  spawnEnemy,
+  render: renderAll,
 });
 
 if (devDiagnosticsEnabled) {

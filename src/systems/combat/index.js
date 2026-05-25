@@ -11,3 +11,17 @@ export * from './combatLog.js';
 export * from './autoBattle.js';
 export * from './combatStats.js';
 export * from './failureReason.js';
+export * from './settlement.js';
+
+import { configureCombatSettlementContext, grantBossEssence, settleBossVictory, settleDefeatedEnemy } from './settlement.js';
+
+export function installCombatRuntime(context = {}) {
+  configureCombatSettlementContext(context);
+  const runtime = Object.freeze({
+    grantBossEssence,
+    settleBossVictory,
+    settleDefeatedEnemy,
+  });
+  window.RuneFrontierCombatRuntime = runtime;
+  return runtime;
+}

@@ -1,0 +1,182 @@
+let runtimeContext = {};
+
+function finite(value) {
+  const number = Number(value || 0);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function stateFrom(context = runtimeContext) {
+  return context.getState?.() || {};
+}
+
+export function configureCombatSettlementContext(context = {}) {
+  runtimeContext = context || {};
+}
+
+export function grantBossEssence(mapIndex, context = runtimeContext) {
+  const state = stateFrom(context);
+  state.materials = state.materials || {};
+  const materialId = context.getBossEssenceId?.(mapIndex);
+  if (!materialId) return { materialId: '', amount: 0 };
+  const amount = finite(context.applyMaterialQuantityBonus?.(1 + Math.floor(finite(mapIndex) / 2)));
+  state.materials[materialId] = finite(state.materials[materialId]) + amount;
+  context.recordSessionReward?.({ materials: amount });
+  context.recordRecentLoot?.({
+    materials: [{ materialId, name: context.getMaterialName?.(materialId) || materialId, qty: amount }],
+  }, 'Boss战利品');
+  context.addLog?.(`获得 ${context.getMaterialName?.(materialId) || materialId} × ${amount}。`);
+  return { materialId, amount };
+}
+
+export function settleBossVictory({ map, difficulty } = {}, context = runtimeContext) {
+  const state = stateFrom(context);
+  const currentMap = map || context.currentMap?.() || {};
+  const mapIndex = finite(context.currentMapIndex?.());
+  const difficultyId = difficulty || state.currentDifficulty || 'normal';
+  const maps = context.getMaps?.() || [];
+  const diffProgress = state.mapDifficultyProgress || {};
+  const mapId = currentMap.id;
+  const defaultProgress = () => ({
+    normal: { unlocked: true, cleared: false },
+    hard: { unlocked: false, cleared: false },
+    abyss: { unlocked: false, cleared: false },
+  });
+  let firstBossClear = false;
+  let vipReward = 0;
+
+  grantBossEssence(mapIndex, context);
+  state.areaKills = 0;
+  if (mapId) {
+    if (!diffProgress[mapId]) diffProgress[mapId] = defaultProgress();
+    if (difficultyId === 'normal') {
+      diffProgress[mapId].normal.cleared = true;
+      diffProgress[mapId].hard.unlocked = true;
+      context.addLog?.(`${currentMap.name} 普通难度通关，困难难度解锁。`);
+    } else if (difficultyId === 'hard') {
+      diffProgress[mapId].hard.cleared = true;
+      diffProgress[mapId].abyss.unlocked = true;
+      context.addLog?.(`${currentMap.name} 困难难度通关，深渊难度解锁。`);
+    } else if (difficultyId === 'abyss') {
+      diffProgress[mapId].abyss.cleared = true;
+    }
+  }
+  if (context.getAutoBossEnabled?.()) context.addLog?.('自动挑战 BOSS 成功。');
+  if (difficultyId === 'normal' && mapIndex < maps.length - 1) {
+    state.bestMap = Math.max(finite(state.bestMap), mapIndex + 1);
+    const nextMap = maps[mapIndex + 1];
+    if (nextMap?.id) {
+      if (!diffProgress[nextMap.id]) diffProgress[nextMap.id] = defaultProgress();
+      diffProgress[nextMap.id].normal.unlocked = true;
+      context.addLog?.(`首领退却，${nextMap.name} 开放。`);
+    }
+  } else if (difficultyId === 'normal' && mapIndex >= maps.length - 1) {
+    context.addLog?.('浮岛神殿的钟声传遍边境。');
+  }
+  state.mapDifficultyProgress = diffProgress;
+  state.vip = state.vip || {};
+  state.vip.bossFirstKills = state.vip.bossFirstKills || {};
+  const bossKey = `${mapId}_${difficultyId}`;
+  if (mapId && !state.vip.bossFirstKills[bossKey]) {
+    state.vip.bossFirstKills[bossKey] = true;
+    const baseReward = difficultyId === 'abyss' ? 200 : difficultyId === 'hard' ? 150 : 100;
+    vipReward = baseReward + Math.floor(mapIndex * 15);
+    context.gainVipExp?.(vipReward);
+    context.addLog?.(`首次击败 ${currentMap.name} ${context.getDifficultyLabel?.(difficultyId) || difficultyId} Boss，获得冒险者荣誉经验 +${vipReward}。`);
+    firstBossClear = true;
+  }
+  return { bossVictory: true, firstBossClear, vipReward };
+}
+
+export function settleDefeatedEnemy(payload = {}, context = runtimeContext) {
+  const state = stateFrom(context);
+  const map = payload.map || context.currentMap?.() || {};
+  const monster = payload.monster || context.currentMonsterStats?.() || {};
+  const isBoss = payload.isBoss ?? Boolean(state.enemyBoss);
+  const difficulty = payload.difficulty || state.currentDifficulty || 'normal';
+  context.updateActiveEnemyHpInGroup?.();
+  const stats = payload.stats || context.computeStats?.() || {};
+  const bossBonus = isBoss ? 2 : 1;
+  const goldGain = Math.round(finite(monster.gold) * bossBonus * finite(stats.goldMultiplier || 1) * finite(stats.monsterGoldMultiplier || 1));
+  const baseExpGain = Math.round(finite(monster.exp) * finite(stats.baseExpMultiplier || 1));
+  const jobExpGain = Math.round(finite(monster.jobExp) * (state.hero?.jobId === 'novice' ? 1.12 : 1) * finite(stats.jobExpMultiplier || 1));
+
+  state.gold = finite(state.gold) + goldGain;
+  context.presentKillRewards?.({ monster, baseExpGain, jobExpGain });
+  context.gainExp?.(baseExpGain, jobExpGain);
+  state.totalKills = finite(state.totalKills) + 1;
+  context.recordSessionReward?.({
+    kills: 1,
+    bossKills: isBoss ? 1 : 0,
+    abyssKills: difficulty === 'abyss' ? 1 : 0,
+    gold: goldGain,
+    baseExp: baseExpGain,
+    jobExp: jobExpGain,
+  });
+  context.recordRecentLoot?.(
+    { gold: goldGain, baseExp: baseExpGain, jobExp: jobExpGain, killCount: 1 },
+    isBoss ? 'Boss战利品' : difficulty === 'abyss' ? '深渊战利品' : '战斗战利品',
+  );
+  context.updateDailyGoalProgress?.('daily_kills', 1);
+  if (isBoss) context.updateDailyGoalProgress?.('daily_boss', 1);
+  if (monster.id) {
+    state.monsterCodex = state.monsterCodex || {};
+    state.monsterCodex[monster.id] = state.monsterCodex[monster.id] || { killCount: 0, firstKilled: false, rewardsClaimed: {} };
+    state.monsterCodex[monster.id].killCount = finite(state.monsterCodex[monster.id].killCount) + 1;
+    state.monsterCodex[monster.id].firstKilled = true;
+  }
+
+  let bossResult = { bossVictory: false, firstBossClear: false, vipReward: 0 };
+  if (isBoss) {
+    bossResult = settleBossVictory({ map, difficulty }, context);
+  } else {
+    state.areaKills = Math.min(finite(context.bossRequirement?.()), finite(state.areaKills) + 1);
+  }
+
+  const groupHasMoreMonsters = !isBoss && Boolean(context.hasLivingEncounterMembers?.());
+  const shouldAutoBossAfterKill = !isBoss && !groupHasMoreMonsters && Boolean(context.isBossChallengeReady?.()) && Boolean(context.getAutoBossEnabled?.());
+  const equipmentDropCount = finite(context.rollDrops?.({ boss: isBoss, monster }));
+  const mutationEquipmentDropCount = monster.mutation
+    ? finite(context.rollMutationExtraDrops?.(monster, stats, equipmentDropCount))
+    : 0;
+  if (monster.mutation) context.addLog?.('击败变异怪，获得额外奖励判定。');
+  context.grantPassiveSkillKillExp?.({ isBoss, isMutated: Boolean(monster.mutation) });
+  context.updateQuestProgress?.({
+    mapId: map.id,
+    monsterId: monster.id,
+    difficulty,
+    isMutated: Boolean(monster.mutation),
+    isBoss,
+    count: 1,
+  });
+  context.gainMapExploration?.(
+    map.id,
+    context.explorationGainForKill?.({ isBoss, isMutated: Boolean(monster.mutation), difficulty }) || 0,
+  );
+  context.trackKillAchievements?.({ isBoss, isMutated: Boolean(monster.mutation), difficulty });
+  if (!isBoss) {
+    if (equipmentDropCount + mutationEquipmentDropCount > 0) {
+      state.equipmentPityKills = 0;
+    } else {
+      state.equipmentPityKills = finite(state.equipmentPityKills) + 1;
+      if (state.equipmentPityKills >= finite(context.getEquipmentPityThreshold?.())) {
+        const pityDrops = finite(context.rollGuaranteedEquipmentDrop?.());
+        if (pityDrops > 0) state.equipmentPityKills = 0;
+      }
+    }
+  }
+
+  const nextAction = shouldAutoBossAfterKill ? 'autoBoss' : groupHasMoreMonsters ? 'nextEncounter' : 'spawnNormal';
+  if (nextAction === 'autoBoss') context.challengeBoss?.({ auto: true });
+  if (nextAction === 'nextEncounter') context.syncActiveEnemyFromGroup?.();
+  if (nextAction === 'spawnNormal') context.spawnEnemy?.(false);
+  context.render?.();
+  return {
+    goldGain,
+    baseExpGain,
+    jobExpGain,
+    equipmentDropCount,
+    mutationEquipmentDropCount,
+    nextAction,
+    ...bossResult,
+  };
+}
