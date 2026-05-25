@@ -14,6 +14,9 @@ import { configureRecentLootContext, normalizeRecentLoot, recordRecentLoot } fro
 import { configureLootModelContext, getLatestRecentLootRewards, mergeLootRewards, normalizeLootRewards } from './lootModel.js';
 import { configureMaterialDropsContext, grantMaterialDrop, grantMutationMaterial, maybeDropDarkGoldFragments, maybeDropMythicEssence, maybeDropSocketMaterials, rollMapMaterialDrops } from './materialDrops.js';
 import { configureCardDropsContext, grantCardDrop, maybeDropBossCardFragments, rollCardDropsFromTable } from './cardDrops.js';
+import { configureBossDropsContext, rollTransitionSetDrops, rollZodiacSetDrops } from './bossDrops.js';
+import { configureAbyssDropsContext, rollMutationExtraDrops, rollMythicEquipmentDrop } from './abyssDrops.js';
+import { configureLootRollContext, rollDrops } from './lootRoll.js';
 
 export function installDropsRuntime(context = {}) {
   configureRecentLootContext(context);
@@ -21,6 +24,9 @@ export function installDropsRuntime(context = {}) {
   configureLootModelContext(context);
   configureMaterialDropsContext(context);
   configureCardDropsContext(context);
+  configureBossDropsContext(context);
+  configureAbyssDropsContext(context);
+  configureLootRollContext(context);
   const runtime = Object.freeze({
     normalizeRecentLoot,
     recordRecentLoot,
@@ -38,6 +44,11 @@ export function installDropsRuntime(context = {}) {
     grantCardDrop,
     maybeDropBossCardFragments,
     rollCardDropsFromTable,
+    rollTransitionSetDrops,
+    rollZodiacSetDrops,
+    rollMythicEquipmentDrop,
+    rollMutationExtraDrops,
+    rollDrops,
   });
   window.RuneFrontierDropsRuntime = runtime;
   return runtime;

@@ -5475,7 +5475,7 @@ function lerpRange(range, fallback, ratio) {
   return min + (max - min) * ratio;
 }
 
-function rollDrops(options = {}) {
+function legacyRollDrops(options = {}) {
   const stats = computeStats();
   const isBoss = Boolean(options.boss);
   const equipmentDropCount = rollEquipmentTableDrops(stats, { boss: isBoss });
@@ -5490,6 +5490,14 @@ function rollDrops(options = {}) {
   rollCardDropsFromTable(stats, { boss: isBoss });
   maybeDropBossCardFragments(stats, { boss: isBoss });
   return equipmentDropCount + zodiacDropCount + transitionDropCount + mythicDropCount;
+}
+
+function rollDrops(options = {}) {
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.rollDrops === "function") {
+    return runtime.rollDrops(options);
+  }
+  return legacyRollDrops(options);
 }
 
 function legacyGrantCardDrop(card, rarity = "rare", source = "卡片掉落") {
@@ -5610,7 +5618,7 @@ function maybeDropDarkGoldFragments(stats = computeStats(), options = {}) {
   return legacyMaybeDropDarkGoldFragments(stats, options);
 }
 
-function rollMythicEquipmentDrop(monster, stats, options = {}) {
+function legacyRollMythicEquipmentDrop(monster, stats, options = {}) {
   if (state.currentDifficulty !== "abyss") return 0;
   const isBoss = Boolean(options.boss);
   const baseRate = isBoss ? MYTHIC_DROP_RATES.abyssBoss : monster?.mutation ? MYTHIC_DROP_RATES.abyssMutation : MYTHIC_DROP_RATES.abyssNormal;
@@ -5622,6 +5630,14 @@ function rollMythicEquipmentDrop(monster, stats, options = {}) {
   addEquipmentToInventory(item, { logDrop: true });
   addLogHtml(`神话装备现世：${renderItemName(item)}`);
   return 1;
+}
+
+function rollMythicEquipmentDrop(monster, stats, options = {}) {
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.rollMythicEquipmentDrop === "function") {
+    return runtime.rollMythicEquipmentDrop(monster, stats, options);
+  }
+  return legacyRollMythicEquipmentDrop(monster, stats, options);
 }
 
 function legacyRollMapMaterialDrops(stats, options = {}) {
@@ -5649,7 +5665,7 @@ function rollMapMaterialDrops(stats, options = {}) {
   return legacyRollMapMaterialDrops(stats, options);
 }
 
-function rollZodiacSetDrops(monster, stats, options = {}) {
+function legacyRollZodiacSetDrops(monster, stats, options = {}) {
   const map = currentMap();
   const setIds = zodiacSetDropMap[map.id] || [];
   if (!setIds.length) return 0;
@@ -5689,7 +5705,15 @@ function rollZodiacSetDrops(monster, stats, options = {}) {
   return 1;
 }
 
-function rollTransitionSetDrops(monster, stats, options = {}) {
+function rollZodiacSetDrops(monster, stats, options = {}) {
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.rollZodiacSetDrops === "function") {
+    return runtime.rollZodiacSetDrops(monster, stats, options);
+  }
+  return legacyRollZodiacSetDrops(monster, stats, options);
+}
+
+function legacyRollTransitionSetDrops(monster, stats, options = {}) {
   const map = currentMap();
   const setIds = transitionSetDropMap[map.id] || [];
   if (!setIds.length) return 0;
@@ -5716,6 +5740,14 @@ function rollTransitionSetDrops(monster, stats, options = {}) {
     const item = createItem(template, dropLevel, template.rarity || "rare", { dropMapId: map.id, dropLevel, difficulty: state.currentDifficulty });
   addEquipmentToInventory(item, { logDrop: true });
   return 1;
+}
+
+function rollTransitionSetDrops(monster, stats, options = {}) {
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.rollTransitionSetDrops === "function") {
+    return runtime.rollTransitionSetDrops(monster, stats, options);
+  }
+  return legacyRollTransitionSetDrops(monster, stats, options);
 }
 
 function legacyRollEquipmentTableDrops(stats, options = {}) {
@@ -5836,7 +5868,7 @@ function getOnlineEquipmentDropChance(stats, options = {}) {
   return Math.min(0.75, baseRate * (1 + equipmentBonus) * bossMultiplier * abyssBossMultiplier * currentDifficultyConfig().equipmentDrop);
 }
 
-function rollMutationExtraDrops(monster, stats, existingEquipmentDrops = 0) {
+function legacyRollMutationExtraDrops(monster, stats, existingEquipmentDrops = 0) {
   const mutation = monster.mutation;
   if (!mutation) return 0;
   const difficulty = currentDifficultyConfig();
@@ -5866,6 +5898,14 @@ function rollMutationExtraDrops(monster, stats, existingEquipmentDrops = 0) {
     }
   }
   return 0;
+}
+
+function rollMutationExtraDrops(monster, stats, existingEquipmentDrops = 0) {
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.rollMutationExtraDrops === "function") {
+    return runtime.rollMutationExtraDrops(monster, stats, existingEquipmentDrops);
+  }
+  return legacyRollMutationExtraDrops(monster, stats, existingEquipmentDrops);
 }
 
 function legacyGrantMutationMaterial(rareOnly = false) {
@@ -7810,7 +7850,7 @@ function processOfflineGeneratedEquipment(rewards, items, capacity, options = {}
   return capacity;
 }
 
-function rollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills = 0) {
+function legacyRollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills = 0) {
   const setIds = zodiacSetDropMap[map.id] || [];
   if (!setIds.length) return;
   const capacity = { freeSlots: Math.max(0, getInventoryLimit() - state.inventory.length - rewards.equipments.length) };
@@ -7834,7 +7874,15 @@ function rollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills
   }
 }
 
-function rollOfflineTransitionSetDrops(rewards, stats, map, killCount) {
+function rollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills = 0) {
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.rollOfflineZodiacSetDrops === "function") {
+    return runtime.rollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills);
+  }
+  return legacyRollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills);
+}
+
+function legacyRollOfflineTransitionSetDrops(rewards, stats, map, killCount) {
   const setIds = transitionSetDropMap[map.id] || [];
   if (!setIds.length) return;
   const capacity = { freeSlots: Math.max(0, getInventoryLimit() - state.inventory.length - rewards.equipments.length) };
@@ -7853,7 +7901,15 @@ function rollOfflineTransitionSetDrops(rewards, stats, map, killCount) {
   }
 }
 
-function rollOfflineMythicDrops(rewards, stats, map, killCount, mutationKills = 0) {
+function rollOfflineTransitionSetDrops(rewards, stats, map, killCount) {
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.rollOfflineTransitionSetDrops === "function") {
+    return runtime.rollOfflineTransitionSetDrops(rewards, stats, map, killCount);
+  }
+  return legacyRollOfflineTransitionSetDrops(rewards, stats, map, killCount);
+}
+
+function legacyRollOfflineMythicDrops(rewards, stats, map, killCount, mutationKills = 0) {
   if (state.currentDifficulty !== "abyss") return;
   const capacity = { freeSlots: Math.max(0, getInventoryLimit() - state.inventory.length - rewards.equipments.length) };
   const dropBonus = 1 + Math.min(1.5, stats.equipmentDropBonus || 0);
@@ -7866,7 +7922,15 @@ function rollOfflineMythicDrops(rewards, stats, map, killCount, mutationKills = 
   }
 }
 
-function rollOfflineCardDrops(rewards, stats, map, mapIndex, killCount) {
+function rollOfflineMythicDrops(rewards, stats, map, killCount, mutationKills = 0) {
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.rollOfflineMythicDrops === "function") {
+    return runtime.rollOfflineMythicDrops(rewards, stats, map, killCount, mutationKills);
+  }
+  return legacyRollOfflineMythicDrops(rewards, stats, map, killCount, mutationKills);
+}
+
+function legacyRollOfflineCardDrops(rewards, stats, map, mapIndex, killCount) {
   const rows = cardDropTables[map.id] || [];
   const found = {};
   const difficulty = currentDifficultyConfig();
@@ -7884,7 +7948,15 @@ function rollOfflineCardDrops(rewards, stats, map, mapIndex, killCount) {
   rewards.cards = Object.values(found);
 }
 
-function rollOfflineMaterialDrops(rewards, stats, map, killCount) {
+function rollOfflineCardDrops(rewards, stats, map, mapIndex, killCount) {
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.rollOfflineCardDrops === "function") {
+    return runtime.rollOfflineCardDrops(rewards, stats, map, mapIndex, killCount);
+  }
+  return legacyRollOfflineCardDrops(rewards, stats, map, mapIndex, killCount);
+}
+
+function legacyRollOfflineMaterialDrops(rewards, stats, map, killCount) {
   const rows = materialDropTables[map.id] || [];
   const found = {};
   const difficulty = currentDifficultyConfig();
@@ -7900,7 +7972,15 @@ function rollOfflineMaterialDrops(rewards, stats, map, killCount) {
   rewards.materials = mergeCountEntries([...rewards.materials, ...Object.values(found)], "materialId");
 }
 
-function rollOfflineMutationExtraDrops(rewards, stats, map, mutationKills) {
+function rollOfflineMaterialDrops(rewards, stats, map, killCount) {
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.rollOfflineMaterialDrops === "function") {
+    return runtime.rollOfflineMaterialDrops(rewards, stats, map, killCount);
+  }
+  return legacyRollOfflineMaterialDrops(rewards, stats, map, killCount);
+}
+
+function legacyRollOfflineMutationExtraDrops(rewards, stats, map, mutationKills) {
   if (!mutationKills) return;
   const difficulty = currentDifficultyConfig();
   const dropBonus = Math.min(1.5, stats.dropBonus || 0);
@@ -7928,6 +8008,14 @@ function rollOfflineMutationExtraDrops(rewards, stats, map, mutationKills) {
     if (!item) continue;
     processOfflineGeneratedEquipment(rewards, [item], capacity);
   }
+}
+
+function rollOfflineMutationExtraDrops(rewards, stats, map, mutationKills) {
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.rollOfflineMutationExtraDrops === "function") {
+    return runtime.rollOfflineMutationExtraDrops(rewards, stats, map, mutationKills);
+  }
+  return legacyRollOfflineMutationExtraDrops(rewards, stats, map, mutationKills);
 }
 
 function renderOfflineRewardSummary(rewards) {
@@ -13571,6 +13659,41 @@ window.RuneFrontierLegacyDropsContext = () => Object.freeze({
   getDarkGoldFragmentDropConfig(difficultyId) {
     return DARK_GOLD_FRAGMENT_DROPS[difficultyId] || DARK_GOLD_FRAGMENT_DROPS.normal;
   },
+  getZodiacSetIds(mapId) {
+    return zodiacSetDropMap[mapId] || [];
+  },
+  getTransitionSetIds(mapId) {
+    return transitionSetDropMap[mapId] || [];
+  },
+  getEquipmentSet(setId) {
+    return equipmentSets[setId];
+  },
+  getZodiacSetDropRates() {
+    return ZODIAC_SET_DROP_RATES;
+  },
+  getTransitionSetDropRates() {
+    return TRANSITION_SET_DROP_RATES;
+  },
+  getMythicDropRates() {
+    return MYTHIC_DROP_RATES;
+  },
+  getAbyssBossMultiplier() {
+    return ABYSS_BOSS_EXTRA_MULTIPLIER;
+  },
+  getMapLevelRange,
+  getMutationExtraDrops() {
+    return MUTATION_EXTRA_DROPS;
+  },
+  currentMapIndex() {
+    return state.currentMap || 0;
+  },
+  currentMonsterStats,
+  isBossEncounter() {
+    return Boolean(state.enemyBoss);
+  },
+  createMutationEquipment,
+  renderItemName,
+  addLogHtml,
   applyMaterialQuantityBonus,
   recordSessionReward,
   recordRecentLoot,
@@ -13630,6 +13753,67 @@ window.RuneFrontierLegacyOfflineContext = () => Object.freeze({
   normalizeLootRewards,
   objectTotal: offlineObjectTotal,
   getLatestRecentLootRewards,
+  currentDifficulty() {
+    return state.currentDifficulty;
+  },
+  getDifficultyConfig: currentDifficultyConfig,
+  getCardDropTable(mapId) {
+    return cardDropTables[mapId] || [];
+  },
+  getMaterialDropTable(mapId) {
+    return materialDropTables[mapId] || [];
+  },
+  getCard(cardId) {
+    return getSocketCard(cardId);
+  },
+  getMaterialName(materialId) {
+    return materialNames[materialId] || materialId;
+  },
+  getMaterialRarity(materialId) {
+    return MATERIAL_DB[materialId]?.rarity || "";
+  },
+  getZodiacSetIds(mapId) {
+    return zodiacSetDropMap[mapId] || [];
+  },
+  getTransitionSetIds(mapId) {
+    return transitionSetDropMap[mapId] || [];
+  },
+  getEquipmentSet(setId) {
+    return equipmentSets[setId];
+  },
+  getZodiacSetDropRates() {
+    return ZODIAC_SET_DROP_RATES;
+  },
+  getTransitionSetDropRates() {
+    return TRANSITION_SET_DROP_RATES;
+  },
+  getMythicDropRates() {
+    return MYTHIC_DROP_RATES;
+  },
+  getMutationExtraDrops() {
+    return MUTATION_EXTRA_DROPS;
+  },
+  getMapLevelRange,
+  getMapIndex(map) {
+    return maps.indexOf(map);
+  },
+  getOfflineEquipmentDropRateMultiplier() {
+    return OFFLINE_EQUIPMENT_DROP_RATE_MULTIPLIER;
+  },
+  getOfflineEfficiency() {
+    return OFFLINE_EFFICIENCY;
+  },
+  getOfflineMaxKills() {
+    return OFFLINE_MAX_KILLS;
+  },
+  getInventoryLimit,
+  random() {
+    return Math.random();
+  },
+  randomInt,
+  applyMaterialQuantityBonus,
+  createItem,
+  createMutationEquipment,
   getEquipmentRuntime() {
     return window.RuneFrontierEquipmentRuntime;
   },
@@ -13665,7 +13849,9 @@ window.RuneFrontierLegacyOfflineContext = () => Object.freeze({
   rollOfflineCardDrops,
   rollOfflineMaterialDrops,
   rollOfflineZodiacSetDrops,
+  rollOfflineTransitionSetDrops,
   rollOfflineMythicDrops,
+  rollOfflineMutationExtraDrops,
 });
 
 if (devDiagnosticsEnabled) {

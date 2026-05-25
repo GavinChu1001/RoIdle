@@ -17,6 +17,9 @@ const dismantleSource = read('src/systems/equipment/dismantle.js');
 const equipmentDropsSource = read('src/systems/drops/equipmentDrops.js');
 const materialDropsSource = read('src/systems/drops/materialDrops.js');
 const cardDropsSource = read('src/systems/drops/cardDrops.js');
+const bossDropsSource = read('src/systems/drops/bossDrops.js');
+const abyssDropsSource = read('src/systems/drops/abyssDrops.js');
+const lootRollSource = read('src/systems/drops/lootRoll.js');
 const recentLootSource = read('src/systems/drops/recentLoot.js');
 const lootModelSource = read('src/systems/drops/lootModel.js');
 const offlineSource = read('src/systems/offline.js');
@@ -42,8 +45,8 @@ assert.match(main, /RUNTIME_AUTHORITY\s*=\s*'game\.js'/, 'Module entry must docu
 assert.match(main, /bootstrapOwner:\s*'src\/main\.js'/, 'Module entry must own startup orchestration.');
 assert.match(main, /installEquipmentRuntime\(equipmentContext\)/, 'Equipment read runtime must be installed before startup.');
 assert.match(main, /window\.bootstrapLegacyRuntime\(\)/, 'Module entry must start the classic runtime through its bridge.');
-assert.match(main, /migrated:\s*\[[^\]]*'equipment-online-mutations'[^\]]*'online-equipment-drops'[^\]]*'recent-loot-recording'[^\]]*'offline-equipment-settlement'/s, 'Offline equipment migration status is incomplete.');
-assert.match(main, /bridged:\s*\[[^\]]*'offline-reward-rolls'[^\]]*'remaining-drops'[^\]]*'combat'/s, 'Deferred bridge status is incomplete.');
+assert.match(main, /migrated:\s*\[[^\]]*'equipment-online-mutations'[^\]]*'online-equipment-drops'[^\]]*'online-reward-categories'[^\]]*'recent-loot-recording'[^\]]*'offline-equipment-settlement'[^\]]*'offline-reward-categories'/s, 'Reward-category migration status is incomplete.');
+assert.match(main, /bridged:\s*\[[^\]]*'offline-time-and-exp-calculation'[^\]]*'boss-victory-rewards'[^\]]*'combat'/s, 'Deferred bridge status is incomplete.');
 assert.match(main, /installDropsRuntime\(dropsContext\)/, 'Drops runtime must be installed before startup.');
 assert.match(main, /installOfflineRuntime\(offlineContext\)/, 'Offline runtime must be installed before startup.');
 assert.match(stateSurface, /loadGame/);
@@ -61,6 +64,11 @@ assert.match(game, /RuneFrontierDropsRuntime/, 'Classic online drop entry points
 assert.match(game, /runtime\.rollMapMaterialDrops/, 'Material drop entry points must forward to the drops runtime.');
 assert.match(game, /runtime\.rollCardDropsFromTable/, 'Card drop entry points must forward to the drops runtime.');
 assert.match(game, /runtime\.maybeDropBossCardFragments/, 'Boss card fragment entry points must forward to the drops runtime.');
+assert.match(game, /runtime\.rollDrops/, 'Online drop orchestration must forward to the drops runtime.');
+assert.match(game, /runtime\.rollZodiacSetDrops/, 'Zodiac-set drop entry points must forward to the drops runtime.');
+assert.match(game, /runtime\.rollTransitionSetDrops/, 'Transition-set drop entry points must forward to the drops runtime.');
+assert.match(game, /runtime\.rollMythicEquipmentDrop/, 'Mythic drop entry points must forward to the drops runtime.');
+assert.match(game, /runtime\.rollMutationExtraDrops/, 'Mutation reward entry points must forward to the drops runtime.');
 assert.match(game, /runtime\.normalizeLootRewards/, 'Loot summary view data must forward to the drops runtime.');
 assert.match(game, /runtime\.getLatestRecentLootRewards/, 'Recent-loot viewing must forward to the drops runtime.');
 assert.match(game, /RuneFrontierLegacyOfflineContext/, 'Legacy runtime must expose offline settlement dependencies.');
@@ -290,6 +298,52 @@ assert.equal(cardRewards, 1, 'Card session count changed.');
 assert.equal(cardMaterialRewards, 2, 'Boss fragment session count changed.');
 assert.equal(cardRecent.length, 2, 'Card and fragment reward records must remain separate.');
 
+const bossDrops = await importSource(bossDropsSource);
+const acceptedSpecial = [];
+const specialContext = {
+  currentMap: () => ({ id: 'grass' }),
+  currentDifficulty: () => 'normal',
+  getZodiacSetIds: () => ['zodiac'],
+  getTransitionSetIds: () => ['transition'],
+  getEquipmentSet: (id) => ({ items: [{ id: `${id}-piece`, rarity: 'rare', level: 1 }] }),
+  getZodiacSetDropRates: () => ({ normal: 1, darkGoldNormal: 0 }),
+  getTransitionSetDropRates: () => ({ normal: 1 }),
+  getMythicDropRates: () => ({ abyssNormal: 0 }),
+  getAbyssBossMultiplier: () => ({ mythicDrop: 1, abyssSetDrop: 1 }),
+  getMapLevelRange: () => ({ maxLevel: 1 }),
+  random: () => 0,
+  createItem: (template, _level, rarity) => ({ id: template.id, rarity }),
+  addEquipmentToInventory: (item) => acceptedSpecial.push(item),
+};
+assert.equal(bossDrops.rollZodiacSetDrops({}, {}, {}, specialContext), 1, 'Zodiac-set reward routing changed.');
+assert.equal(bossDrops.rollTransitionSetDrops({}, {}, {}, specialContext), 1, 'Transition-set reward routing changed.');
+assert.equal(acceptedSpecial[0].rarity, 'legend', 'Normal zodiac-set base rarity changed.');
+assert.equal(acceptedSpecial[1].id, 'transition-piece', 'Transition-set item must enter equipment acceptance.');
+
+const abyssStandaloneSource = abyssDropsSource
+  .replace("import { grantMutationMaterial } from './materialDrops.js';", 'const grantMutationMaterial = () => 0;');
+const abyssDrops = await importSource(abyssStandaloneSource);
+const abyssAccepted = [];
+const abyssContext = {
+  currentDifficulty: () => 'abyss',
+  getMythicDropRates: () => ({ abyssNormal: 1 }),
+  getAbyssBossMultiplier: () => ({ mythicDrop: 1 }),
+  random: () => 0,
+  createMutationEquipment: (rarity) => ({ id: `mutation-${rarity}`, rarity }),
+  addEquipmentToInventory: (item) => abyssAccepted.push(item),
+  addLogHtml: () => {},
+  renderItemName: (item) => item.id,
+  getDifficultyConfig: () => ({ materialDrop: 1 }),
+  getMutationExtraDrops: () => ({ materialBonusRate: 0, rareMaterialBonusRate: 0, highRarityEquipmentRate: 1, darkGoldEquipmentRate: 0 }),
+  getMaxEquipmentDrops: () => 1,
+  isBossEncounter: () => false,
+  currentMapIndex: () => 3,
+};
+assert.equal(abyssDrops.rollMythicEquipmentDrop({}, {}, {}, abyssContext), 1, 'Mythic equipment reward routing changed.');
+assert.equal(abyssDrops.rollMutationExtraDrops({ mutation: { highRarityEquipmentBonus: 1, rareMaterialBonus: 1 } }, {}, 0, abyssContext), 1, 'Mutation equipment reward routing changed.');
+assert.deepEqual(abyssAccepted.map((item) => item.rarity), ['mythic', 'legend'], 'Abyss reward rarities changed.');
+assert.match(lootRollSource, /rollEquipmentTableDrops[\s\S]*rollZodiacSetDrops[\s\S]*rollTransitionSetDrops[\s\S]*rollMythicEquipmentDrop[\s\S]*rollMapMaterialDrops[\s\S]*maybeDropMythicEssence[\s\S]*maybeDropDarkGoldFragments[\s\S]*maybeDropSocketMaterials[\s\S]*rollCardDropsFromTable[\s\S]*maybeDropBossCardFragments/, 'Online reward-category ordering changed.');
+
 const lootModel = await importSource(lootModelSource);
 const lootModelContext = {
   createEmptyRewards: () => ({ equipments: [], cards: [], materials: [], autoSalvagedMaterials: {} }),
@@ -333,6 +387,8 @@ assert.equal(recentView.equipment[0].id, 'latest', 'Latest-loot view must not be
 const offline = await importSource(offlineSource);
 assert.match(offlineSource, /claimOffline:\s*claimOfflineRewards/, 'Legacy Offline claim alias must remain available.');
 assert.match(offlineSource, /rollOfflineEquipmentDrops,/, 'Legacy Offline roll aliases must remain available.');
+assert.match(offlineSource, /rollOfflineTransitionSetDrops,/, 'Offline transition-set routing must be exported.');
+assert.match(offlineSource, /rollOfflineMutationExtraDrops,/, 'Offline mutation routing must be exported.');
 const generatedRewards = { equipments: [], materials: [] };
 const generatedMaterials = [];
 const generatedContext = {
@@ -404,4 +460,39 @@ assert.equal(offlineState.materials.dust, 4, 'Pending equipment retries must not
 assert.equal(offlineState.offlinePending.equipments.length, 0, 'Pending equipment should clear after a successful retry.');
 assert.equal(offlineSummaries.length, 2, 'Each explicit offline claim should produce a viewable summary.');
 
-console.log('Migration batch 4 tests passed: loot view normalization and offline equipment settlement routing are intact.');
+const offlineCategoryRewards = { equipments: [], cards: [], materials: [] };
+const offlineCategoryContext = {
+  getState: () => ({ inventory: [] }),
+  currentDifficulty: () => 'normal',
+  getDifficultyConfig: () => ({ cardDrop: 1, materialDrop: 1 }),
+  getCardDropTable: () => [{ cardId: 'offline-card', dropRate: 1, rarity: 'rare' }],
+  getCard: () => ({ id: 'offline-card', name: 'Offline Card' }),
+  getMaterialDropTable: () => [{ materialId: 'ore', dropRate: 1, minQty: 1, maxQty: 1 }],
+  getMaterialName: (id) => id,
+  getMaterialRarity: () => 'normal',
+  getZodiacSetIds: () => ['offline-zodiac'],
+  getTransitionSetIds: () => ['offline-transition'],
+  getEquipmentSet: (id) => ({ items: [{ id: `${id}-piece`, rarity: 'rare', level: 1 }] }),
+  getZodiacSetDropRates: () => ({ normal: 1, darkGoldNormal: 0 }),
+  getTransitionSetDropRates: () => ({ normal: 1 }),
+  getMythicDropRates: () => ({ abyssNormal: 0 }),
+  getMapLevelRange: () => ({ maxLevel: 1 }),
+  getOfflineEquipmentDropRateMultiplier: () => 1,
+  getOfflineMaxKills: () => 1,
+  getInventoryLimit: () => 5,
+  random: () => 0,
+  randomInt: (min) => min,
+  applyMaterialQuantityBonus: (qty) => qty,
+  createItem: (template, _level, rarity) => ({ id: template.id, rarity }),
+  getEquipmentRuntime: () => ({ shouldAutoSalvage: () => false }),
+  canOfflineFullSalvage: () => false,
+};
+offline.rollOfflineCardDrops(offlineCategoryRewards, {}, { id: 'grass' }, 0, 1, offlineCategoryContext);
+offline.rollOfflineMaterialDrops(offlineCategoryRewards, {}, { id: 'grass' }, 1, offlineCategoryContext);
+offline.rollOfflineZodiacSetDrops(offlineCategoryRewards, {}, { id: 'grass' }, 1, 0, offlineCategoryContext);
+offline.rollOfflineTransitionSetDrops(offlineCategoryRewards, {}, { id: 'grass' }, 1, offlineCategoryContext);
+assert.equal(offlineCategoryRewards.cards[0].cardId, 'offline-card', 'Offline card reward routing changed.');
+assert.equal(offlineCategoryRewards.materials[0].materialId, 'ore', 'Offline material reward routing changed.');
+assert.deepEqual(offlineCategoryRewards.equipments.map((item) => item.id), ['offline-zodiac-piece', 'offline-transition-piece'], 'Offline special equipment candidates changed.');
+
+console.log('Migration batch 5 tests passed: online and offline reward-category routing are intact.');
