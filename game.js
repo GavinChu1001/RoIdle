@@ -5670,7 +5670,7 @@ function rollTransitionSetDrops(monster, stats, options = {}) {
   return 1;
 }
 
-function rollEquipmentTableDrops(stats, options = {}) {
+function legacyRollEquipmentTableDrops(stats, options = {}) {
   const map = currentMap();
   const tableId = mapDropTableAlias[map.id] || map.id;
   const rows = equipmentDropTables[tableId] || [];
@@ -5679,7 +5679,15 @@ function rollEquipmentTableDrops(stats, options = {}) {
   return drops.length;
 }
 
-function rollEquipmentDropsFromTable(rows, stats, options = {}) {
+function rollEquipmentTableDrops(stats, options = {}) {
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (!options.offline && runtime && typeof runtime.rollEquipmentTableDrops === "function") {
+    return runtime.rollEquipmentTableDrops(stats, options);
+  }
+  return legacyRollEquipmentTableDrops(stats, options);
+}
+
+function legacyRollEquipmentDropsFromTable(rows, stats, options = {}) {
   if (!Array.isArray(rows) || !rows.length) return [];
   const isOffline = options.offline === true;
   const isBoss = options.boss === true;
@@ -5715,6 +5723,14 @@ function rollEquipmentDropsFromTable(rows, stats, options = {}) {
     if (!isBoss) break;
   }
   return drops;
+}
+
+function rollEquipmentDropsFromTable(rows, stats, options = {}) {
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (!options.offline && runtime && typeof runtime.rollEquipmentDropsFromTable === "function") {
+    return runtime.rollEquipmentDropsFromTable(rows, stats, options);
+  }
+  return legacyRollEquipmentDropsFromTable(rows, stats, options);
 }
 
 function getEquipmentPityThreshold() {
@@ -5860,8 +5876,8 @@ function shouldAutoSalvage(item) {
   return rarityRank(item.rarity) >= 0 && rarityRank(item.rarity) <= rarityRank(setting.maxRarity || "normal");
 }
 
-function addEquipmentToInventory(item, options = {}) {
-  const normalized = normalizeItem(item);
+function legacyAddEquipmentToInventory(item, options = {}) {
+  const normalized = legacyNormalizeItem(item);
   if (shouldAutoSalvage(normalized)) {
     const rewards = getSalvageRewards(normalized);
     addMaterials(rewards);
@@ -5895,6 +5911,14 @@ function addEquipmentToInventory(item, options = {}) {
   }
   if (!options.offline) recordRecentLoot({ equipments: [normalized], equipment: [normalized] }, isAbyssEquipment(normalized) ? "深渊装备掉落" : state.enemyBoss ? "Boss装备掉落" : "装备掉落");
   return { added: true };
+}
+
+function addEquipmentToInventory(item, options = {}) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (!options.offline && runtime && typeof runtime.addEquipmentToInventory === "function") {
+    return runtime.addEquipmentToInventory(item, options);
+  }
+  return legacyAddEquipmentToInventory(item, options);
 }
 
 function addMaterials(rewards = {}) {
@@ -5960,7 +5984,7 @@ function safeHeroBaseLevel() {
   }
 }
 
-function createItem(template, level, forcedTierId = null, context = {}) {
+function legacyCreateItem(template, level, forcedTierId = null, context = {}) {
   const fixedTier = template.source === "monster_drop" || template.setId;
   const tier = forcedTierId
     ? equipmentTiers.find((entry) => entry.id === forcedTierId)
@@ -6083,6 +6107,14 @@ function createItem(template, level, forcedTierId = null, context = {}) {
   applyRandomAffixes(item, safeTier, level, itemTier);
   applyAbyssEquipmentBonus(item);
   return item;
+}
+
+function createItem(template, level, forcedTierId = null, context = {}) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.createItem === "function") {
+    return runtime.createItem(template, level, forcedTierId, context);
+  }
+  return legacyCreateItem(template, level, forcedTierId, context);
 }
 
 function applyAbyssEquipmentBonus(item) {
@@ -6357,7 +6389,7 @@ function canCreateMythic(context = {}) {
   return context.allowMythic === true || context.difficulty === "abyss" || state?.currentDifficulty === "abyss";
 }
 
-function normalizeItem(item) {
+function legacyNormalizeItem(item) {
   const fallbackPower = item.power || 0;
   const normalized = {
     id: item.id || `legacy-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
@@ -6459,6 +6491,14 @@ function normalizeItem(item) {
   applyAbyssEquipmentBonus(normalized);
   applyAbyssSetItemBonus(normalized);
   return normalized;
+}
+
+function normalizeItem(item) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.normalizeItem === "function") {
+    return runtime.normalizeItem(item);
+  }
+  return legacyNormalizeItem(item);
 }
 
 function defaultRandomStats() {
@@ -7306,7 +7346,7 @@ function normalizeOfflineRewards(rewards = {}) {
   };
 }
 
-function normalizeRecentLoot(entries = []) {
+function legacyNormalizeRecentLoot(entries = []) {
   if (!Array.isArray(entries)) return [];
   return entries
     .map((entry) => {
@@ -7326,7 +7366,15 @@ function normalizeRecentLoot(entries = []) {
     .slice(0, 12);
 }
 
-function recordRecentLoot(rewards = {}, source = "最近战利品") {
+function normalizeRecentLoot(entries = []) {
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.normalizeRecentLoot === "function") {
+    return runtime.normalizeRecentLoot(entries);
+  }
+  return legacyNormalizeRecentLoot(entries);
+}
+
+function legacyRecordRecentLoot(rewards = {}, source = "最近战利品") {
   const normalized = normalizeOfflineRewards(rewards);
   const hasContent = normalized.gold > 0 || normalized.baseExp > 0 || normalized.jobExp > 0 || normalized.equipments.length || normalized.cards.length || normalized.materials.length || offlineObjectTotal(normalized.autoSalvagedMaterials) > 0;
   if (!hasContent) return;
@@ -7336,10 +7384,18 @@ function recordRecentLoot(rewards = {}, source = "最近战利品") {
     time: Date.now(),
     rewards: normalized,
   };
-  state.recentLoot = [entry, ...normalizeRecentLoot(state.recentLoot)].slice(0, 12);
+  state.recentLoot = [entry, ...legacyNormalizeRecentLoot(state.recentLoot)].slice(0, 12);
   const hasRealLoot = normalized.equipments.length || normalized.cards.length || normalized.materials.length || offlineObjectTotal(normalized.autoSalvagedMaterials) > 0 || source.includes("离线");
   if (hasRealLoot) state.lootNotifyUnread = true;
   state.lastLootUpdatedAt = entry.time;
+}
+
+function recordRecentLoot(rewards = {}, source = "最近战利品") {
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.recordRecentLoot === "function") {
+    return runtime.recordRecentLoot(rewards, source);
+  }
+  return legacyRecordRecentLoot(rewards, source);
 }
 
 function normalizeLootFeed(entries = []) {
@@ -13272,11 +13328,154 @@ function escapeHtml(value) {
 const devDiagnosticsEnabled = new URLSearchParams(window.location.search).get("dev") === "1";
 
 window.RuneFrontierLegacyEquipmentContext = () => Object.freeze({
+  getState() {
+    return state;
+  },
+  getEquipmentTiers() {
+    return equipmentTiers;
+  },
+  getItemTierConfig(id) {
+    return ITEM_TIER_CONFIG[id] || {};
+  },
+  getItemTierForLevel,
+  inferItemTier,
+  getSlotLevelGrowth,
+  normalizeEquipmentSlot,
+  inferEquipmentSubType,
+  equipmentImagePath,
+  getTemplateBaseStats,
+  shouldRollRandomStats,
+  rollRandomStats,
+  defaultRandomStats,
+  normalizeRandomStats,
+  normalizeCardSlots,
+  inferItemRanges,
+  rollEquipmentTier,
+  randomFloat,
+  randomInt,
+  addBaseRanges,
+  applyTierExtra,
+  applyRandomAffixes,
+  applyAbyssEquipmentBonus,
+  applyAbyssSetItemBonus,
+  canCreateMythic,
+  safeHeroBaseLevel,
+  rarityRank,
+  isAbyssEquipment,
+  createItemId(slot) {
+    return `${slot}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  },
+  createLegacyItemId() {
+    return `legacy-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  },
+  getSalvageTable(tier) {
+    return salvageRewards[tier] || salvageRewards.normal;
+  },
+  getInventoryLimit,
+  addMaterials,
+  recordSessionReward,
+  recordRecentLoot,
+  recordAutoSalvageBatch(rewards) {
+    autoSalvageBatchCount += 1;
+    Object.entries(rewards).forEach(([id, qty]) => {
+      autoSalvageBatchMaterials[id] = (autoSalvageBatchMaterials[id] || 0) + qty;
+    });
+  },
+  showAutoSalvageFeedback,
+  logAutoSalvage(item, rewards) {
+    addLog(`自动分解 ${rarityName(item.rarity)}装备：${getDisplayItemName(item)}，获得 ${materialText(rewards)}。`);
+  },
+  logInventoryFull() {
+    addLog("背包已满，装备掉落未能拾取。");
+  },
+  recordEquipmentSessionReward(item) {
+    recordSessionReward({ equipments: 1 });
+    runtimeSessionStats.equipmentByRarity[item.rarity] = (runtimeSessionStats.equipmentByRarity[item.rarity] || 0) + 1;
+    if (item.setId) runtimeSessionStats.zodiacEquipmentCount += 1;
+    if (isAbyssEquipment(item)) runtimeSessionStats.abyssEquipmentCount += 1;
+    if (isAbyssEquipment(item) && item.setId) runtimeSessionStats.abyssSetEquipmentCount += 1;
+    updateDailyGoalProgress("daily_equipment", 1);
+  },
+  trackEquipmentAchievement,
+  addDropLog,
+  showDropFeedback(item) {
+    showLootDropFeedback(item);
+    showRareLootBroadcast(item);
+  },
+  isBossEncounter() {
+    return Boolean(state.enemyBoss);
+  },
+  showToast,
+  logManualSalvage(item, rewards) {
+    addLog(`分解 ${getDisplayItemName(item)}，获得 ${materialText(rewards)}。`);
+  },
+  showSalvageResult(count, rewards) {
+    showSalvageResultModal("分解完成", count, rewards);
+  },
+  render: renderAll,
+  save,
   getMechanicAffixEffects(id) {
     return MECHANIC_AFFIXES[id]?.effects || {};
   },
   computeCardSocketBonuses(item) {
     return computeCardSocketBonuses(item);
+  },
+});
+
+window.RuneFrontierLegacyDropsContext = () => Object.freeze({
+  getState() {
+    return state;
+  },
+  now() {
+    return Date.now();
+  },
+  createEntryId(time) {
+    return `loot-${time.toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  },
+  normalizeRewards: normalizeOfflineRewards,
+  objectTotal: offlineObjectTotal,
+  currentMap,
+  getDropTableId(mapId) {
+    return mapDropTableAlias[mapId] || mapId;
+  },
+  getEquipmentDropTable(tableId) {
+    return equipmentDropTables[tableId] || [];
+  },
+  getEquipmentTemplate(id) {
+    return equipmentTemplateDb[id];
+  },
+  getMaxEquipmentDrops(isBoss) {
+    return isBoss ? MAX_BOSS_EQUIPMENT_DROPS : MAX_EQUIPMENT_DROPS_PER_KILL;
+  },
+  getEffectiveEquipmentDropRate,
+  getOnlineEquipmentDropChance,
+  weightedChoice,
+  applyRebirthPrestigeDropWeight,
+  getDarkGoldUpgradeRate,
+  getDifficultyDropLevelBonus() {
+    return DIFFICULTY_DROP_LEVEL_BONUS[state.currentDifficulty] || DIFFICULTY_DROP_LEVEL_BONUS.normal;
+  },
+  clampLevel(value) {
+    return clampNumber(value, 1, MAX_EQUIPMENT_LEVEL);
+  },
+  randomInt,
+  random() {
+    return Math.random();
+  },
+  currentDifficulty() {
+    return state.currentDifficulty;
+  },
+  createItem(template, level, forcedTierId, context) {
+    const runtime = window.RuneFrontierEquipmentRuntime;
+    return runtime?.createItem
+      ? runtime.createItem(template, level, forcedTierId, context)
+      : legacyCreateItem(template, level, forcedTierId, context);
+  },
+  addEquipmentToInventory(item, options) {
+    const runtime = window.RuneFrontierEquipmentRuntime;
+    return runtime?.addEquipmentToInventory
+      ? runtime.addEquipmentToInventory(item, options)
+      : legacyAddEquipmentToInventory(item, options);
   },
 });
 

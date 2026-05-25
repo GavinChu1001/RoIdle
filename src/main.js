@@ -16,12 +16,12 @@ import './data/materials.js';
 // State framework surface. Default-state creation still delegates to the classic runtime.
 import './state/index.js';
 
-// System logic wrappers. Equipment read calculations are now module-owned;
-// stateful systems continue to delegate to game.js during migration.
+// System logic modules. Equipment reads and online equipment mutations are now
+// module-owned; offline settlement and remaining systems stay bridged.
 import './systems/vip.js';
 import './systems/codex.js';
 import { installEquipmentRuntime } from './systems/equipment/index.js';
-import './systems/drops/index.js';
+import { installDropsRuntime } from './systems/drops/index.js';
 import './systems/combat/index.js';
 import './systems/offline.js';
 
@@ -34,14 +34,18 @@ export const RUNTIME_AUTHORITY = 'game.js';
 window.RuneFrontierModuleStatus = Object.freeze({
   authority: RUNTIME_AUTHORITY,
   bootstrapOwner: 'src/main.js',
-  migrated: ['platform', 'storage-adapter', 'utils-surface', 'state-surface', 'equipment-read-calculations', 'dev-diagnostics'],
-  bridged: ['equipment-actions', 'drops', 'combat', 'offline', 'vip', 'codex', 'ui'],
+  migrated: ['platform', 'storage-adapter', 'utils-surface', 'state-surface', 'equipment-read-calculations', 'equipment-online-mutations', 'online-equipment-drops', 'recent-loot-recording', 'dev-diagnostics'],
+  bridged: ['offline-equipment-settlement', 'remaining-drops', 'combat', 'offline', 'vip', 'codex', 'ui'],
 });
 
 const equipmentContext = typeof window.RuneFrontierLegacyEquipmentContext === 'function'
   ? window.RuneFrontierLegacyEquipmentContext()
   : {};
 installEquipmentRuntime(equipmentContext);
+const dropsContext = typeof window.RuneFrontierLegacyDropsContext === 'function'
+  ? window.RuneFrontierLegacyDropsContext()
+  : {};
+installDropsRuntime(dropsContext);
 
 if (typeof window.bootstrapLegacyRuntime === 'function') {
   window.bootstrapLegacyRuntime();
@@ -90,4 +94,4 @@ window.addEventListener('DOMContentLoaded', () => {
   applyOverrides();
 });
 
-console.log('[Rune Frontier] Module system initialized. Phase 3 batch 2.');
+console.log('[Rune Frontier] Module system initialized. Phase 3 batch 3.');
