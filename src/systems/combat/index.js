@@ -12,6 +12,8 @@ export * from './autoBattle.js';
 export * from './combatStats.js';
 export * from './failureReason.js';
 export * from './settlement.js';
+export * from './monster.js';
+export * from './encounter.js';
 
 import { configureCombatSettlementContext, grantBossEssence, settleBossVictory, settleDefeatedEnemy } from './settlement.js';
 import {
@@ -35,6 +37,8 @@ import {
   isCurrentlyFightingBoss,
   tryAutoChallengeBoss,
 } from './bossCombat.js';
+import { configureMonsterContext, buildMonsterStats, pickMonsterTemplate, rollMonsterLevel, rollMonsterMutation, getMonsterTemplate, getMapLevelRange, getMutationById, bossDisplayName, currentDifficultyConfig, getMonsterDifficultyType } from './monster.js';
+import { configureEncounterContext, spawnEnemy, createEnemyGroup, createEncounterMonster, getEncounterSize, getEncounterLabel, currentMonsterStats, normalizeEnemyGroup, syncActiveEnemyFromGroup, updateActiveEnemyHpInGroup, hasLivingEncounterMembers } from './encounter.js';
 
 export function installCombatRuntime(context = {}) {
   configureCombatSettlementContext(context);
@@ -42,6 +46,8 @@ export function installCombatRuntime(context = {}) {
   configureDamageContext(context);
   configureSkillsContext(context);
   configureNormalCombatContext(context);
+  configureMonsterContext(context);
+  configureEncounterContext(context);
   const runtime = Object.freeze({
     grantBossEssence,
     settleBossVictory,
@@ -65,6 +71,26 @@ export function installCombatRuntime(context = {}) {
     updateCombat,
     updateMonsterAttack,
     updateRecovery,
+    spawnEnemy,
+    createEnemyGroup,
+    createEncounterMonster,
+    getEncounterSize,
+    getEncounterLabel,
+    buildMonsterStats,
+    pickMonsterTemplate,
+    rollMonsterLevel,
+    rollMonsterMutation,
+    getMonsterTemplate,
+    getMapLevelRange,
+    getMutationById,
+    bossDisplayName,
+    currentDifficultyConfig,
+    getMonsterDifficultyType,
+    currentMonsterStats,
+    normalizeEnemyGroup,
+    syncActiveEnemyFromGroup,
+    updateActiveEnemyHpInGroup,
+    hasLivingEncounterMembers,
   });
   window.RuneFrontierCombatRuntime = runtime;
   return runtime;

@@ -20,10 +20,14 @@ import './state/index.js';
 // module-owned; rendering and remaining progression systems remain bridged.
 import './systems/vip.js';
 import './systems/codex.js';
+import './systems/shop.js';
 import { installEquipmentRuntime } from './systems/equipment/index.js';
 import { installDropsRuntime } from './systems/drops/index.js';
 import { installCombatRuntime } from './systems/combat/index.js';
 import { installOfflineRuntime } from './systems/offline.js';
+import { installVipRuntime } from './systems/vip.js';
+import { installCodexRuntime } from './systems/codex.js';
+import { installShopRuntime } from './systems/shop.js';
 
 // UI layer (delegates to game.js via window)
 import './ui/index.js';
@@ -34,8 +38,8 @@ export const RUNTIME_AUTHORITY = 'game.js';
 window.RuneFrontierModuleStatus = Object.freeze({
   authority: RUNTIME_AUTHORITY,
   bootstrapOwner: 'src/main.js',
-  migrated: ['platform', 'storage-adapter', 'utils-surface', 'state-surface', 'equipment-read-calculations', 'equipment-online-mutations', 'online-equipment-drops', 'online-reward-categories', 'recent-loot-recording', 'loot-view-model', 'offline-equipment-settlement', 'offline-reward-categories', 'kill-and-boss-settlement', 'boss-challenge-state', 'combat-rounds-and-damage', 'active-skill-resolution', 'dev-diagnostics'],
-  bridged: ['offline-time-and-exp-calculation', 'monster-spawn-and-stat-building', 'vip', 'codex', 'ui'],
+  migrated: ['platform', 'storage-adapter', 'utils-surface', 'state-surface', 'equipment-read-calculations', 'equipment-online-mutations', 'online-equipment-drops', 'online-reward-categories', 'recent-loot-recording', 'loot-view-model', 'offline-equipment-settlement', 'offline-reward-categories', 'kill-and-boss-settlement', 'boss-challenge-state', 'combat-rounds-and-damage', 'active-skill-resolution', 'monster-spawn-and-stat-building', 'vip-calculations', 'codex-calculations', 'shop-calculations', 'dev-diagnostics'],
+  bridged: ['offline-time-and-exp-calculation', 'renderers', 'vip-render', 'codex-render', 'shop-render'],
 });
 
 const equipmentContext = typeof window.RuneFrontierLegacyEquipmentContext === 'function'
@@ -54,6 +58,19 @@ const combatContext = typeof window.RuneFrontierLegacyCombatContext === 'functio
   ? window.RuneFrontierLegacyCombatContext()
   : {};
 installCombatRuntime(combatContext);
+
+const vipContext = typeof window.RuneFrontierLegacyVipContext === 'function'
+  ? window.RuneFrontierLegacyVipContext()
+  : {};
+installVipRuntime(vipContext);
+const codexContext = typeof window.RuneFrontierLegacyCodexContext === 'function'
+  ? window.RuneFrontierLegacyCodexContext()
+  : {};
+installCodexRuntime(codexContext);
+const shopContext = typeof window.RuneFrontierLegacyShopContext === 'function'
+  ? window.RuneFrontierLegacyShopContext()
+  : {};
+installShopRuntime(shopContext);
 
 if (typeof window.bootstrapLegacyRuntime === 'function') {
   window.bootstrapLegacyRuntime();

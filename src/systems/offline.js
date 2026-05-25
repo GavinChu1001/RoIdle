@@ -39,12 +39,108 @@ export function configureOfflineContext(context = {}) {
   runtimeContext = context || {};
 }
 
+export function estimateMapAverageMonsterHp(map, context = runtimeContext) {
+  const pick = context.pickMonsterTemplate || ((m) => context.getMaps?.().find((mt) => mt.id === m.id) || {});
+  const build = context.buildMonsterStats;
+  if (!map || !build) return 1;
+  const monsters = Array.isArray(map.monsters) && map.monsters.length ? map.monsters : [pick(map, false)];
+  const total = monsters.reduce((sum, template) => {
+    const levelRange = template.levelRange || [map.minLevel || 1, map.maxLevel || 1];
+    const level = Math.floor((levelRange[0] + levelRange[1]) / 2);
+    return sum + build(map, false, level, template).maxHp;
+  }, 0);
+  return total / Math.max(1, monsters.length);
+}
+
+export function buildOfflineMonsterStats(map, context = runtimeContext) {
+  const state = context.getState?.() || {};
+  const pick = context.pickMonsterTemplate;
+  const rollLevel = context.rollMonsterLevel;
+  const rollMut = context.rollMonsterMutation;
+  const build = context.buildMonsterStats;
+  if (!map || !pick || !rollLevel || !build) return { gold: 0, exp: 0, jobExp: 0, mutation: false };
+  const template = pick(map, false);
+  const level = rollLevel(map, false, template);
+  const previousMutation = state.enemyMutationId;
+  const mutation = rollMut ? rollMut(state.currentDifficulty) : null;
+  state.enemyMutationId = mutation?.id || "";
+  const monster = build(map, false, level, template);
+  state.enemyMutationId = previousMutation;
+  return monster;
+}
+
 export function calculateOfflineRewards(character, offlineMs, mapId, context = runtimeContext) {
-  return context.calculateOfflineRewards?.(character, offlineMs, mapId) || { seconds: 0, gold: 0, baseExp: 0, jobExp: 0 };
+  const state = context.getState?.() || {};
+  const maps = context.getMaps?.() || [];
+  const currentMapFn = context.currentMap;
+  const statsFn = context.computeStats;
+  const diffCfg = context.getDifficultyConfig;
+  const vipBonuses = context.getVipMilestoneBonuses;
+  const emptyFn = context.createEmptyRewards;
+  const offlineEfficiency = finite(context.getOfflineEfficiency?.());
+  const offlineMaxKills = finite(context.getOfflineMaxKills?.());
+  const maxOfflineSeconds = context.getMaxOfflineSeconds?.() ?? (12 * 60 * 60);
+  const gainExpl = context.gainMapExploration;
+
+  if (!state || !statsFn || !currentMapFn || !emptyFn) {
+    return { seconds: 0, gold: 0, baseExp: 0, jobExp: 0 };
+  }
+
+  const rewards = emptyFn();
+  const durationMs = Math.max(0, Math.floor(offlineMs || 0));
+  const vipOfflineHoursBonus = vipBonuses ? (vipBonuses().offlineHoursBonus || 0) : 0;
+  const cappedDurationMs = Math.min(durationMs, (maxOfflineSeconds + vipOfflineHoursBonus * 3600) * 1000);
+  rewards.durationMs = durationMs;
+  rewards.cappedDurationMs = cappedDurationMs;
+  rewards.seconds = Math.floor(cappedDurationMs / 1000);
+  const map = (currentMapFn()?.id || mapId) ? currentMapFn() : (maps.find((m) => m.id === mapId) || currentMapFn());
+  rewards.mapId = map?.id || mapId || "";
+  rewards.calculatedAt = new Date().toISOString();
+  if (cappedDurationMs <= 0) return rewards;
+
+  const stats = statsFn();
+  const hp = character?.currentHp ?? state.hero?.currentHp ?? stats.maxHp;
+  if (hp <= 0) {
+    rewards.noRewardsReason = "角色生命值为 0，离线战斗停止。";
+    return rewards;
+  }
+
+  const mapIndex = Math.max(0, maps.findIndex((m) => m.id === map.id));
+  const seconds = cappedDurationMs / 1000;
+  const averageHp = estimateMapAverageMonsterHp(map, context);
+  const onlineKills = Math.max(0, (stats.dps || 0) / Math.max(1, averageHp)) * seconds;
+  const vipEff = vipBonuses ? (vipBonuses().offlineEfficiencyBonus || 0) : 0;
+  const killCount = Math.min(offlineMaxKills, Math.floor(onlineKills * Math.min(1, offlineEfficiency + vipEff + (stats.offlineEfficiencyBonus || 0))));
+  rewards.killCount = killCount;
+  if (killCount <= 0) return rewards;
+
+  let mutationKills = 0;
+  for (let kill = 0; kill < killCount; kill += 1) {
+    const monster = buildOfflineMonsterStats(map, context);
+    if (monster.mutation) mutationKills += 1;
+    rewards.gold += Math.round(finite(monster.gold) * finite(stats.goldMultiplier) * finite(stats.monsterGoldMultiplier));
+    rewards.baseExp += Math.round(finite(monster.exp) * finite(stats.baseExpMultiplier));
+    rewards.jobExp += Math.round(finite(monster.jobExp) * finite(stats.jobExpMultiplier));
+  }
+
+  rollOfflineEquipmentDrops(rewards, stats, map, mapIndex, killCount, context);
+  rollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills, context);
+  rollOfflineTransitionSetDrops(rewards, stats, map, killCount, context);
+  rollOfflineMythicDrops(rewards, stats, map, killCount, mutationKills, context);
+  rollOfflineCardDrops(rewards, stats, map, mapIndex, killCount, context);
+  rollOfflineMaterialDrops(rewards, stats, map, killCount, context);
+  rollOfflineMutationExtraDrops(rewards, stats, map, mutationKills, context);
+  if (gainExpl) gainExpl(map.id, killCount + mutationKills * 4, { offline: true });
+  return rewards;
 }
 
 export function buildOfflineReward(seconds, context = runtimeContext) {
-  return context.buildOfflineReward?.(seconds) || { seconds: 0, gold: 0, baseExp: 0, jobExp: 0, equipments: [], cards: [], materials: [] };
+  const state = context.getState?.() || {};
+  const currentMapFn = context.currentMap;
+  if (!state || !currentMapFn) {
+    return { seconds: 0, gold: 0, baseExp: 0, jobExp: 0, equipments: [], cards: [], materials: [] };
+  }
+  return calculateOfflineRewards(state.hero, Math.max(0, seconds) * 1000, currentMapFn().id, context);
 }
 
 export function getPendingOfflineRewards(context = runtimeContext) {
@@ -160,7 +256,20 @@ export function claimOfflineRewards(context = runtimeContext) {
 }
 
 export function rollOfflineEquipmentDrops(rewards, stats, map, mapIndex, killCount, context = runtimeContext) {
-  return context.rollOfflineEquipmentDrops?.(rewards, stats, map, mapIndex, killCount);
+  const alias = context.getDropTableAlias;
+  const table = context.getEquipmentDropTable;
+  const rollFn = context.rollEquipmentDropsFromTable;
+  const state = context.getState?.() || {};
+  const invLimit = context.getInventoryLimit;
+  if (!map || !table || !rollFn || !invLimit) return;
+  const tableId = alias ? (alias(map.id) || map.id) : map.id;
+  const rows = table(tableId) || [];
+  if (!rows.length) return;
+  const capacity = { freeSlots: Math.max(0, invLimit() - (state.inventory || []).length) };
+  for (let kill = 0; kill < killCount; kill += 1) {
+    const drops = rollFn(rows, stats, { offline: true });
+    processGeneratedOfflineEquipment(rewards, drops, capacity, {}, context);
+  }
 }
 
 export function rollOfflineCardDrops(rewards, stats, map, mapIndex, killCount, context = runtimeContext) {
@@ -327,6 +436,8 @@ export function installOfflineRuntime(context = {}) {
   const runtime = Object.freeze({
     calculateOfflineRewards,
     buildOfflineReward,
+    buildOfflineMonsterStats,
+    estimateMapAverageMonsterHp,
     claimOffline: claimOfflineRewards,
     getPendingOfflineRewards,
     hasPendingOfflineRewards,

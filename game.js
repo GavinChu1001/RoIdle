@@ -3061,6 +3061,8 @@ function equipmentSlot(item) {
 }
 
 function createDefaultState() {
+  const runtime = window.RuneFrontierStateRuntime;
+  if (runtime && typeof runtime.createDefaultState === "function") return runtime.createDefaultState();
   const starterItems = [
     createItem(itemPool[0], 1, "normal"),
     createItem(itemPool[6], 1, "normal"),
@@ -3278,6 +3280,9 @@ function ensureRefineActionButtons() {
   continueButton.textContent = "继续操作";
 }
 
+// [BRIDGE] Event wiring — 40+ listeners. All callbacks invoke game.js functions that delegate to runtime modules where applicable.
+// Non-delegated callbacks (presentation/DOM): openOfflineRewardModal, closeOfflineRewardModal, closeRefineResultModal, showToast, punchCardSlot, setAutoBossEnabled, loadAuth, refreshAuthUi, logout, toggleAutoBoss, ensureSettings.
+// Delegated callbacks: challengeBoss, claimOffline, refineItem, renderAll, salvageItem, salvageAllUnequipped, equipBest, enhanceItem, empowerItem, buyShopItem, claimCodexReward, toggleItemLock.
 function bindEvents() {
   ensureRefineActionButtons();
   cacheElements();
@@ -3835,6 +3840,8 @@ async function apiRequest(path, options = {}) {
 }
 
 function load() {
+  const runtime = window.RuneFrontierStateRuntime;
+  if (runtime && typeof runtime.load === "function") return runtime.load();
   const raw = localStorage.getItem(SAVE_KEY) || localStorage.getItem(LEGACY_SAVE_KEY);
   if (!raw) {
     state.offlinePending = buildOfflineReward(0);
@@ -3857,6 +3864,8 @@ function load() {
 }
 
 function mergeState(base, saved) {
+  const runtime = window.RuneFrontierStateRuntime;
+  if (runtime && typeof runtime.mergeState === "function") return runtime.mergeState(base, saved);
   const oldHero = Array.isArray(saved.heroes) ? saved.heroes.find((hero) => hero.unlocked) || saved.heroes[0] : null;
   const hero = saved.hero || {
     ...base.hero,
@@ -3950,6 +3959,8 @@ function normalizeMapDifficultyProgress(progress, legacyBestMap, legacyDifficult
 }
 
 function sanitizeProgression() {
+  const runtime = window.RuneFrontierStateRuntime;
+  if (runtime && typeof runtime.sanitizeProgression === "function") return runtime.sanitizeProgression();
   migrateMapPoolIfNeeded();
   if (state.materials && state.materials.grassBossSoul > 0) {
     state.materials.grassEssence = (state.materials.grassEssence || 0) + state.materials.grassBossSoul;
@@ -4024,6 +4035,10 @@ function migrateMapPoolIfNeeded() {
 }
 
 function normalizeVip(vip = {}) {
+  const runtime = window.RuneFrontierVipRuntime;
+  if (runtime && typeof runtime.normalizeVip === "function") {
+    return runtime.normalizeVip(vip);
+  }
   return {
     level: clampNumber(Math.floor(vip.level || 0), 0, VIP_MAX_LEVEL),
     exp: Math.max(0, Math.floor(vip.exp || 0)),
@@ -4404,6 +4419,8 @@ function createQuestRewardEquipment(config) {
 }
 
 function gainVipExp(amount) {
+  const runtime = window.RuneFrontierVipRuntime;
+  if (runtime && typeof runtime.gainVipExp === "function") return runtime.gainVipExp(amount);
   const gain = Math.max(0, Math.floor(amount || 0));
   if (!gain) return;
   state.vip.exp += gain;
@@ -4422,6 +4439,8 @@ function gainVipExp(amount) {
 }
 
 function save() {
+  const runtime = window.RuneFrontierStateRuntime;
+  if (runtime && typeof runtime.save === "function") return runtime.save();
   state.lastSavedAt = Date.now();
   state.lastActiveAt = state.lastSavedAt;
   localStorage.setItem(SAVE_KEY, JSON.stringify(state));
@@ -5060,6 +5079,8 @@ function getSessionRewardSummary() {
 }
 
 function renderSessionRewardPanel() {
+  const runtime = window.RuneFrontierRenderRuntime;
+  if (runtime && typeof runtime.renderSessionRewardPanel === "function") return runtime.renderSessionRewardPanel();
   const summary = getSessionRewardSummary();
   const totalDropped = runtimeSessionStats.equipmentCount + runtimeSessionStats.autoSalvagedCount;
   const highestRarity = [...rarityOrder].reverse().find((rarity) => (runtimeSessionStats.equipmentByRarity?.[rarity] || 0) > 0);
@@ -5269,6 +5290,14 @@ function defeatEnemy() {
 }
 
 function spawnEnemy(isBoss) {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.spawnEnemy === "function") {
+    return runtime.spawnEnemy(isBoss);
+  }
+  return legacySpawnEnemy(isBoss);
+}
+
+function legacySpawnEnemy(isBoss) {
   const map = currentMap();
   state.enemyBoss = Boolean(isBoss);
   state.enemyGroup = createEnemyGroup(map, state.enemyBoss);
@@ -5283,6 +5312,14 @@ function spawnEnemy(isBoss) {
 }
 
 function currentMonsterStats() {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.currentMonsterStats === "function") {
+    return runtime.currentMonsterStats();
+  }
+  return legacyCurrentMonsterStats();
+}
+
+function legacyCurrentMonsterStats() {
   if (state.enemy) return { ...state.enemy, currentHp: state.enemyHp };
   const map = currentMap();
   const template = getMonsterTemplate(map, state.enemyTemplateId, state.enemyBoss);
@@ -5290,6 +5327,14 @@ function currentMonsterStats() {
 }
 
 function normalizeEnemyGroup(group) {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.normalizeEnemyGroup === "function") {
+    return runtime.normalizeEnemyGroup(group);
+  }
+  return legacyNormalizeEnemyGroup(group);
+}
+
+function legacyNormalizeEnemyGroup(group) {
   if (!group || !Array.isArray(group.monsters) || !group.monsters.length) return null;
   const monsters = group.monsters.map((monster) => ({
     ...monster,
@@ -5302,6 +5347,14 @@ function normalizeEnemyGroup(group) {
 }
 
 function createEnemyGroup(map, isBoss = false) {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.createEnemyGroup === "function") {
+    return runtime.createEnemyGroup(map, isBoss);
+  }
+  return legacyCreateEnemyGroup(map, isBoss);
+}
+
+function legacyCreateEnemyGroup(map, isBoss = false) {
   const size = getEncounterSize(isBoss);
   const monsters = Array.from({ length: size }, () => createEncounterMonster(map, isBoss));
   const label = isBoss ? "首领遭遇" : getEncounterLabel(monsters);
@@ -5309,6 +5362,14 @@ function createEnemyGroup(map, isBoss = false) {
 }
 
 function getEncounterSize(isBoss = false) {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.getEncounterSize === "function") {
+    return runtime.getEncounterSize(isBoss);
+  }
+  return legacyGetEncounterSize(isBoss);
+}
+
+function legacyGetEncounterSize(isBoss = false) {
   if (isBoss) return 1;
   if (state.currentDifficulty === "abyss") return randomInt(2, 5);
   if (state.currentDifficulty === "hard") return randomInt(2, 4);
@@ -5316,6 +5377,14 @@ function getEncounterSize(isBoss = false) {
 }
 
 function getEncounterLabel(monsters = []) {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.getEncounterLabel === "function") {
+    return runtime.getEncounterLabel(monsters);
+  }
+  return legacyGetEncounterLabel(monsters);
+}
+
+function legacyGetEncounterLabel(monsters = []) {
   if (state.currentDifficulty === "abyss") return monsters.some((m) => m.mutation) ? "深渊突袭" : "深渊遭遇";
   if (monsters.some((m) => m.mutation)) return "变异突袭";
   if (monsters.some((m) => m.type === "elite")) return "精英带队";
@@ -5323,6 +5392,14 @@ function getEncounterLabel(monsters = []) {
 }
 
 function createEncounterMonster(map, isBoss = false) {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.createEncounterMonster === "function") {
+    return runtime.createEncounterMonster(map, isBoss);
+  }
+  return legacyCreateEncounterMonster(map, isBoss);
+}
+
+function legacyCreateEncounterMonster(map, isBoss = false) {
   const template = pickMonsterTemplate(map, isBoss);
   const mutationId = isBoss ? "" : rollMonsterMutation()?.id || "";
   const level = rollMonsterLevel(map, isBoss, template);
@@ -5337,6 +5414,14 @@ function createEncounterMonster(map, isBoss = false) {
 }
 
 function syncActiveEnemyFromGroup() {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.syncActiveEnemyFromGroup === "function") {
+    return runtime.syncActiveEnemyFromGroup();
+  }
+  return legacySyncActiveEnemyFromGroup();
+}
+
+function legacySyncActiveEnemyFromGroup() {
   const group = normalizeEnemyGroup(state.enemyGroup);
   state.enemyGroup = group;
   const active = group?.monsters?.find((monster) => monster.alive);
@@ -5357,6 +5442,14 @@ function syncActiveEnemyFromGroup() {
 }
 
 function updateActiveEnemyHpInGroup() {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.updateActiveEnemyHpInGroup === "function") {
+    return runtime.updateActiveEnemyHpInGroup();
+  }
+  return legacyUpdateActiveEnemyHpInGroup();
+}
+
+function legacyUpdateActiveEnemyHpInGroup() {
   const group = state.enemyGroup;
   if (!group || !Array.isArray(group.monsters)) return;
   const monster = group.monsters[group.activeIndex];
@@ -5366,11 +5459,27 @@ function updateActiveEnemyHpInGroup() {
 }
 
 function hasLivingEncounterMembers() {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.hasLivingEncounterMembers === "function") {
+    return runtime.hasLivingEncounterMembers();
+  }
+  return legacyHasLivingEncounterMembers();
+}
+
+function legacyHasLivingEncounterMembers() {
   updateActiveEnemyHpInGroup();
   return Boolean((state.enemyGroup?.monsters || []).some((monster) => monster.alive));
 }
 
 function getMapLevelRange(mapOrId) {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.getMapLevelRange === "function") {
+    return runtime.getMapLevelRange(mapOrId);
+  }
+  return legacyGetMapLevelRange(mapOrId);
+}
+
+function legacyGetMapLevelRange(mapOrId) {
   const id = typeof mapOrId === "string" ? mapOrId : mapOrId?.id;
   if (mapLevelRanges[id]) return mapLevelRanges[id];
   const tableId = mapDropTableAlias[id] || id;
@@ -5378,11 +5487,27 @@ function getMapLevelRange(mapOrId) {
 }
 
 function bossDisplayName(map = currentMap(), difficulty = state.currentDifficulty) {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.bossDisplayName === "function") {
+    return runtime.bossDisplayName(map, difficulty);
+  }
+  return legacyBossDisplayName(map, difficulty);
+}
+
+function legacyBossDisplayName(map = currentMap(), difficulty = state.currentDifficulty) {
   const name = map?.boss || "地图首领";
   return difficulty === "abyss" ? `深渊 ${name}` : name;
 }
 
 function pickMonsterTemplate(map, isBoss = false) {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.pickMonsterTemplate === "function") {
+    return runtime.pickMonsterTemplate(map, isBoss);
+  }
+  return legacyPickMonsterTemplate(map, isBoss);
+}
+
+function legacyPickMonsterTemplate(map, isBoss = false) {
   if (isBoss) return map.bossTemplate || monsterTemplate(`${map.id}_boss`, map.boss, [map.maxLevel, map.maxLevel], [map.baseHp * map.bossMultiplier, map.baseHp * map.bossMultiplier], [20, 20], [10, 10], [map.baseExp * 8, map.baseExp * 8], [map.jobExp * 8, map.jobExp * 8], [map.gold * 8, map.gold * 8], "boss");
   const monsters = Array.isArray(map.monsters) && map.monsters.length ? map.monsters : [monsterTemplate(`${map.id}_monster`, map.enemy, [map.minLevel, map.maxLevel], [map.baseHp, map.baseHp * 2], getMapLevelRange(map).attackRange, [1, 10], [map.baseExp, map.baseExp * 2], [map.jobExp, map.jobExp * 2], [map.gold, map.gold * 2])];
   const elite = monsters.filter((entry) => entry.type === "elite");
@@ -5393,26 +5518,66 @@ function pickMonsterTemplate(map, isBoss = false) {
 }
 
 function getMonsterTemplate(map, templateId, isBoss = false) {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.getMonsterTemplate === "function") {
+    return runtime.getMonsterTemplate(map, templateId, isBoss);
+  }
+  return legacyGetMonsterTemplate(map, templateId, isBoss);
+}
+
+function legacyGetMonsterTemplate(map, templateId, isBoss = false) {
   if (isBoss) return map.bossTemplate || pickMonsterTemplate(map, true);
   const monsters = Array.isArray(map.monsters) ? map.monsters : [];
   return monsters.find((entry) => entry.id === templateId) || monsters[0] || pickMonsterTemplate(map, false);
 }
 
 function currentDifficultyConfig() {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.currentDifficultyConfig === "function") {
+    return runtime.currentDifficultyConfig();
+  }
+  return legacyCurrentDifficultyConfig();
+}
+
+function legacyCurrentDifficultyConfig() {
   return DIFFICULTY_CONFIG[state.currentDifficulty] || DIFFICULTY_CONFIG.normal;
 }
 
 function getMutationById(id) {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.getMutationById === "function") {
+    return runtime.getMutationById(id);
+  }
+  return legacyGetMutationById(id);
+}
+
+function legacyGetMutationById(id) {
   return MUTATION_TYPES.find((mutation) => mutation.id === id) || null;
 }
 
 function rollMonsterMutation(difficulty = state.currentDifficulty) {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.rollMonsterMutation === "function") {
+    return runtime.rollMonsterMutation(difficulty);
+  }
+  return legacyRollMonsterMutation(difficulty);
+}
+
+function legacyRollMonsterMutation(difficulty = state.currentDifficulty) {
   const config = DIFFICULTY_CONFIG[difficulty] || DIFFICULTY_CONFIG.normal;
   if (Math.random() >= config.mutationChance) return null;
   return MUTATION_TYPES[Math.floor(Math.random() * MUTATION_TYPES.length)];
 }
 
 function rollMonsterLevel(map, isBoss = false, template = null) {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.rollMonsterLevel === "function") {
+    return runtime.rollMonsterLevel(map, isBoss, template);
+  }
+  return legacyRollMonsterLevel(map, isBoss, template);
+}
+
+function legacyRollMonsterLevel(map, isBoss = false, template = null) {
   const range = getMapLevelRange(map);
   const levelRange = template?.levelRange || [range.minLevel, range.maxLevel];
   const minLevel = clampNumber(levelRange[0], range.minLevel, isBoss ? range.maxLevel + 5 : range.maxLevel);
@@ -5421,6 +5586,14 @@ function rollMonsterLevel(map, isBoss = false, template = null) {
 }
 
 function buildMonsterStats(map, isBoss, level, template = null, mutationId = state.enemyMutationId) {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.buildMonsterStats === "function") {
+    return runtime.buildMonsterStats(map, isBoss, level, template, mutationId);
+  }
+  return legacyBuildMonsterStats(map, isBoss, level, template, mutationId);
+}
+
+function legacyBuildMonsterStats(map, isBoss, level, template = null, mutationId = state.enemyMutationId) {
   const monster = template || getMonsterTemplate(map, state.enemyTemplateId, isBoss);
   const difficulty = currentDifficultyConfig();
   const mutation = isBoss ? null : getMutationById(mutationId);
@@ -5474,6 +5647,14 @@ function buildMonsterStats(map, isBoss, level, template = null, mutationId = sta
 }
 
 function getMonsterDifficultyType({ isBoss = false, monster = {}, mutation = null, difficultyId = state.currentDifficulty } = {}) {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.getMonsterDifficultyType === "function") {
+    return runtime.getMonsterDifficultyType({ isBoss, monster, mutation, difficultyId });
+  }
+  return legacyGetMonsterDifficultyType({ isBoss, monster, mutation, difficultyId });
+}
+
+function legacyGetMonsterDifficultyType({ isBoss = false, monster = {}, mutation = null, difficultyId = state.currentDifficulty } = {}) {
   const eliteLike = monster.type === "elite" || mutation?.id === "elite";
   if (difficultyId === "abyss" && isBoss) return "abyssBoss";
   if (difficultyId === "abyss" && eliteLike) return "abyssElite";
@@ -5487,6 +5668,14 @@ function getMonsterDifficultyType({ isBoss = false, monster = {}, mutation = nul
 }
 
 function applyMonsterDifficultyModifier(stats = {}, type = "normal") {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.applyMonsterDifficultyModifier === "function") {
+    return runtime.applyMonsterDifficultyModifier(stats, type);
+  }
+  return legacyApplyMonsterDifficultyModifier(stats, type);
+}
+
+function legacyApplyMonsterDifficultyModifier(stats = {}, type = "normal") {
   const modifier = MONSTER_DIFFICULTY_MODIFIERS[type] || MONSTER_DIFFICULTY_MODIFIERS.normal;
   const critDamage = Math.max(Number(stats.critDamage || 0), Number(modifier.critDamage || 1.5) - 1);
   return {
@@ -6097,6 +6286,8 @@ function rarityRank(rarity) {
 }
 
 function shouldAutoSalvage(item) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.shouldAutoSalvage === "function") return runtime.shouldAutoSalvage(item);
   const setting = state.autoSalvage || {};
   if (!setting.enabled || item.locked || item.setId || item.rarity === "mythic" || item.rarity === "darkGold") return false;
   if (isAbyssEquipment(item) && !(setting.autoDismantleAbyss || state.autoDismantleAbyss)) return false;
@@ -6410,11 +6601,15 @@ function normalizeCardSlots(slots) {
 }
 
 function getMaxEquipmentCardSlots(item = {}) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.getMaxEquipmentCardSlots === "function") return runtime.getMaxEquipmentCardSlots(item);
   const base = CARD_SOCKET_MAX_BY_RARITY[item.rarity || "normal"] || 0;
   return Math.min(5, base + (isAbyssEquipment(item) && base > 0 ? 1 : 0));
 }
 
 function getEquipmentCardSlotCount(item = {}) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.getEquipmentCardSlotCount === "function") return runtime.getEquipmentCardSlotCount(item);
   return normalizeCardSlots(item.cardSlots).length;
 }
 
@@ -6472,6 +6667,8 @@ function computeCardSocketBonuses(item = {}) {
 }
 
 function getCardSocketCost(item = {}) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.getCardSocketCost === "function") return runtime.getCardSocketCost(item);
   const current = getEquipmentCardSlotCount(item);
   const next = current + 1;
   const rarity = item.rarity || "normal";
@@ -6490,6 +6687,8 @@ function getCardSocketChance(item = {}) {
 }
 
 function canAffordSocketCost(cost) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.canAffordSocketCost === "function") return runtime.canAffordSocketCost(cost);
   if (!cost) return false;
   return state.gold >= Number(cost.gold || 0) && hasMaterials(cost.materials || {});
 }
@@ -7094,6 +7293,8 @@ function equipItem(id) {
 }
 
 function salvageItem(id, options = {}) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.salvageItem === "function") return runtime.salvageItem(id, options);
   const item = state.inventory.find((entry) => entry.id === id);
   if (!item) return { ok: false };
   if (item.locked) {
@@ -7115,6 +7316,8 @@ function salvageItem(id, options = {}) {
 }
 
 function getSalvageRewards(item) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.getSalvageRewards === "function") return runtime.getSalvageRewards(item);
   const tier = item.tier || item.rarity || "normal";
   const table = salvageRewards[tier] || salvageRewards.normal;
   const rewards = {};
@@ -7130,6 +7333,8 @@ function getSalvageRewards(item) {
 }
 
 function salvageAllUnequipped() {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.salvageAllUnequipped === "function") return runtime.salvageAllUnequipped();
   const equippedIds = new Set(Object.values(state.equipped).filter(Boolean));
   const targets = state.inventory.filter((item) => !equippedIds.has(item.id) && !item.locked);
   if (!targets.length) {
@@ -7200,6 +7405,8 @@ function getEmpowerCost(item) {
 }
 
 function refineItem(id) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.refineItem === "function") return runtime.refineItem(id);
   const item = state.inventory.find((entry) => entry.id === id);
   if (!item) return;
   const current = item.refine || 0;
@@ -7260,6 +7467,8 @@ function refineItem(id) {
 }
 
 function snapshotRefineStats(item) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.snapshotRefineStats === "function") return runtime.snapshotRefineStats(item);
   const stats = getEffectiveItemStats(item);
   return Object.fromEntries(
     Object.entries(stats)
@@ -7268,7 +7477,9 @@ function snapshotRefineStats(item) {
   );
 }
 
-function diffRefineStats(before = {}, after = {}) {
+function diffRefineStats(before = {}, after = {}, statIsPercentFn = statIsPercent) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.diffRefineStats === "function") return runtime.diffRefineStats(before, after);
   const diff = {};
   Object.keys(after).forEach((key) => {
     const delta = Number(((after[key] || 0) - (before[key] || 0)).toFixed(statIsPercent(key) ? 3 : 0));
@@ -7277,7 +7488,7 @@ function diffRefineStats(before = {}, after = {}) {
   return diff;
 }
 
-function renderRefineStatDelta(delta = {}) {
+function renderRefineStatDelta(delta = {}) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderRefineStatDelta === "function") return runtime.renderRefineStatDelta(delta);
   return Object.entries(delta)
     .map(([stat, value]) => statLabel(stat, value))
     .filter(Boolean)
@@ -7285,11 +7496,15 @@ function renderRefineStatDelta(delta = {}) {
 }
 
 function getRefineChance(nextStar, item = null) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.getRefineChance === "function") return runtime.getRefineChance(nextStar, item);
   const chances = [1, 0.9, 0.82, 0.74, 0.66, 0.58, 0.5, 0.42, 0.35, 0.29, 0.23, 0.18, 0.14, 0.1, 0.07];
   return Math.min(0.85, (chances[nextStar - 1] || 0.05) + (item ? (item.refineFailCount || 0) * 0.015 : 0));
 }
 
 function getRefineCost(item) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.getRefineCost === "function") return runtime.getRefineCost(item);
   const next = (item.refine || 0) + 1;
   if (next <= 3) return { dust: 2 + next };
   if (next <= 6) return { ore: 2 + next, dust: 2 };
@@ -7310,6 +7525,8 @@ function consumeMaterials(cost) {
 }
 
 function equipBest() {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.equipBest === "function") return runtime.equipBest();
   ["weapon", "armor", "headgear", "shoes", "trinket"].forEach((slot) => {
     const best = state.inventory
       .filter((item) => equipmentSlot(item) === slot)
@@ -7438,7 +7655,7 @@ function closeOfflineRewardModal() {
   renderOfflineRewardModal();
 }
 
-function renderOfflineRewardModal() {
+function renderOfflineRewardModal() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderOfflineRewardModal === "function") return runtime.renderOfflineRewardModal();
   if (!els.offlineRewardModal || !els.offlineRewardBody) return;
   const visible = offlineRewardModalOpen;
   els.offlineRewardModal.classList.toggle("hidden", !visible);
@@ -7477,7 +7694,7 @@ function getRefineMilestone(level) {
   return null;
 }
 
-function renderRefineResultModal() {
+function renderRefineResultModal() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderRefineResultModal === "function") return runtime.renderRefineResultModal();
   if (!els.refineResultModal || !els.refineResultBody || !els.refineResultTitle) return;
   const visible = Boolean(refineResultState);
   els.refineResultModal.classList.toggle("hidden", !visible);
@@ -7542,6 +7759,8 @@ function renderRefineResultModal() {
 }
 
 function resetSave() {
+  const runtime = window.RuneFrontierStateRuntime;
+  if (runtime && typeof runtime.resetSave === "function") return runtime.resetSave();
   const ok = window.confirm("确定重置当前存档？");
   if (!ok) return;
   localStorage.removeItem(SAVE_KEY);
@@ -7556,6 +7775,10 @@ function resetSave() {
 }
 
 function buildOfflineReward(seconds) {
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.buildOfflineReward === "function") {
+    return runtime.buildOfflineReward(seconds);
+  }
   return calculateOfflineRewards(state.hero, Math.max(0, seconds) * 1000, currentMap().id);
 }
 
@@ -7869,6 +8092,14 @@ function mergeMaterialObjects(a = {}, b = {}) {
 }
 
 function calculateOfflineRewards(character, offlineMs, mapId) {
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.calculateOfflineRewards === "function") {
+    return runtime.calculateOfflineRewards(character, offlineMs, mapId);
+  }
+  return legacyCalculateOfflineRewards(character, offlineMs, mapId);
+}
+
+function legacyCalculateOfflineRewards(character, offlineMs, mapId) {
   const rewards = defaultOfflineRewards();
   const durationMs = Math.max(0, Math.floor(offlineMs || 0));
   const cappedDurationMs = Math.min(durationMs, (MAX_OFFLINE_SECONDS + (getVipMilestoneBonuses().offlineHoursBonus || 0) * 3600) * 1000);
@@ -7925,6 +8156,14 @@ function estimateMapAverageMonsterHp(map) {
 }
 
 function buildOfflineMonsterStats(map) {
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.buildOfflineMonsterStats === "function") {
+    return runtime.buildOfflineMonsterStats(map);
+  }
+  return legacyBuildOfflineMonsterStats(map);
+}
+
+function legacyBuildOfflineMonsterStats(map) {
   const template = pickMonsterTemplate(map, false);
   const level = rollMonsterLevel(map, false, template);
   const previousMutation = state.enemyMutationId;
@@ -8141,7 +8380,7 @@ function rollOfflineMutationExtraDrops(rewards, stats, map, mutationKills) {
   return legacyRollOfflineMutationExtraDrops(rewards, stats, map, mutationKills);
 }
 
-function renderOfflineRewardSummary(rewards) {
+function renderOfflineRewardSummary(rewards) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderOfflineRewardSummary === "function") return runtime.renderOfflineRewardSummary(rewards);
   try {
     return renderLootSummaryCard(normalizeLootRewards(rewards));
   } catch (error) {
@@ -8190,7 +8429,7 @@ function normalizeLootRewards(input = {}) {
   return legacyNormalizeLootRewards(input);
 }
 
-function renderLootSummaryCard(rewards) {
+function renderLootSummaryCard(rewards) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderLootSummaryCard === "function") return runtime.renderLootSummaryCard(rewards);
   const hasAny = rewards.seconds > 0 || rewards.gold > 0 || rewards.baseExp > 0 || rewards.jobExp > 0 || rewards.materials.length || rewards.cards.length || rewards.equipment.length || rewards.pendingEquipment.length || offlineObjectTotal(rewards.salvagedMaterials) > 0;
   if (!hasAny) {
     return `<article class="loot-modal"><div class="loot-empty"><h3>暂无战利品</h3><p>如果你刚上线，请等待离线收益结算完成。</p></div></article>`;
@@ -8239,34 +8478,34 @@ function renderLootSummaryMini(label, value) {
   return `<div class="loot-summary-card"><span>${escapeHtml(label)}</span><strong>${formatNumber(value || 0)}</strong></div>`;
 }
 
-function renderLootMaterialSection(materials = []) {
+function renderLootMaterialSection(materials = []) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderLootMaterialSection === "function") return runtime.renderLootMaterialSection(materials);
   if (!Array.isArray(materials) || !materials.length) return "";
   return `<section class="loot-section"><h3 class="loot-section-title">材料</h3><div class="loot-item-grid">${materials.map(renderOfflineMaterialChip).join("")}</div></section>`;
 }
 
-function renderLootSalvageSection(materials = {}) {
+function renderLootSalvageSection(materials = {}) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderLootSalvageSection === "function") return runtime.renderLootSalvageSection(materials);
   const list = offlineMaterialObjectToList(materials || {});
   if (!list.length) return "";
   return `<section class="loot-section"><h3 class="loot-section-title">自动分解</h3><div class="loot-item-grid">${list.map((item) => renderOfflineMaterialChip(item, "loot-material-chip")).join("")}</div></section>`;
 }
 
-function renderLootCardSection(cards = []) {
+function renderLootCardSection(cards = []) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderLootCardSection === "function") return runtime.renderLootCardSection(cards);
   if (!Array.isArray(cards) || !cards.length) return "";
   return `<section class="loot-section"><h3 class="loot-section-title">卡片</h3><div class="loot-item-grid">${cards.map((card) => `<div class="loot-equipment-row">${renderItemName({ name: card.name || card.cardId || "未知卡片", rarity: card.rarity || "rare" })}<small>×${formatNumber(card.qty || 0)}</small></div>`).join("")}</div></section>`;
 }
 
-function renderLootEquipmentSection(equipment = [], title = "装备") {
+function renderLootEquipmentSection(equipment = [], title = "装备") { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderLootEquipmentSection === "function") return runtime.renderLootEquipmentSection(equipment, title);
   if (!Array.isArray(equipment) || !equipment.length) return "";
   const sorted = sortOfflineEquipment(equipment).slice(0, 8);
   return `<section class="loot-section"><h3 class="loot-section-title">${escapeHtml(title)}</h3><div class="loot-item-grid">${sorted.map((item) => renderOfflineEquipmentItem(item)).join("")}</div>${equipment.length > sorted.length ? `<p class="loot-empty">还有 ${formatNumber(equipment.length - sorted.length)} 件装备</p>` : ""}</section>`;
 }
 
-function renderLootPendingSection(equipment = []) {
+function renderLootPendingSection(equipment = []) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderLootPendingSection === "function") return runtime.renderLootPendingSection(equipment);
   if (!Array.isArray(equipment) || !equipment.length) return "";
   return `<section class="loot-section loot-pending-warning"><h3 class="loot-section-title">待领取装备（${formatNumber(equipment.length)}）</h3><p>背包已满，以下装备已暂存，收益没有丢失。清理背包后可继续领取。</p><div class="loot-item-grid">${equipment.slice(0, 8).map((item) => renderOfflineEquipmentItem(item)).join("")}</div>${equipment.length > 8 ? `<p class="loot-empty">还有 ${formatNumber(equipment.length - 8)} 件待领取装备</p>` : ""}</section>`;
 }
 
-function renderOfflineOverview(rewards, claimedEquipment, pendingEquipment) {
+function renderOfflineOverview(rewards, claimedEquipment, pendingEquipment) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderOfflineOverview === "function") return runtime.renderOfflineOverview(rewards, claimedEquipment, pendingEquipment);
   const materialTotal = offlineListTotal(rewards.materials);
   const cardTotal = offlineListTotal(rewards.cards);
   const salvageTotal = offlineObjectTotal(rewards.autoSalvagedMaterials);
@@ -8284,7 +8523,7 @@ function renderOfflineOverview(rewards, claimedEquipment, pendingEquipment) {
   `;
 }
 
-function renderOfflineOverviewCard(label, value, type) {
+function renderOfflineOverviewCard(label, value, type) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderOfflineOverviewCard === "function") return runtime.renderOfflineOverviewCard(label, value, type);
   return `
     <div class="offline-overview-card offline-overview-${type}">
       <span>${escapeHtml(label)}</span>
@@ -8293,7 +8532,7 @@ function renderOfflineOverviewCard(label, value, type) {
   `;
 }
 
-function renderOfflineGoldExpSection(rewards) {
+function renderOfflineGoldExpSection(rewards) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderOfflineGoldExpSection === "function") return runtime.renderOfflineGoldExpSection(rewards);
   return `
     <section class="offline-reward-section offline-gold-exp-section">
       <div class="offline-reward-section-title">金币与经验</div>
@@ -8307,7 +8546,7 @@ function renderOfflineGoldExpSection(rewards) {
   `;
 }
 
-function renderOfflineMaterialSection(rewards) {
+function renderOfflineMaterialSection(rewards) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderOfflineMaterialSection === "function") return runtime.renderOfflineMaterialSection(rewards);
   const materials = rewards.materials || [];
   if (!materials.length) return renderOfflineEmptySection("材料", "无材料掉落");
   return `
@@ -8320,7 +8559,7 @@ function renderOfflineMaterialSection(rewards) {
   `;
 }
 
-function renderOfflineSalvageSection(rewards) {
+function renderOfflineSalvageSection(rewards) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderOfflineSalvageSection === "function") return runtime.renderOfflineSalvageSection(rewards);
   const materials = offlineMaterialObjectToList(rewards.autoSalvagedMaterials || {});
   if (!materials.length) return "";
   return `
@@ -8334,7 +8573,7 @@ function renderOfflineSalvageSection(rewards) {
   `;
 }
 
-function renderOfflineCardSection(rewards) {
+function renderOfflineCardSection(rewards) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderOfflineCardSection === "function") return runtime.renderOfflineCardSection(rewards);
   const cards = rewards.cards || [];
   if (!cards.length) return renderOfflineEmptySection("卡片", "无卡片掉落");
   return `
@@ -8357,7 +8596,7 @@ function renderOfflineCardSection(rewards) {
   `;
 }
 
-function renderOfflineEquipmentSection(equipment, title) {
+function renderOfflineEquipmentSection(equipment, title) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderOfflineEquipmentSection === "function") return runtime.renderOfflineEquipmentSection(equipment, title);
   const sorted = sortOfflineEquipment(equipment || []);
   if (!sorted.length) return renderOfflineEmptySection(title, "无装备掉落");
   const visible = sorted.slice(0, 6);
@@ -8373,7 +8612,7 @@ function renderOfflineEquipmentSection(equipment, title) {
   `;
 }
 
-function renderOfflinePendingEquipmentSection(equipment) {
+function renderOfflinePendingEquipmentSection(equipment) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderOfflinePendingEquipmentSection === "function") return runtime.renderOfflinePendingEquipmentSection(equipment);
   const sorted = sortOfflineEquipment(equipment || []);
   if (!sorted.length) return "";
   return `
@@ -8388,7 +8627,7 @@ function renderOfflinePendingEquipmentSection(equipment) {
   `;
 }
 
-function renderOfflineEquipmentItem(item) {
+function renderOfflineEquipmentItem(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderOfflineEquipmentItem === "function") return runtime.renderOfflineEquipmentItem(item);
   const setText = item.setName ? `<small>${renderSetName(item.setName)}</small>` : "";
   return `
     <div class="offline-loot-item ${offlineHighlightClass(item)}">
@@ -8402,7 +8641,7 @@ function renderOfflineEquipmentItem(item) {
   `;
 }
 
-function renderOfflineMaterialChip(material, extraClass = "") {
+function renderOfflineMaterialChip(material, extraClass = "") { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderOfflineMaterialChip === "function") return runtime.renderOfflineMaterialChip(material, extraClass);
   const rarity = material.rarity || MATERIAL_DB[material.materialId]?.rarity || "normal";
   const name = material.name || materialNames[material.materialId] || material.materialId;
   return `
@@ -8417,7 +8656,7 @@ function renderOfflineMaterialChip(material, extraClass = "") {
   `;
 }
 
-function renderOfflineEmptySection(title, text) {
+function renderOfflineEmptySection(title, text) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderOfflineEmptySection === "function") return runtime.renderOfflineEmptySection(title, text);
   return `
     <section class="offline-reward-section offline-empty-section">
       <div class="offline-reward-section-title">${escapeHtml(title)}</div>
@@ -8661,6 +8900,8 @@ function getPassiveSkillTotals() {
 }
 
 function getVipBonuses(level = state.vip?.level || 0) {
+  const runtime = window.RuneFrontierVipRuntime;
+  if (runtime && typeof runtime.getVipBonuses === "function") return runtime.getVipBonuses(level);
   const capped = clampNumber(Math.floor(level || 0), 0, VIP_MAX_LEVEL);
   return {
     gold: capped * VIP_BONUS_PER_LEVEL.gold,
@@ -8670,6 +8911,8 @@ function getVipBonuses(level = state.vip?.level || 0) {
 }
 
 function getVipProgressInfo(vipInput = state.vip) {
+  const runtime = window.RuneFrontierVipRuntime;
+  if (runtime && typeof runtime.getVipProgressInfo === "function") return runtime.getVipProgressInfo(vipInput);
   const vip = normalizeVip(vipInput);
   const level = clampNumber(Math.floor(vip.level || 0), 0, VIP_MAX_LEVEL);
   const totalExp = Math.max(0, Math.floor(vip.totalExp || vip.exp || 0));
@@ -8701,6 +8944,8 @@ function getVipProgressInfo(vipInput = state.vip) {
 }
 
 function getVipMilestoneBonuses(level = state.vip?.level || 0) {
+  const runtime = window.RuneFrontierVipRuntime;
+  if (runtime && typeof runtime.getVipMilestoneBonuses === "function") return runtime.getVipMilestoneBonuses(level);
   const capped = clampNumber(Math.floor(level || 0), 0, VIP_MAX_LEVEL);
   const bonuses = {};
   Object.entries(VIP_MILESTONE_BONUSES).forEach(([ml, bonus]) => {
@@ -8710,21 +8955,29 @@ function getVipMilestoneBonuses(level = state.vip?.level || 0) {
 }
 
 function getUnlockedVipMilestones(level = state.vip?.level || 0) {
+  const runtime = window.RuneFrontierVipRuntime;
+  if (runtime && typeof runtime.getUnlockedVipMilestones === "function") return runtime.getUnlockedVipMilestones(level);
   const capped = clampNumber(Math.floor(level || 0), 0, VIP_MAX_LEVEL);
   return Object.entries(VIP_MILESTONE_BONUSES).filter(([ml]) => capped >= Number(ml)).map(([ml, b]) => ({ level: Number(ml), ...b }));
 }
 
 function getNextVipMilestone(level = state.vip?.level || 0) {
+  const runtime = window.RuneFrontierVipRuntime;
+  if (runtime && typeof runtime.getNextVipMilestone === "function") return runtime.getNextVipMilestone(level);
   const capped = clampNumber(Math.floor(level || 0), 0, VIP_MAX_LEVEL);
   const next = Object.entries(VIP_MILESTONE_BONUSES).find(([ml]) => capped < Number(ml));
   return next ? { level: Number(next[0]), ...next[1] } : null;
 }
 
 function getInventoryLimit() {
+  const runtime = window.RuneFrontierVipRuntime;
+  if (runtime && typeof runtime.getInventoryLimit === "function") return runtime.getInventoryLimit();
   return INVENTORY_LIMIT + (getVipMilestoneBonuses().inventoryLimitBonus || 0);
 }
 
 function claimVipDailyGift() {
+  const runtime = window.RuneFrontierVipRuntime;
+  if (runtime && typeof runtime.claimVipDailyGift === "function") return runtime.claimVipDailyGift();
   state.vip = normalizeVip(state.vip);
   if (state.vip.dailyGiftClaimed === todayKey()) { showToast("今日礼包已领取"); return; }
   let giftLevel = 0;
@@ -9002,7 +9255,7 @@ function calculatePower({ attrs, equip, battleStats, setBonuses }) {
   );
 }
 
-function renderSetTalentStatus() {
+function renderSetTalentStatus() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderSetTalentStatus === "function") return runtime.renderSetTalentStatus();
   const bonuses = computeSetBonuses();
   const chips = Object.values(equipmentSets)
     .filter((set) => (bonuses.pieceCounts[set.id] || 0) > 0)
@@ -9087,6 +9340,8 @@ function getCardStats() {
 }
 
 function renderAll() {
+  const runtime = window.RuneFrontierRenderRuntime;
+  if (runtime && typeof runtime.renderAll === "function") return runtime.renderAll();
   const stats = computeStats();
   els.mapName.textContent = currentMap().name;
   els.goldValue.textContent = formatNumber(state.gold);
@@ -9116,6 +9371,8 @@ function renderAll() {
 }
 
 function renderPages() {
+  const runtime = window.RuneFrontierRenderRuntime;
+  if (runtime && typeof runtime.renderPages === "function") return runtime.renderPages();
   document.querySelectorAll(".page-tabs button").forEach((button) => {
     button.classList.toggle("active", button.dataset.page === activePage);
   });
@@ -9129,7 +9386,7 @@ let autoSalvageBatchCount = 0;
 let autoSalvageBatchMaterials = {};
 let autoSalvageBatchLastFlush = 0;
 
-function renderCombatSidebar() {
+function renderCombatSidebar() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderCombatSidebar === "function") return runtime.renderCombatSidebar();
   if (!els.combatSidebar) return;
   const now = Date.now();
   if (now - combatSidebarLastRender < 2000) return;
@@ -9155,6 +9412,8 @@ function renderCombatSidebar() {
 }
 
 function renderCombatLootFeed() {
+  const runtime = window.RuneFrontierRenderRuntime;
+  if (runtime && typeof runtime.renderCombatLootFeed === "function") return runtime.renderCombatLootFeed();
   const rows = buildLootFeedFromRecentLoot()
     .sort((a, b) => b.time - a.time || lootFeedRank(b) - lootFeedRank(a))
     .slice(0, 7)
@@ -9195,7 +9454,7 @@ function buildLootFeedFromRecentLoot() {
   return rows;
 }
 
-function renderCombatLootRow(item) {
+function renderCombatLootRow(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderCombatLootRow === "function") return runtime.renderCombatLootRow(item);
   const meta = lootSourceMeta(item.source);
   const kind = lootKindMeta(item.kind);
   const isNew = Date.now() - Number(item.time || 0) < 5000;
@@ -9231,6 +9490,8 @@ function lootFeedRank(item) {
 }
 
 function renderEncounterPanel() {
+  const runtime = window.RuneFrontierRenderRuntime;
+  if (runtime && typeof runtime.renderEncounterPanel === "function") return runtime.renderEncounterPanel();
   const group = normalizeEnemyGroup(state.enemyGroup);
   if (!group || !group.monsters.length) return "";
   const living = group.monsters.filter((monster) => monster.alive).length;
@@ -9260,6 +9521,8 @@ function renderEncounterPanel() {
 }
 
 function renderFast() {
+  const runtime = window.RuneFrontierRenderRuntime;
+  if (runtime && typeof runtime.renderFast === "function") return runtime.renderFast();
   const stats = computeStats();
   updateActiveEnemyHpInGroup();
   renderCombatSidebar();
@@ -9335,6 +9598,8 @@ function renderFast() {
 }
 
 function renderFormation() {
+  const runtime = window.RuneFrontierRenderRuntime;
+  if (runtime && typeof runtime.renderFormation === "function") return runtime.renderFormation();
   ["front", "mid", "back"].forEach((slot) => {
     const button = document.querySelector(`.slot[data-slot="${slot}"]`);
     button.classList.toggle("active", selectedSlot === slot);
@@ -9364,12 +9629,14 @@ function statLine(label, value, statKey = "", options = {}) {
 }
 
 function renderStatGroup(title, rows) {
+  const runtime = window.RuneFrontierRenderRuntime;
+  if (runtime && typeof runtime.renderStatGroup === "function") return runtime.renderStatGroup(title, rows);
   const content = rows.filter(Boolean).join("");
   if (!content) return "";
   return `<section class="hero-stat-section"><strong>${escapeHtml(title)}</strong><div class="stat-grid">${content}</div></section>`;
 }
 
-function renderCharacterStatSections(stats = computeStats()) {
+function renderCharacterStatSections(stats = computeStats()) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderCharacterStatSections === "function") return runtime.renderCharacterStatSections(stats);
   const attrs = stats.attrs || {};
   return `<div class="character-stat-panels">
     ${renderStatGroup("基础属性", [
@@ -9464,7 +9731,7 @@ function estimateRefineSourceStats() {
   }, {});
 }
 
-function renderCharacterStatBreakdown(stats = computeStats()) {
+function renderCharacterStatBreakdown(stats = computeStats()) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderCharacterStatBreakdown === "function") return runtime.renderCharacterStatBreakdown(stats);
   const breakdown = getCharacterStatBreakdown(stats);
   const rows = Object.entries(breakdown.sources || {}).map(([source, values]) => {
     const text = Object.entries(values || {})
@@ -9484,7 +9751,7 @@ function renderCharacterStatBreakdown(stats = computeStats()) {
   </section>`;
 }
 
-function renderHeroes() {
+function renderHeroes() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderHeroes === "function") return runtime.renderHeroes();
   const stats = computeStats();
   const job = currentJob();
   const nextSkill = getNextJobSkill();
@@ -9560,7 +9827,7 @@ function renderHeroes() {
   `;
 }
 
-function renderPowerSourcePanel(stats) {
+function renderPowerSourcePanel(stats) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderPowerSourcePanel === "function") return runtime.renderPowerSourcePanel(stats);
   const equip = computeEquipmentFullStats();
   const setBonuses = stats.setBonuses || {};
   const cardStats = getCardStats();
@@ -9623,7 +9890,7 @@ function renderPowerSourcePanel(stats) {
   </section>`;
 }
 
-function renderTown() {
+function renderTown() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderTown === "function") return runtime.renderTown();
   const canFirst = state.hero.jobId === "novice" && state.hero.jobLevel >= 10;
   const nextJobId = getNextJobId();
   const canAdvance = Boolean(nextJobId) && state.hero.jobLevel >= 50;
@@ -9654,13 +9921,13 @@ function renderTown() {
   }
 }
 
-function renderSmithy() {
+function renderSmithy() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderSmithy === "function") return runtime.renderSmithy();
   const html = renderSmithyContent();
   if (els.smithySetList) els.smithySetList.innerHTML = html;
   return html;
 }
 
-function renderSmithyContent() {
+function renderSmithyContent() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderSmithyContent === "function") return runtime.renderSmithyContent();
   const tabs = [
     ["enhance", "装备精炼"],
     ["star", "装备星炼"],
@@ -9743,7 +10010,7 @@ function renderSmithyContent() {
   `;
 }
 
-function renderStarRefineSmithyPanel() {
+function renderStarRefineSmithyPanel() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderStarRefineSmithyPanel === "function") return runtime.renderStarRefineSmithyPanel();
   const items = [...state.inventory]
     .filter((item) => (item.refine || 0) < 15)
     .sort((a, b) => itemScore(b) - itemScore(a))
@@ -9766,7 +10033,7 @@ function renderStarRefineSmithyPanel() {
   }).join("")}</div>`;
 }
 
-function renderCardSocketSmithyPanel() {
+function renderCardSocketSmithyPanel() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderCardSocketSmithyPanel === "function") return runtime.renderCardSocketSmithyPanel();
   const candidates = state.inventory
     .filter((item) => getMaxEquipmentCardSlots(item) > getEquipmentCardSlotCount(item))
     .sort((a, b) => itemScore(b) - itemScore(a))
@@ -9794,7 +10061,7 @@ function renderCardSocketSmithyPanel() {
     .join("")}</div>`;
 }
 
-function renderSmithyMaterialGuide() {
+function renderSmithyMaterialGuide() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderSmithyMaterialGuide === "function") return runtime.renderSmithyMaterialGuide();
   const rows = [
     ["socketStone", "用于普通装备开启孔位。主要来源：商店、Boss、困难地图。"],
     ["advancedSocketStone", "用于高品质装备或第 2 / 第 3 孔。主要来源：Boss、商店、高阶材料。"],
@@ -9811,7 +10078,7 @@ function renderSmithyMaterialGuide() {
   </article>`).join("")}</div>`;
 }
 
-function renderDarkGoldExchangePanel() {
+function renderDarkGoldExchangePanel() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderDarkGoldExchangePanel === "function") return runtime.renderDarkGoldExchangePanel();
   const fragmentCount = state.materials.darkGoldFragment || 0;
   const slotOptions = [
     ["weapon", "武器"],
@@ -9838,7 +10105,7 @@ function renderDarkGoldExchangePanel() {
   </div>`;
 }
 
-function renderDarkGoldExchangeCard(entry, fragmentCount) {
+function renderDarkGoldExchangeCard(entry, fragmentCount) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderDarkGoldExchangeCard === "function") return runtime.renderDarkGoldExchangeCard(entry, fragmentCount);
   const disabled = fragmentCount < entry.cost || state.inventory.length >= getInventoryLimit();
   return `<div class="smithy-item">
     <span class="item-icon rarity-darkGold">暗</span>
@@ -9852,6 +10119,8 @@ function renderDarkGoldExchangeCard(entry, fragmentCount) {
 }
 
 function getEnhanceMilestoneBonuses(item) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.getEnhanceMilestoneBonuses === "function") return runtime.getEnhanceMilestoneBonuses(item);
   const level = item?.enhanceLevel || 0;
   const slot = equipmentSlot(item);
   const bonuses = {};
@@ -9926,7 +10195,7 @@ function renderEnhancePanel() {
   </div>`;
 }
 
-function renderEnhanceEffectText(item) {
+function renderEnhanceEffectText(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEnhanceEffectText === "function") return runtime.renderEnhanceEffectText(item);
   if (!item || !item.enhanceLevel) return "";
   const eff = getEnhanceEffect(item, item.enhanceLevel);
   const ms = getEnhanceMilestoneBonuses(item);
@@ -9943,6 +10212,8 @@ function renderEnhanceEffectText(item) {
 }
 
 function getEnhanceCost(item) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.getEnhanceCost === "function") return runtime.getEnhanceCost(item);
   if (!item) return { materials: {}, gold: 0 };
   const next = (item.enhanceLevel || 0) + 1;
   const slot = equipmentSlot(item);
@@ -9973,6 +10244,8 @@ function getEnhanceCost(item) {
 }
 
 function getEnhanceEffect(item, level) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.getEnhanceEffect === "function") return runtime.getEnhanceEffect(item, level);
   if (!item || !level) return "";
   const slot = equipmentSlot(item);
   const pct = Math.round(level * (slot === "weapon" ? 3 : slot === "armor" ? 2.5 : 2) * 10) / 10;
@@ -9992,6 +10265,8 @@ function getEnhanceEffect(item, level) {
 }
 
 function enhanceItem(itemId) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.enhanceItem === "function") return runtime.enhanceItem(itemId);
   const item = state.inventory.find((i) => i.id === itemId);
   if (!item) return;
   const current = item.enhanceLevel || 0;
@@ -10034,7 +10309,7 @@ function enhanceItem(itemId) {
 }
 
 
-function renderSmithyPage() {
+function renderSmithyPage() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderSmithyPage === "function") return runtime.renderSmithyPage();
   if (!els.smithyPageContent) return;
   els.smithyPageContent.innerHTML = renderSmithyContent();
 }
@@ -10287,7 +10562,7 @@ function getEquipmentSummaryEntries(item, limit = 4) {
     .slice(0, limit);
 }
 
-function renderEquipmentSummaryStats(item, limit = 4) {
+function renderEquipmentSummaryStats(item, limit = 4) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentSummaryStats === "function") return runtime.renderEquipmentSummaryStats(item, limit);
   const entries = getEquipmentSummaryEntries(item, limit);
   if (!entries.length) return `<div class="equipment-card-empty">无核心属性</div>`;
   return `<div class="equipment-summary-grid">${entries
@@ -10295,7 +10570,7 @@ function renderEquipmentSummaryStats(item, limit = 4) {
     .join("")}</div>`;
 }
 
-function renderEquipmentCardScore(item) {
+function renderEquipmentCardScore(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentCardScore === "function") return runtime.renderEquipmentCardScore(item);
   const scores = calculateEquipmentScores(item, currentJob());
   return `<div class="equipment-card-score">
     <span>综合评分</span>
@@ -10303,7 +10578,7 @@ function renderEquipmentCardScore(item) {
   </div>`;
 }
 
-function renderEquipmentStateBadges(item, equipped, nextStar) {
+function renderEquipmentStateBadges(item, equipped, nextStar) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentStateBadges === "function") return runtime.renderEquipmentStateBadges(item, equipped, nextStar);
   const badges = [];
   if (equipped) badges.push("已装备");
   if (item.locked) badges.push("已锁定");
@@ -10332,7 +10607,7 @@ function toggleEquipmentDetailExpanded(key) {
   renderEquipment();
 }
 
-function renderEquipment() {
+function renderEquipment() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipment === "function") return runtime.renderEquipment();
   pruneEquipmentDetailExpandedState();
   els.equippedSlots.innerHTML = ["weapon", "armor", "headgear", "shoes", "trinket"]
     .map((slot) => {
@@ -10415,7 +10690,7 @@ function renderEquipment() {
   `;
 }
 
-function renderEquipmentFilterBar(count) {
+function renderEquipmentFilterBar(count) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentFilterBar === "function") return runtime.renderEquipmentFilterBar(count);
   const filters = [
     ["all", "全部"],
     ["equipped", "已装备"],
@@ -10498,7 +10773,7 @@ function sortEquipmentList(items) {
   return indexed.map((entry) => entry.item);
 }
 
-function renderEquipmentBatchPanel() {
+function renderEquipmentBatchPanel() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentBatchPanel === "function") return runtime.renderEquipmentBatchPanel();
   return `<div class="slot-card equipment-batch-card">
     <span class="slot-name">装备批量处理</span>
     <p class="slot-meta">批量操作会跳过已穿戴、已锁定和高价值风险装备。</p>
@@ -10582,7 +10857,7 @@ function equipmentVisualClass(item) {
     .join(" ");
 }
 
-function renderEquipmentBadges(item) {
+function renderEquipmentBadges(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentBadges === "function") return runtime.renderEquipmentBadges(item);
   const subTypeName = equipmentSubTypeName(item);
   const badges = [
     { text: rarityName(item.rarity), cls: "equipment-badge-rarity" },
@@ -10595,7 +10870,7 @@ function renderEquipmentBadges(item) {
   return `<div class="equipment-badge-row">${badges.map((badge) => `<span class="equipment-badge ${badge.cls}">${escapeHtml(badge.text)}</span>`).join("")}</div>`;
 }
 
-function renderMaps() {
+function renderMaps() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderMaps === "function") return runtime.renderMaps();
   els.mapList.innerHTML = maps
     .map((map, index) => {
       const locked = index > state.bestMap;
@@ -10663,7 +10938,7 @@ function renderMaps() {
     .join("");
 }
 
-function renderCards() {
+function renderCards() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderCards === "function") return runtime.renderCards();
   const cards = [...cardPool].sort((a, b) => {
     const favDelta = Number(Boolean(state.cardFavorites[b.id])) - Number(Boolean(state.cardFavorites[a.id]));
     return favDelta || a.map - b.map;
@@ -10702,7 +10977,7 @@ function renderCards() {
     .join("");
 }
 
-function renderBossCardSynthesis() {
+function renderBossCardSynthesis() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderBossCardSynthesis === "function") return runtime.renderBossCardSynthesis();
   const shardCount = Number(state.materials?.bossCardShard || 0);
   return `
     <section class="card-type-section boss-card-synthesis">
@@ -10790,7 +11065,7 @@ function cardUsageText(type, card = {}) {
 let codexActiveTab = "monster";
 let shopActiveTab = "normal";
 
-function renderCodex() {
+function renderCodex() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderCodex === "function") return runtime.renderCodex();
   if (!els.codexContent) return;
   els.codexContent.innerHTML = (codexActiveTab === "monster" ? renderCodexBonusesSummary() + renderMonsterCodex() : renderCodexBonusesSummary() + renderCardCodex());
   document.querySelectorAll(".codex-tab-btn").forEach((btn) => {
@@ -10799,6 +11074,8 @@ function renderCodex() {
 }
 
 function buildMonsterNameMap() {
+  const runtime = window.RuneFrontierCodexRuntime;
+  if (runtime && typeof runtime.buildMonsterNameMap === "function") return runtime.buildMonsterNameMap();
   const map = {};
   Object.values(mapMonsterConfig || {}).forEach((cfg) => {
     (cfg.monsters || []).forEach((m) => { if (m && m.id) map[m.id] = m.name || m.id; });
@@ -10809,6 +11086,8 @@ function buildMonsterNameMap() {
 }
 
 function buildMonsterSourceMap() {
+  const runtime = window.RuneFrontierCodexRuntime;
+  if (runtime && typeof runtime.buildMonsterSourceMap === "function") return runtime.buildMonsterSourceMap();
   const map = {};
   Object.entries(mapMonsterConfig || {}).forEach(([, cfg]) => {
     const mapName = cfg.name || "";
@@ -10822,12 +11101,16 @@ function buildMonsterSourceMap() {
 }
 
 function buildMonsterCardDropMap() {
+  const runtime = window.RuneFrontierCodexRuntime;
+  if (runtime && typeof runtime.buildMonsterCardDropMap === "function") return runtime.buildMonsterCardDropMap();
   const map = {};
   cardPool.forEach((c) => { if (c.monsterId) { if (!map[c.monsterId]) map[c.monsterId] = []; map[c.monsterId].push(c.name || c.id); } });
   return map;
 }
 
 function getMonsterTypeLabel(id) {
+  const runtime = window.RuneFrontierCodexRuntime;
+  if (runtime && typeof runtime.getMonsterTypeLabel === "function") return runtime.getMonsterTypeLabel(id);
   let type = null;
   Object.values(mapMonsterConfig || {}).forEach((cfg) => {
     if (cfg.bossTemplate && cfg.bossTemplate.id === id) type = cfg.name && cfg.name.includes("深渊") ? "深渊Boss" : "Boss";
@@ -10840,7 +11123,7 @@ function getMonsterTypeLabel(id) {
   return type || "普通";
 }
 
-function renderMonsterCodex() {
+function renderMonsterCodex() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderMonsterCodex === "function") return runtime.renderMonsterCodex();
   const nameMap = buildMonsterNameMap();
   const sourceMap = buildMonsterSourceMap();
   const cardDropMap = buildMonsterCardDropMap();
@@ -10891,7 +11174,7 @@ function renderMonsterCodex() {
   }).join("")}</div>`;
 }
 
-function renderCardCodex() {
+function renderCardCodex() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderCardCodex === "function") return runtime.renderCardCodex();
   const allCards = cardPool.map((c) => {
     const data = state.cardCodex[c.id] || { obtained: false, obtainCount: 0, rewardsClaimed: {} };
     return { id: c.id, name: c.name, rarity: c.rarity || "rare", ...data };
@@ -10925,6 +11208,8 @@ function renderCardCodex() {
 }
 
 function claimCodexReward(type, monsterId, milestone) {
+  const runtime = window.RuneFrontierCodexRuntime;
+  if (runtime && typeof runtime.claimCodexReward === "function") return runtime.claimCodexReward(type, monsterId, milestone);
   const num = Number(milestone);
   if (type === "monster") {
     const entry = state.monsterCodex[monsterId] || { killCount: 0, rewardsClaimed: {} };
@@ -10960,6 +11245,8 @@ function claimCodexReward(type, monsterId, milestone) {
 }
 
 function getCodexBonusStats() {
+  const runtime = window.RuneFrontierCodexRuntime;
+  if (runtime && typeof runtime.getCodexBonusStats === "function") return runtime.getCodexBonusStats();
   const stats = { goldBonus: 0, expBonus: 0, dropBonus: 0, materialDropBonus: 0, hpBonus: 0, defBonus: 0, critRateBonus: 0, bossDamage: 0, bossDamageReduction: 0, bossEquipDropBonus: 0, bossQualityWeight: 0, abyssDamage: 0, abyssDamageReduction: 0, abyssMaterialDropBonus: 0, mythicQualityWeight: 0, cardDamage: 0, eliteDamageBonus: 0 };
   Object.entries(state.monsterCodex || {}).forEach(([monsterId, data]) => {
     const mType = getMonsterTypeForCodex(monsterId);
@@ -10977,22 +11264,30 @@ function getCodexBonusStats() {
 }
 
 function getMonsterMasteryLevel(killCount) {
+  const runtime = window.RuneFrontierCodexRuntime;
+  if (runtime && typeof runtime.getMonsterMasteryLevel === "function") return runtime.getMonsterMasteryLevel(killCount);
   const kc = Number(killCount) || 0;
   for (let i = CODEX_MASTERY_THRESHOLDS.length - 1; i > 0; i -= 1) if (kc >= CODEX_MASTERY_THRESHOLDS[i]) return i;
   return 0;
 }
 
 function getCardResearchLevel(obtainCount) {
+  const runtime = window.RuneFrontierCodexRuntime;
+  if (runtime && typeof runtime.getCardResearchLevel === "function") return runtime.getCardResearchLevel(obtainCount);
   const oc = Number(obtainCount) || 0;
   for (let i = CODEX_RESEARCH_THRESHOLDS.length - 1; i > 0; i -= 1) if (oc >= CODEX_RESEARCH_THRESHOLDS[i]) return i;
   return 0;
 }
 
 function getMonsterTypeForCodex(monsterId) {
+  const runtime = window.RuneFrontierCodexRuntime;
+  if (runtime && typeof runtime.getMonsterTypeForCodex === "function") return runtime.getMonsterTypeForCodex(monsterId);
   return getMonsterTypeLabel(monsterId) === "Boss" ? "boss" : getMonsterTypeLabel(monsterId) === "深渊Boss" ? "abyssBoss" : getMonsterTypeLabel(monsterId) === "深渊怪" ? "abyss" : getMonsterTypeLabel(monsterId) === "精英" ? "elite" : "normal";
 }
 
 function getCardTypeForCodex(cardId) {
+  const runtime = window.RuneFrontierCodexRuntime;
+  if (runtime && typeof runtime.getCardTypeForCodex === "function") return runtime.getCardTypeForCodex(cardId);
   const card = cardPool.find((c) => c.id === cardId);
   if (!card) return "normal";
   const type = getCardType(card);
@@ -11002,6 +11297,8 @@ function getCardTypeForCodex(cardId) {
 }
 
 function getCodexBonuses() {
+  const runtime = window.RuneFrontierCodexRuntime;
+  if (runtime && typeof runtime.getCodexBonuses === "function") return runtime.getCodexBonuses();
   const bonuses = {
     goldBonus: 0, expBonus: 0, dropBonus: 0, materialDropBonus: 0, hpBonus: 0, defBonus: 0,
     critRateBonus: 0, bossDamage: 0, bossDamageReduction: 0, bossEquipDropBonus: 0, bossQualityWeight: 0,
@@ -11048,13 +11345,15 @@ function getCodexBonuses() {
 }
 
 function getTotalCodexLevel() {
+  const runtime = window.RuneFrontierCodexRuntime;
+  if (runtime && typeof runtime.getTotalCodexLevel === "function") return runtime.getTotalCodexLevel();
   let sum = 0;
   Object.values(state.monsterCodex || {}).forEach((d) => { sum += getMonsterMasteryLevel(d.killCount || 0); });
   Object.values(state.cardCodex || {}).forEach((d) => { sum += getCardResearchLevel(d.obtainCount || 0); });
   return Math.floor(sum / 10);
 }
 
-function renderCodexBonusesSummary() {
+function renderCodexBonusesSummary() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderCodexBonusesSummary === "function") return runtime.renderCodexBonusesSummary();
   const b = getCodexBonuses();
   const tl = getTotalCodexLevel();
   const monsterSum = Object.values(state.monsterCodex || {}).reduce((s, d) => s + getMonsterMasteryLevel(d.killCount || 0), 0);
@@ -11069,6 +11368,8 @@ function renderCodexBonusesSummary() {
 }
 
 function normalizeShopState() {
+  const runtime = window.RuneFrontierShopRuntime;
+  if (runtime && typeof runtime.normalizeShopState === "function") return runtime.normalizeShopState();
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
   const day = now.getDay();
@@ -11087,6 +11388,8 @@ function normalizeShopState() {
 }
 
 function getShopPurchaseCount(itemId, type) {
+  const runtime = window.RuneFrontierShopRuntime;
+  if (runtime && typeof runtime.getShopPurchaseCount === "function") return runtime.getShopPurchaseCount(itemId, type);
   normalizeShopState();
   if (type === "daily") return state.shopState.dailyPurchases[itemId] || 0;
   if (type === "weekly") return state.shopState.weeklyPurchases[itemId] || 0;
@@ -11094,6 +11397,8 @@ function getShopPurchaseCount(itemId, type) {
 }
 
 function formatShopCostItem(id, amount) {
+  const runtime = window.RuneFrontierShopRuntime;
+  if (runtime && typeof runtime.formatShopCostItem === "function") return runtime.formatShopCostItem(id, amount);
   const safeAmount = Number(amount || 0);
   const amountText = Number.isFinite(safeAmount) ? Math.round(safeAmount).toLocaleString("zh-CN") : "0";
   if (id === "gold") return `金币 ${amountText}`;
@@ -11102,12 +11407,16 @@ function formatShopCostItem(id, amount) {
 }
 
 function formatShopCost(cost = {}) {
+  const runtime = window.RuneFrontierShopRuntime;
+  if (runtime && typeof runtime.formatShopCost === "function") return runtime.formatShopCost(cost);
   const entries = Object.entries(cost || {}).filter(([, amount]) => Number(amount || 0) > 0);
   if (!entries.length) return "无消耗";
   return entries.map(([id, amount]) => formatShopCostItem(id, amount)).join(" + ");
 }
 
 function formatShopLimitText(item) {
+  const runtime = window.RuneFrontierShopRuntime;
+  if (runtime && typeof runtime.formatShopLimitText === "function") return runtime.formatShopLimitText(item);
   if (item.totalLimit) return `总计 ${getShopPurchaseCount(item.id, "total")}/${item.totalLimit}`;
   if (item.weeklyLimit) return `本周 ${getShopPurchaseCount(item.id, "weekly")}/${item.weeklyLimit}`;
   if (item.dailyLimit) return `今日 ${getShopPurchaseCount(item.id, "daily")}/${item.dailyLimit}`;
@@ -11115,6 +11424,8 @@ function formatShopLimitText(item) {
 }
 
 function canBuyShopItem(item) {
+  const runtime = window.RuneFrontierShopRuntime;
+  if (runtime && typeof runtime.canBuyShopItem === "function") return runtime.canBuyShopItem(item);
   const tab = shopActiveTab;
   if (item.totalLimit && getShopPurchaseCount(item.id, "total") >= item.totalLimit) return "已售罄";
   if (item.weeklyLimit && getShopPurchaseCount(item.id, "weekly") >= item.weeklyLimit) return "本周已售罄";
@@ -11131,6 +11442,8 @@ function canBuyShopItem(item) {
 }
 
 function buyShopItem(itemId) {
+  const runtime = window.RuneFrontierShopRuntime;
+  if (runtime && typeof runtime.buyShopItem === "function") return runtime.buyShopItem(itemId);
   const tab = shopActiveTab;
   const list = (typeof SHOP_ITEMS !== "undefined" ? SHOP_ITEMS[tab] : null);
   if (!list) return;
@@ -11167,7 +11480,7 @@ function buyShopItem(itemId) {
   save();
 }
 
-function renderShop() {
+function renderShop() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderShop === "function") return runtime.renderShop();
   if (!els.shopContent) return;
   const tab = shopActiveTab;
   const list = (typeof SHOP_ITEMS !== "undefined" ? SHOP_ITEMS[tab] : null) || [];
@@ -11196,7 +11509,7 @@ function renderShop() {
   }).join("")}</div>`;
 }
 
-function renderVip() {
+function renderVip() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderVip === "function") return runtime.renderVip();
   const vip = normalizeVip(state.vip);
   const progressInfo = getVipProgressInfo(vip);
   const bonuses = getVipBonuses(vip.level);
@@ -11256,7 +11569,7 @@ function renderVip() {
   `;
 }
 
-function renderTasks() {
+function renderTasks() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderTasks === "function") return runtime.renderTasks();
   const main = state.quests.active.filter((quest) => quest.category === "main");
   const daily = state.quests.active.filter((quest) => quest.category === "daily");
   els.taskPage.innerHTML = `
@@ -11267,7 +11580,7 @@ function renderTasks() {
   `;
 }
 
-function renderDailyGoals() {
+function renderDailyGoals() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderDailyGoals === "function") return runtime.renderDailyGoals();
   state.dailyGoals = normalizeDailyGoals(state.dailyGoals);
   return `<section class="quest-section daily-goal-section">
     <h3>每日目标</h3>
@@ -11286,7 +11599,7 @@ function renderDailyGoals() {
   </section>`;
 }
 
-function renderAchievementPage() {
+function renderAchievementPage() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderAchievementPage === "function") return runtime.renderAchievementPage();
   const groups = ACHIEVEMENT_DB.reduce((map, achievement) => {
     map[achievement.category] = map[achievement.category] || [];
     map[achievement.category].push(achievement);
@@ -11300,7 +11613,7 @@ function renderAchievementPage() {
   </section>`;
 }
 
-function renderAchievementCard(achievement) {
+function renderAchievementCard(achievement) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderAchievementCard === "function") return runtime.renderAchievementCard(achievement);
   const entry = getAchievementEntry(achievement.id);
   const done = entry.unlocked || entry.progress >= achievement.target;
   return `<article class="achievement-card ${done ? "achievement-done" : ""} ${entry.claimed ? "achievement-claimed" : ""}">
@@ -11331,7 +11644,7 @@ function renderTaskSection(title, quests) {
   </section>`;
 }
 
-function renderTaskCard(quest) {
+function renderTaskCard(quest) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderTaskCard === "function") return runtime.renderTaskCard(quest);
   const done = quest.completed || quest.currentCount >= quest.requiredCount;
   const claimed = quest.claimed;
   const buttonText = claimed ? "已领取" : done ? "领取奖励" : "进行中";
@@ -11368,7 +11681,7 @@ function awakenCard(id) {
   save();
 }
 
-function renderQuestList() {
+function renderQuestList() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderQuestList === "function") return runtime.renderQuestList();
   if (!els.questList) return;
   const progress = progressText();
   els.questList.innerHTML = `
@@ -11387,7 +11700,7 @@ function renderQuestList() {
   `;
 }
 
-function renderPartyList() {
+function renderPartyList() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderPartyList === "function") return runtime.renderPartyList();
   if (!els.partyList) return;
   const stats = computeStats();
   els.partyList.innerHTML = `
@@ -11404,7 +11717,7 @@ function renderPartyList() {
   `;
 }
 
-function renderAdvicePanel(stats = computeStats()) {
+function renderAdvicePanel(stats = computeStats()) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderAdvicePanel === "function") return runtime.renderAdvicePanel(stats);
   const goal = getCurrentGoal(stats);
   const weakness = getPlayerWeakness(stats);
   const actions = getRecommendedActions(stats, weakness).slice(0, 4);
@@ -11472,7 +11785,7 @@ function getCurrentRecommendedScoreGap(stats = computeStats(), gateTarget = null
   })).filter((entry) => entry.required > 0);
 }
 
-function renderRecommendedScoreGap(entries = []) {
+function renderRecommendedScoreGap(entries = []) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderRecommendedScoreGap === "function") return runtime.renderRecommendedScoreGap(entries);
   if (!entries.length) return "";
   return `<div class="advice-focus advice-score-gap">
     <strong>推荐评分</strong>
@@ -11562,7 +11875,7 @@ function getRecommendedActions(stats = computeStats(), weakness = getPlayerWeakn
   return [...new Set(actions)];
 }
 
-function renderLog() {
+function renderLog() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderLog === "function") return runtime.renderLog();
   els.logList.innerHTML = state.log
     .map((entry) => {
       if (typeof entry === "object" && entry.html) return `<li>${entry.html}</li>`;
@@ -12172,7 +12485,7 @@ function getNextJobSkill() {
   return currentJob().skills.find((entry) => state.hero.jobLevel < entry.level) || null;
 }
 
-function renderSkillPanel() {
+function renderSkillPanel() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderSkillPanel === "function") return runtime.renderSkillPanel();
   return `
     <div class="skill-page-header">
       ${renderSkillSummaryCard()}
@@ -12181,7 +12494,7 @@ function renderSkillPanel() {
   `;
 }
 
-function renderTitlePanel() {
+function renderTitlePanel() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderTitlePanel === "function") return runtime.renderTitlePanel();
   state.titles = normalizeTitles(state.titles);
   const equipped = TITLE_DB[state.titles.equipped];
   const titleCards = Object.values(TITLE_DB)
@@ -12205,7 +12518,7 @@ function titleEffectText(effects = {}) {
   return Object.entries(effects).map(([stat, value]) => statLabel(stat, value)).filter(Boolean).join(" · ") || "外观称号";
 }
 
-function renderSkillSummaryCard() {
+function renderSkillSummaryCard() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderSkillSummaryCard === "function") return runtime.renderSkillSummaryCard();
   const job = currentJob();
   const skills = job.skills || [];
   const maxed = skills.filter((entry) => getSkillGrowthEntry(entry).level >= SKILL_MAX_LEVEL).length;
@@ -12223,7 +12536,7 @@ function renderSkillSummaryCard() {
   `;
 }
 
-function renderJobSkills() {
+function renderJobSkills() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderJobSkills === "function") return runtime.renderJobSkills();
   const level = state.hero.jobLevel;
   return currentJob()
     .skills.map((entry) => {
@@ -12292,7 +12605,7 @@ function describeNextSkillMilestone(entry, nextLevel) {
   return row?.text || "技能效果提高";
 }
 
-function renderSkillMilestonePanel(entry, unlocked) {
+function renderSkillMilestonePanel(entry, unlocked) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderSkillMilestonePanel === "function") return runtime.renderSkillMilestonePanel(entry, unlocked);
   if (!unlocked) return "";
   const rows = getSkillMilestoneRows(entry);
   return `<div class="skill-milestone-panel">
@@ -12304,7 +12617,7 @@ function renderSkillMilestonePanel(entry, unlocked) {
   </div>`;
 }
 
-function renderSkillSpecialization(entry, unlocked, growth) {
+function renderSkillSpecialization(entry, unlocked, growth) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderSkillSpecialization === "function") return runtime.renderSkillSpecialization(entry, unlocked, growth);
   if (!unlocked) return "";
   if (growth.level < 15) return `<div class="skill-specialization spec-locked">专精：技能 Lv.15 解锁</div>`;
   const selected = growth.specialization;
@@ -12530,7 +12843,7 @@ function materialInventoryText() {
     .join(" · ");
 }
 
-function renderMaterialGroups() {
+function renderMaterialGroups() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderMaterialGroups === "function") return runtime.renderMaterialGroups();
   const groups = [
     { title: "基础材料", ids: ["dust", "ore", "crystal", "rune"] },
     { title: "精炼 / 星炼材料", ids: ["ancientCore", "starShard", "mythicEssence", "oridecon", "elunium", "enhanceProtect"] },
@@ -12564,7 +12877,7 @@ function renderMaterialGroups() {
   </section>`;
 }
 
-function renderZodiacCollectionPanel() {
+function renderZodiacCollectionPanel() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderZodiacCollectionPanel === "function") return runtime.renderZodiacCollectionPanel();
   const cards = Object.values(equipmentSets)
     .filter((set) => isZodiacSetId(set.id))
     .map((set) => {
@@ -12583,7 +12896,7 @@ function renderZodiacCollectionPanel() {
   return `<section class="slot-card zodiac-collection-panel"><span class="slot-name">星座收藏</span><div class="zodiac-collection-grid">${cards}</div></section>`;
 }
 
-function renderCostumePanel() {
+function renderCostumePanel() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderCostumePanel === "function") return runtime.renderCostumePanel();
   state.costumes = normalizeCostumes(state.costumes);
   const owned = state.costumes.owned.map((id) => COSTUME_DB[id]).filter(Boolean);
   const current = COSTUME_DB[state.costumes.equipped?.back || ""];
@@ -12625,7 +12938,7 @@ function itemAttrText(item) {
   return attrs.join(" · ") || "无属性";
 }
 
-function renderEquipmentUsageTags(item) {
+function renderEquipmentUsageTags(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentUsageTags === "function") return runtime.renderEquipmentUsageTags(item);
   const tags = getEquipmentUsageTags(item, currentJob()).slice(0, 3);
   return `<div class="equipment-badge-row equipment-usage-tags">
     <span class="equipment-badge equipment-badge-slot">推荐用途</span>
@@ -12772,7 +13085,7 @@ function formatScoreDelta(value) {
   return `${sign}${(finite * 100).toFixed(1)}%`;
 }
 
-function renderEquipmentScores(item) {
+function renderEquipmentScores(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentScores === "function") return runtime.renderEquipmentScores(item);
   const scores = calculateEquipmentScores(item, currentJob());
   const entries = [
     ["综合", scores.comprehensive],
@@ -12788,7 +13101,7 @@ function renderEquipmentScores(item) {
   </div>`;
 }
 
-function renderEquipmentScoreComparison(item) {
+function renderEquipmentScoreComparison(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentScoreComparison === "function") return runtime.renderEquipmentScoreComparison(item);
   const slot = equipmentSlot(item);
   const equippedId = state.equipped?.[slot];
   const current = state.inventory.find((entry) => entry.id === equippedId);
@@ -12830,7 +13143,7 @@ function groupEquipmentStats(item) {
     .filter((group) => group.entries.length);
 }
 
-function renderEquipmentStatSections(item) {
+function renderEquipmentStatSections(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentStatSections === "function") return runtime.renderEquipmentStatSections(item);
   const statGroups = groupEquipmentStats(item);
   const specialStats = ["ignoreDefense", "echoChance", "splashTargets", "splashDamagePct", "fireBurstChance", "fireBurstAtkPct", "meteorCounterChance", "meteorCounterMatkPct", "skillCooldownPenalty", "higherLevelDamageBonus", "mutationMaterialDoubleChance", "thornVitMultiplier", "combatPaceBonus", "patrolEfficiency", "hitRate", "statusResist", "powerPct", "setPowerBonus"]
     .map((stat) => equipmentStatEntry(getEffectiveItemStats(item, false), stat))
@@ -12858,7 +13171,7 @@ function renderEquipmentStatSections(item) {
   `;
 }
 
-function renderSalvagePreviewSection(item) {
+function renderSalvagePreviewSection(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderSalvagePreviewSection === "function") return runtime.renderSalvagePreviewSection(item);
   const rewards = getSalvageRewardsPreview(item);
   const entries = Object.entries(rewards || {}).filter(([, value]) => value !== undefined && value !== null && value !== "" && value !== 0);
   if (!entries.length) return "";
@@ -12880,7 +13193,7 @@ function cardSocketEffectText(card = {}) {
   return rows.join(" · ") || "无属性";
 }
 
-function renderCardSocketOptions(selected = "") {
+function renderCardSocketOptions(selected = "") { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderCardSocketOptions === "function") return runtime.renderCardSocketOptions(selected);
   const owned = cardPool.filter((card) => (state.cards[card.id] || 0) > 0);
   if (!owned.length) return `<option value="">暂无可用卡片</option>`;
   return `<option value="">选择卡片</option>${owned
@@ -12888,7 +13201,7 @@ function renderCardSocketOptions(selected = "") {
     .join("")}`;
 }
 
-function renderCardSocketSection(item) {
+function renderCardSocketSection(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderCardSocketSection === "function") return runtime.renderCardSocketSection(item);
   const slots = normalizeCardSlots(item.cardSlots);
   const maxSlots = getMaxEquipmentCardSlots(item);
   const cost = getCardSocketCost(item);
@@ -12924,7 +13237,7 @@ function renderCardSocketSection(item) {
   </div>`;
 }
 
-function renderRefineSection(item, refineStats = "") {
+function renderRefineSection(item, refineStats = "") { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderRefineSection === "function") return runtime.renderRefineSection(item, refineStats);
   const next = (item.refine || 0) + 1;
   const chance = next <= 15 ? percent(getRefineChance(next, item)) : "MAX";
   const pity = `${Math.round((item.refineFailCount || 0) * 1.5 * 10) / 10}%`;
@@ -12938,7 +13251,7 @@ function renderRefineSection(item, refineStats = "") {
   </div><small class="slot-meta">星炼成长：${growthText || "该装备暂无可星炼成长属性。"}</small><small class="slot-meta">里程碑：${milestone}${refineStats ? ` · 15星奖励：${refineStats}` : " · 满星奖励：未激活"}</small></div>`;
 }
 
-function renderEmpowerSection(item) {
+function renderEmpowerSection(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEmpowerSection === "function") return runtime.renderEmpowerSection(item);
   const level = item.empower || 0;
   if (!level) return "";
   const flatBonus = level * 4;
@@ -12951,14 +13264,14 @@ function renderEmpowerSection(item) {
   </div><small class="slot-meta">下阶消耗：${nextCost}</small></div>`;
 }
 
-function renderStatChipGrid(entries, extraClass = "") {
+function renderStatChipGrid(entries, extraClass = "") { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderStatChipGrid === "function") return runtime.renderStatChipGrid(entries, extraClass);
   if (!entries.length) return "";
   return `<div class="equipment-stat-grid">${entries
     .map((entry) => `<span class="equipment-stat-chip ${extraClass}"><span class="equipment-stat-name">${escapeHtml(entry.label)}</span><span class="equipment-stat-value">${formatStatValue(entry.stat, entry.value)}</span></span>`)
     .join("")}</div>`;
 }
 
-function renderEquipmentSetProgress(item) {
+function renderEquipmentSetProgress(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentSetProgress === "function") return runtime.renderEquipmentSetProgress(item);
   const display = getSetDisplayState(item);
   if (!display.hasSet) return "";
   const normalRows = display.effects
@@ -13060,7 +13373,7 @@ function randomStatsHtml(item) {
   return renderRandomStatsPanel(item);
 }
 
-function renderRandomStatsPanel(item) {
+function renderRandomStatsPanel(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderRandomStatsPanel === "function") return runtime.renderRandomStatsPanel(item);
   const entries = randomStatEntries(item);
   if (!entries.length) return "";
   const chips = entries
@@ -13196,6 +13509,8 @@ function getEffectiveItemStats(item, includeRandom = true) {
 }
 
 function refineMultiplier(star) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.refineMultiplier === "function") return runtime.refineMultiplier(star);
   return 1 + Math.max(0, Number(star) || 0) * 0.02;
 }
 
@@ -13232,6 +13547,8 @@ function refineGrowthFactorForStat(stat, star = 0) {
 }
 
 function getRefineGrowthStats(item) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.getRefineGrowthStats === "function") return runtime.getRefineGrowthStats(item);
   const refine = item?.refine || 0;
   if (!item || refine <= 0) return {};
   const before = getEffectiveItemStats({ ...item, refine: 0, refineFailCount: 0 });
@@ -13240,6 +13557,8 @@ function getRefineGrowthStats(item) {
 }
 
 function star15Bonus(item) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.star15Bonus === "function") return runtime.star15Bonus(item);
   if ((item.refine || 0) < 15 || !["rare", "epic", "ancient", "legend", "darkGold", "mythic"].includes(item.rarity)) {
     return {};
   }
@@ -13252,6 +13571,8 @@ function star15Bonus(item) {
 }
 
 function getRefineMilestoneBonuses(item) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.getRefineMilestoneBonuses === "function") return runtime.getRefineMilestoneBonuses(item);
   const star = item?.refine || 0;
   const slot = equipmentSlot(item);
   const bonuses = {};
@@ -13559,19 +13880,19 @@ function getRefineBadgeClass(refineLevel) {
   return "";
 }
 
-function renderRefineBadge(item) {
+function renderRefineBadge(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderRefineBadge === "function") return runtime.renderRefineBadge(item);
   const refine = item?.refine || 0;
   if (refine < 7) return "";
   return `<span class="refine-badge ${getRefineBadgeClass(refine)}" title="星炼 ★${refine}">星★${refine}</span>`;
 }
 
-function renderItemName(item, extraText = "") {
+function renderItemName(item, extraText = "") { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderItemName === "function") return runtime.renderItemName(item, extraText);
   const cleanExtra = String(extraText || "").replace(/\s+/g, " ").trim();
   const prefix = (item?.enhanceLevel || 0) > 0 ? `+${item.enhanceLevel} ` : "";
   return `<span class="${getRarityClass(item)}">${prefix}${escapeHtml(getDisplayItemName(item))}${cleanExtra ? ` ${escapeHtml(cleanExtra)}` : ""}</span>${renderRefineBadge(item)}`;
 }
 
-function renderSetName(setName) {
+function renderSetName(setName) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderSetName === "function") return runtime.renderSetName(setName);
   return `<span class="set-name">${escapeHtml(setName)}</span>`;
 }
 
@@ -13651,6 +13972,7 @@ function escapeHtml(value) {
 
 const devDiagnosticsEnabled = new URLSearchParams(window.location.search).get("dev") === "1";
 
+// [AUTHORITY] equipment-runtime: 28 config tables exposed. Module-owned: itemFactory, itemStats, itemScore, itemNaming, dismantle, refine, starRefine, socket. Deferred: equipmentTiers, ITEM_TIER_CONFIG, salvageRewards (in game.js data section).
 window.RuneFrontierLegacyEquipmentContext = () => Object.freeze({
   getState() {
     return state;
@@ -13744,8 +14066,33 @@ window.RuneFrontierLegacyEquipmentContext = () => Object.freeze({
   computeCardSocketBonuses(item) {
     return computeCardSocketBonuses(item);
   },
+  equipmentSlot,
+  getDisplayItemName,
+  getEffectiveItemStats,
+  getRuntimeSessionStats() { return runtimeSessionStats; },
+  updateDailyGoalProgress,
+  updateAchievementProgress,
+  hasMaterials,
+  consumeMaterials,
+  materialText,
+  statIsPercent,
+  statLabelName,
+  formatNumber,
+  itemScore,
+  showRefineResult: showRefineResultModal,
+  renderRefineStatDelta,
+  getEnhanceMaxLevel() { return ENHANCE_MAX_LEVEL; },
+  getEnhanceChances() { return ENHANCE_CHANCES; },
+  getEnhanceMilestoneLevels() { return ENHANCE_MILESTONE_LEVELS; },
+  getEnhanceMilestoneBonuses() { return ENHANCE_MILESTONE_BONUSES; },
+  getEnhancePassiveChances() { return ENHANCE_PASSIVE_CHANCES; },
+  getEnhancePassivePool() { return ENHANCE_PASSIVE_POOL; },
+  getEnhancePassiveDb() { return ENHANCE_PASSIVE_DB; },
+  getEnhanceDowngrade,
+  getCardSocketMaxByRarity() { return CARD_SOCKET_MAX_BY_RARITY; },
 });
 
+// [AUTHORITY] drops-runtime: 20 config refs. Module-owned: online/offline drop rolling, loot normalization. Deferred: equipmentDropTables, materialDropTables, cardDropTables, cardPool (in game.js data section).
 window.RuneFrontierLegacyDropsContext = () => Object.freeze({
   getState() {
     return state;
@@ -13865,6 +14212,7 @@ window.RuneFrontierLegacyDropsContext = () => Object.freeze({
   },
 });
 
+// [AUTHORITY] offline-runtime: 15 config refs. Module-owned: calculateOfflineRewards, buildOfflineMonsterStats, all rollOffline*Drops. Deferred: OFFLINE_EFFICIENCY, OFFLINE_MAX_KILLS (constants in game.js).
 window.RuneFrontierLegacyOfflineContext = () => Object.freeze({
   getState() {
     return state;
@@ -13879,12 +14227,24 @@ window.RuneFrontierLegacyOfflineContext = () => Object.freeze({
   currentDifficulty() {
     return state.currentDifficulty;
   },
+  currentMap,
+  getMaps() {
+    return maps;
+  },
+  computeStats,
   getDifficultyConfig: currentDifficultyConfig,
+  getVipMilestoneBonuses,
   getCardDropTable(mapId) {
     return cardDropTables[mapId] || [];
   },
   getMaterialDropTable(mapId) {
     return materialDropTables[mapId] || [];
+  },
+  getDropTableAlias(mapId) {
+    return mapDropTableAlias[mapId] || mapId;
+  },
+  getEquipmentDropTable(tableId) {
+    return equipmentDropTables[tableId] || [];
   },
   getCard(cardId) {
     return getSocketCard(cardId);
@@ -13917,6 +14277,9 @@ window.RuneFrontierLegacyOfflineContext = () => Object.freeze({
     return MUTATION_EXTRA_DROPS;
   },
   getMapLevelRange,
+  getMaxOfflineSeconds() {
+    return MAX_OFFLINE_SECONDS;
+  },
   getMapIndex(map) {
     return maps.indexOf(map);
   },
@@ -13937,6 +14300,12 @@ window.RuneFrontierLegacyOfflineContext = () => Object.freeze({
   applyMaterialQuantityBonus,
   createItem,
   createMutationEquipment,
+  pickMonsterTemplate,
+  rollMonsterLevel,
+  rollMonsterMutation,
+  buildMonsterStats,
+  rollEquipmentDropsFromTable,
+  gainMapExploration,
   getEquipmentRuntime() {
     return window.RuneFrontierEquipmentRuntime;
   },
@@ -13961,7 +14330,7 @@ window.RuneFrontierLegacyOfflineContext = () => Object.freeze({
   showToast,
   afterClaim() {
     closeOfflineRewardModal();
-    showToast("离线收益已领取");
+    showToast("\u79bb\u7ebf\u6536\u76ca\u5df2\u9886\u53d6");
     updateDailyGoalProgress("daily_loot", 1);
     renderAll();
     save();
@@ -13977,6 +14346,7 @@ window.RuneFrontierLegacyOfflineContext = () => Object.freeze({
   rollOfflineMutationExtraDrops,
 });
 
+// [AUTHORITY] combat-runtime: 42 config refs. Module-owned: updateCombat, boss state, damage, skills, settlement, monster pipeline, encounter pipeline. Deferred: maps, DIFFICULTY_CONFIG, MONSTER_DIFFICULTY_MODIFIERS (in game.js data section).
 window.RuneFrontierLegacyCombatContext = () => Object.freeze({
   getState() {
     return state;
@@ -13988,6 +14358,53 @@ window.RuneFrontierLegacyCombatContext = () => Object.freeze({
   },
   getMaps() {
     return maps;
+  },
+  getDifficultyConfigs() {
+    return DIFFICULTY_CONFIG;
+  },
+  getMapLevelRanges() {
+    return mapLevelRanges;
+  },
+  getMutations() {
+    return MUTATION_TYPES;
+  },
+  getMonsterDifficultyModifiers() {
+    return MONSTER_DIFFICULTY_MODIFIERS;
+  },
+  getDifficultyTierModifiers() {
+    return DIFFICULTY_TIER_MODIFIERS;
+  },
+  getHardMapTierScales() {
+    return HARD_MAP_TIER_SCALE;
+  },
+  getAbyssMapTierScales() {
+    return ABYSS_MAP_TIER_SCALE;
+  },
+  getAbyssBossExtraMultipliers() {
+    return ABYSS_BOSS_EXTRA_MULTIPLIER;
+  },
+  getHardBaselines() {
+    return HARD_BASELINE;
+  },
+  getAbyssBaselines() {
+    return ABYSS_BASELINE;
+  },
+  getBossExpMultiplier() {
+    return BOSS_EXP_MULTIPLIER;
+  },
+  getBaseExpGlobalMultiplier() {
+    return BASE_EXP_GLOBAL_MULTIPLIER;
+  },
+  getJobExpGlobalMultiplier() {
+    return JOB_EXP_GLOBAL_MULTIPLIER;
+  },
+  randomInt,
+  clampNumber,
+  lerpRange,
+  monsterImageSource,
+  showBossBanner,
+  getDropTableAlias(mapId) {
+    return mapDropTableAlias[mapId] || mapId;
   },
   getBossEssenceId(mapIndex) {
     return bossEssenceByMap[mapIndex] || bossEssenceByMap[0];
@@ -14072,6 +14489,72 @@ window.RuneFrontierLegacyCombatContext = () => Object.freeze({
   syncActiveEnemyFromGroup,
   spawnEnemy,
   render: renderAll,
+});
+
+// [AUTHORITY] vip-runtime: 10 config refs. Module-owned: all calculation/pure functions. Deferred: VIP_EXP_REQUIREMENTS, VIP_BONUS_PER_LEVEL, VIP_MILESTONE_BONUSES, VIP_DAILY_GIFT (constants in game.js).
+window.RuneFrontierLegacyVipContext = () => Object.freeze({
+  getState() { return state; },
+  getVipMaxLevel() { return VIP_MAX_LEVEL; },
+  getVipExpRequirements() { return VIP_EXP_REQUIREMENTS; },
+  getVipBonusPerLevel() { return VIP_BONUS_PER_LEVEL; },
+  getVipMilestones() { return VIP_MILESTONE_BONUSES; },
+  getVipDailyGifts() { return VIP_DAILY_GIFT; },
+  getBaseInventoryLimit() { return INVENTORY_LIMIT; },
+  todayKey() { return new Date().toISOString().slice(0, 10); },
+  addLog,
+  showToast,
+  addMaterials,
+  renderAll,
+  save,
+});
+
+// [AUTHORITY] codex-runtime: 12 config refs. Module-owned: all calculation/pure functions. Deferred: CODEX_KILL_MILESTONES, CODEX_KILL_REWARDS, CODEX_CAPS, CODEX_MASTERY_BONUSES, CODEX_RESEARCH_BONUSES, mapMonsterConfig (constants in game.js).
+window.RuneFrontierLegacyCodexContext = () => Object.freeze({
+  getState() { return state; },
+  getMapMonsterConfig() { return mapMonsterConfig; },
+  getCardPool() { return cardPool; },
+  getCardType,
+  getCodexKillMilestones() { return CODEX_KILL_MILESTONES; },
+  getCodexKillRewards() { return CODEX_KILL_REWARDS; },
+  getCodexCardMilestones() { return CODEX_CARD_MILESTONES; },
+  getCodexCardRewards() { return CODEX_CARD_REWARDS; },
+  getCodexMasteryThresholds() { return CODEX_MASTERY_THRESHOLDS; },
+  getCodexResearchThresholds() { return CODEX_RESEARCH_THRESHOLDS; },
+  getCodexStatCaps() { return CODEX_STAT_CAPS; },
+  getCodexCaps() { return CODEX_CAPS; },
+  getCodexMasteryBonuses() { return CODEX_MASTERY_BONUSES; },
+  getCodexResearchBonuses() { return CODEX_RESEARCH_BONUSES; },
+  grantGenericReward,
+  getMonsterName(id) { return (buildMonsterNameMap() || {})[id] || materialNames[id] || id; },
+  addLog,
+  showToast,
+  renderAll,
+  save,
+});
+
+// [AUTHORITY] shop-runtime: 5 config refs. Module-owned: all calculation/pure functions. Deferred: SHOP_ITEMS (constant in game.js).
+window.RuneFrontierLegacyShopContext = () => Object.freeze({
+  getState() { return state; },
+  getShopActiveTab() { return shopActiveTab; },
+  getShopItems() { return typeof SHOP_ITEMS !== "undefined" ? SHOP_ITEMS : {}; },
+  getMaterialName(materialId) { return materialNames[materialId] || materialId; },
+  randomInt,
+  addMaterials,
+  addLog,
+  showToast,
+  renderAll,
+  save,
+});
+
+// [AUTHORITY] state-runtime: Not yet module-owned. Delegation bridges exist on load/save/mergeState/sanitizeProgression/createDefaultState/resetSave.
+window.RuneFrontierLegacyStateContext = () => Object.freeze({
+  getState() { return state; },
+  load, save, mergeState, sanitizeProgression, createDefaultState, resetSave,
+  getInventoryLimit,
+  SAVE_KEY: () => SAVE_KEY,
+  LEGACY_SAVE_KEY: () => LEGACY_SAVE_KEY,
+  getAuthKey() { return AUTH_KEY; },
+  loadAuth, refreshAuthUi,
 });
 
 if (devDiagnosticsEnabled) {
