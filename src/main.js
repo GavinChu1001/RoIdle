@@ -16,8 +16,8 @@ import './data/materials.js';
 // State framework surface. Default-state creation still delegates to the classic runtime.
 import './state/index.js';
 
-// System logic modules. Equipment settlement and reward-drop categories are
-// module-owned; combat and rendering remain bridged.
+// System logic modules. Equipment/reward flows and online combat rounds are
+// module-owned; rendering and remaining progression systems remain bridged.
 import './systems/vip.js';
 import './systems/codex.js';
 import { installEquipmentRuntime } from './systems/equipment/index.js';
@@ -34,8 +34,8 @@ export const RUNTIME_AUTHORITY = 'game.js';
 window.RuneFrontierModuleStatus = Object.freeze({
   authority: RUNTIME_AUTHORITY,
   bootstrapOwner: 'src/main.js',
-  migrated: ['platform', 'storage-adapter', 'utils-surface', 'state-surface', 'equipment-read-calculations', 'equipment-online-mutations', 'online-equipment-drops', 'online-reward-categories', 'recent-loot-recording', 'loot-view-model', 'offline-equipment-settlement', 'offline-reward-categories', 'kill-and-boss-settlement', 'boss-challenge-state', 'dev-diagnostics'],
-  bridged: ['offline-time-and-exp-calculation', 'combat-rounds-and-damage', 'vip', 'codex', 'ui'],
+  migrated: ['platform', 'storage-adapter', 'utils-surface', 'state-surface', 'equipment-read-calculations', 'equipment-online-mutations', 'online-equipment-drops', 'online-reward-categories', 'recent-loot-recording', 'loot-view-model', 'offline-equipment-settlement', 'offline-reward-categories', 'kill-and-boss-settlement', 'boss-challenge-state', 'combat-rounds-and-damage', 'active-skill-resolution', 'dev-diagnostics'],
+  bridged: ['offline-time-and-exp-calculation', 'monster-spawn-and-stat-building', 'vip', 'codex', 'ui'],
 });
 
 const equipmentContext = typeof window.RuneFrontierLegacyEquipmentContext === 'function'

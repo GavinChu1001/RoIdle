@@ -25,6 +25,9 @@ const lootModelSource = read('src/systems/drops/lootModel.js');
 const offlineSource = read('src/systems/offline.js');
 const settlementSource = read('src/systems/combat/settlement.js');
 const bossCombatSource = read('src/systems/combat/bossCombat.js');
+const damageSource = read('src/systems/combat/damage.js');
+const skillsSource = read('src/systems/combat/skills.js');
+const normalCombatSource = read('src/systems/combat/normalCombat.js');
 
 const requiredLegacyFunctions = [
   'createDefaultState',
@@ -48,7 +51,8 @@ assert.match(main, /bootstrapOwner:\s*'src\/main\.js'/, 'Module entry must own s
 assert.match(main, /installEquipmentRuntime\(equipmentContext\)/, 'Equipment read runtime must be installed before startup.');
 assert.match(main, /window\.bootstrapLegacyRuntime\(\)/, 'Module entry must start the classic runtime through its bridge.');
 assert.match(main, /migrated:\s*\[[^\]]*'equipment-online-mutations'[^\]]*'online-equipment-drops'[^\]]*'online-reward-categories'[^\]]*'recent-loot-recording'[^\]]*'offline-equipment-settlement'[^\]]*'offline-reward-categories'/s, 'Reward-category migration status is incomplete.');
-assert.match(main, /bridged:\s*\[[^\]]*'offline-time-and-exp-calculation'[^\]]*'combat-rounds-and-damage'/s, 'Deferred bridge status is incomplete.');
+assert.match(main, /migrated:\s*\[[^\]]*'combat-rounds-and-damage'[^\]]*'active-skill-resolution'/s, 'Combat-round migration status is incomplete.');
+assert.match(main, /bridged:\s*\[[^\]]*'offline-time-and-exp-calculation'[^\]]*'monster-spawn-and-stat-building'/s, 'Deferred bridge status is incomplete.');
 assert.match(main, /installDropsRuntime\(dropsContext\)/, 'Drops runtime must be installed before startup.');
 assert.match(main, /installOfflineRuntime\(offlineContext\)/, 'Offline runtime must be installed before startup.');
 assert.match(main, /installCombatRuntime\(combatContext\)/, 'Combat settlement runtime must be installed before startup.');
@@ -85,6 +89,11 @@ assert.match(game, /runtime\.settleDefeatedEnemy/, 'Kill settlement must forward
 assert.match(game, /runtime\.grantBossEssence/, 'Boss essence settlement must forward to the combat runtime.');
 assert.match(game, /runtime\.tryAutoChallengeBoss/, 'Automatic Boss entry must forward to the combat runtime.');
 assert.match(game, /runtime\.handleAutoBossFailure/, 'Automatic Boss failure cooldown must forward to the combat runtime.');
+assert.match(game, /runtime\.updateCombat/, 'Online combat rounds must forward to the combat runtime.');
+assert.match(game, /runtime\.updateMonsterAttack/, 'Monster counterattacks must forward to the combat runtime.');
+assert.match(game, /runtime\.updateRecovery/, 'Recovery ticks must forward to the combat runtime.');
+assert.match(game, /runtime\.rollActiveSkill/, 'Active-skill execution must forward to the combat runtime.');
+assert.match(game, /runtime\.normalizeDamage/, 'Damage normalization must forward to the combat runtime.');
 assert.equal((game.match(/requestAnimationFrame\(loop\);/g) || []).length, 2, 'Loop registration shape changed unexpectedly.');
 
 const itemStats = await importSource(itemStatsSource);
@@ -646,4 +655,87 @@ assert.equal(bossCombat.handleAutoBossFailure(bossEntryContext), true, 'Automati
 assert.equal(bossEntryState.settings.autoBossCooldownUntil, 121000, 'Automatic Boss defeat cooldown duration changed.');
 assert.equal(bossLogs.length, 3, 'Boss state routing must write one start log per challenge and one failure log.');
 
-console.log('Migration batch 6 tests passed: reward routing and kill settlement are intact.');
+const damageStandaloneSource = damageSource
+  .replace("export { calculatePower } from '../equipment/itemScore.js';", 'export const calculatePower = () => 0;');
+const damage = await importSource(damageStandaloneSource);
+damage.configureDamageContext({
+  getState: () => ({
+    hero: { baseLevel: 10 },
+    enemyBoss: true,
+    currentDifficulty: 'abyss',
+    enemyHp: 10,
+    enemyMaxHp: 100,
+  }),
+});
+assert.equal(damage.normalizeDamage(5.999), 5, 'Damage normalization changed.');
+assert.equal(damage.normalizeDamage(Number.NaN), 1, 'Invalid damage fallback changed.');
+assert.equal(
+  damage.getTargetDamageBonus({
+    monsterDamageBonus: 0.1,
+    bossDamageBonus: 0.2,
+    abyssBossDamageBonus: 0.1,
+    abyssDamageBonus: 0.3,
+    abyssExecuteDamageBonus: 0.2,
+    finalDamageBonus: 0.05,
+    ignoreDefensePct: 0.1,
+  }, { monster: { type: 'boss', level: 10 }, isBoss: true, difficulty: 'abyss', enemyHp: 10, enemyMaxHp: 100 }),
+  1.05,
+  'Target-specific damage bonus routing changed.',
+);
+const regularHit = damage.calculatePlayerBasicHit({ stats: { dps: 100 }, attackInterval: 1, targetBonus: 0.1, monsterGuard: 0.2, isCrit: false });
+const criticalHit = damage.calculatePlayerBasicHit({ stats: { dps: 100, critDamageBonus: 0.15 }, attackInterval: 1, targetBonus: 0.1, monsterGuard: 0.2, isCrit: true });
+assert.equal(regularHit.finalDamage, 88, 'Player basic-hit formula changed.');
+assert.equal(criticalHit.finalDamage, 176, 'Player critical-hit formula changed.');
+const normalMonsterHit = damage.calculateMonsterHit({ stats: { defense: 20 }, monster: { attack: 100 }, hpRatio: 1, livingCount: 1, isCrit: false });
+const criticalMonsterHit = damage.calculateMonsterHit({ stats: { defense: 20 }, monster: { attack: 100, critDamage: 1 }, hpRatio: 1, livingCount: 1, isCrit: true });
+assert.ok(criticalMonsterHit.damage > normalMonsterHit.damage, 'Monster critical threat must remain stronger than a normal hit.');
+
+const skillsStandaloneSource = skillsSource.replace(
+  "import { getTargetDamageBonus, normalizeDamage } from './damage.js';",
+  "const getTargetDamageBonus = () => 0; const normalizeDamage = (value) => Math.max(1, Math.floor(value));",
+);
+const skills = await importSource(skillsStandaloneSource);
+const skillState = { currentDifficulty: 'normal', currentMap: 5, enemyBoss: false, enemyHp: 1000, hero: { currentHp: 50, jobLevel: 10 } };
+let skillDamageShown = 0;
+let skillExpEvents = 0;
+skills.configureSkillsContext({
+  getState: () => skillState,
+  random: () => 0,
+  currentMonsterStats: () => ({ type: 'normal', damageReduction: 0 }),
+  getUnlockedSkills: () => [{ name: 'Strike', active: { chance: 1, stat: 'atk', multiplier: 2 } }],
+  getSkillGrowthEntry: () => ({ specialization: '' }),
+  getSkillMilestoneBonuses: () => ({}),
+  getSkillLevelMultiplier: () => 1,
+  showDamageNumber: (_target, amount) => { skillDamageShown = amount; },
+  gainSkillExp: () => { skillExpEvents += 1; },
+});
+const skillResult = skills.resolveActiveSkillCast({ dt: 1, stats: { atkPower: 100, crit: 0, maxHp: 100 } });
+assert.equal(skillResult.cast, true, 'Active-skill cast routing changed.');
+assert.equal(skillDamageShown, 248, 'Active-skill damage formula changed.');
+assert.equal(skillState.enemyHp, 752, 'Active-skill damage must be applied once.');
+assert.equal(skillExpEvents, 1, 'Active-skill cast experience must be granted once without a finishing blow.');
+
+const normalStandaloneSource = normalCombatSource
+  .replace(
+    "import { calculateMonsterHit, calculatePlayerBasicHit, getTargetDamageBonus, normalizeDamage } from './damage.js';",
+    "const getTargetDamageBonus = () => 0; const normalizeDamage = (value) => Math.max(1, Math.floor(value)); const calculatePlayerBasicHit = () => ({ finalDamage: 10 }); const calculateMonsterHit = () => ({ damage: 5 });",
+  )
+  .replace("import { resolveActiveSkillCast } from './skills.js';", 'const resolveActiveSkillCast = () => ({ cast: false });');
+const normalCombat = await importSource(normalStandaloneSource);
+const roundState = { enemyHp: 10, enemyMaxHp: 10, hero: { currentHp: 100 }, playerAttackTimer: 0, enemyAttackTimer: 0, currentMap: 0 };
+let settledRounds = 0;
+normalCombat.configureNormalCombatContext({
+  getState: () => roundState,
+  computeStats: () => ({ attackSpeed: 1, crit: 0, dps: 1, maxHp: 100 }),
+  currentMonsterStats: () => ({ damageReduction: 0 }),
+  getPlayerCritRateCap: () => 1,
+  random: () => 0.9,
+  tryAutoChallengeBoss: () => false,
+  applySplashDamageToEncounter: () => {},
+  defeatEnemy: () => { settledRounds += 1; },
+});
+normalCombat.updateCombat(1);
+assert.equal(roundState.enemyHp, 0, 'Online combat round must apply the active-target hit once.');
+assert.equal(settledRounds, 1, 'Online combat round must settle a defeated target once.');
+
+console.log('Migration batch 7 tests passed: combat-round routing and existing reward settlement are intact.');

@@ -4475,7 +4475,7 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 
-function updateCombat(dt) {
+function legacyUpdateCombat(dt) {
   if (state.enemyHp <= 0 || state.enemyMaxHp <= 0) spawnEnemy(false);
 
   const stats = computeStats();
@@ -4519,7 +4519,13 @@ function updateCombat(dt) {
   if (state.enemyHp <= 0) defeatEnemy();
 }
 
-function getTargetDamageBonus(stats) {
+function updateCombat(dt) {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.updateCombat === "function") return runtime.updateCombat(dt);
+  return legacyUpdateCombat(dt);
+}
+
+function legacyGetTargetDamageBonus(stats) {
   const monster = currentMonsterStats();
   let bonus = stats.monsterDamageBonus || 0;
   const levelGap = Math.max(0, (monster.level || 1) - (state.hero.baseLevel || 1));
@@ -4535,6 +4541,12 @@ function getTargetDamageBonus(stats) {
   bonus += stats.finalDamageBonus || 0;
   bonus += Math.min(0.5, stats.ignoreDefensePct || 0);
   return Math.min(3, bonus);
+}
+
+function getTargetDamageBonus(stats) {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.getTargetDamageBonus === "function") return runtime.getTargetDamageBonus(stats);
+  return legacyGetTargetDamageBonus(stats);
 }
 
 function applySplashDamageToEncounter(baseDamage, stats = {}) {
@@ -4667,7 +4679,7 @@ function handleAutoBossFailure() {
   return legacyHandleAutoBossFailure();
 }
 
-function updateRecovery(dt) {
+function legacyUpdateRecovery(dt) {
   const stats = computeStats();
   if ((state.hero.currentHp || 0) >= stats.maxHp) return;
   state.regenTimer = (state.regenTimer || 0) + dt;
@@ -4682,7 +4694,13 @@ function updateRecovery(dt) {
   }
 }
 
-function updateMonsterAttack(dt, stats) {
+function updateRecovery(dt) {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.updateRecovery === "function") return runtime.updateRecovery(dt);
+  return legacyUpdateRecovery(dt);
+}
+
+function legacyUpdateMonsterAttack(dt, stats) {
   state.enemyAttackTimer = (state.enemyAttackTimer || 0) + dt;
   const interval = Math.max(0.72, (MONSTER_ATTACK_INTERVAL - state.currentMap * 0.06 - (state.enemyBoss ? 0.18 : 0)) * (1 + (stats.setBonuses?.monsterAttackSpeedReductionPct || 0)));
   if (state.enemyAttackTimer < interval) return;
@@ -4731,6 +4749,12 @@ function updateMonsterAttack(dt, stats) {
   }
 }
 
+function updateMonsterAttack(dt, stats) {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.updateMonsterAttack === "function") return runtime.updateMonsterAttack(dt, stats);
+  return legacyUpdateMonsterAttack(dt, stats);
+}
+
 function getDifficultyFailureHint(monster = currentMonsterStats()) {
   if (state.currentDifficulty === "abyss") return "深渊难度压力过高：建议提升深渊减伤、生命、防御、吸血和深渊伤害。";
   if (state.currentDifficulty === "hard") return "困难难度压力过高：建议提升星炼等级、生命、防御、吸血和 Boss 伤害。";
@@ -4746,7 +4770,7 @@ function updateFloatTexts(dt) {
   state.floatTexts = state.floatTexts.filter((entry) => entry.age < entry.ttl);
 }
 
-function rollActiveSkill(dt, stats) {
+function legacyRollActiveSkill(dt, stats) {
   const activeSkills = getUnlockedSkills().filter((entry) => entry.active);
   for (const entry of activeSkills) {
     const spec = getSkillGrowthEntry(entry).specialization;
@@ -4795,11 +4819,23 @@ function rollActiveSkill(dt, stats) {
   }
 }
 
-function skillAttributeMultiplier(active = {}, stats = {}) {
+function rollActiveSkill(dt, stats) {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.rollActiveSkill === "function") return runtime.rollActiveSkill(dt, stats);
+  return legacyRollActiveSkill(dt, stats);
+}
+
+function legacySkillAttributeMultiplier(active = {}, stats = {}) {
   return Object.entries(active.attributeScaling || {}).reduce((sum, [stat, scale]) => {
     const value = Math.max(0, stats.attrs?.[stat] || 0);
     return sum + Math.sqrt(value) * scale * 2.5;
   }, 1);
+}
+
+function skillAttributeMultiplier(active = {}, stats = {}) {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.skillAttributeMultiplier === "function") return runtime.skillAttributeMultiplier(active, stats);
+  return legacySkillAttributeMultiplier(active, stats);
 }
 
 function noteSkillCast(name, damage) {
@@ -5061,7 +5097,7 @@ function renderSessionRewardPanel() {
   `;
 }
 
-function normalizeDamage(value, options = {}) {
+function legacyNormalizeDamage(value, options = {}) {
   const normalized = Object.is(value, -0) ? 0 : Number(value);
   const allowZero = typeof options === "boolean" ? options : Boolean(options.allowZero);
   if (!Number.isFinite(normalized)) return allowZero ? 0 : 1;
@@ -5069,8 +5105,20 @@ function normalizeDamage(value, options = {}) {
   return Math.max(1, Math.floor(normalized));
 }
 
-function sanitizeDamage(value, allowZero = false) {
+function normalizeDamage(value, options = {}) {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.normalizeDamage === "function") return runtime.normalizeDamage(value, options);
+  return legacyNormalizeDamage(value, options);
+}
+
+function legacySanitizeDamage(value, allowZero = false) {
   return normalizeDamage(value, { allowZero });
+}
+
+function sanitizeDamage(value, allowZero = false) {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.sanitizeDamage === "function") return runtime.sanitizeDamage(value, allowZero);
+  return legacySanitizeDamage(value, allowZero);
 }
 
 function legacyGrantBossEssence(mapIndex) {
@@ -13952,6 +14000,18 @@ window.RuneFrontierLegacyCombatContext = () => Object.freeze({
   },
   applyMaterialQuantityBonus,
   computeStats,
+  random() {
+    return Math.random();
+  },
+  getPlayerCritRateCap() {
+    return PLAYER_CRIT_RATE_CAP;
+  },
+  getHpRegenInterval() {
+    return HP_REGEN_INTERVAL;
+  },
+  getMonsterAttackInterval() {
+    return MONSTER_ATTACK_INTERVAL;
+  },
   ensureSettings,
   now() {
     return Date.now();
@@ -13969,6 +14029,16 @@ window.RuneFrontierLegacyCombatContext = () => Object.freeze({
   recordSessionReward,
   recordRecentLoot,
   addLog,
+  formatNumber,
+  showDamageNumber,
+  showHitFeedback,
+  showSkillCastFeedback,
+  applySplashDamageToEncounter,
+  flashPlayerHp() {
+    if (!els.playerHpBar) return;
+    els.playerHpBar.classList.add("player-hp-flash");
+    window.setTimeout(() => els.playerHpBar && els.playerHpBar.classList.remove("player-hp-flash"), 200);
+  },
   presentKillRewards({ monster, baseExpGain, jobExpGain }) {
     showMonsterDeathFeedback(monster);
     addFloatText(`+${formatNumber(baseExpGain)} BASE`, 330, 168, "#456e91");
@@ -13977,6 +14047,15 @@ window.RuneFrontierLegacyCombatContext = () => Object.freeze({
   updateActiveEnemyHpInGroup,
   hasLivingEncounterMembers,
   isBossChallengeReady,
+  tryAutoChallengeBoss,
+  handleAutoBossFailure,
+  getDifficultyFailureHint,
+  getUnlockedSkills,
+  getSkillGrowthEntry,
+  getSkillMilestoneBonuses,
+  getSkillLevelMultiplier,
+  noteSkillCast,
+  gainSkillExp,
   rollDrops,
   rollMutationExtraDrops,
   grantPassiveSkillKillExp,
@@ -13989,6 +14068,7 @@ window.RuneFrontierLegacyCombatContext = () => Object.freeze({
     return rollEquipmentTableDrops(computeStats(), { boss: false, guaranteed: true });
   },
   challengeBoss,
+  defeatEnemy,
   syncActiveEnemyFromGroup,
   spawnEnemy,
   render: renderAll,

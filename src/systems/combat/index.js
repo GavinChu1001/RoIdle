@@ -15,6 +15,16 @@ export * from './settlement.js';
 
 import { configureCombatSettlementContext, grantBossEssence, settleBossVictory, settleDefeatedEnemy } from './settlement.js';
 import {
+  calculateMonsterHit,
+  calculatePlayerBasicHit,
+  configureDamageContext,
+  getTargetDamageBonus,
+  normalizeDamage,
+  sanitizeDamage,
+} from './damage.js';
+import { configureNormalCombatContext, updateCombat, updateMonsterAttack, updateRecovery } from './normalCombat.js';
+import { configureSkillsContext, resolveActiveSkillCast, rollActiveSkill, skillAttributeMultiplier } from './skills.js';
+import {
   canHeroFight,
   challengeBoss,
   configureBossCombatContext,
@@ -29,6 +39,9 @@ import {
 export function installCombatRuntime(context = {}) {
   configureCombatSettlementContext(context);
   configureBossCombatContext(context);
+  configureDamageContext(context);
+  configureSkillsContext(context);
+  configureNormalCombatContext(context);
   const runtime = Object.freeze({
     grantBossEssence,
     settleBossVictory,
@@ -41,6 +54,17 @@ export function installCombatRuntime(context = {}) {
     tryAutoChallengeBoss,
     getAutoBossStatusText,
     handleAutoBossFailure,
+    normalizeDamage,
+    sanitizeDamage,
+    getTargetDamageBonus,
+    calculatePlayerBasicHit,
+    calculateMonsterHit,
+    skillAttributeMultiplier,
+    resolveActiveSkillCast,
+    rollActiveSkill,
+    updateCombat,
+    updateMonsterAttack,
+    updateRecovery,
   });
   window.RuneFrontierCombatRuntime = runtime;
   return runtime;

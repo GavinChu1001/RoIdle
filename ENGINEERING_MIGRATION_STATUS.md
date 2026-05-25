@@ -1,4 +1,4 @@
-# game.js Migration Status - Batch 6
+# game.js Migration Status - Batch 7
 
 ## Runtime Authority
 
@@ -19,7 +19,9 @@ Equipment display naming, effective item stats, multi-axis equipment scores, equ
 - Offline material, card and special-equipment reward candidates through `RuneFrontierOfflineRuntime`.
 - Kill reward ordering, Boss essence, Boss-clear progression and post-kill encounter advancement through `RuneFrontierCombatRuntime`.
 - Boss readiness, automatic challenge entry, status display and automatic-failure cooldown through `RuneFrontierCombatRuntime`.
-- Module status metadata now distinguishes migrated combat settlement/state from deferred round execution.
+- Online attack rounds, monster counterattacks and recovery cadence through `RuneFrontierCombatRuntime`.
+- Damage normalization, target bonuses, active-skill resolution and skill attribute scaling through `RuneFrontierCombatRuntime`.
+- Module status metadata now distinguishes migrated online combat execution from deferred monster creation and offline formulas.
 
 ## Deliberately Retained In game.js
 
@@ -27,7 +29,7 @@ Equipment display naming, effective item stats, multi-axis equipment scores, equ
 - The existing loot-summary HTML renderer.
 - Refine/star-refine/socket state changes and legacy manual/batch dismantle entry points.
 - Legacy equipment read bodies as guarded fallback implementations until stateful equipment migration is complete.
-- Damage rounds, skills, Boss/abyss stat handling, encounter spawning and main loop.
+- Monster/encounter spawning, stat construction, battle presentation callbacks and the main loop.
 - Character/equipment/smithy/VIP/codex/shop/battle renderers.
 - Save/auth implementation and all `window` action interfaces still consumed by pages or diagnostics.
 
@@ -39,6 +41,6 @@ Equipment display naming, effective item stats, multi-axis equipment scores, equ
 
 ## Next Migration Order
 
-1. Move remaining combat round orchestration and damage execution.
-2. Move offline time/experience calculation.
+1. Move offline time/experience calculation and ordinary offline equipment roll orchestration.
+2. Move monster/encounter stat construction after its configuration tables are audited.
 3. Move page renderers, VIP, codex, and shop behavior, then retire legacy fallbacks.
