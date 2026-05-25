@@ -83,6 +83,7 @@ function star15Bonus(item = {}) {
 }
 
 export function getEffectiveItemStats(item = {}, includeRandom = true, context = runtimeContext) {
+  item = item && typeof item === 'object' ? item : {};
   const multiplier = refineMultiplier(item.refine || 0);
   const empowerMultiplier = 1 + number(item.empower) * 0.04;
   const scaleFlat = (value) => Math.round(number(value) * multiplier * empowerMultiplier);
