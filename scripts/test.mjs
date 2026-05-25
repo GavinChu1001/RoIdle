@@ -17,6 +17,7 @@ const dismantleSource = read('src/systems/equipment/dismantle.js');
 const equipmentDropsSource = read('src/systems/drops/equipmentDrops.js');
 const recentLootSource = read('src/systems/drops/recentLoot.js');
 const lootModelSource = read('src/systems/drops/lootModel.js');
+const offlineSource = read('src/systems/offline.js');
 
 const requiredLegacyFunctions = [
   'createDefaultState',
@@ -39,9 +40,10 @@ assert.match(main, /RUNTIME_AUTHORITY\s*=\s*'game\.js'/, 'Module entry must docu
 assert.match(main, /bootstrapOwner:\s*'src\/main\.js'/, 'Module entry must own startup orchestration.');
 assert.match(main, /installEquipmentRuntime\(equipmentContext\)/, 'Equipment read runtime must be installed before startup.');
 assert.match(main, /window\.bootstrapLegacyRuntime\(\)/, 'Module entry must start the classic runtime through its bridge.');
-assert.match(main, /migrated:\s*\[[^\]]*'equipment-online-mutations'[^\]]*'online-equipment-drops'[^\]]*'recent-loot-recording'/s, 'Online equipment migration status is incomplete.');
-assert.match(main, /bridged:\s*\[[^\]]*'offline-equipment-settlement'[^\]]*'remaining-drops'[^\]]*'combat'/s, 'Deferred bridge status is incomplete.');
+assert.match(main, /migrated:\s*\[[^\]]*'equipment-online-mutations'[^\]]*'online-equipment-drops'[^\]]*'recent-loot-recording'[^\]]*'offline-equipment-settlement'/s, 'Offline equipment migration status is incomplete.');
+assert.match(main, /bridged:\s*\[[^\]]*'offline-reward-rolls'[^\]]*'remaining-drops'[^\]]*'combat'/s, 'Deferred bridge status is incomplete.');
 assert.match(main, /installDropsRuntime\(dropsContext\)/, 'Drops runtime must be installed before startup.');
+assert.match(main, /installOfflineRuntime\(offlineContext\)/, 'Offline runtime must be installed before startup.');
 assert.match(stateSurface, /loadGame/);
 assert.match(stateSurface, /migrateSave/);
 assert.match(stateSurface, /normalizePlayerState/);
@@ -56,7 +58,10 @@ assert.match(game, /RuneFrontierLegacyDropsContext/, 'Legacy runtime must expose
 assert.match(game, /RuneFrontierDropsRuntime/, 'Classic online drop entry points must forward to module implementations.');
 assert.match(game, /runtime\.normalizeLootRewards/, 'Loot summary view data must forward to the drops runtime.');
 assert.match(game, /runtime\.getLatestRecentLootRewards/, 'Recent-loot viewing must forward to the drops runtime.');
-assert.match(game, /if\s*\(!options\.offline\s*&&\s*runtime\s*&&\s*typeof runtime\.addEquipmentToInventory/, 'Offline inventory settlement must remain on the legacy path.');
+assert.match(game, /RuneFrontierLegacyOfflineContext/, 'Legacy runtime must expose offline settlement dependencies.');
+assert.match(game, /runtime\.claimOfflineRewards/, 'Offline claiming must forward to the offline runtime.');
+assert.match(game, /runtime\.processGeneratedOfflineEquipment/, 'Offline generated equipment must forward to the offline runtime.');
+assert.match(game, /if\s*\(runtime\s*&&\s*typeof runtime\.addEquipmentToInventory/, 'Offline inventory settlement must use the shared equipment runtime.');
 assert.match(game, /if\s*\(!options\.offline\s*&&\s*runtime\s*&&\s*typeof runtime\.rollEquipmentTableDrops/, 'Offline drop settlement must remain on the legacy path.');
 assert.equal((game.match(/requestAnimationFrame\(loop\);/g) || []).length, 2, 'Loop registration shape changed unexpectedly.');
 
@@ -258,4 +263,78 @@ const recentView = lootModel.getLatestRecentLootRewards({
 }, lootModelContext);
 assert.equal(recentView.equipment[0].id, 'latest', 'Latest-loot view must not be replaced by stale batches.');
 
-console.log('Migration batch 4 stage 1 tests passed: startup, equipment routing, recent loot, and loot view normalization are intact.');
+const offline = await importSource(offlineSource);
+assert.match(offlineSource, /claimOffline:\s*claimOfflineRewards/, 'Legacy Offline claim alias must remain available.');
+assert.match(offlineSource, /rollOfflineEquipmentDrops,/, 'Legacy Offline roll aliases must remain available.');
+const generatedRewards = { equipments: [], materials: [] };
+const generatedMaterials = [];
+const generatedContext = {
+  getEquipmentRuntime: () => ({
+    shouldAutoSalvage: (item) => item.id === 'salvage',
+    getSalvageRewards: () => ({ dust: 2 }),
+  }),
+  mergeMaterialReward: (_materials, reward) => generatedMaterials.push(reward),
+  canOfflineFullSalvage: () => false,
+};
+offline.processGeneratedOfflineEquipment(generatedRewards, [{ id: 'salvage' }, { id: 'protected' }], { freeSlots: 0 }, {}, generatedContext);
+assert.equal(generatedMaterials[0].dust, 2, 'Offline generation must reuse equipment salvage rewards.');
+assert.equal(generatedRewards.equipments[0].id, 'protected', 'Protected offline equipment must remain claimable when inventory is full.');
+
+const offlineState = {
+  gold: 0,
+  materials: {},
+  cards: {},
+  cardCodex: {},
+  offlinePending: {
+    seconds: 10,
+    gold: 7,
+    baseExp: 3,
+    jobExp: 2,
+    equipments: [{ id: 'accepted' }, { id: 'waiting' }],
+    materials: [{ materialId: 'dust', qty: 4 }],
+    cards: [{ cardId: 'card-a', qty: 1 }],
+    autoSalvagedMaterials: {},
+  },
+};
+let offlineExpGranted = 0;
+let allowWaiting = false;
+const offlineSummaries = [];
+const claimContext = {
+  getState: () => offlineState,
+  createEmptyRewards: () => ({ seconds: 0, gold: 0, baseExp: 0, jobExp: 0, equipments: [], cards: [], materials: [], autoSalvagedMaterials: {}, skippedEquipment: 0 }),
+  normalizeLootRewards: (input = {}) => ({
+    seconds: Number(input.seconds || 0),
+    gold: Number(input.gold || 0),
+    baseExp: Number(input.baseExp || 0),
+    jobExp: Number(input.jobExp || 0),
+    equipments: input.equipments || [],
+    cards: input.cards || [],
+    materials: input.materials || [],
+    autoSalvagedMaterials: input.autoSalvagedMaterials || {},
+  }),
+  objectTotal: () => 0,
+  getEquipmentRuntime: () => ({
+    addEquipmentToInventory: (item) => item.id === 'waiting' && !allowWaiting ? { skipped: true } : { added: true },
+  }),
+  gainExp: (base, job) => { offlineExpGranted += base + job; },
+  grantCards: (cards) => cards.forEach((card) => { offlineState.cards[card.cardId] = (offlineState.cards[card.cardId] || 0) + card.qty; }),
+  grantMaterials: (materials) => materials.forEach((material) => { offlineState.materials[material.materialId] = (offlineState.materials[material.materialId] || 0) + material.qty; }),
+  recordRecentLoot: (summary) => offlineSummaries.push(summary),
+  afterClaim: () => {},
+};
+assert.equal(offline.claimOfflineRewards(claimContext), true, 'Offline reward claim should run through the module.');
+assert.equal(offlineState.gold, 7, 'Offline gold award changed.');
+assert.equal(offlineExpGranted, 5, 'Offline experience award changed.');
+assert.equal(offlineState.materials.dust, 4, 'Offline material award changed.');
+assert.equal(offlineState.offlinePending.equipments[0].id, 'waiting', 'Unclaimed equipment must remain pending.');
+assert.equal(offlineSummaries[0].equipments.length, 1, 'Claim summaries must not duplicate pending equipment after save normalization.');
+assert.equal(offlineSummaries[0].pendingEquipment[0].id, 'waiting', 'Claim summaries must preserve pending equipment separately.');
+allowWaiting = true;
+assert.equal(offline.claimOfflineRewards(claimContext), true, 'Pending-only equipment should be claimable later.');
+assert.equal(offlineState.gold, 7, 'Pending equipment retries must not duplicate gold awards.');
+assert.equal(offlineExpGranted, 5, 'Pending equipment retries must not duplicate experience awards.');
+assert.equal(offlineState.materials.dust, 4, 'Pending equipment retries must not duplicate material awards.');
+assert.equal(offlineState.offlinePending.equipments.length, 0, 'Pending equipment should clear after a successful retry.');
+assert.equal(offlineSummaries.length, 2, 'Each explicit offline claim should produce a viewable summary.');
+
+console.log('Migration batch 4 tests passed: loot view normalization and offline equipment settlement routing are intact.');

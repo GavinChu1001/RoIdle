@@ -16,14 +16,14 @@ import './data/materials.js';
 // State framework surface. Default-state creation still delegates to the classic runtime.
 import './state/index.js';
 
-// System logic modules. Equipment reads and online equipment mutations are now
-// module-owned; offline settlement and remaining systems stay bridged.
+// System logic modules. Equipment reads and equipment settlement are now
+// module-owned; remaining drop categories and rendering stay bridged.
 import './systems/vip.js';
 import './systems/codex.js';
 import { installEquipmentRuntime } from './systems/equipment/index.js';
 import { installDropsRuntime } from './systems/drops/index.js';
 import './systems/combat/index.js';
-import './systems/offline.js';
+import { installOfflineRuntime } from './systems/offline.js';
 
 // UI layer (delegates to game.js via window)
 import './ui/index.js';
@@ -34,8 +34,8 @@ export const RUNTIME_AUTHORITY = 'game.js';
 window.RuneFrontierModuleStatus = Object.freeze({
   authority: RUNTIME_AUTHORITY,
   bootstrapOwner: 'src/main.js',
-  migrated: ['platform', 'storage-adapter', 'utils-surface', 'state-surface', 'equipment-read-calculations', 'equipment-online-mutations', 'online-equipment-drops', 'recent-loot-recording', 'dev-diagnostics'],
-  bridged: ['offline-equipment-settlement', 'remaining-drops', 'combat', 'offline', 'vip', 'codex', 'ui'],
+  migrated: ['platform', 'storage-adapter', 'utils-surface', 'state-surface', 'equipment-read-calculations', 'equipment-online-mutations', 'online-equipment-drops', 'recent-loot-recording', 'loot-view-model', 'offline-equipment-settlement', 'dev-diagnostics'],
+  bridged: ['offline-reward-rolls', 'remaining-drops', 'combat', 'vip', 'codex', 'ui'],
 });
 
 const equipmentContext = typeof window.RuneFrontierLegacyEquipmentContext === 'function'
@@ -46,6 +46,10 @@ const dropsContext = typeof window.RuneFrontierLegacyDropsContext === 'function'
   ? window.RuneFrontierLegacyDropsContext()
   : {};
 installDropsRuntime(dropsContext);
+const offlineContext = typeof window.RuneFrontierLegacyOfflineContext === 'function'
+  ? window.RuneFrontierLegacyOfflineContext()
+  : {};
+installOfflineRuntime(offlineContext);
 
 if (typeof window.bootstrapLegacyRuntime === 'function') {
   window.bootstrapLegacyRuntime();
@@ -94,4 +98,4 @@ window.addEventListener('DOMContentLoaded', () => {
   applyOverrides();
 });
 
-console.log('[Rune Frontier] Module system initialized. Phase 3 batch 3.');
+console.log('[Rune Frontier] Module system initialized. Phase 3 batch 4.');

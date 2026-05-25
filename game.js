@@ -5915,7 +5915,7 @@ function legacyAddEquipmentToInventory(item, options = {}) {
 
 function addEquipmentToInventory(item, options = {}) {
   const runtime = window.RuneFrontierEquipmentRuntime;
-  if (!options.offline && runtime && typeof runtime.addEquipmentToInventory === "function") {
+  if (runtime && typeof runtime.addEquipmentToInventory === "function") {
     return runtime.addEquipmentToInventory(item, options);
   }
   return legacyAddEquipmentToInventory(item, options);
@@ -7093,7 +7093,7 @@ function equipBest() {
   renderAll();
 }
 
-function claimOffline() {
+function legacyClaimOffline() {
   const pending = normalizeOfflineRewards(state.offlinePending || state.offlineRewards);
   if (!pending || (pending.seconds <= 0 && !pending.equipments.length)) {
     showToast("暂无离线收益");
@@ -7144,12 +7144,20 @@ function claimOffline() {
   save();
 }
 
-function getPendingOfflineRewards() {
+function claimOffline() {
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.claimOfflineRewards === "function") {
+    return runtime.claimOfflineRewards();
+  }
+  return legacyClaimOffline();
+}
+
+function legacyGetPendingOfflineRewards() {
   return normalizeOfflineRewards(state.offlinePending || state.offlineRewards);
 }
 
-function hasPendingOfflineRewards() {
-  const pending = getPendingOfflineRewards();
+function legacyHasPendingOfflineRewards() {
+  const pending = legacyGetPendingOfflineRewards();
   return Boolean(pending && (
     pending.seconds > 0 ||
     pending.gold > 0 ||
@@ -7162,14 +7170,38 @@ function hasPendingOfflineRewards() {
   ));
 }
 
+function legacyGetLootRewardsForView() {
+  return legacyHasPendingOfflineRewards() ? legacyGetPendingOfflineRewards() : getLatestRecentLootRewards();
+}
+
+function getPendingOfflineRewards() {
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.getPendingOfflineRewards === "function") {
+    return runtime.getPendingOfflineRewards();
+  }
+  return legacyGetPendingOfflineRewards();
+}
+
+function hasPendingOfflineRewards() {
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.hasPendingOfflineRewards === "function") {
+    return runtime.hasPendingOfflineRewards();
+  }
+  return legacyHasPendingOfflineRewards();
+}
+
 function getLootRewardsForView() {
-  return hasPendingOfflineRewards() ? getPendingOfflineRewards() : getLatestRecentLootRewards();
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.getLootRewardsForView === "function") {
+    return runtime.getLootRewardsForView();
+  }
+  return legacyGetLootRewardsForView();
 }
 
 function openOfflineRewardModal() {
   const hasPending = hasPendingOfflineRewards();
   offlineRewardModalOpen = true;
-  if (!hasPending) markRecentLootViewed();
+  if (!hasPending) markLootViewed();
   renderOfflineRewardModal();
   save();
 }
@@ -7474,9 +7506,17 @@ function legacyGetLatestRecentLootRewards() {
   return legacyMergeRecentLootRewards(batch.map((entry) => entry.rewards));
 }
 
-function markRecentLootViewed() {
+function legacyMarkRecentLootViewed() {
   state.lootNotifyUnread = false;
   state.lastLootViewedAt = Date.now();
+}
+
+function markLootViewed() {
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.markLootViewed === "function") {
+    return runtime.markLootViewed();
+  }
+  return legacyMarkRecentLootViewed();
 }
 
 function legacyMergeRecentLootRewards(rewardsList = []) {
@@ -7671,25 +7711,10 @@ function buildOfflineMonsterStats(map) {
 function rollOfflineEquipmentDrops(rewards, stats, map, mapIndex, killCount) {
   const tableId = mapDropTableAlias[map.id] || map.id;
   const rows = equipmentDropTables[tableId] || [];
-  let freeSlots = Math.max(0, getInventoryLimit() - state.inventory.length);
+  const capacity = { freeSlots: Math.max(0, getInventoryLimit() - state.inventory.length) };
   for (let kill = 0; kill < killCount; kill += 1) {
     const drops = rollEquipmentDropsFromTable(rows, stats, { offline: true });
-    drops.forEach((item) => {
-      if (shouldAutoSalvage(item)) {
-        mergeMaterialRewardIntoList(rewards.materials, getSalvageRewards(item));
-        return;
-      }
-      if (freeSlots <= 0) {
-        if (canOfflineFullSalvage(item)) {
-          mergeMaterialRewardIntoList(rewards.materials, getSalvageRewards(item));
-        } else {
-          rewards.equipments.push(item);
-        }
-        return;
-      }
-      freeSlots -= 1;
-      rewards.equipments.push(item);
-    });
+    processOfflineGeneratedEquipment(rewards, drops, capacity);
   }
 }
 
@@ -7697,10 +7722,34 @@ function canOfflineFullSalvage(item) {
   return !item.setId && !["darkGold", "mythic"].includes(item.rarity) && rarityRank(item.rarity) <= rarityRank("epic");
 }
 
+function processOfflineGeneratedEquipment(rewards, items, capacity, options = {}) {
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.processGeneratedOfflineEquipment === "function") {
+    return runtime.processGeneratedOfflineEquipment(rewards, items, capacity, options);
+  }
+  (items || []).forEach((item) => {
+    if (shouldAutoSalvage(item)) {
+      mergeMaterialRewardIntoList(rewards.materials, getSalvageRewards(item));
+      return;
+    }
+    if (capacity.freeSlots <= 0) {
+      if (canOfflineFullSalvage(item)) {
+        mergeMaterialRewardIntoList(rewards.materials, getSalvageRewards(item));
+      } else {
+        rewards.equipments.push(item);
+      }
+      return;
+    }
+    capacity.freeSlots -= 1;
+    rewards.equipments.push(item);
+  });
+  return capacity;
+}
+
 function rollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills = 0) {
   const setIds = zodiacSetDropMap[map.id] || [];
   if (!setIds.length) return;
-  let freeSlots = Math.max(0, getInventoryLimit() - state.inventory.length - rewards.equipments.length);
+  const capacity = { freeSlots: Math.max(0, getInventoryLimit() - state.inventory.length - rewards.equipments.length) };
   const isHard = state.currentDifficulty === "hard";
   const isAbyss = state.currentDifficulty === "abyss";
   const baseRate = (isAbyss ? ZODIAC_SET_DROP_RATES.hard * 1.2 : isHard ? ZODIAC_SET_DROP_RATES.hard : ZODIAC_SET_DROP_RATES.normal) * OFFLINE_EQUIPMENT_DROP_RATE_MULTIPLIER;
@@ -7717,19 +7766,14 @@ function rollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills
     const template = set.items[Math.floor(Math.random() * set.items.length)];
     const dropLevel = template.level || getMapLevelRange(map).maxLevel;
     const item = createItem(template, dropLevel, rarity, { dropMapId: map.id, dropLevel, difficulty: state.currentDifficulty, allowMythic: rarity === "mythic" });
-    if (freeSlots <= 0) {
-      rewards.equipments.push(item);
-      continue;
-    }
-    freeSlots -= 1;
-    rewards.equipments.push(item);
+    processOfflineGeneratedEquipment(rewards, [item], capacity);
   }
 }
 
 function rollOfflineTransitionSetDrops(rewards, stats, map, killCount) {
   const setIds = transitionSetDropMap[map.id] || [];
   if (!setIds.length) return;
-  let freeSlots = Math.max(0, getInventoryLimit() - state.inventory.length - rewards.equipments.length);
+  const capacity = { freeSlots: Math.max(0, getInventoryLimit() - state.inventory.length - rewards.equipments.length) };
   const isHard = state.currentDifficulty === "hard";
   const isAbyss = state.currentDifficulty === "abyss";
   const baseRate = (isAbyss ? TRANSITION_SET_DROP_RATES.hard * 1.2 : isHard ? TRANSITION_SET_DROP_RATES.hard : TRANSITION_SET_DROP_RATES.normal) * OFFLINE_EQUIPMENT_DROP_RATE_MULTIPLIER;
@@ -7741,26 +7785,20 @@ function rollOfflineTransitionSetDrops(rewards, stats, map, killCount) {
     const template = set.items[Math.floor(Math.random() * set.items.length)];
     const dropLevel = template.level || getMapLevelRange(map).maxLevel;
     const item = createItem(template, dropLevel, template.rarity || "rare", { dropMapId: map.id, dropLevel, difficulty: state.currentDifficulty });
-    if (freeSlots <= 0) {
-      rewards.equipments.push(item);
-      continue;
-    }
-    freeSlots -= 1;
-    rewards.equipments.push(item);
+    processOfflineGeneratedEquipment(rewards, [item], capacity);
   }
 }
 
 function rollOfflineMythicDrops(rewards, stats, map, killCount, mutationKills = 0) {
   if (state.currentDifficulty !== "abyss") return;
-  let freeSlots = Math.max(0, getInventoryLimit() - state.inventory.length - rewards.equipments.length);
+  const capacity = { freeSlots: Math.max(0, getInventoryLimit() - state.inventory.length - rewards.equipments.length) };
   const dropBonus = 1 + Math.min(1.5, stats.equipmentDropBonus || 0);
   for (let kill = 0; kill < Math.min(killCount, OFFLINE_MAX_KILLS); kill += 1) {
     const baseRate = kill < mutationKills ? MYTHIC_DROP_RATES.abyssMutation : MYTHIC_DROP_RATES.abyssNormal;
     if (Math.random() >= baseRate * OFFLINE_EQUIPMENT_DROP_RATE_MULTIPLIER * dropBonus) continue;
     const item = createMutationEquipment("mythic");
     if (!item) continue;
-    if (freeSlots > 0) freeSlots -= 1;
-    rewards.equipments.push(item);
+    processOfflineGeneratedEquipment(rewards, [item], capacity);
   }
 }
 
@@ -7810,7 +7848,7 @@ function rollOfflineMutationExtraDrops(rewards, stats, map, mutationKills) {
   const highRate = MUTATION_EXTRA_DROPS.highRarityEquipmentRate * hardExtra * (1 + equipmentDropBonus) * OFFLINE_EQUIPMENT_DROP_RATE_MULTIPLIER;
   const darkRate = MUTATION_EXTRA_DROPS.darkGoldEquipmentRate * (isAbyss ? 1.5 : state.currentDifficulty === "hard" ? 1.2 : 1) * (1 + equipmentDropBonus) * OFFLINE_EQUIPMENT_DROP_RATE_MULTIPLIER;
   const mythicRate = isAbyss ? MYTHIC_DROP_RATES.abyssMutation * (1 + equipmentDropBonus) * OFFLINE_EQUIPMENT_DROP_RATE_MULTIPLIER : 0;
-  let freeSlots = Math.max(0, getInventoryLimit() - state.inventory.length - rewards.equipments.length);
+  const capacity = { freeSlots: Math.max(0, getInventoryLimit() - state.inventory.length - rewards.equipments.length) };
 
   for (let i = 0; i < mutationKills; i += 1) {
     if (Math.random() < materialRate) {
@@ -7824,20 +7862,7 @@ function rollOfflineMutationExtraDrops(rewards, stats, map, mutationKills) {
     if (!rarity) continue;
     const item = createMutationEquipment(rarity);
     if (!item) continue;
-    if (shouldAutoSalvage(item)) {
-      mergeMaterialRewardIntoList(rewards.materials, getSalvageRewards(item));
-      continue;
-    }
-    if (freeSlots <= 0) {
-      if (canOfflineFullSalvage(item)) {
-        mergeMaterialRewardIntoList(rewards.materials, getSalvageRewards(item));
-      } else {
-        rewards.equipments.push(item);
-      }
-      continue;
-    }
-    freeSlots -= 1;
-    rewards.equipments.push(item);
+    processOfflineGeneratedEquipment(rewards, [item], capacity);
   }
 }
 
@@ -13504,6 +13529,55 @@ window.RuneFrontierLegacyDropsContext = () => Object.freeze({
       ? runtime.addEquipmentToInventory(item, options)
       : legacyAddEquipmentToInventory(item, options);
   },
+});
+
+window.RuneFrontierLegacyOfflineContext = () => Object.freeze({
+  getState() {
+    return state;
+  },
+  now() {
+    return Date.now();
+  },
+  createEmptyRewards: defaultOfflineRewards,
+  normalizeLootRewards,
+  objectTotal: offlineObjectTotal,
+  getLatestRecentLootRewards,
+  getEquipmentRuntime() {
+    return window.RuneFrontierEquipmentRuntime;
+  },
+  canOfflineFullSalvage,
+  mergeMaterialReward: mergeMaterialRewardIntoList,
+  gainExp,
+  grantCards(cards) {
+    (cards || []).forEach((card) => {
+      state.cards[card.cardId] = (state.cards[card.cardId] || 0) + (card.qty || 0);
+      state.cardCodex[card.cardId] = state.cardCodex[card.cardId] || { obtained: false, obtainCount: 0, firstObtainedAt: 0 };
+      state.cardCodex[card.cardId].obtained = true;
+      state.cardCodex[card.cardId].obtainCount += card.qty || 0;
+      if (!state.cardCodex[card.cardId].firstObtainedAt) state.cardCodex[card.cardId].firstObtainedAt = Date.now();
+    });
+  },
+  grantMaterials(materials) {
+    (materials || []).forEach((material) => {
+      state.materials[material.materialId] = (state.materials[material.materialId] || 0) + (material.qty || 0);
+    });
+  },
+  recordRecentLoot,
+  showToast,
+  afterClaim() {
+    closeOfflineRewardModal();
+    showToast("离线收益已领取");
+    updateDailyGoalProgress("daily_loot", 1);
+    renderAll();
+    save();
+  },
+  calculateOfflineRewards,
+  buildOfflineReward,
+  rollOfflineEquipmentDrops,
+  rollOfflineCardDrops,
+  rollOfflineMaterialDrops,
+  rollOfflineZodiacSetDrops,
+  rollOfflineMythicDrops,
 });
 
 if (devDiagnosticsEnabled) {
