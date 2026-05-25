@@ -14,13 +14,33 @@ export * from './failureReason.js';
 export * from './settlement.js';
 
 import { configureCombatSettlementContext, grantBossEssence, settleBossVictory, settleDefeatedEnemy } from './settlement.js';
+import {
+  canHeroFight,
+  challengeBoss,
+  configureBossCombatContext,
+  getAutoBossStatusText,
+  handleAutoBossFailure,
+  isAutoBossInCooldown,
+  isBossChallengeReady,
+  isCurrentlyFightingBoss,
+  tryAutoChallengeBoss,
+} from './bossCombat.js';
 
 export function installCombatRuntime(context = {}) {
   configureCombatSettlementContext(context);
+  configureBossCombatContext(context);
   const runtime = Object.freeze({
     grantBossEssence,
     settleBossVictory,
     settleDefeatedEnemy,
+    isBossChallengeReady,
+    isCurrentlyFightingBoss,
+    canHeroFight,
+    isAutoBossInCooldown,
+    challengeBoss,
+    tryAutoChallengeBoss,
+    getAutoBossStatusText,
+    handleAutoBossFailure,
   });
   window.RuneFrontierCombatRuntime = runtime;
   return runtime;

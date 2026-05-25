@@ -24,6 +24,7 @@ const recentLootSource = read('src/systems/drops/recentLoot.js');
 const lootModelSource = read('src/systems/drops/lootModel.js');
 const offlineSource = read('src/systems/offline.js');
 const settlementSource = read('src/systems/combat/settlement.js');
+const bossCombatSource = read('src/systems/combat/bossCombat.js');
 
 const requiredLegacyFunctions = [
   'createDefaultState',
@@ -47,7 +48,7 @@ assert.match(main, /bootstrapOwner:\s*'src\/main\.js'/, 'Module entry must own s
 assert.match(main, /installEquipmentRuntime\(equipmentContext\)/, 'Equipment read runtime must be installed before startup.');
 assert.match(main, /window\.bootstrapLegacyRuntime\(\)/, 'Module entry must start the classic runtime through its bridge.');
 assert.match(main, /migrated:\s*\[[^\]]*'equipment-online-mutations'[^\]]*'online-equipment-drops'[^\]]*'online-reward-categories'[^\]]*'recent-loot-recording'[^\]]*'offline-equipment-settlement'[^\]]*'offline-reward-categories'/s, 'Reward-category migration status is incomplete.');
-assert.match(main, /bridged:\s*\[[^\]]*'offline-time-and-exp-calculation'[^\]]*'combat-rounds-and-boss-entry'/s, 'Deferred bridge status is incomplete.');
+assert.match(main, /bridged:\s*\[[^\]]*'offline-time-and-exp-calculation'[^\]]*'combat-rounds-and-damage'/s, 'Deferred bridge status is incomplete.');
 assert.match(main, /installDropsRuntime\(dropsContext\)/, 'Drops runtime must be installed before startup.');
 assert.match(main, /installOfflineRuntime\(offlineContext\)/, 'Offline runtime must be installed before startup.');
 assert.match(main, /installCombatRuntime\(combatContext\)/, 'Combat settlement runtime must be installed before startup.');
@@ -82,6 +83,8 @@ assert.match(game, /if\s*\(!options\.offline\s*&&\s*runtime\s*&&\s*typeof runtim
 assert.match(game, /RuneFrontierLegacyCombatContext/, 'Legacy runtime must expose combat settlement dependencies.');
 assert.match(game, /runtime\.settleDefeatedEnemy/, 'Kill settlement must forward to the combat runtime.');
 assert.match(game, /runtime\.grantBossEssence/, 'Boss essence settlement must forward to the combat runtime.');
+assert.match(game, /runtime\.tryAutoChallengeBoss/, 'Automatic Boss entry must forward to the combat runtime.');
+assert.match(game, /runtime\.handleAutoBossFailure/, 'Automatic Boss failure cooldown must forward to the combat runtime.');
 assert.equal((game.match(/requestAnimationFrame\(loop\);/g) || []).length, 2, 'Loop registration shape changed unexpectedly.');
 
 const itemStats = await importSource(itemStatsSource);
@@ -598,5 +601,49 @@ assert.equal(bossState.mapDifficultyProgress.forest.normal.unlocked, true, 'Norm
 assert.equal(bossVipExp, 100, 'First Boss honor reward changed.');
 settlement.settleBossVictory({ map: { id: 'grass', name: 'Grass' }, difficulty: 'normal' }, bossContext);
 assert.equal(bossVipExp, 100, 'First Boss honor reward must not be issued twice.');
+
+const bossCombat = await importSource(bossCombatSource);
+const bossEntryState = {
+  areaKills: 5,
+  enemyBoss: false,
+  paused: false,
+  hero: { currentHp: 100 },
+  settings: { autoBossCooldownUntil: 0 },
+};
+let bossSpawned = 0;
+const bossLogs = [];
+const bossEntryContext = {
+  getState: () => bossEntryState,
+  bossRequirement: () => 5,
+  computeStats: () => ({ maxHp: 100 }),
+  getAutoBossEnabled: () => true,
+  ensureSettings: () => bossEntryState.settings,
+  now: () => 1000,
+  getAutoBossFailCooldownMs: () => 120000,
+  currentMap: () => ({ id: 'grass' }),
+  bossDisplayName: () => 'Grass Boss',
+  showToast: () => {},
+  spawnEnemy: () => { bossSpawned += 1; bossEntryState.enemyBoss = true; },
+  addLog: (line) => bossLogs.push(line),
+  render: () => {},
+};
+assert.equal(bossCombat.isBossChallengeReady(bossEntryContext), true, 'Boss readiness must use the filled gauge.');
+assert.equal(bossCombat.tryAutoChallengeBoss('tick', { maxHp: 100 }, bossEntryContext), true, 'Ready automatic Boss challenge must start.');
+assert.equal(bossSpawned, 1, 'Automatic Boss challenge must spawn once.');
+assert.equal(bossCombat.getAutoBossStatusText({ maxHp: 100 }, bossEntryContext), '\u6b63\u5728\u6311\u6218', 'Active Boss status text changed.');
+bossEntryState.enemyBoss = false;
+bossEntryState.paused = true;
+assert.equal(bossCombat.tryAutoChallengeBoss('tick', { maxHp: 100 }, bossEntryContext), false, 'Paused combat must not auto-start Boss.');
+bossEntryState.paused = false;
+bossEntryState.hero.currentHp = 20;
+assert.equal(bossCombat.tryAutoChallengeBoss('tick', { maxHp: 100 }, bossEntryContext), false, 'Low health must not auto-start Boss.');
+bossEntryState.hero.currentHp = 100;
+bossEntryState.settings.autoBossCooldownUntil = 5000;
+assert.equal(bossCombat.tryAutoChallengeBoss('tick', { maxHp: 100 }, bossEntryContext), false, 'Automatic Boss cooldown must be enforced.');
+assert.equal(bossCombat.challengeBoss({ auto: false }, bossEntryContext), true, 'Manual Boss challenge must ignore automatic cooldown.');
+bossEntryState.enemyBoss = true;
+assert.equal(bossCombat.handleAutoBossFailure(bossEntryContext), true, 'Automatic Boss defeat must set cooldown.');
+assert.equal(bossEntryState.settings.autoBossCooldownUntil, 121000, 'Automatic Boss defeat cooldown duration changed.');
+assert.equal(bossLogs.length, 3, 'Boss state routing must write one start log per challenge and one failure log.');
 
 console.log('Migration batch 6 tests passed: reward routing and kill settlement are intact.');

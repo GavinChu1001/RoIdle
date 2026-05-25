@@ -18,7 +18,8 @@ Equipment display naming, effective item stats, multi-axis equipment scores, equ
 - Online material, card, zodiac/transition set, mythic and mutation rewards through `RuneFrontierDropsRuntime`.
 - Offline material, card and special-equipment reward candidates through `RuneFrontierOfflineRuntime`.
 - Kill reward ordering, Boss essence, Boss-clear progression and post-kill encounter advancement through `RuneFrontierCombatRuntime`.
-- Module status metadata now distinguishes migrated combat settlement from deferred round execution and Boss entry state.
+- Boss readiness, automatic challenge entry, status display and automatic-failure cooldown through `RuneFrontierCombatRuntime`.
+- Module status metadata now distinguishes migrated combat settlement/state from deferred round execution.
 
 ## Deliberately Retained In game.js
 
@@ -38,6 +39,6 @@ Equipment display naming, effective item stats, multi-axis equipment scores, equ
 
 ## Next Migration Order
 
-1. Move Boss challenge readiness, automatic challenge state and failure cooldown into the combat runtime.
-2. Move remaining combat round orchestration and offline time/experience calculation.
+1. Move remaining combat round orchestration and damage execution.
+2. Move offline time/experience calculation.
 3. Move page renderers, VIP, codex, and shop behavior, then retire legacy fallbacks.

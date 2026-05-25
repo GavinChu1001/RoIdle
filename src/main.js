@@ -34,8 +34,8 @@ export const RUNTIME_AUTHORITY = 'game.js';
 window.RuneFrontierModuleStatus = Object.freeze({
   authority: RUNTIME_AUTHORITY,
   bootstrapOwner: 'src/main.js',
-  migrated: ['platform', 'storage-adapter', 'utils-surface', 'state-surface', 'equipment-read-calculations', 'equipment-online-mutations', 'online-equipment-drops', 'online-reward-categories', 'recent-loot-recording', 'loot-view-model', 'offline-equipment-settlement', 'offline-reward-categories', 'kill-and-boss-settlement', 'dev-diagnostics'],
-  bridged: ['offline-time-and-exp-calculation', 'combat-rounds-and-boss-entry', 'vip', 'codex', 'ui'],
+  migrated: ['platform', 'storage-adapter', 'utils-surface', 'state-surface', 'equipment-read-calculations', 'equipment-online-mutations', 'online-equipment-drops', 'online-reward-categories', 'recent-loot-recording', 'loot-view-model', 'offline-equipment-settlement', 'offline-reward-categories', 'kill-and-boss-settlement', 'boss-challenge-state', 'dev-diagnostics'],
+  bridged: ['offline-time-and-exp-calculation', 'combat-rounds-and-damage', 'vip', 'codex', 'ui'],
 });
 
 const equipmentContext = typeof window.RuneFrontierLegacyEquipmentContext === 'function'

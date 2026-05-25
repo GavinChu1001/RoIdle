@@ -4558,23 +4558,47 @@ function applySplashDamageToEncounter(baseDamage, stats = {}) {
   showDamageNumber("monster", splashDamage, "skill", { skillName: "溅射" });
 }
 
-function isBossChallengeReady() {
+function legacyIsBossChallengeReady() {
   return Number(state.areaKills || 0) >= bossRequirement();
 }
 
-function isCurrentlyFightingBoss() {
+function isBossChallengeReady() {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.isBossChallengeReady === "function") return runtime.isBossChallengeReady();
+  return legacyIsBossChallengeReady();
+}
+
+function legacyIsCurrentlyFightingBoss() {
   return Boolean(state.enemyBoss);
 }
 
-function canHeroFight(stats = computeStats()) {
+function isCurrentlyFightingBoss() {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.isCurrentlyFightingBoss === "function") return runtime.isCurrentlyFightingBoss();
+  return legacyIsCurrentlyFightingBoss();
+}
+
+function legacyCanHeroFight(stats = computeStats()) {
   return (state.hero.currentHp || 0) > 0 && (state.hero.currentHp || 0) / Math.max(1, stats.maxHp) >= 0.3;
 }
 
-function isAutoBossInCooldown() {
+function canHeroFight(stats = computeStats()) {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.canHeroFight === "function") return runtime.canHeroFight(stats);
+  return legacyCanHeroFight(stats);
+}
+
+function legacyIsAutoBossInCooldown() {
   return Date.now() < (ensureSettings().autoBossCooldownUntil || 0);
 }
 
-function challengeBoss({ auto = false } = {}) {
+function isAutoBossInCooldown() {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.isAutoBossInCooldown === "function") return runtime.isAutoBossInCooldown();
+  return legacyIsAutoBossInCooldown();
+}
+
+function legacyChallengeBoss({ auto = false } = {}) {
   const stats = computeStats();
   if (isCurrentlyFightingBoss()) return false;
   if (!isBossChallengeReady()) {
@@ -4592,7 +4616,13 @@ function challengeBoss({ auto = false } = {}) {
   return true;
 }
 
-function tryAutoChallengeBoss(reason = "tick", stats = computeStats()) {
+function challengeBoss({ auto = false } = {}) {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.challengeBoss === "function") return runtime.challengeBoss({ auto });
+  return legacyChallengeBoss({ auto });
+}
+
+function legacyTryAutoChallengeBoss(reason = "tick", stats = computeStats()) {
   const ready = isBossChallengeReady();
   const enabled = getAutoBossEnabled();
   const fightingBoss = isCurrentlyFightingBoss();
@@ -4602,7 +4632,13 @@ function tryAutoChallengeBoss(reason = "tick", stats = computeStats()) {
   return challengeBoss({ auto: true });
 }
 
-function getAutoBossStatusText(stats = computeStats()) {
+function tryAutoChallengeBoss(reason = "tick", stats = computeStats()) {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.tryAutoChallengeBoss === "function") return runtime.tryAutoChallengeBoss(reason, stats);
+  return legacyTryAutoChallengeBoss(reason, stats);
+}
+
+function legacyGetAutoBossStatusText(stats = computeStats()) {
   if (!getAutoBossEnabled()) return "已关闭";
   if (state.paused) return "战斗暂停中";
   if (isCurrentlyFightingBoss()) return "正在挑战";
@@ -4611,6 +4647,24 @@ function getAutoBossStatusText(stats = computeStats()) {
   if (!canHeroFight(stats)) return "生命不足";
   if (isBossChallengeReady()) return "可挑战";
   return "等待进度";
+}
+
+function getAutoBossStatusText(stats = computeStats()) {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.getAutoBossStatusText === "function") return runtime.getAutoBossStatusText(stats);
+  return legacyGetAutoBossStatusText(stats);
+}
+
+function legacyHandleAutoBossFailure() {
+  ensureSettings().autoBossCooldownUntil = Date.now() + AUTO_BOSS_FAIL_COOLDOWN_MS;
+  addLog("自动挑战 BOSS 失败，进入冷却。");
+  return true;
+}
+
+function handleAutoBossFailure() {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.handleAutoBossFailure === "function") return runtime.handleAutoBossFailure();
+  return legacyHandleAutoBossFailure();
 }
 
 function updateRecovery(dt) {
@@ -4671,8 +4725,7 @@ function updateMonsterAttack(dt, stats) {
   if (state.hero.currentHp <= 0) {
     state.paused = true;
     if (state.enemyBoss && getAutoBossEnabled()) {
-      ensureSettings().autoBossCooldownUntil = Date.now() + AUTO_BOSS_FAIL_COOLDOWN_MS;
-      addLog("自动挑战 BOSS 失败，进入冷却。");
+      handleAutoBossFailure();
     }
     addLog(`${getDifficultyFailureHint(monster)}角色生命值归零，战斗停止。`);
   }
@@ -13899,6 +13952,15 @@ window.RuneFrontierLegacyCombatContext = () => Object.freeze({
   },
   applyMaterialQuantityBonus,
   computeStats,
+  ensureSettings,
+  now() {
+    return Date.now();
+  },
+  getAutoBossFailCooldownMs() {
+    return AUTO_BOSS_FAIL_COOLDOWN_MS;
+  },
+  showToast,
+  bossDisplayName,
   gainExp,
   gainVipExp,
   getAutoBossEnabled,
