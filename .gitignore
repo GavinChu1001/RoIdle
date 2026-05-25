@@ -1,0 +1,19 @@
+# Backup files
+*.bak
+game.js.202*
+index.html.202*
+styles.css.202*
+
+# Copy files
+*-副本.*
+game.before_*
+game.broken-*
+game.txt
+
+# Runtime
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
