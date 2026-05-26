@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { createContext, runInContext } from 'node:vm';
 
 const root = new URL('../', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 const read = (file) => readFileSync(join(root, file), 'utf8');
 const importSource = async (source) => import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 const game = read('game.js');
+const data = read('data.js');
+const tools = read('tools.js');
 const html = read('index.html');
 const main = read('src/main.js');
 const stateSurface = read('src/state/index.js');
@@ -31,6 +34,14 @@ const skillsSource = read('src/systems/combat/skills.js');
 const normalCombatSource = read('src/systems/combat/normalCombat.js');
 const taskPageSource = read('src/ui/taskPage.js');
 const cardPageSource = read('src/ui/cardPage.js');
+
+const classicDataContext = { console };
+createContext(classicDataContext);
+runInContext(tools, classicDataContext, { filename: 'tools.js' });
+assert.doesNotThrow(() => runInContext(data, classicDataContext, { filename: 'data.js' }), 'Classic data script must initialize before game.js loads.');
+assert.ok(classicDataContext.jobTemplates?.swordman?.skills?.length, 'Job templates must be initialized by data.js.');
+assert.ok(classicDataContext.secondJobTemplates?.knight, 'Second job templates must be initialized by data.js.');
+assert.equal(classicDataContext.jobTemplates.swordman.skills[1].name, '狂击', 'Skill factory output changed during data initialization.');
 
 const requiredLegacyFunctions = [
   'createDefaultState',

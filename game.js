@@ -1436,30 +1436,6 @@ let auth = loadAuth();
 let remoteSaveInFlight = false;
 let remoteSaveQueued = false;
 
-function skill(name, level, kind, description, options) {
-  return {
-    id: options.id || skillIdFor(name, level, kind),
-    name,
-    level,
-    kind,
-    description,
-    atkPct: options.atkPct || 0,
-    matkPct: options.matkPct || 0,
-    hpPct: options.hpPct || 0,
-    defPct: options.defPct || 0,
-    aspdPct: options.aspdPct || 0,
-    critPct: options.critPct || 0,
-    goldPct: options.goldPct || 0,
-    dropPct: options.dropPct || 0,
-    dpsPct: options.dpsPct || 0,
-    active: options.active || null,
-  };
-}
-
-function skillIdFor(name, level, kind) {
-  return `skill_${String(name).replace(/\s+/g, "_")}_${level}_${kind}`;
-}
-
 function defaultTrainingPct() {
   return { str: 0, agi: 0, vit: 0, int: 0, dex: 0, luk: 0 };
 }
