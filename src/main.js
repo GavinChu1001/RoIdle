@@ -47,6 +47,8 @@ import { installAdviceRenderRuntime } from './ui/components/actionButton.js';
 export const DEV_MODE = new URLSearchParams(window.location.search).get('dev') === '1';
 export const RUNTIME_AUTHORITY = 'game.js';
 
+document.documentElement.dataset.runeModuleStatus = 'installing';
+
 window.RuneFrontierModuleStatus = Object.freeze({
   authority: RUNTIME_AUTHORITY,
   bootstrapOwner: 'src/main.js',
@@ -83,6 +85,7 @@ const shopContext = typeof window.RuneFrontierLegacyShopContext === 'function'
   ? window.RuneFrontierLegacyShopContext()
   : {};
 installShopRuntime(shopContext);
+document.documentElement.dataset.runeModuleStatus = 'systems-ready';
 
 const lootContext = {
   getState() { return window.state || {}; },
@@ -100,9 +103,11 @@ const lootContext = {
   sortOfflineEquipment: window.sortOfflineEquipment,
 };
 installLootRenderRuntime(lootContext);
+document.documentElement.dataset.runeModuleStatus = 'loot-render-ready';
 
 const vipRenderContext = {
   getState() { return window.state || {}; },
+  getEls() { return window.els || {}; },
   normalizeVip: window.normalizeVip,
   getVipBonuses: window.getVipBonuses,
   getVipProgressInfo: window.getVipProgressInfo,
@@ -117,6 +122,7 @@ const vipRenderContext = {
   todayKey() { return new Date().toISOString().slice(0, 10); },
 };
 installVipRenderRuntime(vipRenderContext);
+document.documentElement.dataset.runeModuleStatus = 'vip-render-ready';
 
 const shopRenderContext = {
   getState() { return window.state || {}; },
@@ -128,6 +134,7 @@ const shopRenderContext = {
   escapeHtml: window.escapeHtml,
 };
 installShopRenderRuntime(shopRenderContext);
+document.documentElement.dataset.runeModuleStatus = 'shop-render-ready';
 
 const codexRenderContext = {
   getState() { return window.state || {}; },
@@ -158,6 +165,7 @@ const codexRenderContext = {
   formatNumber: window.formatNumber,
 };
 installCodexRenderRuntime(codexRenderContext);
+document.documentElement.dataset.runeModuleStatus = 'codex-render-ready';
 
 const characterRenderContext = {
   getState() { return window.state || {}; },
@@ -217,6 +225,7 @@ const characterRenderContext = {
   formatStatValue: window.formatStatValue,
 };
 installCharacterRenderRuntime(characterRenderContext);
+document.documentElement.dataset.runeModuleStatus = 'character-render-ready';
 
 const equipmentRenderContext = {
   getState() { return window.state || {}; },
@@ -247,7 +256,7 @@ const equipmentRenderContext = {
   getMechanicAffixes() { return window.MECHANIC_AFFIXES || {}; },
   statObjectText: window.statObjectText,
   star15Bonus: window.star15Bonus,
-  randomStatsHtml: window.randomStatsHtml,
+  getRandomStatEntries: window.randomStatEntries,
   countEquippedSetPieces: window.countEquippedSetPieces,
   getEquipmentSet: (id) => window.equipmentSets?.[id],
   materialText: window.materialText,
@@ -273,6 +282,7 @@ const equipmentRenderContext = {
   getCardPool() { return window.cardPool || []; },
 };
 installEquipmentRenderRuntime(equipmentRenderContext);
+document.documentElement.dataset.runeModuleStatus = 'equipment-render-ready';
 
 const smithyRenderContext = {
   getState() { return window.state || {}; },
@@ -310,23 +320,32 @@ const smithyRenderContext = {
   getMaterialName: (id) => (window.materialNames || {})[id] || id,
 };
 installSmithyRenderRuntime(smithyRenderContext);
+document.documentElement.dataset.runeModuleStatus = 'smithy-render-ready';
 
 const mapRenderContext = { getState() { return window.state || {}; }, getEls() { return window.els || {}; }, escapeHtml: window.escapeHtml, escapeAttr: window.escapeAttr, formatNumber: window.formatNumber, percent: window.percent, getMaps() { return window.maps || []; }, progressText: window.progressText, getDifficultyConfigs() { return window.DIFFICULTY_CONFIG || {}; }, getMapLevelRange: window.getMapLevelRange, getMapPreviewStats: window.getMapPreviewStats, getRecommendedScoresForMap: window.getRecommendedScoresForMap, getAbyssMapTierScales() { return window.ABYSS_MAP_TIER_SCALE || {}; }, getHardMapTierScales() { return window.HARD_MAP_TIER_SCALE || {}; }, bossDisplayName: window.bossDisplayName, getMapExplorationEntry: window.getMapExplorationEntry, getMapExplorationRequirements() { return window.MAP_EXPLORATION_REQUIREMENTS || []; }, getMapExplorationBonuses: window.getMapExplorationBonuses, formatRangeNumber: window.formatRangeNumber, mapDropTooltip: window.mapDropTooltip, };
 installMapRenderRuntime(mapRenderContext);
+document.documentElement.dataset.runeModuleStatus = 'map-render-ready';
 
 const cardRenderContext = { getState() { return window.state || {}; }, getEls() { return window.els || {}; }, escapeHtml: window.escapeHtml, escapeAttr: window.escapeAttr, formatNumber: window.formatNumber, getCardPool() { return window.cardPool || []; }, getBossCardPool() { return window.bossCardPool || []; }, getCardTypeLabel: window.getCardTypeLabel, cardTooltip: window.cardTooltip, getMaterialName: (id) => (window.materialNames || {})[id] || id, getInventoryLimit: window.getInventoryLimit, rarityRank: window.rarityRank, };
 installCardRenderRuntime(cardRenderContext);
+document.documentElement.dataset.runeModuleStatus = 'card-render-ready';
 
 const taskRenderContext = { getState() { return window.state || {}; }, getEls() { return window.els || {}; }, escapeHtml: window.escapeHtml, formatNumber: window.formatNumber, normalizeDailyGoals: window.normalizeDailyGoals, achievementRewardText: window.achievementRewardText, questRewardText: window.questRewardText, getAchievementDb() { return window.ACHIEVEMENT_DB || []; }, getAchievementEntry: window.getAchievementEntry, };
 installTaskRenderRuntime(taskRenderContext);
+document.documentElement.dataset.runeModuleStatus = 'task-render-ready';
 
 const logRenderContext = { getState() { return window.state || {}; }, getEls() { return window.els || {}; }, escapeHtml: window.escapeHtml, };
 installLogRenderRuntime(logRenderContext);
+document.documentElement.dataset.runeModuleStatus = 'log-render-ready';
 
 installAdviceRenderRuntime({ escapeHtml: window.escapeHtml, formatNumber: window.formatNumber, getCurrentGoal: window.getCurrentGoal, getPlayerWeakness: window.getPlayerWeakness, getRecommendedActions: window.getRecommendedActions, getCurrentRecommendedScoreGap: window.getCurrentRecommendedScoreGap, });
+document.documentElement.dataset.runeModuleStatus = 'render-ready';
 
 if (typeof window.bootstrapLegacyRuntime === 'function') {
-  window.bootstrapLegacyRuntime();
+  const started = window.bootstrapLegacyRuntime();
+  if (started === false && typeof window.renderAll === 'function') {
+    window.renderAll();
+  }
 } else {
   console.error('[Rune Frontier] Classic runtime bootstrap bridge is unavailable.');
 }
@@ -347,6 +366,8 @@ if (DEV_MODE) {
       .catch((error) => console.error('[Dev Debug] Failed to initialize diagnostics.', error));
   }
 }
+
+document.documentElement.dataset.runeModuleStatus = 'ready';
 
 // Post-load overrides for material descriptions defined by the classic runtime.
 window.addEventListener('DOMContentLoaded', () => {

@@ -245,12 +245,12 @@ export function renderJobSkills(ctx = charCtx) {
   return `<section class="job-skills-section"><strong>\u4e3b\u52a8\u6280\u80fd</strong>
     <div class="stat-grid">${(job.skills || []).map((entry, i) => {
       const unlocked = skills.find((s) => s.name === entry.name);
-      const growth = growthFn(entry.name);
+      const growth = growthFn(entry);
       const lvl = growth?.level || 0;
       const spec = growth?.specialization || '';
       return `<div class="skill-entry"><strong>${esc(entry.name)} Lv.${lvl}</strong>
         ${unlocked ? `<p class="codex-desc">${ctx.skillTooltip?.(entry) || ''}</p>
-        <p class="codex-desc">${ctx.formatSkillMultiplier?.(entry, stats || {}) || ''}</p>
+        ${entry.active ? `<p class="codex-desc">${ctx.formatSkillMultiplier?.(entry.active.multiplier || 0) || ''}</p>` : ''}
         ${renderSkillMilestonePanel(entry, !!unlocked, ctx)}
         ${renderSkillSpecialization(entry, !!unlocked, growth, ctx)}
         <p class="codex-desc">${descFn(milestoneFn(entry))}</p>` : '<p class="codex-desc">\u672a\u89e3\u9501</p>'}
@@ -261,17 +261,17 @@ export function renderJobSkills(ctx = charCtx) {
 
 export function renderSkillMilestonePanel(entry, unlocked, ctx = charCtx) {
   if (!unlocked) return '';
-  const milestones = ctx.getSkillMilestoneEntries?.(entry.name) || [];
+  const milestones = ctx.getSkillMilestoneEntries?.(entry) || [];
   if (!milestones.length) return '';
   return `<div class="skill-milestones">${milestones.map((ms) => `<span class="skill-milestone"><small>Lv.${ms.level}</small><strong>${esc(ms.label || '')}</strong></span>`).join('')}</div>`;
 }
 
 export function renderSkillSpecialization(entry, unlocked, growth, ctx = charCtx) {
   if (!unlocked) return '';
-  const opts = ctx.getSkillSpecializationOptions?.(entry.name) || [];
+  const opts = ctx.getSkillSpecializationOptions?.(entry) || [];
   if (!opts.length) return '';
   return `<div class="skill-spec"><strong>\u4e13\u7cbe</strong>
-    ${opts.map((opt) => `<button type="button" data-skill-spec="${entry.name}" data-spec="${opt}" class="${growth?.specialization === opt ? 'active' : ''}">${esc(opt)}</button>`).join('')}
+    ${opts.map((opt) => `<button type="button" data-skill-id="${entry.id}" data-skill-spec="${opt.id}" class="${growth?.specialization === opt.id ? 'active' : ''}">${esc(opt.name || opt.id)}</button>`).join('')}
   </div>`;
 }
 

@@ -2150,7 +2150,11 @@ const materialDropTables = {
 const els = {};
 let state = createDefaultState();
 window.els = els;
-window.state = state;
+Object.defineProperty(window, "state", {
+  configurable: true,
+  get() { return state; },
+  set(nextState) { state = nextState; },
+});
 let lastTick = performance.now();
 let saveTimer = 0;
 let toastTimer = 0;
@@ -7669,22 +7673,42 @@ function renderAll() {
   els.pauseIcon.textContent = state.paused ? "▶" : "Ⅱ";
   els.saveState.textContent = "已同步";
 
-  renderPages();
-  renderFormation();
-  renderHeroes();
-  renderTown();
-  renderSmithyPage();
-  renderEquipment();
-  renderMaps();
-  renderCards();
-  renderCodex();
-  renderShop();
-  renderVip();
-  renderTasks();
-  renderQuestList();
-  renderPartyList();
-  renderLog();
-  renderFast();
+  try {
+    delete document.documentElement.dataset.runeRenderError;
+    document.documentElement.dataset.runeRenderStage = "pages";
+    renderPages();
+    renderFormation();
+    document.documentElement.dataset.runeRenderStage = "heroes";
+    renderHeroes();
+    document.documentElement.dataset.runeRenderStage = "town";
+    renderTown();
+    document.documentElement.dataset.runeRenderStage = "smithy";
+    renderSmithyPage();
+    document.documentElement.dataset.runeRenderStage = "equipment";
+    renderEquipment();
+    document.documentElement.dataset.runeRenderStage = "maps";
+    renderMaps();
+    document.documentElement.dataset.runeRenderStage = "cards";
+    renderCards();
+    document.documentElement.dataset.runeRenderStage = "codex";
+    renderCodex();
+    document.documentElement.dataset.runeRenderStage = "shop";
+    renderShop();
+    document.documentElement.dataset.runeRenderStage = "vip";
+    renderVip();
+    document.documentElement.dataset.runeRenderStage = "tasks";
+    renderTasks();
+    document.documentElement.dataset.runeRenderStage = "sidebar";
+    renderQuestList();
+    renderPartyList();
+    renderLog();
+    renderFast();
+    document.documentElement.dataset.runeRenderStage = "ready";
+  } catch (error) {
+    document.documentElement.dataset.runeRenderError = `${document.documentElement.dataset.runeRenderStage || "unknown"}: ${error?.message || error}`;
+    console.error("[Rune Frontier] renderAll failed", error);
+    throw error;
+  }
 }
 
 function renderPages() {
@@ -12670,6 +12694,146 @@ window.RuneFrontierLegacyDevContext = () => Object.freeze({
   sanitizeProgression,
   save,
   renderAll,
+});
+
+// [RENDER-RUNTIME-ADAPTER] Migrated page modules read these live legacy values without owning game state.
+Object.assign(window, {
+  maps,
+  mapMonsterConfig,
+  jobTemplates,
+  firstJobs,
+  materialNames,
+  MATERIAL_DB,
+  attributeKeys,
+  equipmentSets,
+  cardPool,
+  bossCardPool,
+  MECHANIC_AFFIXES,
+  progressText,
+  getMapLevelRange,
+  getMapPreviewStats,
+  getRecommendedScoresForMap,
+  bossDisplayName,
+  getMapExplorationEntry,
+  getMapExplorationBonuses,
+  formatRangeNumber,
+  mapDropTooltip,
+  normalizeVip,
+  getVipBonuses,
+  getVipProgressInfo,
+  getUnlockedVipMilestones,
+  getNextVipMilestone,
+  normalizeShopState,
+  canBuyShopItem,
+  formatShopCost,
+  formatShopLimitText,
+  getCodexBonuses,
+  getTotalCodexLevel,
+  getMonsterMasteryLevel,
+  getCardResearchLevel,
+  getMonsterTypeLabel,
+  getMonsterTypeForCodex,
+  buildMonsterNameMap,
+  buildMonsterSourceMap,
+  buildMonsterCardDropMap,
+  statLabelName,
+  cardEffectText,
+  calculatePlayerRatingScores,
+  formatCritRateSummary,
+  imageBackgroundList,
+  classImageCandidates,
+  heroTrainCost,
+  renderSetTalentStatus,
+  describeJobGrowth,
+  jobSummary,
+  computeEquipmentFullStats,
+  getCardStats,
+  getTitleEffects,
+  getNextJobId,
+  normalizeTitles,
+  titleEffectText,
+  getUnlockedSkills,
+  getPassiveSkillTotals,
+  getSkillGrowthEntry,
+  getSkillMilestoneBonuses,
+  describeSkillMilestone,
+  getSkillMilestoneEntries,
+  getSkillSpecializationOptions,
+  skillTooltip,
+  formatSkillMultiplier,
+  statLine,
+  renderStatGroup,
+  formatStatValue,
+  isAbyssEquipment,
+  rarityName,
+  slotName,
+  equipmentSlot,
+  getMaxEquipmentCardSlots,
+  getEquipmentCardSlotCount,
+  getSocketCard,
+  getRefineCost,
+  getRefineChance,
+  getEmpowerCost,
+  getRefineGrowthStats,
+  renderRefineStatDelta,
+  getSalvageRewardsPreview,
+  getEquipmentSummaryEntries,
+  calculateEquipmentScores,
+  compareEquipmentScores,
+  formatScoreDelta,
+  getEquipmentUsageTags,
+  groupEquipmentStats,
+  equipmentStatEntry,
+  getEffectiveItemStats,
+  statObjectText,
+  star15Bonus,
+  randomStatEntries,
+  randomStatsHtml,
+  countEquippedSetPieces,
+  materialText,
+  hasMaterials,
+  isZodiacItem,
+  currentJob,
+  pruneEquipmentDetailExpandedState,
+  equippedSlotMeta,
+  sortEquipmentList,
+  filterEquipmentList,
+  equipmentDetailKey,
+  equipmentVisualClass,
+  refineText,
+  empowerText,
+  itemImageCandidates,
+  itemRangeTooltip,
+  renderMaterialGroups,
+  renderZodiacCollectionPanel,
+  renderCostumePanel,
+  getEnhanceCost,
+  getEnhanceEffect,
+  getEnhanceMilestoneBonuses,
+  getEnhanceSafeZoneText,
+  getEnhanceFailResultText,
+  renderStarRefineSmithyPanel,
+  renderCardSocketSmithyPanel,
+  renderDarkGoldExchangeCard,
+  getCardSocketCost,
+  canAffordSocketCost,
+  canContinueRefine,
+  rarityRank,
+  normalizeDailyGoals,
+  achievementRewardText,
+  questRewardText,
+  getAchievementEntry,
+  getCurrentGoal,
+  getPlayerWeakness,
+  getRecommendedActions,
+  getCurrentRecommendedScoreGap,
+  renderAll,
+});
+window.specialStatKeys = ["ignoreDefense", "echoChance", "splashTargets", "splashDamagePct", "fireBurstChance", "fireBurstAtkPct", "meteorCounterChance", "meteorCounterMatkPct", "skillCooldownPenalty", "higherLevelDamageBonus", "mutationMaterialDoubleChance", "thornVitMultiplier", "combatPaceBonus", "patrolEfficiency", "hitRate", "statusResist", "powerPct", "setPowerBonus"];
+Object.defineProperties(window, {
+  refineResultState: { configurable: true, get() { return refineResultState; } },
+  equipmentDetailExpandedState: { configurable: true, get() { return equipmentDetailExpandedState; } },
+  equipmentShowAll: { configurable: true, get() { return equipmentShowAll; } },
 });
 
 // [DEV-DIAGNOSTIC-ADAPTER] Moved to src/dev/devBridge.js + src/main.js installation.

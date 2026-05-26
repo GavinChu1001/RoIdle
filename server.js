@@ -23,6 +23,14 @@ const mimeTypes = {
   ".md": "text/markdown; charset=utf-8",
 };
 
+function getStaticCacheControl(ext) {
+  // Keep runtime modules coherent across deployments; mixed JS versions blank migrated pages.
+  if (ext === ".html" || ext === ".js" || ext === ".css" || ext === ".json") {
+    return "no-store";
+  }
+  return "public, max-age=300";
+}
+
 function readDb() {
   try {
     return JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
@@ -203,7 +211,7 @@ function serveStatic(req, res) {
     const ext = path.extname(filePath).toLowerCase();
     res.writeHead(200, {
       "Content-Type": mimeTypes[ext] || "application/octet-stream",
-      "Cache-Control": ext === ".html" ? "no-store" : "public, max-age=300",
+      "Cache-Control": getStaticCacheControl(ext),
     });
     res.end(data);
   });
