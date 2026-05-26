@@ -1,39 +1,39 @@
-# game.js Migration Status - Batch 19b (Phase B Complete)
+# game.js Migration Status — Final
 
-## game.js: 11,722 lines (was 14,600 at migration start — -20%)
+## game.js: 11,844 lines (was 14,600 — -19%)
 
-## Phase B — Legacy Function Body Slimming
-- All 78 `legacyXxx` function bodies reduced to single-line `{ return; }` stubs.
-- Delegation wrappers unchanged — runtime checks preserved, fallback to stub.
-- Production safety: 9 runtimes installed before bootstrap, stubs never executed in normal operation.
+## Phase B Complete + Fix
 
-## Migration Completion Summary
+- 78 legacy bodies slimmed, `legacyCreateItem` restored (called by `createDefaultState()` during top-level init before runtime installation).
+- 77 remaining stubs confirmed safe — init chain does not call them before runtimes are installed.
+- `?dev=1` self-check verified: 0 errors, 1 warning (compat save version).
 
-| Metric | Start | Current |
-|--------|-------|---------|
-| `game.js` lines | 14,600 | 11,722 |
-| Classic scripts | 1 | 3 (`tools.js`, `data.js`, `game.js`) |
-| Browser modules | 55 (delegation wrappers) | 82 (real implementations) |
-| System runtimes | 0 | 9 |
-| RenderRuntime functions | 0 real | 81 real |
-| `legacyXxx` bodies | 78 full | 78 stubs |
-| Config table extraction | 0 | 444 lines in `data.js` |
+## Completion Summary
 
-## Batch History
-| Batch | Content | Commit |
-|-------|---------|--------|
-| 14 | Audit inventory | `491f2c7` |
-| 15 | `tools.js` + DevBridge | `febc0b8` |
-| 16 | Loot modal renderer (20) | `a236741` |
-| 17a+b | VIP + Shop renderers | `28f69d6` |
-| 17c | Codex renderer (4) | `fc052cd` |
-| 17d | Character renderer (11) | `41dc829` |
-| 17e+f | Equipment (22) + Smithy (10) | `553bfb5` |
-| 18 | Event bridge audit | `599bdb4` |
-| 19a | `data.js` extraction | `53c35cc` |
-| D1-D5 | Map/Card/Task/Log/Advice (12) | `5b9e096` |
-| 19b | Legacy body slimming (78) | pending |
+| Item | Status |
+|------|--------|
+| 9 system runtimes | ✅ Installed |
+| 81 render functions | ✅ True implementations |
+| `tools.js` | ✅ 13 utilities |
+| `data.js` | ✅ 444 configs |
+| DevBridge | ✅ Extracted |
+| 78 legacy bodies | ✅ 77 stubs + 1 restored |
+| Browser self-check | ✅ 0 errors |
+| `npm run check` | ✅ |
+| `npm run test` | ✅ |
 
-## Next
-- Browser regression: `?dev=1` self-check, all pages, combat, offline rewards.
-- If all green → game.js ready for maintenance mode.
+## Init-Path Safety Audit
+
+The only legacy function called before runtime install: `legacyCreateItem` (restored). All 77 other stubs are safe:
+
+- `bootstrapLegacyRuntime` → `init()` runs AFTER `main.js` installs 9 runtimes
+- All other `legacyXxx` stubs are called only via delegation wrappers that hit runtime first
+
+## Remaining (Optional)
+
+| Item | Priority |
+|------|----------|
+| Extract maps/pools to `data.js` | Low (~2,700 lines savable) |
+| Config authority unification | Low |
+| Module test expansion | Low |
+| Boss name panel BUG | Low (独立 BUG) |
