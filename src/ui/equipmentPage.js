@@ -262,3 +262,16 @@ export function renderEquipment(ctx = equipCtx) {
     </article>`;
   }).join('');
 }
+
+export function installEquipmentRenderRuntime(context = {}) {
+  configureEquipmentRenderContext(context);
+  const existing = window.RuneFrontierRenderRuntime || {};
+  window.RuneFrontierRenderRuntime = typeof existing === 'object' ? Object.assign(existing, {
+    renderEquipment, renderEquipmentSummaryStats, renderEquipmentCardScore, renderEquipmentStateBadges,
+    renderEquipmentFilterBar, renderEquipmentBatchPanel, renderEquipmentBadges, renderEquipmentUsageTags,
+    renderEquipmentScores, renderEquipmentScoreComparison, renderEquipmentStatSections, renderEquipmentSetProgress,
+    renderCardSocketSection, renderRefineSection, renderSalvagePreviewSection, renderStatChipGrid,
+    renderRandomStatsPanel, renderEmpowerSection, renderCardSocketOptions, renderRefineBadge, renderItemName, renderSetName,
+  }) : {};
+  return window.RuneFrontierRenderRuntime;
+}
