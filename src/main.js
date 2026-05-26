@@ -36,6 +36,8 @@ import { installVipRenderRuntime } from './ui/vipPage.js';
 import { installShopRenderRuntime } from './ui/shopPage.js';
 import { installCodexRenderRuntime } from './ui/codexPage.js';
 import { installCharacterRenderRuntime } from './ui/characterPage.js';
+import { installEquipmentRenderRuntime } from './ui/equipmentPage.js';
+import { installSmithyRenderRuntime } from './ui/smithyPage.js';
 
 export const DEV_MODE = new URLSearchParams(window.location.search).get('dev') === '1';
 export const RUNTIME_AUTHORITY = 'game.js';
@@ -210,6 +212,99 @@ const characterRenderContext = {
   formatStatValue: window.formatStatValue,
 };
 installCharacterRenderRuntime(characterRenderContext);
+
+const equipmentRenderContext = {
+  getState() { return window.state || {}; },
+  getEls() { return window.els || {}; },
+  escapeHtml: window.escapeHtml, escapeAttr: window.escapeAttr,
+  formatNumber: window.formatNumber, formatStatValue: window.formatStatValue,
+  isAbyssEquipment: window.isAbyssEquipment, rarityName: window.rarityName,
+  slotName: window.slotName, equipmentSlot: window.equipmentSlot,
+  getMaxEquipmentCardSlots: window.getMaxEquipmentCardSlots,
+  getEquipmentCardSlotCount: window.getEquipmentCardSlotCount,
+  getSocketCard: window.getSocketCard,
+  getRefineCost: window.getRefineCost, getRefineChance: window.getRefineChance,
+  getEmpowerCost: window.getEmpowerCost,
+  getRefineGrowthStats: window.getRefineGrowthStats,
+  renderRefineStatDelta: window.renderRefineStatDelta,
+  getSalvageRewardsPreview: window.getSalvageRewardsPreview,
+  getMaterialNames() { return window.materialNames || {}; },
+  getEquipmentSummaryEntries: window.getEquipmentSummaryEntries,
+  calculateEquipmentScores: window.calculateEquipmentScores,
+  compareEquipmentScores: window.compareEquipmentScores,
+  formatScoreDelta: window.formatScoreDelta,
+  getEquipmentUsageTags: window.getEquipmentUsageTags,
+  groupEquipmentStats: window.groupEquipmentStats,
+  equipmentStatEntry: window.equipmentStatEntry,
+  getEffectiveItemStats: window.getEffectiveItemStats,
+  getSpecialStatKeys() { return window.specialStatKeys || []; },
+  statLabelName: window.statLabelName,
+  getMechanicAffixes() { return window.MECHANIC_AFFIXES || {}; },
+  statObjectText: window.statObjectText,
+  star15Bonus: window.star15Bonus,
+  randomStatsHtml: window.randomStatsHtml,
+  countEquippedSetPieces: window.countEquippedSetPieces,
+  getEquipmentSet: (id) => window.equipmentSets?.[id],
+  materialText: window.materialText,
+  hasMaterials: window.hasMaterials,
+  isZodiacItem: window.isZodiacItem,
+  currentJob: window.currentJob,
+  pruneEquipmentDetailExpandedState: window.pruneEquipmentDetailExpandedState,
+  equippedSlotMeta: window.equippedSlotMeta,
+  getEquipmentShowAll() { return window.equipmentShowAll || false; },
+  getEquipmentDetailExpanded() { return window.equipmentDetailExpandedState || {}; },
+  sortEquipmentList: window.sortEquipmentList,
+  filterEquipmentList: window.filterEquipmentList,
+  equipmentDetailKey: window.equipmentDetailKey,
+  equipmentVisualClass: window.equipmentVisualClass,
+  refineText: window.refineText,
+  empowerText: window.empowerText,
+  imageBackgroundList: window.imageBackgroundList || (() => ''),
+  itemImageCandidates: window.itemImageCandidates || (() => []),
+  itemRangeTooltip: window.itemRangeTooltip,
+  renderMaterialGroups: window.renderMaterialGroups,
+  renderZodiacCollectionPanel: window.renderZodiacCollectionPanel,
+  renderCostumePanel: window.renderCostumePanel,
+  getCardPool() { return window.cardPool || []; },
+};
+installEquipmentRenderRuntime(equipmentRenderContext);
+
+const smithyRenderContext = {
+  getState() { return window.state || {}; },
+  getEls() { return window.els || {}; },
+  escapeHtml: window.escapeHtml, escapeAttr: window.escapeAttr,
+  formatNumber: window.formatNumber, percent: window.percent,
+  slotName: window.slotName,
+  materialText: window.materialText,
+  hasMaterials: window.hasMaterials,
+  renderItemName: window.renderItemName,
+  statIsPercent: window.statIsPercent,
+  statLabelName: window.statLabelName,
+  getSmithyActiveTab() { return (window.state || {}).smithyActiveTab || 'enhance'; },
+  getEnhanceCost: window.getEnhanceCost,
+  getEnhanceChance: window.getEnhanceChance,
+  getEnhanceEffect: window.getEnhanceEffect,
+  getEnhanceMilestoneBonuses: window.getEnhanceMilestoneBonuses,
+  getEnhanceMaxLevel() { return window.ENHANCE_MAX_LEVEL || 20; },
+  getEnhanceSafeZoneText: window.getEnhanceSafeZoneText,
+  getEnhanceFailResultText: window.getEnhanceFailResultText,
+  getEnhancePassiveDb() { return window.ENHANCE_PASSIVE_DB || {}; },
+  getEquipmentSets() { return window.equipmentSets || {}; },
+  getCraftableSets() { return Object.values(window.equipmentSets || {}).filter((s) => s.items?.some((i) => i.craftable)); },
+  getZodiacCollection() { return window.getZodiacCollection?.() || {}; },
+  renderStarRefineSmithyPanel: window.renderStarRefineSmithyPanel,
+  renderCardSocketSmithyPanel: window.renderCardSocketSmithyPanel,
+  renderCostumePanel: window.renderCostumePanel,
+  renderDarkGoldExchangeCard: window.renderDarkGoldExchangeCard,
+  getRefineResult() { return window.refineResultState || null; },
+  getCardSocketCost: window.getCardSocketCost,
+  getEquipmentCardSlotCount: window.getEquipmentCardSlotCount,
+  getMaxEquipmentCardSlots: window.getMaxEquipmentCardSlots,
+  canAffordSocketCost: window.canAffordSocketCost,
+  canContinueRefine: window.canContinueRefine,
+  getMaterialName: (id) => (window.materialNames || {})[id] || id,
+};
+installSmithyRenderRuntime(smithyRenderContext);
 
 if (typeof window.bootstrapLegacyRuntime === 'function') {
   window.bootstrapLegacyRuntime();
