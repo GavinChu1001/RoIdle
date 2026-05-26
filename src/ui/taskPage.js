@@ -8,9 +8,18 @@ export function configureTaskRenderContext(ctx = {}) { taskCtx = ctx || {}; }
 
 function renderTaskSection(title, quests) {
   return `<section class="quest-section"><h3>${esc(title)}</h3><div class="quest-task-list">${(quests||[]).map((q) => {
-    const done = F(q.progress) >= F(q.target);
-    return `<article class="quest-card ${done?'quest-completed':''}"><div><strong class="quest-title">${esc(q.title)}</strong><p class="quest-desc">${esc(q.desc)}</p><div class="quest-progress"><span style="width:${Math.min(100,(F(q.progress)/Math.max(1,F(q.target)))*100)}%"></span></div><p class="quest-desc">${fmtn(q.progress)} / ${fmtn(q.target)}</p><p class="quest-rewards">${(window.questRewardText || (()=>''))(q.reward)}</p></div><button class="quest-claim-btn" data-claim-quest="${q.id}" type="button" ${!done?'disabled':''}>${done?'\u9886\u53d6\u5956\u52b1':'\u8fdb\u884c\u4e2d'}</button></article>`;
+    return renderTaskCard(q);
   }).join('')}</div></section>`;
+}
+
+function renderTaskCard(q) {
+  const required = Math.max(1, F(q.requiredCount));
+  const current = Math.min(required, F(q.currentCount));
+  const done = Boolean(q.completed) || current >= required;
+  const claimed = Boolean(q.claimed);
+  const buttonText = claimed ? '\u5df2\u9886\u53d6' : done ? '\u9886\u53d6\u5956\u52b1' : '\u8fdb\u884c\u4e2d';
+  const rewardText = taskCtx.questRewardText || window.questRewardText || (() => '');
+  return `<article class="quest-card ${done?'quest-completed':''} ${claimed?'quest-claimed':''}"><div><strong class="quest-title">${esc(q.title || '\u4efb\u52a1')}</strong><p class="quest-desc">${esc(q.description || '')}</p><div class="quest-progress"><span style="width:${Math.min(100,(current/required)*100)}%"></span></div><p class="quest-desc">${fmtn(current)} / ${fmtn(required)}</p><p class="quest-rewards">${rewardText(q.rewards || {})}</p></div><button class="quest-claim-btn" data-claim-quest="${esc(q.id || '')}" type="button" ${!done || claimed?'disabled':''}>${buttonText}</button></article>`;
 }
 
 function renderDailyGoals() {
@@ -52,10 +61,7 @@ export function installTaskRenderRuntime(context = {}) {
       const done = entry.unlocked || F(entry.progress) >= F(a.target);
       return `<article class="achievement-card ${done?'achievement-done':''} ${entry.claimed?'achievement-claimed':''}"><div><strong class="achievement-title">${esc(a.title)}</strong><p class="quest-desc">${esc(a.description)}</p><div class="quest-progress achievement-progress"><span style="width:${Math.min(100,(F(entry.progress)/F(a.target))*100)}%"></span></div><p class="quest-desc">${fmtn(Math.min(F(entry.progress),F(a.target)))} / ${fmtn(a.target)}</p><p class="quest-rewards">${(window.achievementRewardText||(()=>''))(a.reward)}</p></div><button class="achievement-claim-btn" type="button" data-claim-achievement="${a.id}" ${!done||entry.claimed?'disabled':''}>${entry.claimed?'\u5df2\u9886\u53d6':done?'\u9886\u53d6\u5956\u52b1':'\u8fdb\u884c\u4e2d'}</button></article>`;
     },
-    renderTaskCard(q) {
-      const done = F(q.progress) >= F(q.target);
-      return `<article class="quest-card ${done?'quest-completed':''}"><div><strong class="quest-title">${esc(q.title)}</strong><p class="quest-desc">${esc(q.desc)}</p><div class="quest-progress"><span style="width:${Math.min(100,(F(q.progress)/Math.max(1,F(q.target)))*100)}%"></span></div><p class="quest-desc">${fmtn(q.progress)} / ${fmtn(q.target)}</p><p class="quest-rewards">${(window.questRewardText||(()=>''))(q.reward)}</p></div><button class="quest-claim-btn" data-claim-quest="${q.id}" type="button" ${!done?'disabled':''}>${done?'\u9886\u53d6\u5956\u52b1':'\u8fdb\u884c\u4e2d'}</button></article>`;
-    },
+    renderTaskCard,
   }) : {};
   return window.RuneFrontierRenderRuntime;
 }

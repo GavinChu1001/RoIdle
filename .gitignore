@@ -13,6 +13,12 @@ game.txt
 # Runtime
 node_modules/
 
+# Agent runtime
+.agents/
+
+# Player data (runtime generated)
+data/
+
 # OS files
 .DS_Store
 Thumbs.db

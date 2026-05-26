@@ -2167,6 +2167,13 @@ let recentLootFeedback = [];
 let skillFeedbackTimer = 0;
 let sessionStatsLastRenderAt = 0;
 let sessionStatsMapId = "";
+const FAST_RENDER_INTERVAL_MS = 100;
+const COMBAT_PAGE_REFRESH_INTERVAL_MS = 300;
+const PASSIVE_PAGE_REFRESH_INTERVAL_MS = 2000;
+const SCENE_RENDER_INTERVAL_MS = 33;
+let lastFastRenderAt = 0;
+let lastCombatPageRenderAt = 0;
+let lastSceneRenderAt = 0;
 let equipmentFilter = "all";
 let equipmentSort = "score";
 let equipmentShowAll = false;
@@ -2855,6 +2862,8 @@ function bindEvents() {
     button.addEventListener("click", () => {
       activePage = button.dataset.page;
       renderPages();
+      renderActivePage();
+      renderFast(true);
     });
   });
 
@@ -4047,6 +4056,7 @@ function loop(now) {
   updateRecovery(dt);
   if (!state.paused) updateCombat(dt);
   updateFloatTexts(dt);
+  updateOnlinePlaytime(dt);
 
   saveTimer += dt;
   if (saveTimer >= 4) {
@@ -4054,7 +4064,10 @@ function loop(now) {
     save();
   }
 
-  drawScene(now / 1000);
+  if (activePage === "adventure" && now - lastSceneRenderAt >= SCENE_RENDER_INTERVAL_MS) {
+    lastSceneRenderAt = now;
+    drawScene(now / 1000);
+  }
   renderFast();
   requestAnimationFrame(loop);
 }
@@ -7669,7 +7682,7 @@ function renderAll() {
   els.teamLevelValue.textContent = state.hero.baseLevel;
   els.expValue.textContent = `B ${formatNumber(state.hero.baseExp)}/${formatNumber(baseExpCost())} · J ${formatNumber(state.hero.jobExp)}/${formatNumber(jobExpCost())}`;
   els.powerValue.textContent = formatNumber(stats.power);
-  els.gpsValue.textContent = `${formatNumber(estimateGoldPerSecond())}/秒`;
+  els.gpsValue.textContent = `${formatNumber(estimateGoldPerSecond(stats))}/秒`;
   els.pauseIcon.textContent = state.paused ? "▶" : "Ⅱ";
   els.saveState.textContent = "已同步";
 
@@ -7677,38 +7690,71 @@ function renderAll() {
     delete document.documentElement.dataset.runeRenderError;
     document.documentElement.dataset.runeRenderStage = "pages";
     renderPages();
-    renderFormation();
-    document.documentElement.dataset.runeRenderStage = "heroes";
-    renderHeroes();
-    document.documentElement.dataset.runeRenderStage = "town";
-    renderTown();
-    document.documentElement.dataset.runeRenderStage = "smithy";
-    renderSmithyPage();
-    document.documentElement.dataset.runeRenderStage = "equipment";
-    renderEquipment();
-    document.documentElement.dataset.runeRenderStage = "maps";
-    renderMaps();
-    document.documentElement.dataset.runeRenderStage = "cards";
-    renderCards();
-    document.documentElement.dataset.runeRenderStage = "codex";
-    renderCodex();
-    document.documentElement.dataset.runeRenderStage = "shop";
-    renderShop();
-    document.documentElement.dataset.runeRenderStage = "vip";
-    renderVip();
-    document.documentElement.dataset.runeRenderStage = "tasks";
-    renderTasks();
-    document.documentElement.dataset.runeRenderStage = "sidebar";
-    renderQuestList();
-    renderPartyList();
-    renderLog();
-    renderFast();
+    renderActivePage();
+    renderFast(true);
     document.documentElement.dataset.runeRenderStage = "ready";
   } catch (error) {
     document.documentElement.dataset.runeRenderError = `${document.documentElement.dataset.runeRenderStage || "unknown"}: ${error?.message || error}`;
     console.error("[Rune Frontier] renderAll failed", error);
     throw error;
   }
+}
+
+function renderActivePage() {
+  document.documentElement.dataset.runeRenderStage = activePage;
+  switch (activePage) {
+    case "adventure":
+      renderFormation();
+      renderQuestList();
+      renderPartyList();
+      break;
+    case "heroes":
+      renderHeroes();
+      break;
+    case "town":
+      renderTown();
+      break;
+    case "smithy":
+      renderSmithyPage();
+      break;
+    case "equipment":
+      renderEquipment();
+      break;
+    case "maps":
+      renderMaps();
+      break;
+    case "cards":
+      renderCards();
+      break;
+    case "codex":
+      renderCodex();
+      break;
+    case "shop":
+      renderShop();
+      break;
+    case "vip":
+      renderVip();
+      break;
+    case "tasks":
+      renderTasks();
+      break;
+    case "logs":
+      renderLog();
+      break;
+    default:
+      break;
+  }
+}
+
+function renderCombatSettlementUi() {
+  renderFast();
+  const now = Date.now();
+  const interval = activePage === "adventure" || activePage === "logs"
+    ? COMBAT_PAGE_REFRESH_INTERVAL_MS
+    : PASSIVE_PAGE_REFRESH_INTERVAL_MS;
+  if (now - lastCombatPageRenderAt < interval) return;
+  lastCombatPageRenderAt = now;
+  renderActivePage();
 }
 
 function renderPages() {
@@ -7861,20 +7907,24 @@ function renderEncounterPanel() {
   </div>`;
 }
 
-function renderFast() {
+function updateOnlinePlaytime(dt) {
+  if (!state.vip) return;
+  state.vip.onlineSecondsToday = (state.vip.onlineSecondsToday || 0) + (dt || 0);
+  if (state.vip.onlineSecondsToday >= 1800 && state.vip.onlineRewardClaimed !== todayKey()) {
+    gainVipExp(30);
+    state.vip.onlineRewardClaimed = todayKey();
+    addLog("在线满 30 分钟，获得冒险者荣誉经验 +30。");
+  }
+}
+
+function renderFast(force = false) {
   const runtime = window.RuneFrontierRenderRuntime;
-  if (runtime && typeof runtime.renderFast === "function") return runtime.renderFast();
+  if (runtime && typeof runtime.renderFast === "function") return runtime.renderFast(force);
+  const now = Date.now();
+  if (!force && now - lastFastRenderAt < FAST_RENDER_INTERVAL_MS) return;
+  lastFastRenderAt = now;
   const stats = computeStats();
   updateActiveEnemyHpInGroup();
-  renderCombatSidebar();
-  if (state.vip) {
-    state.vip.onlineSecondsToday = (state.vip.onlineSecondsToday || 0) + (loopDt || 0.1);
-    if (state.vip.onlineSecondsToday >= 1800 && state.vip.onlineRewardClaimed !== todayKey()) {
-      gainVipExp(30);
-      state.vip.onlineRewardClaimed = todayKey();
-      addLog("在线满 30 分钟，获得冒险者荣誉经验 +30。");
-    }
-  }
   if (autoSalvageBatchCount > 0 && Date.now() - autoSalvageBatchLastFlush > 30000) {
     addLog(`自动分解 ${autoSalvageBatchCount} 件装备，获得：${materialText(autoSalvageBatchMaterials)}`);
     autoSalvageBatchCount = 0;
@@ -7884,7 +7934,9 @@ function renderFast() {
   els.goldValue.textContent = formatNumber(state.gold);
   els.teamLevelValue.textContent = state.hero.baseLevel;
   els.powerValue.textContent = formatNumber(stats.power);
-  els.gpsValue.textContent = `${formatNumber(estimateGoldPerSecond())}/秒`;
+  els.gpsValue.textContent = `${formatNumber(estimateGoldPerSecond(stats))}/秒`;
+  if (activePage !== "adventure") return;
+  renderCombatSidebar();
 
   const enemyCurrentHp = Math.max(0, Number(state.enemyHp) || 0);
   const enemyMaxHp = Math.max(1, Number(state.enemyMaxHp) || 1);
@@ -7934,8 +7986,6 @@ function renderFast() {
     sessionStatsLastRenderAt = Date.now();
     renderPartyList();
   }
-  renderOfflineRewardModal();
-  renderRefineResultModal();
 }
 
 function renderFormation() {
@@ -10667,9 +10717,9 @@ function heroTrainCost() {
   return Math.round(170 * Math.pow(state.hero.baseLevel, 1.78) * (1 + (state.hero.rebirths || 0) * 0.22));
 }
 
-function estimateGoldPerSecond() {
+function estimateGoldPerSecond(currentStats = null) {
   const map = currentMap();
-  const stats = computeStats();
+  const stats = currentStats || computeStats();
   const monster = currentMonsterStats();
   return (stats.dps / Math.max(1, monster.maxHp)) * monster.gold * stats.goldMultiplier * stats.monsterGoldMultiplier;
 }
@@ -12155,12 +12205,14 @@ window.RuneFrontierLegacyEquipmentContext = () => Object.freeze({
     return Boolean(state.enemyBoss);
   },
   showToast,
+  addLog,
   logManualSalvage(item, rewards) {
     addLog(`分解 ${getDisplayItemName(item)}，获得 ${materialText(rewards)}。`);
   },
-  showSalvageResult(count, rewards) {
-    showSalvageResultModal("分解完成", count, rewards);
+  showSalvageResult(title, count, rewards) {
+    showSalvageResultModal(title, count, rewards);
   },
+  renderAll,
   render: renderAll,
   save,
   getMechanicAffixEffects(id) {
@@ -12591,7 +12643,7 @@ window.RuneFrontierLegacyCombatContext = () => Object.freeze({
   defeatEnemy,
   syncActiveEnemyFromGroup,
   spawnEnemy,
-  render: renderAll,
+  render: renderCombatSettlementUi,
 });
 
 // [AUTHORITY] vip-runtime: 10 config refs. Module-owned: all calculation/pure functions. Deferred: VIP_EXP_REQUIREMENTS, VIP_BONUS_PER_LEVEL, VIP_MILESTONE_BONUSES, VIP_DAILY_GIFT (constants in game.js).
@@ -12738,6 +12790,13 @@ Object.assign(window, {
   buildMonsterCardDropMap,
   statLabelName,
   cardEffectText,
+  getCardType,
+  cardTypeLabel,
+  cardActivationText,
+  cardUsageText,
+  awakenedCardEffects,
+  AWAKEN_CARD_COST,
+  BOSS_CARD_SYNTHESIS_COST,
   calculatePlayerRatingScores,
   formatCritRateSummary,
   imageBackgroundList,

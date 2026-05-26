@@ -29,6 +29,8 @@ const bossCombatSource = read('src/systems/combat/bossCombat.js');
 const damageSource = read('src/systems/combat/damage.js');
 const skillsSource = read('src/systems/combat/skills.js');
 const normalCombatSource = read('src/systems/combat/normalCombat.js');
+const taskPageSource = read('src/ui/taskPage.js');
+const cardPageSource = read('src/ui/cardPage.js');
 
 const requiredLegacyFunctions = [
   'createDefaultState',
@@ -76,6 +78,8 @@ assert.match(game, /window\.bootstrapLegacyRuntime\s*=\s*\(\)\s*=>/, 'Classic ru
 assert.match(game, /if\s*\(legacyRuntimeStarted\)\s*return false/, 'Classic runtime bootstrap must be guarded against duplicate starts.');
 assert.match(game, /RuneFrontierLegacyEquipmentContext/, 'Legacy runtime must expose read-only equipment dependencies.');
 assert.match(game, /RuneFrontierEquipmentRuntime/, 'Classic equipment entry points must forward to module implementations.');
+assert.match(game, /showSalvageResult\(title,\s*count,\s*rewards\)/, 'Dismantle result dialog must receive title, count, and material rewards.');
+assert.match(game, /\n\s*renderAll,\s*\n\s*render:\s*renderAll,/, 'Equipment mutations must be able to rerender after state changes.');
 assert.match(game, /RuneFrontierLegacyDropsContext/, 'Legacy runtime must expose online drop dependencies.');
 assert.match(game, /RuneFrontierDropsRuntime/, 'Classic online drop entry points must forward to module implementations.');
 assert.match(game, /runtime\.rollMapMaterialDrops/, 'Material drop entry points must forward to the drops runtime.');
@@ -104,6 +108,14 @@ assert.match(game, /runtime\.updateCombat/, 'Online combat rounds must forward t
 assert.match(game, /runtime\.updateMonsterAttack/, 'Monster counterattacks must forward to the combat runtime.');
 assert.match(game, /runtime\.updateRecovery/, 'Recovery ticks must forward to the combat runtime.');
 assert.match(game, /runtime\.rollActiveSkill/, 'Active-skill execution must forward to the combat runtime.');
+assert.match(game, /const FAST_RENDER_INTERVAL_MS\s*=\s*100/, 'Fast HUD rendering must remain throttled.');
+assert.match(game, /const PASSIVE_PAGE_REFRESH_INTERVAL_MS\s*=\s*2000/, 'Background combat updates must not continuously rebuild heavy pages.');
+assert.match(game, /const SCENE_RENDER_INTERVAL_MS\s*=\s*33/, 'Visible battle scene rendering must remain frame-capped.');
+assert.match(game, /function renderActivePage\s*\(/, 'Full renders must target the visible page only.');
+assert.match(game, /render:\s*renderCombatSettlementUi/, 'Combat settlement must use the lightweight UI refresh path.');
+assert.match(game, /function updateOnlinePlaytime\s*\(dt\)/, 'Online-time rewards must not depend on rendering frequency.');
+assert.match(game, /estimateGoldPerSecond\(stats\)/, 'Fast HUD updates must reuse the already computed stat snapshot.');
+assert.match(game, /activePage\s*===\s*"adventure"[\s\S]*drawScene\(now\s*\/\s*1000\)/, 'Hidden pages must not continue drawing the battle canvas.');
 assert.match(game, /runtime\.normalizeDamage/, 'Damage normalization must forward to the combat runtime.');
 assert.equal((game.match(/requestAnimationFrame\(loop\);/g) || []).length, 2, 'Loop registration shape changed unexpectedly.');
 
@@ -250,6 +262,74 @@ assert.equal(protectedItem.added, true, 'Set equipment must remain protected fro
 assert.equal(dismantle.shouldAutoSalvage({ rarity: 'normal', abyssForged: true }, mutationContext), false, 'Abyss equipment must remain protected unless explicitly enabled.');
 const fullInventory = dismantle.addEquipmentToInventory({ id: 'second', rarity: 'legend' }, {}, mutationContext);
 assert.equal(fullInventory.skipped, true, 'Inventory capacity behavior changed.');
+mutationState.inventory = [{ id: 'manual', rarity: 'normal', level: 1 }];
+mutationState.autoSalvage.enabled = false;
+let manualSalvageDialog = null;
+let manualSalvageRenders = 0;
+let manualSalvageSaves = 0;
+const manualMutationContext = {
+  ...mutationContext,
+  addLog: () => {},
+  materialText: () => 'Dust x1',
+  getDisplayItemName: () => 'Blade',
+  showSalvageResult: (...args) => { manualSalvageDialog = args; },
+  renderAll: () => { manualSalvageRenders += 1; },
+  save: () => { manualSalvageSaves += 1; },
+};
+const manualSalvage = dismantle.salvageItem('manual', {}, manualMutationContext);
+assert.equal(manualSalvage.ok, true, 'Manual dismantle must complete.');
+assert.equal(mutationState.inventory.length, 0, 'Manual dismantle must remove the equipment.');
+assert.equal(mutationState.materials.dust, 2, 'Manual dismantle must add its material rewards.');
+assert.deepEqual(manualSalvageDialog, ['\u5206\u89e3\u5b8c\u6210', 1, { dust: 1 }], 'Manual dismantle dialog must receive its reward summary.');
+assert.equal(manualSalvageRenders, 1, 'Manual dismantle must immediately rerender resource and equipment displays.');
+assert.equal(manualSalvageSaves, 1, 'Manual dismantle must save its reward changes.');
+
+const taskPage = await importSource(taskPageSource);
+const cardPage = await importSource(cardPageSource);
+const priorRenderWindow = globalThis.window;
+globalThis.window = { RuneFrontierRenderRuntime: {}, questRewardText: () => 'Reward' };
+const taskRuntime = taskPage.installTaskRenderRuntime({
+  escapeHtml: String,
+  formatNumber: String,
+  questRewardText: () => 'Reward',
+});
+const taskHtml = taskRuntime.renderTaskCard({
+  id: 'main-quest',
+  title: 'Quest',
+  description: 'Correct description',
+  currentCount: 2,
+  requiredCount: 5,
+  rewards: { gold: 100 },
+  completed: false,
+  claimed: false,
+});
+assert.match(taskHtml, /Correct description/, 'Task cards must use the current description field.');
+assert.match(taskHtml, /2 \/ 5/, 'Task cards must use currentCount and requiredCount.');
+assert.doesNotMatch(taskHtml, /undefined/, 'Task cards must not print missing legacy field values.');
+let cardHtml = '';
+globalThis.window = { RuneFrontierRenderRuntime: {} };
+const cardRuntime = cardPage.installCardRenderRuntime({
+  getState: () => ({ cards: { slime: 1, baphomet: 1 }, awakenedCards: {}, cardFavorites: {}, materials: {} }),
+  getEls: () => ({ cardList: { set innerHTML(value) { cardHtml = value; } } }),
+  escapeHtml: String,
+  formatNumber: String,
+  percent: (value) => `${Number(value || 0) * 100}%`,
+  getCardPool: () => [{ id: 'slime', name: 'Slime', cardType: 'monster' }, { id: 'baphomet', name: 'Baphomet', cardType: 'boss' }],
+  getBossCardPool: () => [],
+  getCardType: (card) => card.cardType,
+  cardTypeLabel: (type) => type,
+  cardEffectText: () => 'ATK +1',
+  cardActivationText: (card) => card.cardType === 'boss' ? 'Socket active' : 'Owned active',
+  awakenedCardEffects: () => ({ attr: 5, drop: 0.01, monsterDamage: 0.02 }),
+  cardUsageText: () => 'Build use',
+  getAwakenCardCost: () => 100,
+});
+cardRuntime.renderCards();
+assert.match(cardHtml, /ATK \+1/, 'Card cards must render their configured effects.');
+assert.match(cardHtml, /Owned active/, 'Ordinary cards must state their owned activation rule.');
+assert.match(cardHtml, /Socket active/, 'Boss cards must state their socket activation rule.');
+assert.match(cardHtml, /Build use/, 'Card cards must render their intended use.');
+globalThis.window = priorRenderWindow;
 
 const recentLoot = await importSource(recentLootSource);
 const lootState = { recentLoot: [], lootNotifyUnread: false, lastLootUpdatedAt: 0 };

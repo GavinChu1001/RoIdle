@@ -326,7 +326,24 @@ const mapRenderContext = { getState() { return window.state || {}; }, getEls() {
 installMapRenderRuntime(mapRenderContext);
 document.documentElement.dataset.runeModuleStatus = 'map-render-ready';
 
-const cardRenderContext = { getState() { return window.state || {}; }, getEls() { return window.els || {}; }, escapeHtml: window.escapeHtml, escapeAttr: window.escapeAttr, formatNumber: window.formatNumber, getCardPool() { return window.cardPool || []; }, getBossCardPool() { return window.bossCardPool || []; }, getCardTypeLabel: window.getCardTypeLabel, cardTooltip: window.cardTooltip, getMaterialName: (id) => (window.materialNames || {})[id] || id, getInventoryLimit: window.getInventoryLimit, rarityRank: window.rarityRank, };
+const cardRenderContext = {
+  getState() { return window.state || {}; },
+  getEls() { return window.els || {}; },
+  escapeHtml: window.escapeHtml,
+  formatNumber: window.formatNumber,
+  percent: window.percent,
+  getCardPool() { return window.cardPool || []; },
+  getBossCardPool() { return window.bossCardPool || []; },
+  getCardType: window.getCardType,
+  cardTypeLabel: window.cardTypeLabel,
+  cardEffectText: window.cardEffectText,
+  cardActivationText: window.cardActivationText,
+  awakenedCardEffects: window.awakenedCardEffects,
+  cardUsageText: window.cardUsageText,
+  getAwakenCardCost() { return window.AWAKEN_CARD_COST || 100; },
+  getBossCardSynthesisCost() { return window.BOSS_CARD_SYNTHESIS_COST || 100; },
+  getMaterialName: (id) => (window.materialNames || {})[id] || id,
+};
 installCardRenderRuntime(cardRenderContext);
 document.documentElement.dataset.runeModuleStatus = 'card-render-ready';
 

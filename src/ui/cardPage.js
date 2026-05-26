@@ -1,38 +1,79 @@
 let cardCtx = {};
 
+function F(v) { const n = Number(v || 0); return Number.isFinite(n) ? n : 0; }
+function esc(v) { return cardCtx.escapeHtml ? cardCtx.escapeHtml(v) : String(v || ''); }
+function fmtn(v) { return cardCtx.formatNumber ? cardCtx.formatNumber(v) : String(F(v)); }
+
 export function configureCardRenderContext(ctx = {}) { cardCtx = ctx || {}; }
+
+function renderCardEntry(card, state, ctx = cardCtx) {
+  const count = F(state.cards?.[card.id]);
+  const awakened = F(state.awakenedCards?.[card.id]);
+  const favorite = Boolean(state.cardFavorites?.[card.id]);
+  const locked = count <= 0;
+  const effect = ctx.awakenedCardEffects?.(card) || {};
+  const cost = F(ctx.getAwakenCardCost?.()) || 100;
+  const type = ctx.getCardType?.(card) || 'monster';
+  return `<div class="card-item ${favorite ? 'favorite' : ''} ${locked ? 'locked' : ''}">
+    <div>
+      <span class="card-name">${esc(card.name)} x ${fmtn(count)} · 觉醒 ${fmtn(awakened)}</span>
+      <p class="card-meta">${esc(ctx.cardEffectText?.(card) || '无属性')}</p>
+      <p class="card-meta">${esc(ctx.cardActivationText?.(card, count) || '')}</p>
+      <p class="card-meta">觉醒：六维 +${fmtn(effect.attr)} · 掉率 +${ctx.percent?.(effect.drop) || '0%'} · 对怪伤害 +${ctx.percent?.(effect.monsterDamage) || '0%'}</p>
+      <p class="card-meta">用途：${esc(ctx.cardUsageText?.(type, card) || '')}</p>
+      <p class="card-meta">${type === 'boss' ? '镶嵌：需要插入已打孔装备后生效；研究：后续开放。' : '持有：拥有后自动生效；研究：后续开放。'}</p>
+    </div>
+    <button class="ghost" data-awaken-card="${esc(card.id)}" type="button" ${count < cost ? 'disabled' : ''}>觉醒</button>
+    <button class="favorite-button ${favorite ? 'active' : ''}" data-card-favorite="${esc(card.id)}" type="button" ${locked ? 'disabled' : ''}>☆</button>
+  </div>`;
+}
+
+export function renderBossCardSynthesis(ctx = cardCtx) {
+  const state = ctx.getState?.() || {};
+  const shardCount = F(state.materials?.bossCardShard);
+  const synthesisCost = F(ctx.getBossCardSynthesisCost?.()) || 100;
+  const pool = ctx.getBossCardPool?.() || [];
+  if (!pool.length) return '';
+  const materialName = ctx.getMaterialName?.('bossCardShard') || 'Boss卡片碎片';
+  return `<section class="card-type-section boss-card-synthesis">
+    <h3>Boss卡合成</h3>
+    <p class="card-meta">消耗 ${esc(materialName)} ×${fmtn(synthesisCost)}，可合成指定 Boss 卡。</p>
+    <div class="card-synthesis-grid">${pool.map((card) => `<div class="card-item">
+      <div>
+        <span class="card-name">${esc(card.name)}</span>
+        <p class="card-meta">${esc(ctx.cardEffectText?.(card) || '无属性')}</p>
+        <p class="card-meta">碎片：${fmtn(shardCount)}/${fmtn(synthesisCost)}</p>
+      </div>
+      <button type="button" data-synthesize-boss-card="${esc(card.id)}" ${shardCount < synthesisCost ? 'disabled' : ''}>合成</button>
+    </div>`).join('')}</div>
+  </section>`;
+}
+
+export function renderCards(ctx = cardCtx) {
+  const state = ctx.getState?.() || {};
+  const els = ctx.getEls?.() || {};
+  if (!els.cardList) return;
+  const cards = [...(ctx.getCardPool?.() || [])].sort((a, b) => {
+    const favDelta = Number(Boolean(state.cardFavorites?.[b.id])) - Number(Boolean(state.cardFavorites?.[a.id]));
+    return favDelta || F(a.map) - F(b.map);
+  });
+  const grouped = cards.reduce((result, card) => {
+    const type = ctx.getCardType?.(card) || 'monster';
+    result[type] = result[type] || [];
+    result[type].push(card);
+    return result;
+  }, {});
+  els.cardList.innerHTML = renderBossCardSynthesis(ctx) + Object.entries(grouped).map(([type, rows]) => `<section class="card-type-section">
+    <h3>${esc(ctx.cardTypeLabel?.(type) || type)}</h3>
+    ${rows.map((card) => renderCardEntry(card, state, ctx)).join('')}
+  </section>`).join('');
+}
 
 export function installCardRenderRuntime(context = {}) {
   configureCardRenderContext(context);
   const existing = window.RuneFrontierRenderRuntime || {};
-  window.RuneFrontierRenderRuntime = typeof existing === 'object' ? Object.assign(existing, {
-    renderCards() {
-      const els = cardCtx.getEls?.() || {};
-      if (!els.cardList) return;
-      const cards = [...(window.cardPool || [])].sort((a, b) => {
-        const ac = window.state?.cards?.[a.id] || 0;
-        const bc = window.state?.cards?.[b.id] || 0;
-        if (ac && !bc) return -1; if (!ac && bc) return 1;
-        const ar = (window.rarityRank || (()=>0))(a.rarity);
-        const br = (window.rarityRank || (()=>0))(b.rarity);
-        return br - ar || (a.id||'').localeCompare(b.id||'');
-      });
-      els.cardList.innerHTML = `<div class="card-grid">${cards.map((c) => {
-        const owned = (window.state?.cards?.[c.id] || 0);
-        const typeLabel = (window.getCardTypeLabel || (()=>''))(c);
-        return `<article class="card-item ${owned ? 'card-owned' : ''}"><span class="card-icon">${owned ? '\u2605' : '\u2606'}</span><div><strong>${(window.escapeHtml || String)(c.name)}</strong><small>${(window.escapeHtml || String)(typeLabel)} \xb7 ${owned ? owned+'\u5f20' : '\u672a\u83b7\u5f97'}</small></div></article>`;
-      }).join('')}</div>${renderBossCardSynthesis()}`;
-    },
-    renderBossCardSynthesis() {
-      const shardCount = Number((window.state?.materials || {}).bossCardShard || 0);
-      const pool = window.bossCardPool || [];
-      const matName = (window.materialNames || {}).bossCardShard || 'Boss\u5361\u7247\u788e\u7247';
-      if (!pool.length) return '';
-      return `<div class="boss-card-synthesis"><h3>Boss\u5361\u7247\u5408\u6210</h3><p>\u5f53\u524d\u788e\u7247\uff1a${shardCount} \u7247 (100\u7247\u5408\u62101\u5f20) \xb7 \u5df2\u83b7\u5f97\uff1a${pool.filter((c)=>(window.state?.cards?.[c.id]||0)>0).length}/\u5171${pool.length}\u79cd</p><div class="card-grid">${pool.map((c) => {
-        const owned = (window.state?.cards?.[c.id] || 0);
-        return `<article class="card-item syn-card ${owned?'card-owned':''}"><span class="card-icon">${owned?'\u2605':'\u2606'}</span><div><strong>${(window.escapeHtml||String)(c.name)}</strong><small>${owned?owned+'\u5f20':'\u672a\u5408\u6210'}</small></div><button type="button" data-synthesize-boss-card="${c.id}" ${shardCount<100?'disabled':''}>${shardCount<100?`\u9700${100-shardCount}\u788e\u7247`:'\u5408\u6210'}</button></article>`;
-      }).join('')}</div></div>`;
-    },
-  }) : {};
+  window.RuneFrontierRenderRuntime = typeof existing === 'object'
+    ? Object.assign(existing, { renderCards, renderBossCardSynthesis })
+    : { renderCards, renderBossCardSynthesis };
   return window.RuneFrontierRenderRuntime;
 }

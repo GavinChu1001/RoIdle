@@ -8,18 +8,47 @@ function fmtn(v, ctx = lootCtx) { return ctx.formatNumber ? ctx.formatNumber(v) 
 function esc(v, ctx = lootCtx) { return ctx.escapeHtml ? ctx.escapeHtml(v) : String(v); }
 function rn(r, ctx = lootCtx) { return ctx.rarityName ? ctx.rarityName(r) : r || 'normal'; }
 function rnItem(item, extra, ctx = lootCtx) { return ctx.renderItemName ? ctx.renderItemName(item, extra) : esc(item?.name || '???', ctx); }
+function renderSet(name, ctx = lootCtx) {
+  if (!name) return '';
+  return `<small>${window.renderSetName ? window.renderSetName(name) : esc(name, ctx)}</small>`;
+}
 function offlineObjTotal(obj) { return Object.values(obj || {}).reduce((s, v) => s + F(v), 0); }
 function offlineListTotal(list) { return arr(list).reduce((s, e) => s + F(e?.qty), 0); }
-function offlineMaterialChip(mat, extra, ctx = lootCtx) {
-  return `<span class="offline-material-chip ${esc(extra || '', ctx)}"><span class="material-icon rarity-${esc(mat?.rarity || 'normal', ctx)}">${rn(mat?.rarity, ctx)[0] || '素'}</span><strong>${esc(mat?.name || mat?.materialId || '???', ctx)}</strong><small>×${fmtn(mat?.qty, ctx)}</small></span>`;
+
+/* ── Leaf renderers ───────────────────────────────────────────────── */
+
+/** Material chip — matches legacy game.js DOM for CSS compatibility */
+function offlineMaterialChip(mat, extra = '', ctx = lootCtx) {
+  const rarity = mat?.rarity || (ctx.getMaterialRarity ? ctx.getMaterialRarity(mat?.materialId) : 'normal') || 'normal';
+  const name = mat?.name || (ctx.getMaterialName ? ctx.getMaterialName(mat?.materialId) : mat?.materialId) || '???';
+  return `<div class="offline-loot-item offline-material-chip ${esc(extra, ctx)}">
+    <span class="offline-loot-icon">材</span>
+    <div>
+      ${rnItem({ name, rarity }, '', ctx)}
+      <small>数量 <span class="offline-number">+${fmtn(mat?.qty, ctx)}</span></small>
+      <span class="offline-progress-bar"><span class="offline-progress-fill"></span></span>
+    </div>
+  </div>`;
 }
+
+/** Equipment item — keeps rarity icon (informative in loot context), adds set/refine */
 function offlineEquipItem(item, ctx = lootCtx) {
   const hl = ctx.offlineHighlightClass ? ctx.offlineHighlightClass(item) : '';
-  return `<div class="offline-loot-item ${hl}"><span class="offline-loot-icon">${esc(item?.rarity?.[0] || '装', ctx)}</span><div>${rnItem(item, '', ctx)}<small>${rn(item?.rarity, ctx)} · 等级 ${fmtn(item?.level, ctx)}</small></div></div>`;
+  return `<div class="offline-loot-item ${hl}">
+    <span class="offline-loot-icon">${rn(item?.rarity, ctx)[0] || '装'}</span>
+    <div>
+      ${rnItem(item, '', ctx)}
+      <small>${rn(item?.rarity, ctx)} · 等级 ${fmtn(item?.level, ctx)}${item?.refine ? ` · +${fmtn(item.refine, ctx)}` : ''}</small>
+      ${renderSet(item?.setName, ctx)}
+    </div>
+  </div>`;
 }
+
 function offlineEmpty(title, text, ctx = lootCtx) {
-  return `<section class="offline-reward-section"><div class="offline-reward-section-title">${esc(title, ctx)}</div><p class="offline-empty">${esc(text, ctx)}</p></section>`;
+  return `<section class="offline-reward-section offline-empty-section"><div class="offline-reward-section-title">${esc(title, ctx)}</div><p>${esc(text, ctx)}</p></section>`;
 }
+
+/* ── Loot modal (弹窗模式) ─────────────────────────────────────────── */
 
 export function configureLootContext(ctx = {}) { lootCtx = ctx || {}; }
 
@@ -27,8 +56,16 @@ export function renderOfflineRewardSummary(rewards, ctx = lootCtx) { return rend
 
 export function renderLootSummaryCard(rewards, ctx = lootCtx) {
   const r = rewards || {};
-  const hasAny = r.seconds > 0 || r.gold > 0 || r.baseExp > 0 || r.jobExp > 0 || arr(r.materials).length || arr(r.cards).length || arr(r.equipment).length || arr(r.pendingEquipment).length || offlineObjTotal(r.salvagedMaterials) > 0;
-  if (!hasAny) return `<article class="loot-modal"><div class="loot-empty"><h3>暂无战利品</h3><p>如果你刚上线，请等待离线收益结算完成。</p></div></article>`;
+  const matList = arr(r.materials);
+  const cardList = arr(r.cards);
+  const eqpList = arr(r.equipment);
+  const pendingList = arr(r.pendingEquipment);
+  const hasAny = r.seconds > 0 || r.gold > 0 || r.baseExp > 0 || r.jobExp > 0 ||
+    matList.length || cardList.length || eqpList.length || pendingList.length ||
+    offlineObjTotal(r.salvagedMaterials) > 0;
+  if (!hasAny) {
+    return `<article class="loot-modal"><div class="loot-empty"><h3>暂无战利品</h3><p>如果你刚上线，请等待离线收益结算完成。</p></div></article>`;
+  }
   return `<article class="loot-modal">
     <header class="offline-reward-header">
       <span class="offline-chest-icon" aria-hidden="true">◇</span>
@@ -37,16 +74,19 @@ export function renderLootSummaryCard(rewards, ctx = lootCtx) {
     </header>
     ${r.noRewardsReason ? `<p class="offline-reason">${esc(r.noRewardsReason, ctx)}</p>` : ''}
     <div class="loot-summary-grid">
-      ${renderLootSummaryMini('击杀', r.kills, ctx)}${renderLootSummaryMini('金币', r.gold, ctx)}
-      ${renderLootSummaryMini('BASE经验', r.baseExp, ctx)}${renderLootSummaryMini('JOB经验', r.jobExp, ctx)}
-      ${renderLootSummaryMini('材料', offlineListTotal(r.materials), ctx)}${renderLootSummaryMini('装备', arr(r.equipment).length, ctx)}
-      ${renderLootSummaryMini('待领取装备', arr(r.pendingEquipment).length, ctx)}
+      ${renderLootSummaryMini('击杀', r.kills, ctx)}
+      ${renderLootSummaryMini('金币', r.gold, ctx)}
+      ${renderLootSummaryMini('BASE经验', r.baseExp, ctx)}
+      ${renderLootSummaryMini('JOB经验', r.jobExp, ctx)}
+      ${renderLootSummaryMini('材料', offlineListTotal(matList), ctx)}
+      ${renderLootSummaryMini('装备', eqpList.length, ctx)}
+      ${renderLootSummaryMini('待领取装备', pendingList.length, ctx)}
     </div>
-    ${renderLootMaterialSection(arr(r.materials), ctx)}
-    ${renderLootEquipmentSection(arr(r.equipment), '获得装备', ctx)}
-    ${renderLootCardSection(arr(r.cards), ctx)}
+    ${renderLootMaterialSection(matList, ctx)}
+    ${renderLootEquipmentSection(eqpList, '获得装备', ctx)}
+    ${renderLootCardSection(cardList, ctx)}
     ${renderLootSalvageSection(r.salvagedMaterials || {}, ctx)}
-    ${renderLootPendingSection(arr(r.pendingEquipment), ctx)}
+    ${renderLootPendingSection(pendingList, ctx)}
   </article>`;
 }
 
@@ -78,7 +118,7 @@ export function renderLootEquipmentSection(equipment, title = '装备', ctx = lo
   const list = arr(equipment);
   if (!list.length) return '';
   const sortFn = ctx.sortOfflineEquipment || ((a, b) => 0);
-  const sorted = sortFn(list).slice(0, 8);
+  const sorted = sortFn(list).slice(0, 6);
   return `<section class="loot-section"><h3 class="loot-section-title">${esc(title, ctx)}</h3><div class="loot-item-grid">${sorted.map((i) => offlineEquipItem(i, ctx)).join('')}</div>${list.length > sorted.length ? `<p class="loot-empty">还有 ${fmtn(list.length - sorted.length, ctx)} 件装备</p>` : ''}</section>`;
 }
 
@@ -87,6 +127,8 @@ export function renderLootPendingSection(equipment, ctx = lootCtx) {
   if (!list.length) return '';
   return `<section class="loot-section loot-pending-warning"><h3 class="loot-section-title">待领取装备（${fmtn(list.length, ctx)}）</h3><p>背包已满，以下装备已暂存，收益没有丢失。清理背包后可继续领取。</p><div class="loot-item-grid">${list.slice(0, 8).map((i) => offlineEquipItem(i, ctx)).join('')}</div>${list.length > 8 ? `<p class="loot-empty">还有 ${fmtn(list.length - 8, ctx)} 件待领取装备</p>` : ''}</section>`;
 }
+
+/* ── Offline overview (概览模式) ───────────────────────────────────── */
 
 export function renderOfflineOverview(rewards, claimedEquipment, pendingEquipment, ctx = lootCtx) {
   const materialTotal = offlineListTotal(rewards?.materials);
@@ -139,27 +181,32 @@ export function renderOfflineSalvageSection(rewards, ctx = lootCtx) {
 export function renderOfflineCardSection(rewards, ctx = lootCtx) {
   const cards = arr(rewards?.cards);
   if (!cards.length) return offlineEmpty('卡片', '无卡片掉落', ctx);
-  const hl = ctx.offlineHighlightClass || (() => '');
-  return `<section class="offline-reward-section"><div class="offline-reward-section-title">卡片</div><div class="offline-loot-grid">${cards.map((c) => `<div class="offline-loot-item ${hl(c)}"><span class="offline-loot-icon">卡</span><div>${rnItem({ name: c.name, rarity: c.rarity || 'rare' }, '', ctx)}<small>${rn(c.rarity, ctx)} · 数量 ${fmtn(c.qty, ctx)}</small></div></div>`).join('')}</div></section>`;
+  const hlFn = ctx.offlineHighlightClass || (() => '');
+  return `<section class="offline-reward-section"><div class="offline-reward-section-title">卡片</div><div class="offline-loot-grid">${cards.map((c) => `<div class="offline-loot-item ${hlFn(c)}"><span class="offline-loot-icon">卡</span><div>${rnItem({ name: c.name, rarity: c.rarity || 'rare' }, '', ctx)}<small>${rn(c.rarity, ctx)} · 数量 ${fmtn(c.qty, ctx)}</small></div></div>`).join('')}</div></section>`;
 }
 
 export function renderOfflineEquipmentSection(equipment, title, ctx = lootCtx) {
   const list = arr(equipment);
   if (!list.length) return offlineEmpty(title || '装备', '无装备掉落', ctx);
   const sortFn = ctx.sortOfflineEquipment || ((a, b) => 0);
-  const sorted = sortFn(list).slice(0, 8);
-  return `<section class="offline-reward-section"><div class="offline-reward-section-title">${esc(title || '装备', ctx)}</div><div class="offline-loot-grid">${sorted.map((i) => offlineEquipItem(i, ctx)).join('')}</div>${list.length > sorted.length ? `<p class="offline-empty">还有 ${fmtn(list.length - sorted.length, ctx)} 件装备</p>` : ''}</section>`;
+  const sorted = sortFn(list).slice(0, 6);
+  const hidden = list.length - sorted.length;
+  return `<section class="offline-reward-section"><div class="offline-reward-section-title">${esc(title || '装备', ctx)}</div><div class="offline-loot-grid">${sorted.map((i) => offlineEquipItem(i, ctx)).join('')}</div>${hidden > 0 ? `<p class="offline-more">还有 ${fmtn(hidden, ctx)} 件装备已入袋</p>` : ''}</section>`;
 }
 
 export function renderOfflinePendingEquipmentSection(equipment, ctx = lootCtx) {
   const list = arr(equipment);
   if (!list.length) return '';
-  return `<section class="offline-reward-section offline-pending-section"><div class="offline-reward-section-title">待领取装备（${fmtn(list.length, ctx)}）</div><p class="offline-empty">以下装备暂存在离线收益中，等你清理背包后再领取。</p><div class="offline-loot-grid">${list.slice(0, 8).map((i) => offlineEquipItem(i, ctx)).join('')}</div>${list.length > 8 ? `<p class="offline-empty">还有 ${fmtn(list.length - 8, ctx)} 件待领取装备</p>` : ''}</section>`;
+  const sortFn = ctx.sortOfflineEquipment || ((a, b) => 0);
+  const sorted = sortFn(list);
+  return `<section class="offline-reward-section offline-pending-list"><div class="offline-reward-section-title">待领取装备</div><p class="offline-source-note">由于背包空间不足，以下装备已暂存，请清理背包后领取。</p><div class="offline-loot-grid">${sorted.slice(0, 8).map((i) => offlineEquipItem(i, ctx)).join('')}</div>${sorted.length > 8 ? `<p class="offline-more">还有 ${fmtn(sorted.length - 8, ctx)} 件待领取装备</p>` : ''}</section>`;
 }
 
 export function renderOfflineEquipmentItem(item, ctx = lootCtx) { return offlineEquipItem(item, ctx); }
 export function renderOfflineMaterialChip(material, extraClass, ctx = lootCtx) { return offlineMaterialChip(material, extraClass, ctx); }
 export function renderOfflineEmptySection(title, text, ctx = lootCtx) { return offlineEmpty(title, text, ctx); }
+
+/* ── Runtime install ───────────────────────────────────────────────── */
 
 export function installLootRenderRuntime(context = {}) {
   configureLootContext(context);
