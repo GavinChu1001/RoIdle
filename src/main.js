@@ -32,6 +32,8 @@ import { installShopRuntime } from './systems/shop.js';
 // UI layer (delegates to game.js via window)
 import './ui/index.js';
 import { installLootRenderRuntime } from './ui/offlineLoot.js';
+import { installVipRenderRuntime } from './ui/vipPage.js';
+import { installShopRenderRuntime } from './ui/shopPage.js';
 
 export const DEV_MODE = new URLSearchParams(window.location.search).get('dev') === '1';
 export const RUNTIME_AUTHORITY = 'game.js';
@@ -89,6 +91,34 @@ const lootContext = {
   sortOfflineEquipment: window.sortOfflineEquipment,
 };
 installLootRenderRuntime(lootContext);
+
+const vipRenderContext = {
+  getState() { return window.state || {}; },
+  normalizeVip: window.normalizeVip,
+  getVipBonuses: window.getVipBonuses,
+  getVipProgressInfo: window.getVipProgressInfo,
+  getUnlockedVipMilestones: window.getUnlockedVipMilestones,
+  getNextVipMilestone: window.getNextVipMilestone,
+  getVipMaxLevel() { return window.VIP_MAX_LEVEL || 20; },
+  getVipExpRequirements() { return window.VIP_EXP_REQUIREMENTS || []; },
+  getVipMilestones() { return window.VIP_MILESTONE_BONUSES || {}; },
+  escapeHtml: window.escapeHtml,
+  formatNumber: window.formatNumber,
+  percent: window.percent,
+  todayKey() { return new Date().toISOString().slice(0, 10); },
+};
+installVipRenderRuntime(vipRenderContext);
+
+const shopRenderContext = {
+  getState() { return window.state || {}; },
+  getEls() { return window.els || {}; },
+  normalizeShopState: window.normalizeShopState,
+  canBuyShopItem: window.canBuyShopItem,
+  formatShopLimitText: window.formatShopLimitText,
+  formatShopCost: window.formatShopCost,
+  escapeHtml: window.escapeHtml,
+};
+installShopRenderRuntime(shopRenderContext);
 
 if (typeof window.bootstrapLegacyRuntime === 'function') {
   window.bootstrapLegacyRuntime();

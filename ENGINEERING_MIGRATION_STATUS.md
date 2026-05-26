@@ -1,35 +1,32 @@
-# game.js Migration Status - Batch 16
+# game.js Migration Status - Batch 17a+17b
 
 ## Runtime Authority
 
-`game.js` remains the authoritative stateful gameplay runtime. Startup ownership is held by `src/main.js` which installs 9 module runtimes, the DevBridge, the loot render runtime, and boots the classic runtime.
+`game.js` remains the authoritative stateful gameplay runtime. Startup ownership is held by `src/main.js` which installs 9 module runtimes, the DevBridge, loot/VIP/shop render runtimes, and boots the classic runtime.
 
 ## Formalized In This Batch
 
-### Offline Orchestration Verification
-- `calculateOfflineRewards` in `src/systems/offline.js` confirmed as real runtime-owned implementation (completed in Batch 8).
-- All offline material/card/zodiac/transition/mythic/mutation drop roll functions confirmed as real runtime implementations.
-- `buildOfflineMonsterStats` and `estimateMapAverageMonsterHp` confirmed as real runtime implementations.
+### VIP Page Renderer
+- `src/ui/vipPage.js` rewritten from delegation wrapper to real implementation (77 lines).
+- `renderVip` generates full HTML string using context-injected VIP calculation functions, format helpers, and state access.
+- Installed as `RuneFrontierRenderRuntime.renderVip` — game.js delegation bridge automatically picks it up.
+- DOM write (`els.vipPanel.innerHTML`) handled by the module via context-injected state.
 
-### Loot Modal Rendering Migration
-- Created `src/ui/offlineLoot.js` (203 lines) with real HTML-generating implementations of 20 loot modal render functions.
-- `installLootRenderRuntime(context)` installs these onto `RuneFrontierRenderRuntime`, merging with existing entries if any.
-- `src/main.js` imports and installs the loot render runtime with a context providing `formatNumber`, `formatDuration`, `escapeHtml`, `renderItemName`, `rarityName`, material DB access, and helper functions.
-- All 20 loot render functions in `game.js` now find their runtime implementations via existing `RuneFrontierRenderRuntime` delegation bridges — no game.js changes needed for these functions.
-- `renderOfflineRewardModal` retained in game.js as DOM-dependent modal visibility toggle.
+### Shop Page Renderer
+- `src/ui/shopPage.js` rewritten from delegation wrapper to real implementation (45 lines).
+- `renderShop` generates full HTML string + writes to `els.shopContent.innerHTML` via context-injected DOM elements.
+- Installed as `RuneFrontierRenderRuntime.renderShop`.
 
-### Module Count
-- 82 browser modules (was 81 — new `offlineLoot.js`).
+### Render Runtime Status
+- `RuneFrontierRenderRuntime` now provides real implementations for: 20 loot functions + `renderVip` + `renderShop` = 22 functions total.
+- Remaining ~73 render functions still fall through to game.js legacy bodies.
 
-## Deliberately Retained In game.js
+## Deliberately Retained
 
-- `renderOfflineRewardModal` (DOM-dependent modal toggle).
-- Legacy `legacyXxx` function bodies (78 remaining).
-- All other page renderers (Character/Equipment/Smithy/Codex/VIP/Shop/Map/Card/Task/Log).
-- Battle presentation callbacks (DOM/canvas-bound).
-- The main loop (`loop()`).
-- Save/auth implementation and `window` action interfaces.
+- Codex (4), Character (11), Equipment (20), Smithy (16), Map (1), Card (2), Task (6), Log (1), Advice (2) renderers still in game.js.
+- `renderOfflineRewardModal` (DOM-dependent modal toggle) in game.js.
+- 78 `legacyXxx` fallback bodies.
 
-## Next Migration Order
+## Next
 
-Per roadmap: Batch 17 — Page renderers (VIP → Shop → Codex → Character → Equipment → Smithy).
+Batch 17c: Codex page renderer (4 functions).
