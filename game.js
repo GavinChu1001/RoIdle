@@ -4494,6 +4494,15 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+ * [LEGACY-AUDIT] Fallback zone — ~78 legacyXxx functions
+ * All are superseded by module runtime delegation. Remaining as
+ * startup-safety fallback. Safe to delete ONLY after:
+ *  - Runtime parity verified via regression comparison
+ *  - All 9 runtimes install successfully in production
+ *  - No direct callers remain in event handlers or tests
+ * ═══════════════════════════════════════════════════════════════════ */
+
 function legacyUpdateCombat(dt) {
   if (state.enemyHp <= 0 || state.enemyMaxHp <= 0) spawnEnemy(false);
 
@@ -13908,6 +13917,8 @@ function addLogHtml(html) {
   state.log = state.log.slice(0, 24);
 }
 
+// [CANDIDATE-CLEANUP] Format utilities below duplicate src/utils/. Keep until unified tool loading.
+// formatDuration differs: game.js "小时/分钟", src/utils "时/分".
 function showToast(text) {
   els.toast.textContent = text;
   els.toast.classList.add("show");
@@ -14584,6 +14595,8 @@ if (devDiagnosticsEnabled) {
     tryAutoChallengeBoss: typeof tryAutoChallengeBoss === "function",
   });
 
+  // [DEV-DIAGNOSTIC-ADAPTER] Required by selfCheck.js:59 and debugPanel.js for state inspection / maintenance.
+  // Do not remove until diagnostic tools are refactored to use a standalone bridge.
   window.RuneFrontierDevBridge = Object.freeze({
     getSnapshot() {
       return {
