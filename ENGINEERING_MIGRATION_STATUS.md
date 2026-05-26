@@ -1,60 +1,27 @@
-# game.js Migration Status - Batch 18
+# game.js Migration Status - Batch 19a
 
-## Runtime Authority
+## game.js: 13,268 lines (was 14,600 at migration start)
 
-`game.js` remains the authoritative stateful gameplay runtime.
+## Data Table Extraction Complete
+- Created `data.js` (444 lines, classic script): top-level config constants extracted from game.js.
+- `index.html` loads `data.js` BEFORE `game.js` — `var` declarations create `window` properties accessible as bare names.
+- game.js reduced by 394 lines (13,662 → 13,268).
+- All `legaacyXxx` bodies still retained as fallback (78 functions).
 
-## Formalized In This Batch
+## Loading Order (Final)
+```
+tools.js      (78 lines, classic) — 13 utility functions
+data.js       (444 lines, classic) — config constants
+src/main.js   (module, deferred)   — 9 runtimes + DevBridge
+game.js       (classic)            — entry skeleton + runtime delegates + LegacyContexts
+```
 
-### Event Bridge — bindEvents() Audit (~40 handlers)
+## Remaining Legacy Bodies
+78 `legaacyXxx` functions (~3,500 lines) retained as startup-safety fallback. Deletion deferred to Batch 19b when browser regression can verify all 69 RenderRuntime functions and 9 system runtimes work correctly in production.
 
-All handlers categorized:
-
-**Direct function references (inline callbacks):** 17
-`challengeBoss`, `setAutoBossEnabled`, `openOfflineRewardModal`, `closeOfflineRewardModal`, `claimOffline`, `closeRefineResultModal`, `resetSave`, `submitAuth`, `logout`, `renderAll`, `addLog`, `trainBase`, `equipBest`, `salvageAllUnequipped`, `refineItem`, `showToast`, `punchCardSlot`, `canContinueRefine`
-
-**data-action delegation (already correct pattern):** 23
-`data-equip-item`, `data-salvage-item`, `data-refine-item`, `data-empower-item`, `data-lock-item`, `data-collect-zodiac`, `data-zodiac-salvage`, `data-punch-card-slot`, `data-socket-card`, `data-remove-socket-card`, `data-equipment-filter`, `data-equipment-sort`, `data-auto-salvage-*`, `data-map`, `data-claim-codex`, `data-buy-shop`, `data-shop-tab`, `data-codex-tab`, `data-smithy-tab`, `data-craft-set`, `data-darkgold-exchange`, `data-synthesize-boss-card`, `data-awaken-card`
-
-### Window Bridge Inventory
-
-**Required (runtime bootstrap):**
-| Symbol | Purpose |
-|--------|--------|
-| `window.bootstrapLegacyRuntime` | Classic runtime init gate |
-| `window.RuneFrontierDevBridge` | Dev diagnostics (selfCheck.js, debugPanel.js) |
-| `window.RuneFrontierEquipmentRuntime` | Equipment module runtime |
-| `window.RuneFrontierDropsRuntime` | Drops module runtime |
-| `window.RuneFrontierOfflineRuntime` | Offline module runtime |
-| `window.RuneFrontierCombatRuntime` | Combat module runtime |
-| `window.RuneFrontierVipRuntime` | VIP module runtime |
-| `window.RuneFrontierCodexRuntime` | Codex module runtime |
-| `window.RuneFrontierShopRuntime` | Shop module runtime |
-| `window.RuneFrontierStateRuntime` | State persistence bridge |
-| `window.RuneFrontierRenderRuntime` | Render module runtime |
-| `window.RuneFrontierLegacyEquipmentContext` | Equipment data-table bridge |
-| `window.RuneFrontierLegacyDropsContext` | Drops data-table bridge |
-| `window.RuneFrontierLegacyOfflineContext` | Offline data-table bridge |
-| `window.RuneFrontierLegacyCombatContext` | Combat data-table bridge |
-| `window.RuneFrontierLegacyVipContext` | VIP data-table bridge |
-| `window.RuneFrontierLegacyCodexContext` | Codex data-table bridge |
-| `window.RuneFrontierLegacyShopContext` | Shop data-table bridge |
-| `window.RuneFrontierLegacyStateContext` | State data-table bridge |
-| `window.RuneFrontierModuleStatus` | Module migration metadata |
-
-**Tools (from tools.js, loaded before game.js):**
-| Symbol | Purpose |
-|--------|--------|
-| `window.formatNumber` etc. (13 functions) | Authoritative utility functions |
-
-**No explicit window.xxx assignments removed.** Game.js uses classic script global scope — all top-level functions are implicitly global. Explicit assignments only for bridge objects.
-
-## Deliberately Retained
-
-- All bindEvents() handlers kept as-is (changing to data-action delegation would risk button breakage without browser verification).
-- Direct function references continue to work because game.js is a classic script.
-- No function bodies removed from game.js (deferred to Batch 19).
-
-## Batch 18 Completion
-
-Event audit complete. Confirmed: all runtime bridges properly exposed, no unused window.xxx assignments to clean up. The next meaningful work is Batch 19 — deleting legacy bodies and slimming game.js.
+## Module Inventory
+- Classic scripts: `tools.js`, `data.js`, `game.js`
+- Browser modules: 82
+- Runtime modules: 9 (`Equipment`, `Drops`, `Offline`, `Combat`, `Vip`, `Codex`, `Shop`, `State`, `Render`)
+- LegacyContext bridges: 8
+- RenderRuntime real implementations: 69 functions
