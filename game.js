@@ -2149,6 +2149,8 @@ const materialDropTables = {
 
 const els = {};
 let state = createDefaultState();
+window.els = els;
+window.state = state;
 let lastTick = performance.now();
 let saveTimer = 0;
 let toastTimer = 0;

@@ -32,7 +32,7 @@ export function renderVip(ctx = vipCtx) {
   const giftAvailable = state.vip?.dailyGiftClaimed !== (vipCtx.todayKey ? vipCtx.todayKey() : new Date().toISOString().slice(0, 10));
   const dailyGiftHtml = giftAvailable ? `<button type="button" class="ghost" data-claim-vip-gift>\u9886\u53d6\u6bcf\u65e5\u793c\u5305</button>` : `<span class="vip-next">\u4eca\u65e5\u793c\u5305\u5df2\u9886\u53d6</span>`;
 
-  return `<section class="vip-page-grid">
+  const html = `<section class="vip-page-grid">
     <article class="vip-card vip-summary-card">
       <span class="vip-level">\u5192\u9669\u8005\u8363\u8a89 Lv.${vip.level}</span>
       <p class="vip-meta">${progressInfo.isMax ? '\u5df2\u6ee1\u7ea7' : `\u8fdb\u5ea6 ${fmtn(progressInfo.currentLevelExp)} / ${fmtn(progressInfo.requiredForNext)} \xb7 \u8ddd\u79bb\u4e0b\u4e00\u7ea7 ${fmtn(progressInfo.remaining)}`}</p>
@@ -74,6 +74,8 @@ export function renderVip(ctx = vipCtx) {
       }).join('')}
     </section>
   </details>`;
+  const els = ctx.getEls?.() || {};
+  if (els.vipPanel) els.vipPanel.innerHTML = html;
 }
 
 export function installVipRenderRuntime(context = {}) {
