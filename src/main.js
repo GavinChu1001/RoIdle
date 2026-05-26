@@ -79,18 +79,20 @@ if (typeof window.bootstrapLegacyRuntime === 'function') {
 }
 
 if (DEV_MODE) {
-  import('./dev/devBridge.js')
-    .then(({ createDevBridge }) => {
-      window.RuneFrontierDevBridge = createDevBridge({
-        state: window.state || {},
-        logCountFn: () => window.state?.log?.length || 0,
-        apiPresenceFn: () => ({}),
-      });
-    })
-    .catch((error) => console.error('[Dev Debug] Failed to initialize dev bridge.', error));
-  import('./ui/debugPanel.js')
-    .then(({ mountDebugPanel }) => mountDebugPanel())
-    .catch((error) => console.error('[Dev Debug] Failed to initialize debug panel.', error));
+  const devContext = typeof window.RuneFrontierLegacyDevContext === 'function'
+    ? window.RuneFrontierLegacyDevContext()
+    : null;
+  if (!devContext) {
+    console.error('[Dev Debug] Live legacy diagnostics context is unavailable.');
+  } else {
+    import('./dev/devBridge.js')
+      .then(({ createDevBridge }) => {
+        window.RuneFrontierDevBridge = createDevBridge(devContext);
+        return import('./ui/debugPanel.js');
+      })
+      .then(({ mountDebugPanel }) => mountDebugPanel())
+      .catch((error) => console.error('[Dev Debug] Failed to initialize diagnostics.', error));
+  }
 }
 
 // Post-load overrides for material descriptions defined by the classic runtime.

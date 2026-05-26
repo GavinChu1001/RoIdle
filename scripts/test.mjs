@@ -23,6 +23,7 @@ const lootRollSource = read('src/systems/drops/lootRoll.js');
 const recentLootSource = read('src/systems/drops/recentLoot.js');
 const lootModelSource = read('src/systems/drops/lootModel.js');
 const offlineSource = read('src/systems/offline.js');
+const devBridgeSource = read('src/dev/devBridge.js');
 const settlementSource = read('src/systems/combat/settlement.js');
 const bossCombatSource = read('src/systems/combat/bossCombat.js');
 const damageSource = read('src/systems/combat/damage.js');
@@ -44,6 +45,9 @@ for (const name of requiredLegacyFunctions) {
 }
 
 assert.match(main, /window\.RuneFrontierDevBridge\s*=/, 'Developer diagnostics bridge must remain available (now installed via main.js).');
+assert.doesNotMatch(main, /state:\s*window\.state\s*\|\|\s*\{\}/, 'Developer diagnostics must not capture an unrelated window.state snapshot.');
+assert.match(main, /RuneFrontierLegacyDevContext/, 'Developer diagnostics must obtain its live legacy context.');
+assert.match(main, /window\.RuneFrontierDevBridge\s*=\s*createDevBridge\(devContext\)[\s\S]*return import\('\.\/ui\/debugPanel\.js'\)/, 'Debug panel must mount after the live bridge is installed.');
 assert.match(html, /src="\.\/src\/main\.js"/, 'Module compatibility entry must remain loaded.');
 assert.match(html, /src="game\.js[^"]*"/, 'Classic runtime must remain loaded in this migration batch.');
 assert.match(main, /RUNTIME_AUTHORITY\s*=\s*'game\.js'/, 'Module entry must document the current runtime authority.');
@@ -88,6 +92,8 @@ assert.match(game, /runtime\.processGeneratedOfflineEquipment/, 'Offline generat
 assert.match(game, /if\s*\(runtime\s*&&\s*typeof runtime\.addEquipmentToInventory/, 'Offline inventory settlement must use the shared equipment runtime.');
 assert.match(game, /if\s*\(!options\.offline\s*&&\s*runtime\s*&&\s*typeof runtime\.rollEquipmentTableDrops/, 'Offline drop settlement must remain on the legacy path.');
 assert.match(game, /RuneFrontierLegacyCombatContext/, 'Legacy runtime must expose combat settlement dependencies.');
+assert.match(game, /RuneFrontierLegacyDevContext/, 'Legacy runtime must expose live diagnostics dependencies.');
+assert.match(game, /getState\(\)\s*\{\s*return state;\s*\}/, 'Diagnostics context must read the current live state.');
 assert.match(game, /runtime\.settleDefeatedEnemy/, 'Kill settlement must forward to the combat runtime.');
 assert.match(game, /runtime\.grantBossEssence/, 'Boss essence settlement must forward to the combat runtime.');
 assert.match(game, /runtime\.tryAutoChallengeBoss/, 'Automatic Boss entry must forward to the combat runtime.');
@@ -98,6 +104,40 @@ assert.match(game, /runtime\.updateRecovery/, 'Recovery ticks must forward to th
 assert.match(game, /runtime\.rollActiveSkill/, 'Active-skill execution must forward to the combat runtime.');
 assert.match(game, /runtime\.normalizeDamage/, 'Damage normalization must forward to the combat runtime.');
 assert.equal((game.match(/requestAnimationFrame\(loop\);/g) || []).length, 2, 'Loop registration shape changed unexpectedly.');
+
+const devBridgeModule = await importSource(devBridgeSource);
+const priorWindow = globalThis.window;
+globalThis.window = { RuneFrontierModuleStatus: { authority: 'test' } };
+let liveDevState = { log: ['before'], recentLoot: [{ id: 'drop' }], lootNotifyUnread: true, lastLootViewedAt: 0 };
+let maintenanceSaves = 0;
+let maintenanceRenders = 0;
+const devBridge = devBridgeModule.createDevBridge({
+  getState: () => liveDevState,
+  getMaps: () => [{ id: 'grass', name: 'Grass' }],
+  getMapDropTableAlias: () => ({ grass: 'grass' }),
+  getEquipmentDropTables: () => ({ grass: [] }),
+  getMaterialDropTables: () => ({ grass: [] }),
+  getMaterialNames: () => ({ dust: 'Dust' }),
+  getMaterialDb: () => ({ dust: { id: 'dust' } }),
+  getInventoryLimit: () => 42,
+  getVipProgressInfo: () => ({ level: 1, remaining: 10 }),
+  getPlayerCritRateCap: () => 1,
+  getApiPresence: () => ({ renderAll: true }),
+  save: () => { maintenanceSaves += 1; },
+  renderAll: () => { maintenanceRenders += 1; },
+});
+assert.equal(devBridge.getSnapshot().state.log[0], 'before', 'Developer bridge must read the initial live state.');
+liveDevState = { log: ['after'], recentLoot: [{ id: 'next' }], lootNotifyUnread: true, lastLootViewedAt: 0 };
+assert.equal(devBridge.getSnapshot().state.log[0], 'after', 'Developer bridge must follow replaced live state objects.');
+assert.equal(devBridge.getSnapshot().inventoryLimit, 42, 'Developer bridge must expose live diagnostic metadata.');
+devBridge.runMaintenance('clear-log');
+assert.deepEqual(liveDevState.log, [], 'Developer bridge log maintenance must affect the current live state.');
+devBridge.runMaintenance('clear-recent-loot');
+assert.deepEqual(liveDevState.recentLoot, [], 'Developer bridge loot maintenance must affect the current live state.');
+assert.equal(liveDevState.lootNotifyUnread, false, 'Developer bridge loot maintenance must clear unread state.');
+assert.equal(maintenanceSaves, 2, 'State-changing developer maintenance must save after each operation.');
+assert.equal(maintenanceRenders, 2, 'State-changing developer maintenance must rerender after each operation.');
+globalThis.window = priorWindow;
 
 const itemStats = await importSource(itemStatsSource);
 const itemNaming = await importSource(itemNamingSource);

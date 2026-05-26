@@ -1,4 +1,4 @@
-export function createDevBridge({ state, logCountFn, apiPresenceFn }) {
+export function createDevBridge(context = {}) {
   const cloneForDev = (value) => {
     try { return JSON.parse(JSON.stringify(value)); }
     catch (e) { return { cloneError: e?.message || 'Unable to clone diagnostics value.' }; }
@@ -6,41 +6,50 @@ export function createDevBridge({ state, logCountFn, apiPresenceFn }) {
 
   return Object.freeze({
     getSnapshot() {
+      const state = context.getState?.() || {};
       return {
         state: cloneForDev(state),
-        maps: cloneForDev((window.maps || []).map((m) => ({ id: m.id, name: m.name }))),
-        logCount: logCountFn ? logCountFn() : 0,
-        api: apiPresenceFn ? apiPresenceFn() : {},
+        maps: cloneForDev(context.getMaps?.() || []),
+        mapDropTableAlias: cloneForDev(context.getMapDropTableAlias?.() || {}),
+        equipmentDropTables: cloneForDev(context.getEquipmentDropTables?.() || {}),
+        materialDropTables: cloneForDev(context.getMaterialDropTables?.() || {}),
+        materialNames: cloneForDev(context.getMaterialNames?.() || {}),
+        materialDb: cloneForDev(context.getMaterialDb?.() || {}),
+        inventoryLimit: Number(context.getInventoryLimit?.() || 0),
+        vipProgress: cloneForDev(context.getVipProgressInfo?.() || {}),
+        playerCritRateCap: Number(context.getPlayerCritRateCap?.() || 0),
+        api: cloneForDev(context.getApiPresence?.() || {}),
         moduleStatus: window.RuneFrontierModuleStatus || {},
-        offlineRewards: cloneForDev(state?.offlinePending || state?.offlineRewards || {}),
+        offlineRewards: cloneForDev(state.offlinePending || state.offlineRewards || {}),
       };
     },
     runMaintenance(action) {
+      const state = context.getState?.();
       if (action === 'migrate') {
-        if (typeof window.sanitizeProgression === 'function') window.sanitizeProgression();
-        if (typeof window.save === 'function') window.save();
-        if (typeof window.renderAll === 'function') window.renderAll();
+        context.sanitizeProgression?.();
+        context.save?.();
+        context.renderAll?.();
         return true;
       }
       if (action === 'clear-log') {
         if (state) state.log = [];
-        if (typeof window.save === 'function') window.save();
-        if (typeof window.renderAll === 'function') window.renderAll();
+        context.save?.();
+        context.renderAll?.();
         return true;
       }
       if (action === 'clear-recent-loot') {
         if (state) { state.recentLoot = []; state.lootNotifyUnread = false; state.lastLootViewedAt = Date.now(); }
-        if (typeof window.save === 'function') window.save();
-        if (typeof window.renderAll === 'function') window.renderAll();
+        context.save?.();
+        context.renderAll?.();
         return true;
       }
       if (action === 'render' || action === 'renderAll') {
-        if (typeof window.renderAll === 'function') window.renderAll();
+        context.renderAll?.();
         return true;
       }
       if (action === 'save') {
-        if (typeof window.save === 'function') window.save();
-        if (typeof window.renderAll === 'function') window.renderAll();
+        context.save?.();
+        context.renderAll?.();
         return true;
       }
       return false;

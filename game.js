@@ -14512,6 +14512,42 @@ window.RuneFrontierLegacyStateContext = () => Object.freeze({
   loadAuth, refreshAuthUi,
 });
 
+// [DEV-DIAGNOSTIC-ADAPTER] Live access only: diagnostics must follow state replacements after load/reset.
+window.RuneFrontierLegacyDevContext = () => Object.freeze({
+  getState() { return state; },
+  getMaps() { return maps.map((map) => ({ id: map.id, name: map.name })); },
+  getMapDropTableAlias() { return mapDropTableAlias; },
+  getEquipmentDropTables() { return equipmentDropTables; },
+  getMaterialDropTables() { return materialDropTables; },
+  getMaterialNames() { return materialNames; },
+  getMaterialDb() { return MATERIAL_DB; },
+  getInventoryLimit,
+  getVipProgressInfo() { return getVipProgressInfo(state.vip); },
+  getPlayerCritRateCap() { return PLAYER_CRIT_RATE_CAP; },
+  getApiPresence() {
+    return {
+      renderAll: typeof renderAll === "function",
+      renderEquipment: typeof renderEquipment === "function",
+      renderSmithyPage: typeof renderSmithyPage === "function",
+      renderVip: typeof renderVip === "function",
+      renderCodex: typeof renderCodex === "function",
+      renderShop: typeof renderShop === "function",
+      computeStats: typeof computeStats === "function",
+      getEffectiveItemStats: typeof getEffectiveItemStats === "function",
+      calculateEquipmentScores: typeof calculateEquipmentScores === "function",
+      getVipProgressInfo: typeof getVipProgressInfo === "function",
+      getInventoryLimit: typeof getInventoryLimit === "function",
+      recordRecentLoot: typeof recordRecentLoot === "function",
+      rollDrops: typeof rollDrops === "function",
+      claimOffline: typeof claimOffline === "function",
+      tryAutoChallengeBoss: typeof tryAutoChallengeBoss === "function",
+    };
+  },
+  sanitizeProgression,
+  save,
+  renderAll,
+});
+
 // [DEV-DIAGNOSTIC-ADAPTER] Moved to src/dev/devBridge.js + src/main.js installation.
 // window.RuneFrontierDevBridge is now created by main.js in DEV_MODE via createDevBridge().
 
