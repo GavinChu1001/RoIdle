@@ -35,6 +35,7 @@ import { installLootRenderRuntime } from './ui/offlineLoot.js';
 import { installVipRenderRuntime } from './ui/vipPage.js';
 import { installShopRenderRuntime } from './ui/shopPage.js';
 import { installCodexRenderRuntime } from './ui/codexPage.js';
+import { installCharacterRenderRuntime } from './ui/characterPage.js';
 
 export const DEV_MODE = new URLSearchParams(window.location.search).get('dev') === '1';
 export const RUNTIME_AUTHORITY = 'game.js';
@@ -150,6 +151,65 @@ const codexRenderContext = {
   formatNumber: window.formatNumber,
 };
 installCodexRenderRuntime(codexRenderContext);
+
+const characterRenderContext = {
+  getState() { return window.state || {}; },
+  getEls() { return window.els || {}; },
+  computeStats: window.computeStats,
+  currentJob: window.currentJob,
+  getNextJobSkill: window.getNextJobSkill,
+  maxBaseLevel: window.maxBaseLevel,
+  jobExpCost: window.jobExpCost,
+  getAttributeKeys() { return window.attributeKeys || []; },
+  getHpRegenInterval() { return window.HP_REGEN_INTERVAL || 5; },
+  normalizeRebirthPrestige: window.normalizeRebirthPrestige || ((p, r) => ({ level: r || 0, totalRebirths: r || 0 })),
+  getRebirthPrestigeBonuses: window.getRebirthPrestigeBonuses || (() => ({})),
+  calculatePlayerRatingScores: window.calculatePlayerRatingScores || (() => ({})),
+  formatCritRateSummary: window.formatCritRateSummary,
+  imageBackgroundList: window.imageBackgroundList || (() => ''),
+  classImageCandidates: window.classImageCandidates || (() => []),
+  heroTrainCost: window.heroTrainCost,
+  renderCharacterStatSections: (s) => { if (window.RuneFrontierRenderRuntime?.renderCharacterStatSections) return window.RuneFrontierRenderRuntime.renderCharacterStatSections(s); return ''; },
+  renderCharacterStatBreakdown: (s) => { if (window.RuneFrontierRenderRuntime?.renderCharacterStatBreakdown) return window.RuneFrontierRenderRuntime.renderCharacterStatBreakdown(s); return ''; },
+  renderSetTalentStatus: window.renderSetTalentStatus,
+  renderTitlePanel: () => { if (window.RuneFrontierRenderRuntime?.renderTitlePanel) return window.RuneFrontierRenderRuntime.renderTitlePanel(); return ''; },
+  renderPowerSourcePanel: (s) => { if (window.RuneFrontierRenderRuntime?.renderPowerSourcePanel) return window.RuneFrontierRenderRuntime.renderPowerSourcePanel(s); return ''; },
+  renderSkillPanel: () => { if (window.RuneFrontierRenderRuntime?.renderSkillPanel) return window.RuneFrontierRenderRuntime.renderSkillPanel(); return ''; },
+  renderSkillSummaryCard: () => { if (window.RuneFrontierRenderRuntime?.renderSkillSummaryCard) return window.RuneFrontierRenderRuntime.renderSkillSummaryCard(); return ''; },
+  renderJobSkills: () => { if (window.RuneFrontierRenderRuntime?.renderJobSkills) return window.RuneFrontierRenderRuntime.renderJobSkills(); return ''; },
+  describeJobGrowth: window.describeJobGrowth,
+  jobSummary: window.jobSummary,
+  computeEquipmentFullStats: window.computeEquipmentFullStats,
+  getCardStats: window.getCardStats,
+  getTitleEffects: window.getTitleEffects,
+  getVipBonuses: window.getVipBonuses,
+  getMapExplorationBonuses: window.getMapExplorationBonuses,
+  getNextJobId: window.getNextJobId,
+  getFirstJobs() { return window.firstJobs || []; },
+  getJobTemplates() { return window.jobTemplates || {}; },
+  getJobTemplate() { return window.jobTemplates || {}; },
+  getTitleDb() { return window.TITLE_DB || {}; },
+  normalizeTitles: window.normalizeTitles,
+  titleEffectText: window.titleEffectText,
+  getUnlockedSkills: window.getUnlockedSkills,
+  getPassiveSkillTotals: window.getPassiveSkillTotals,
+  getSkillGrowthEntry: window.getSkillGrowthEntry,
+  getSkillMilestoneBonuses: window.getSkillMilestoneBonuses,
+  describeSkillMilestone: window.describeSkillMilestone,
+  getSkillMilestoneEntries: window.getSkillMilestoneEntries,
+  getSkillSpecializationOptions: window.getSkillSpecializationOptions,
+  skillTooltip: window.skillTooltip,
+  formatSkillMultiplier: window.formatSkillMultiplier,
+  statLabelName: window.statLabelName,
+  statLine: window.statLine,
+  renderStatGroup: window.renderStatGroup,
+  getVipProgressInfo: window.getVipProgressInfo,
+  escapeHtml: window.escapeHtml,
+  formatNumber: window.formatNumber,
+  percent: window.percent,
+  formatStatValue: window.formatStatValue,
+};
+installCharacterRenderRuntime(characterRenderContext);
 
 if (typeof window.bootstrapLegacyRuntime === 'function') {
   window.bootstrapLegacyRuntime();
