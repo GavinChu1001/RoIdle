@@ -169,8 +169,8 @@ const mapMonsterConfig = {
   grass: {
     name: "南门青草地",
     enemy: "果冻波波",
-    boss: "下水道首领 · 黄金盗虫",
-    bossSkill: "逆时钟回响",
+    boss: "青草地首领 · 巨型波波",
+    bossSkill: "弹跳重压",
     recommendedPower: 80,
     monsters: [
       monsterTemplate("grass_poring", "果冻波波", [1, 5], [120, 260], [3, 8], [1, 3], [8, 14], [6, 12], [6, 12]),
