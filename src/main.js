@@ -31,6 +31,7 @@ import { installShopRuntime } from './systems/shop.js';
 
 // UI layer (delegates to game.js via window)
 import './ui/index.js';
+import { installLootRenderRuntime } from './ui/offlineLoot.js';
 
 export const DEV_MODE = new URLSearchParams(window.location.search).get('dev') === '1';
 export const RUNTIME_AUTHORITY = 'game.js';
@@ -71,6 +72,23 @@ const shopContext = typeof window.RuneFrontierLegacyShopContext === 'function'
   ? window.RuneFrontierLegacyShopContext()
   : {};
 installShopRuntime(shopContext);
+
+const lootContext = {
+  getState() { return window.state || {}; },
+  formatNumber: window.formatNumber,
+  formatDuration: window.formatDuration,
+  escapeHtml: window.escapeHtml,
+  renderItemName: window.renderItemName,
+  rarityName: window.rarityName,
+  getMaterialName: window.materialNames ? (id) => window.materialNames[id] || id : (id) => id,
+  getMaterialRarity: window.MATERIAL_DB ? (id) => window.MATERIAL_DB[id]?.rarity || 'normal' : () => 'normal',
+  getOfflineEfficiency() { return window.OFFLINE_EFFICIENCY || 0.65; },
+  getMaxOfflineSeconds() { return window.MAX_OFFLINE_SECONDS || 43200; },
+  offlineMaterialObjectToList: window.offlineMaterialObjectToList,
+  offlineHighlightClass: window.offlineHighlightClass,
+  sortOfflineEquipment: window.sortOfflineEquipment,
+};
+installLootRenderRuntime(lootContext);
 
 if (typeof window.bootstrapLegacyRuntime === 'function') {
   window.bootstrapLegacyRuntime();
