@@ -34,6 +34,7 @@ import './ui/index.js';
 import { installLootRenderRuntime } from './ui/offlineLoot.js';
 import { installVipRenderRuntime } from './ui/vipPage.js';
 import { installShopRenderRuntime } from './ui/shopPage.js';
+import { installCodexRenderRuntime } from './ui/codexPage.js';
 
 export const DEV_MODE = new URLSearchParams(window.location.search).get('dev') === '1';
 export const RUNTIME_AUTHORITY = 'game.js';
@@ -119,6 +120,36 @@ const shopRenderContext = {
   escapeHtml: window.escapeHtml,
 };
 installShopRenderRuntime(shopRenderContext);
+
+const codexRenderContext = {
+  getState() { return window.state || {}; },
+  getEls() { return window.els || {}; },
+  getCodexActiveTab() { return (window.state || {}).codexActiveTab || 'monster'; },
+  getCodexBonuses: window.getCodexBonuses,
+  getTotalCodexLevel: window.getTotalCodexLevel,
+  getMonsterMasteryLevel: window.getMonsterMasteryLevel,
+  getCardResearchLevel: window.getCardResearchLevel,
+  getMonsterTypeLabel: window.getMonsterTypeLabel,
+  getMonsterTypeForCodex: window.getMonsterTypeForCodex,
+  buildMonsterNameMap: window.buildMonsterNameMap,
+  buildMonsterSourceMap: window.buildMonsterSourceMap,
+  buildMonsterCardDropMap: window.buildMonsterCardDropMap,
+  getMapMonsterConfig() { return window.mapMonsterConfig || {}; },
+  getCardPool() { return window.cardPool || []; },
+  getMaterialNames() { return window.materialNames || {}; },
+  getCodexKillMilestones() { return window.CODEX_KILL_MILESTONES || []; },
+  getCodexKillRewards() { return window.CODEX_KILL_REWARDS || {}; },
+  getCodexMilestoneLabels() { return window.CODEX_MILESTONE_LABELS || []; },
+  getCodexMasteryThresholds() { return window.CODEX_MASTERY_THRESHOLDS || []; },
+  getCodexCardMilestones() { return window.CODEX_CARD_MILESTONES || []; },
+  getCodexCardRewards() { return window.CODEX_CARD_REWARDS || {}; },
+  achievementRewardText: window.achievementRewardText,
+  statLabelName: window.statLabelName,
+  cardEffectText: window.cardEffectText,
+  escapeHtml: window.escapeHtml,
+  formatNumber: window.formatNumber,
+};
+installCodexRenderRuntime(codexRenderContext);
 
 if (typeof window.bootstrapLegacyRuntime === 'function') {
   window.bootstrapLegacyRuntime();
