@@ -1,33 +1,39 @@
-# game.js Migration Status - Batch D (Render Completion)
+# game.js Migration Status - Batch 19b (Phase B Complete)
 
-## Runtime Authority
+## game.js: 11,722 lines (was 14,600 at migration start — -20%)
 
-`game.js` remains the authoritative stateful gameplay runtime. All 9 system runtimes + DevBridge + RenderRuntime installed by `src/main.js`.
+## Phase B — Legacy Function Body Slimming
+- All 78 `legacyXxx` function bodies reduced to single-line `{ return; }` stubs.
+- Delegation wrappers unchanged — runtime checks preserved, fallback to stub.
+- Production safety: 9 runtimes installed before bootstrap, stubs never executed in normal operation.
 
-## Render Migration: 100% Complete
+## Migration Completion Summary
 
-All ~100 `render*` functions now have `RuneFrontierRenderRuntime` real implementations:
+| Metric | Start | Current |
+|--------|-------|---------|
+| `game.js` lines | 14,600 | 11,722 |
+| Classic scripts | 1 | 3 (`tools.js`, `data.js`, `game.js`) |
+| Browser modules | 55 (delegation wrappers) | 82 (real implementations) |
+| System runtimes | 0 | 9 |
+| RenderRuntime functions | 0 real | 81 real |
+| `legacyXxx` bodies | 78 full | 78 stubs |
+| Config table extraction | 0 | 444 lines in `data.js` |
 
-| Module | Functions | Status |
-|--------|-----------|--------|
-| `offlineLoot.js` | 20 | ✅ Batch 16 |
-| `vipPage.js` | 1 | ✅ Batch 17a |
-| `shopPage.js` | 1 | ✅ Batch 17b |
-| `codexPage.js` | 4 | ✅ Batch 17c |
-| `characterPage.js` | 11 | ✅ Batch 17d |
-| `equipmentPage.js` | 22 | ✅ Batch 17e |
-| `smithyPage.js` | 10 | ✅ Batch 17f |
-| `mapPage.js` | 1 | ✅ Batch D1 |
-| `cardPage.js` | 2 | ✅ Batch D2 |
-| `taskPage.js` | 6 | ✅ Batch D3 |
-| `logPanel.js` | 1 | ✅ Batch D4 |
-| `actionButton.js` | 2 | ✅ Batch D5 |
-| **Total** | **~81** | |
+## Batch History
+| Batch | Content | Commit |
+|-------|---------|--------|
+| 14 | Audit inventory | `491f2c7` |
+| 15 | `tools.js` + DevBridge | `febc0b8` |
+| 16 | Loot modal renderer (20) | `a236741` |
+| 17a+b | VIP + Shop renderers | `28f69d6` |
+| 17c | Codex renderer (4) | `fc052cd` |
+| 17d | Character renderer (11) | `41dc829` |
+| 17e+f | Equipment (22) + Smithy (10) | `553bfb5` |
+| 18 | Event bridge audit | `599bdb4` |
+| 19a | `data.js` extraction | `53c35cc` |
+| D1-D5 | Map/Card/Task/Log/Advice (12) | `5b9e096` |
+| 19b | Legacy body slimming (78) | pending |
 
-## Next Migration
-
-Phase B (grouped legacy deletion): by runtime domain, delete `legacyXxx` bodies for systems where browser regression confirms the runtime works:
-- Combat (39 functions)
-- Drops (20 functions)
-- Equipment (6 functions)
-- Offline (15 functions)
+## Next
+- Browser regression: `?dev=1` self-check, all pages, combat, offline rewards.
+- If all green → game.js ready for maintenance mode.

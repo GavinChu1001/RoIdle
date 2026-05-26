@@ -4062,49 +4062,7 @@ function loop(now) {
  *  - No direct callers remain in event handlers or tests
  * ═══════════════════════════════════════════════════════════════════ */
 
-function legacyUpdateCombat(dt) {
-  if (state.enemyHp <= 0 || state.enemyMaxHp <= 0) spawnEnemy(false);
-
-  const stats = computeStats();
-  tryAutoChallengeBoss("tick", stats);
-  if ((state.hero.currentHp || 0) <= 0) {
-    state.paused = true;
-    return;
-  }
-  state.playerAttackTimer = (state.playerAttackTimer || 0) + dt;
-  const attackInterval = clampNumber(1 / Math.max(0.01, stats.attackSpeed), 0.6, 4.5);
-  const attacks = Math.min(3, Math.floor(state.playerAttackTimer / attackInterval));
-  if (attacks > 0) {
-    state.playerAttackTimer -= attacks * attackInterval;
-    const critChance = Math.min(PLAYER_CRIT_RATE_CAP, stats.crit);
-    for (let hit = 0; hit < attacks && state.enemyHp > 0; hit += 1) {
-      const targetBonus = getTargetDamageBonus(stats);
-      const monsterGuard = Math.min(0.65, currentMonsterStats().damageReduction || 0);
-      const rawHitDamage = Math.max(0, stats.dps * attackInterval * (1 + targetBonus + (stats.normalAttackBonus || 0)) * (1 - monsterGuard));
-      const isCrit = Math.random() < critChance;
-      const finalDamage = normalizeDamage(isCrit ? rawHitDamage * (1.85 + (stats.critDamageBonus || 0)) : rawHitDamage);
-      state.enemyHp -= finalDamage;
-      showDamageNumber("monster", finalDamage, isCrit ? "crit" : "player");
-      showHitFeedback(isCrit ? "crit" : "normal");
-      applySplashDamageToEncounter(finalDamage, stats);
-      if (stats.fireBurstChance && Math.random() < stats.fireBurstChance && state.enemyHp > 0) {
-        const burstDamage = normalizeDamage(stats.physicalAttack * (stats.fireBurstAtkPct || 0.8) * (1 + targetBonus) * (1 - monsterGuard));
-        state.enemyHp -= burstDamage;
-        showDamageNumber("monster", burstDamage, "skill", { skillName: "火焰爆发" });
-        showSkillCastFeedback("火焰爆发");
-      }
-      if (state.currentMap < 4 || stats.lifeSteal) {
-        const stealRate = (state.currentMap < 4 ? 0.2 : 0) + Math.min(0.25, stats.lifeSteal || 0);
-        const steal = Math.round(finalDamage * stealRate * (1 - Math.min(0.75, currentMonsterStats().antiLifeSteal || 0)));
-        if (steal > 0) state.hero.currentHp = Math.min(stats.maxHp, (state.hero.currentHp || 0) + steal);
-      }
-    }
-  }
-  rollActiveSkill(dt, stats);
-  if (state.enemyHp > 0) updateMonsterAttack(dt, stats);
-
-  if (state.enemyHp <= 0) defeatEnemy();
-}
+function legacyUpdateCombat(dt) { return; }
 
 function updateCombat(dt) {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -4112,23 +4070,7 @@ function updateCombat(dt) {
   return legacyUpdateCombat(dt);
 }
 
-function legacyGetTargetDamageBonus(stats) {
-  const monster = currentMonsterStats();
-  let bonus = stats.monsterDamageBonus || 0;
-  const levelGap = Math.max(0, (monster.level || 1) - (state.hero.baseLevel || 1));
-  if (levelGap > 0) bonus += Math.min(stats.higherLevelDamageBonus || 0, levelGap * 0.01) + Math.min(0.12, (stats.hitRate || 0) * 0.25);
-  if (state.enemyBoss || monster.type === "boss") bonus += stats.bossDamageBonus || 0;
-  if (state.currentDifficulty === "abyss" && (state.enemyBoss || monster.type === "boss")) bonus += stats.abyssBossDamageBonus || 0;
-  if (monster.mutation) bonus += stats.mutationDamageBonus || 0;
-  if (monster.type === "elite" || monster.mutation || state.enemyBoss) bonus += (stats.eliteDamageBonus || 0) + (state.currentDifficulty === "abyss" ? stats.abyssEliteDamageBonus || 0 : 0);
-  if (state.currentDifficulty === "abyss") {
-    bonus += stats.abyssDamageBonus || 0;
-    if ((state.enemyHp || 0) / Math.max(1, state.enemyMaxHp || 1) <= 0.2) bonus += stats.abyssExecuteDamageBonus || 0;
-  }
-  bonus += stats.finalDamageBonus || 0;
-  bonus += Math.min(0.5, stats.ignoreDefensePct || 0);
-  return Math.min(3, bonus);
-}
+function legacyGetTargetDamageBonus(stats) { return; }
 
 function getTargetDamageBonus(stats) {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -4157,9 +4099,7 @@ function applySplashDamageToEncounter(baseDamage, stats = {}) {
   showDamageNumber("monster", splashDamage, "skill", { skillName: "溅射" });
 }
 
-function legacyIsBossChallengeReady() {
-  return Number(state.areaKills || 0) >= bossRequirement();
-}
+function legacyIsBossChallengeReady() { return; }
 
 function isBossChallengeReady() {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -4167,9 +4107,7 @@ function isBossChallengeReady() {
   return legacyIsBossChallengeReady();
 }
 
-function legacyIsCurrentlyFightingBoss() {
-  return Boolean(state.enemyBoss);
-}
+function legacyIsCurrentlyFightingBoss() { return; }
 
 function isCurrentlyFightingBoss() {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -4177,9 +4115,7 @@ function isCurrentlyFightingBoss() {
   return legacyIsCurrentlyFightingBoss();
 }
 
-function legacyCanHeroFight(stats = computeStats()) {
-  return (state.hero.currentHp || 0) > 0 && (state.hero.currentHp || 0) / Math.max(1, stats.maxHp) >= 0.3;
-}
+function legacyCanHeroFight(stats = computeStats()) { return; }
 
 function canHeroFight(stats = computeStats()) {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -4187,9 +4123,7 @@ function canHeroFight(stats = computeStats()) {
   return legacyCanHeroFight(stats);
 }
 
-function legacyIsAutoBossInCooldown() {
-  return Date.now() < (ensureSettings().autoBossCooldownUntil || 0);
-}
+function legacyIsAutoBossInCooldown() { return; }
 
 function isAutoBossInCooldown() {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -4197,23 +4131,7 @@ function isAutoBossInCooldown() {
   return legacyIsAutoBossInCooldown();
 }
 
-function legacyChallengeBoss({ auto = false } = {}) {
-  const stats = computeStats();
-  if (isCurrentlyFightingBoss()) return false;
-  if (!isBossChallengeReady()) {
-    if (!auto) showToast(`还需要清理 ${bossRequirement() - state.areaKills} 只魔物`);
-    return false;
-  }
-  if (!canHeroFight(stats)) {
-    if (!auto) showToast("生命值不足，无法挑战 BOSS");
-    return false;
-  }
-  if (auto && isAutoBossInCooldown()) return false;
-  spawnEnemy(true);
-  addLog(`${auto ? "自动挑战 BOSS" : bossDisplayName(currentMap()) + " 出现在道路尽头"}${auto ? `：${bossDisplayName(currentMap())}` : "。"}`);
-  renderAll();
-  return true;
-}
+function legacyChallengeBoss({ auto = false } = {}) { return; }
 
 function challengeBoss({ auto = false } = {}) {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -4221,15 +4139,7 @@ function challengeBoss({ auto = false } = {}) {
   return legacyChallengeBoss({ auto });
 }
 
-function legacyTryAutoChallengeBoss(reason = "tick", stats = computeStats()) {
-  const ready = isBossChallengeReady();
-  const enabled = getAutoBossEnabled();
-  const fightingBoss = isCurrentlyFightingBoss();
-  const canFight = canHeroFight(stats);
-  const cooldown = isAutoBossInCooldown();
-  if (!enabled || !ready || fightingBoss || state.paused || !canFight || cooldown) return false;
-  return challengeBoss({ auto: true });
-}
+function legacyTryAutoChallengeBoss(reason = "tick", stats = computeStats()) { return; }
 
 function tryAutoChallengeBoss(reason = "tick", stats = computeStats()) {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -4237,16 +4147,7 @@ function tryAutoChallengeBoss(reason = "tick", stats = computeStats()) {
   return legacyTryAutoChallengeBoss(reason, stats);
 }
 
-function legacyGetAutoBossStatusText(stats = computeStats()) {
-  if (!getAutoBossEnabled()) return "已关闭";
-  if (state.paused) return "战斗暂停中";
-  if (isCurrentlyFightingBoss()) return "正在挑战";
-  const cooldownLeft = Math.max(0, Math.ceil(((ensureSettings().autoBossCooldownUntil || 0) - Date.now()) / 1000));
-  if (cooldownLeft > 0) return `冷却中 ${cooldownLeft}秒`;
-  if (!canHeroFight(stats)) return "生命不足";
-  if (isBossChallengeReady()) return "可挑战";
-  return "等待进度";
-}
+function legacyGetAutoBossStatusText(stats = computeStats()) { return; }
 
 function getAutoBossStatusText(stats = computeStats()) {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -4254,11 +4155,7 @@ function getAutoBossStatusText(stats = computeStats()) {
   return legacyGetAutoBossStatusText(stats);
 }
 
-function legacyHandleAutoBossFailure() {
-  ensureSettings().autoBossCooldownUntil = Date.now() + AUTO_BOSS_FAIL_COOLDOWN_MS;
-  addLog("自动挑战 BOSS 失败，进入冷却。");
-  return true;
-}
+function legacyHandleAutoBossFailure() { return; }
 
 function handleAutoBossFailure() {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -4266,20 +4163,7 @@ function handleAutoBossFailure() {
   return legacyHandleAutoBossFailure();
 }
 
-function legacyUpdateRecovery(dt) {
-  const stats = computeStats();
-  if ((state.hero.currentHp || 0) >= stats.maxHp) return;
-  state.regenTimer = (state.regenTimer || 0) + dt;
-  if (state.regenTimer < HP_REGEN_INTERVAL) return;
-  state.regenTimer = 0;
-  const before = state.hero.currentHp || 0;
-  state.hero.currentHp = Math.min(stats.maxHp, before + stats.hpRegen);
-  const healed = Math.round(state.hero.currentHp - before);
-  if (healed > 0) {
-    showDamageNumber("hero", healed, "heal");
-    if (Math.random() < 0.35 || before <= 0) addLog(`你恢复了 ${formatNumber(healed)} 点生命值。`);
-  }
-}
+function legacyUpdateRecovery(dt) { return; }
 
 function updateRecovery(dt) {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -4287,54 +4171,7 @@ function updateRecovery(dt) {
   return legacyUpdateRecovery(dt);
 }
 
-function legacyUpdateMonsterAttack(dt, stats) {
-  state.enemyAttackTimer = (state.enemyAttackTimer || 0) + dt;
-  const interval = Math.max(0.72, (MONSTER_ATTACK_INTERVAL - state.currentMap * 0.06 - (state.enemyBoss ? 0.18 : 0)) * (1 + (stats.setBonuses?.monsterAttackSpeedReductionPct || 0)));
-  if (state.enemyAttackTimer < interval) return;
-  state.enemyAttackTimer = 0;
-  const monster = currentMonsterStats();
-  if (Math.random() < stats.dodgeRate) {
-    showDamageNumber("hero", 0, "miss");
-    return;
-  }
-  const defenseK = 80 + state.hero.baseLevel * 4;
-  const piercedDefense = Math.max(0, stats.defense * (1 - Math.min(0.75, monster.armorPierce || 0)));
-  const abyssReduction = state.currentDifficulty === "abyss" ? Math.min(0.6, stats.abyssDamageReduction || 0) : 0;
-  const specialReduction = Math.min(0.45, Math.max(stats.magicDamageReduction || 0, stats.skillDamageReduction || 0) * (state.enemyBoss || monster.type === "elite" ? 1 : 0.35));
-  const damageReductionPct = Math.min(0.75, Math.max(0, (stats.damageReductionPct || stats.setBonuses?.damageReductionPct || 0) + abyssReduction + specialReduction - (monster.abyssSuppression || 0)));
-  const effectiveCritChance = (monster.critChance || 0) * (1 - Math.min(0.75, (stats.statusResist || 0) * 0.5));
-  const isCrit = Math.random() < effectiveCritChance;
-  const hpRatio = (state.hero.currentHp || stats.maxHp) / Math.max(1, stats.maxHp);
-  const executeBonus = hpRatio <= 0.35 ? monster.executeDamage || 0 : 0;
-  const critMultiplier = isCrit ? 1 + (monster.critDamage || 0) : 1;
-  const livingCount = Math.max(1, (state.enemyGroup?.monsters || []).filter((entry) => entry.alive).length || 1);
-  const encounterAssist = state.enemyBoss ? 1 : Math.min(1.75, 1 + (livingCount - 1) * 0.18);
-  const damage = normalizeDamage((monster.attack * defenseK) / (defenseK + piercedDefense) * (1 - damageReductionPct) * critMultiplier * (1 + executeBonus) * encounterAssist);
-  state.hero.currentHp = Math.max(0, (state.hero.currentHp || stats.maxHp) - damage);
-  showDamageNumber("hero", damage, isCrit ? "crit" : "monster");
-  if (els.playerHpBar) {
-    els.playerHpBar.classList.add("player-hp-flash");
-    window.setTimeout(() => els.playerHpBar && els.playerHpBar.classList.remove("player-hp-flash"), 200);
-  }
-  if (state.enemyHp > 0 && stats.thornVitMultiplier > 0) {
-    const thornDamage = normalizeDamage((stats.attrs?.vit || 0) * stats.thornVitMultiplier);
-    state.enemyHp -= thornDamage;
-    showDamageNumber("monster", thornDamage, "player");
-  }
-  if (state.enemyHp > 0 && stats.meteorCounterChance && Math.random() < stats.meteorCounterChance) {
-    const meteorDamage = normalizeDamage((stats.magicAttack || stats.matkPower || 0) * (stats.meteorCounterMatkPct || 1));
-    state.enemyHp -= meteorDamage;
-    showDamageNumber("monster", meteorDamage, "skill", { skillName: "陨石反击" });
-    showSkillCastFeedback("陨石反击");
-  }
-  if (state.hero.currentHp <= 0) {
-    state.paused = true;
-    if (state.enemyBoss && getAutoBossEnabled()) {
-      handleAutoBossFailure();
-    }
-    addLog(`${getDifficultyFailureHint(monster)}角色生命值归零，战斗停止。`);
-  }
-}
+function legacyUpdateMonsterAttack(dt, stats) { return; }
 
 function updateMonsterAttack(dt, stats) {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -4357,54 +4194,7 @@ function updateFloatTexts(dt) {
   state.floatTexts = state.floatTexts.filter((entry) => entry.age < entry.ttl);
 }
 
-function legacyRollActiveSkill(dt, stats) {
-  const activeSkills = getUnlockedSkills().filter((entry) => entry.active);
-  for (const entry of activeSkills) {
-    const spec = getSkillGrowthEntry(entry).specialization;
-    const ms = getSkillMilestoneBonuses(entry);
-    const abyssChance = state.currentDifficulty === "abyss" ? stats.setBonuses?.abyssSkillChanceBonus || 0 : 0;
-    const chance = entry.active.chance * dt * (1 + Math.min(0.35, stats.luck * 0.002) + abyssChance + (ms.skillChanceBonus || 0)) * (spec === "frequency" ? 1.2 : 1) * (1 - Math.min(0.35, stats.skillCooldownPenalty || 0));
-    if (Math.random() >= chance) continue;
-    const source = entry.active.stat === "matk" ? stats.matkPower : stats.atkPower;
-    const jobPower = 1 + state.hero.jobLevel * 0.018 + Math.floor(state.hero.jobLevel / 10) * 0.06;
-    const monsterGuard = Math.min(0.65, currentMonsterStats().damageReduction || 0);
-    const damage = normalizeDamage(
-      source *
-        entry.active.multiplier *
-        getSkillLevelMultiplier(entry) *
-        jobPower *
-        skillAttributeMultiplier(entry.active, stats) *
-        (1 + stats.crit * 0.35) *
-        (1 + getTargetDamageBonus(stats) + (stats.skillDamageBonus || 0) + (ms.skillDamageBonus || 0) + (state.enemyBoss ? ms.bossDamageBonus || 0 : 0) + ((currentMonsterStats().type === "elite" || currentMonsterStats().mutation || state.enemyBoss) ? ms.eliteDamageBonus || 0 : 0) + (state.currentDifficulty === "abyss" ? (ms.abyssDamageBonus || 0) + (ms.abyssExecuteDamageBonus || 0) : 0) + (ms.monsterDamageBonus || 0) + (ms.finalDamageBonus || 0) + (spec === "boss_damage" && state.enemyBoss ? 0.25 : 0) + (spec === "pierce" ? 0.1 : 0)) *
-        (1 - monsterGuard),
-    );
-    state.enemyHp -= damage;
-    showDamageNumber("monster", damage, "skill", { skillName: entry.name });
-    showHitFeedback("skill");
-    showSkillCastFeedback(entry);
-    if (state.currentMap < 4 || stats.skillHitHealPct) {
-      const steal = Math.round(damage * (state.currentMap < 4 ? 0.2 : 0) + damage * (stats.skillHitHealPct || 0));
-      if (steal > 0) state.hero.currentHp = Math.min(stats.maxHp, (state.hero.currentHp || 0) + steal);
-    }
-    noteSkillCast(entry.name, damage);
-    gainSkillExp(entry, state.enemyBoss ? 2 : 1, "战斗施放");
-    if (state.enemyHp <= 0) gainSkillExp(entry, state.enemyBoss ? 1 : 0.5, "技能终结");
-    const echoChance = Math.min(0.25, (stats.echoChance || 0) + (ms.echoChance || 0));
-    if (echoChance && Math.random() < echoChance && state.enemyHp > 0) {
-      const echoDamage = normalizeDamage(damage * 0.7);
-      state.enemyHp -= echoDamage;
-      showDamageNumber("monster", echoDamage, "skill", { skillName: "回响" });
-      showHitFeedback("skill");
-      showSkillCastFeedback({ name: "回响" });
-      if (state.currentMap < 4 || stats.skillHitHealPct) {
-        const steal = Math.round(echoDamage * (state.currentMap < 4 ? 0.2 : 0) + echoDamage * (stats.skillHitHealPct || 0));
-        if (steal > 0) state.hero.currentHp = Math.min(stats.maxHp, (state.hero.currentHp || 0) + steal);
-      }
-      noteSkillCast("回响", echoDamage);
-    }
-    break;
-  }
-}
+function legacyRollActiveSkill(dt, stats) { return; }
 
 function rollActiveSkill(dt, stats) {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -4412,12 +4202,7 @@ function rollActiveSkill(dt, stats) {
   return legacyRollActiveSkill(dt, stats);
 }
 
-function legacySkillAttributeMultiplier(active = {}, stats = {}) {
-  return Object.entries(active.attributeScaling || {}).reduce((sum, [stat, scale]) => {
-    const value = Math.max(0, stats.attrs?.[stat] || 0);
-    return sum + Math.sqrt(value) * scale * 2.5;
-  }, 1);
-}
+function legacySkillAttributeMultiplier(active = {}, stats = {}) { return; }
 
 function skillAttributeMultiplier(active = {}, stats = {}) {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -4686,13 +4471,7 @@ function renderSessionRewardPanel() {
   `;
 }
 
-function legacyNormalizeDamage(value, options = {}) {
-  const normalized = Object.is(value, -0) ? 0 : Number(value);
-  const allowZero = typeof options === "boolean" ? options : Boolean(options.allowZero);
-  if (!Number.isFinite(normalized)) return allowZero ? 0 : 1;
-  if (allowZero) return Math.max(0, Math.floor(normalized));
-  return Math.max(1, Math.floor(normalized));
-}
+function legacyNormalizeDamage(value, options = {}) { return; }
 
 function normalizeDamage(value, options = {}) {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -4700,9 +4479,7 @@ function normalizeDamage(value, options = {}) {
   return legacyNormalizeDamage(value, options);
 }
 
-function legacySanitizeDamage(value, allowZero = false) {
-  return normalizeDamage(value, { allowZero });
-}
+function legacySanitizeDamage(value, allowZero = false) { return; }
 
 function sanitizeDamage(value, allowZero = false) {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -4710,14 +4487,7 @@ function sanitizeDamage(value, allowZero = false) {
   return legacySanitizeDamage(value, allowZero);
 }
 
-function legacyGrantBossEssence(mapIndex) {
-  const id = bossEssenceByMap[mapIndex] || bossEssenceByMap[0];
-  const amount = applyMaterialQuantityBonus(1 + Math.floor(mapIndex / 2));
-  state.materials[id] = (state.materials[id] || 0) + amount;
-  recordSessionReward({ materials: amount });
-  recordRecentLoot({ materials: [{ materialId: id, name: materialNames[id] || id, qty: amount }] }, "Boss战利品");
-  addLog(`获得 ${materialNames[id]} × ${amount}。`);
-}
+function legacyGrantBossEssence(mapIndex) { return; }
 
 function grantBossEssence(mapIndex) {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -4734,114 +4504,7 @@ function applyMaterialQuantityBonus(amount, stats = computeStats()) {
   return whole + (Math.random() < boosted - whole ? 1 : 0);
 }
 
-function legacyDefeatEnemy() {
-  const map = currentMap();
-  const monster = currentMonsterStats();
-  updateActiveEnemyHpInGroup();
-  const bossBonus = state.enemyBoss ? 2 : 1;
-  const stats = computeStats();
-  const goldGain = Math.round(monster.gold * bossBonus * stats.goldMultiplier * stats.monsterGoldMultiplier);
-  const baseExpGain = Math.round(monster.exp * stats.baseExpMultiplier);
-  const jobExpGain = Math.round(monster.jobExp * (state.hero.jobId === "novice" ? 1.12 : 1) * stats.jobExpMultiplier);
-
-  state.gold += goldGain;
-  showMonsterDeathFeedback(monster);
-  addFloatText(`+${formatNumber(baseExpGain)} BASE`, 330, 168, "#456e91");
-  addFloatText(`+${formatNumber(jobExpGain)} JOB`, 330, 202, "#6a5f9f");
-  gainExp(baseExpGain, jobExpGain);
-  state.totalKills += 1;
-  recordSessionReward({ kills: 1, bossKills: state.enemyBoss ? 1 : 0, abyssKills: state.currentDifficulty === "abyss" ? 1 : 0, gold: goldGain, baseExp: baseExpGain, jobExp: jobExpGain });
-  recordRecentLoot({ gold: goldGain, baseExp: baseExpGain, jobExp: jobExpGain, killCount: 1 }, state.enemyBoss ? "Boss战利品" : state.currentDifficulty === "abyss" ? "深渊战利品" : "战斗战利品");
-  updateDailyGoalProgress("daily_kills", 1);
-  if (state.enemyBoss) updateDailyGoalProgress("daily_boss", 1);
-  if (monster.id) {
-    state.monsterCodex[monster.id] = state.monsterCodex[monster.id] || { killCount: 0, firstKilled: false, rewardsClaimed: {} };
-    state.monsterCodex[monster.id].killCount += 1;
-    if (!state.monsterCodex[monster.id].firstKilled) state.monsterCodex[monster.id].firstKilled = true;
-  }
-
-  if (state.enemyBoss) {
-    grantBossEssence(state.currentMap);
-    state.areaKills = 0;
-    const diffProgress = state.mapDifficultyProgress || {};
-    const mapId = currentMap().id;
-    if (!diffProgress[mapId]) diffProgress[mapId] = { normal: { unlocked: true, cleared: false }, hard: { unlocked: false, cleared: false }, abyss: { unlocked: false, cleared: false } };
-    if (state.currentDifficulty === "normal") {
-      diffProgress[mapId].normal.cleared = true;
-      diffProgress[mapId].hard.unlocked = true;
-      addLog(`${currentMap().name} 普通难度通关，困难难度解锁。`);
-    } else if (state.currentDifficulty === "hard") {
-      diffProgress[mapId].hard.cleared = true;
-      diffProgress[mapId].abyss.unlocked = true;
-      addLog(`${currentMap().name} 困难难度通关，深渊难度解锁。`);
-    } else if (state.currentDifficulty === "abyss") {
-      diffProgress[mapId].abyss.cleared = true;
-    }
-    if (getAutoBossEnabled()) addLog("自动挑战 BOSS 成功。");
-    if (state.currentDifficulty === "normal" && state.currentMap < maps.length - 1) {
-      state.bestMap = Math.max(state.bestMap, state.currentMap + 1);
-      const nextMapId = maps[state.currentMap + 1].id;
-      if (!diffProgress[nextMapId]) diffProgress[nextMapId] = { normal: { unlocked: true, cleared: false }, hard: { unlocked: false, cleared: false }, abyss: { unlocked: false, cleared: false } };
-      diffProgress[nextMapId].normal.unlocked = true;
-      addLog(`首领退却，${maps[state.currentMap + 1].name} 开放。`);
-    } else if (state.currentDifficulty === "normal" && state.currentMap >= maps.length - 1) {
-      addLog("浮岛神殿的钟声传遍边境。");
-    }
-    state.mapDifficultyProgress = diffProgress;
-    if (!state.vip.bossFirstKills) state.vip.bossFirstKills = {};
-    const bossKey = `${currentMap().id}_${state.currentDifficulty}`;
-    if (!state.vip.bossFirstKills[bossKey]) {
-      state.vip.bossFirstKills[bossKey] = true;
-      const vipBossReward = state.currentDifficulty === "abyss" ? 200 : state.currentDifficulty === "hard" ? 150 : 100;
-      gainVipExp(vipBossReward + Math.floor(state.currentMap * 15));
-      addLog(`首次击败 ${currentMap().name} ${DIFFICULTY_CONFIG[state.currentDifficulty]?.label} Boss，获得冒险者荣誉经验 +${vipBossReward + Math.floor(state.currentMap * 15)}。`);
-    }
-  } else {
-    state.areaKills = Math.min(bossRequirement(), state.areaKills + 1);
-  }
-  const groupHasMoreMonsters = !state.enemyBoss && hasLivingEncounterMembers();
-  const shouldAutoBossAfterKill = !state.enemyBoss && !groupHasMoreMonsters && isBossChallengeReady() && getAutoBossEnabled();
-
-  const equipmentDropCount = rollDrops({ boss: state.enemyBoss, monster });
-  const mutationEquipmentDropCount = monster.mutation
-    ? rollMutationExtraDrops(monster, stats, equipmentDropCount)
-    : 0;
-  if (monster.mutation) {
-    addLog("击败变异怪，获得额外奖励判定。");
-  }
-  grantPassiveSkillKillExp({ isBoss: state.enemyBoss, isMutated: Boolean(monster.mutation) });
-  updateQuestProgress({
-    mapId: map.id,
-    monsterId: monster.id,
-    difficulty: state.currentDifficulty,
-    isMutated: Boolean(monster.mutation),
-    isBoss: state.enemyBoss,
-    count: 1,
-  });
-  gainMapExploration(map.id, explorationGainForKill({ isBoss: state.enemyBoss, isMutated: Boolean(monster.mutation), difficulty: state.currentDifficulty }));
-  trackKillAchievements({ isBoss: state.enemyBoss, isMutated: Boolean(monster.mutation), difficulty: state.currentDifficulty });
-  if (!state.enemyBoss) {
-    const hadEquipment = equipmentDropCount + mutationEquipmentDropCount > 0;
-    if (hadEquipment) {
-      state.equipmentPityKills = 0;
-    } else {
-      state.equipmentPityKills = (state.equipmentPityKills || 0) + 1;
-      if (state.equipmentPityKills >= getEquipmentPityThreshold()) {
-        const pityStats = computeStats();
-        const pityDrops = rollEquipmentTableDrops(pityStats, { boss: false, guaranteed: true });
-        if (pityDrops > 0) state.equipmentPityKills = 0;
-      }
-    }
-  }
-  if (shouldAutoBossAfterKill) {
-    challengeBoss({ auto: true });
-  } else if (groupHasMoreMonsters) {
-    syncActiveEnemyFromGroup();
-  } else {
-    spawnEnemy(false);
-  }
-  renderAll();
-}
+function legacyDefeatEnemy() { return; }
 
 function defeatEnemy() {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -4865,19 +4528,7 @@ function spawnEnemy(isBoss) {
   return legacySpawnEnemy(isBoss);
 }
 
-function legacySpawnEnemy(isBoss) {
-  const map = currentMap();
-  state.enemyBoss = Boolean(isBoss);
-  state.enemyGroup = createEnemyGroup(map, state.enemyBoss);
-  syncActiveEnemyFromGroup();
-  state.enemyAttackTimer = 0;
-  state.playerAttackTimer = 0;
-  state.damageCarry = 0;
-  if (state.enemyBoss) showBossBanner(map);
-  (state.enemyGroup?.monsters || []).forEach((monster) => {
-    if (monster.mutation) addLog(`遭遇变异怪：${monster.name}。`);
-  });
-}
+function legacySpawnEnemy(isBoss) { return; }
 
 function currentMonsterStats() {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -4887,12 +4538,7 @@ function currentMonsterStats() {
   return legacyCurrentMonsterStats();
 }
 
-function legacyCurrentMonsterStats() {
-  if (state.enemy) return { ...state.enemy, currentHp: state.enemyHp };
-  const map = currentMap();
-  const template = getMonsterTemplate(map, state.enemyTemplateId, state.enemyBoss);
-  return buildMonsterStats(map, state.enemyBoss, state.enemyLevel || getMapLevelRange(map).minLevel, template);
-}
+function legacyCurrentMonsterStats() { return; }
 
 function normalizeEnemyGroup(group) {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -4902,17 +4548,7 @@ function normalizeEnemyGroup(group) {
   return legacyNormalizeEnemyGroup(group);
 }
 
-function legacyNormalizeEnemyGroup(group) {
-  if (!group || !Array.isArray(group.monsters) || !group.monsters.length) return null;
-  const monsters = group.monsters.map((monster) => ({
-    ...monster,
-    currentHp: clampNumber(Number(monster.currentHp ?? monster.maxHp ?? 1), 0, Number(monster.maxHp || 1)),
-    maxHp: Math.max(1, Number(monster.maxHp || 1)),
-    alive: monster.alive !== false && Number(monster.currentHp ?? monster.maxHp ?? 1) > 0,
-  }));
-  const activeIndex = clampNumber(Number(group.activeIndex || 0), 0, monsters.length - 1);
-  return { ...group, activeIndex, monsters };
-}
+function legacyNormalizeEnemyGroup(group) { return; }
 
 function createEnemyGroup(map, isBoss = false) {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -4922,12 +4558,7 @@ function createEnemyGroup(map, isBoss = false) {
   return legacyCreateEnemyGroup(map, isBoss);
 }
 
-function legacyCreateEnemyGroup(map, isBoss = false) {
-  const size = getEncounterSize(isBoss);
-  const monsters = Array.from({ length: size }, () => createEncounterMonster(map, isBoss));
-  const label = isBoss ? "首领遭遇" : getEncounterLabel(monsters);
-  return { label, activeIndex: 0, monsters };
-}
+function legacyCreateEnemyGroup(map, isBoss = false) { return; }
 
 function getEncounterSize(isBoss = false) {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -4937,12 +4568,7 @@ function getEncounterSize(isBoss = false) {
   return legacyGetEncounterSize(isBoss);
 }
 
-function legacyGetEncounterSize(isBoss = false) {
-  if (isBoss) return 1;
-  if (state.currentDifficulty === "abyss") return randomInt(2, 5);
-  if (state.currentDifficulty === "hard") return randomInt(2, 4);
-  return randomInt(1, 3);
-}
+function legacyGetEncounterSize(isBoss = false) { return; }
 
 function getEncounterLabel(monsters = []) {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -4952,12 +4578,7 @@ function getEncounterLabel(monsters = []) {
   return legacyGetEncounterLabel(monsters);
 }
 
-function legacyGetEncounterLabel(monsters = []) {
-  if (state.currentDifficulty === "abyss") return monsters.some((m) => m.mutation) ? "深渊突袭" : "深渊遭遇";
-  if (monsters.some((m) => m.mutation)) return "变异突袭";
-  if (monsters.some((m) => m.type === "elite")) return "精英带队";
-  return monsters.length > 1 ? "小队遭遇" : "单体遭遇";
-}
+function legacyGetEncounterLabel(monsters = []) { return; }
 
 function createEncounterMonster(map, isBoss = false) {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -4967,19 +4588,7 @@ function createEncounterMonster(map, isBoss = false) {
   return legacyCreateEncounterMonster(map, isBoss);
 }
 
-function legacyCreateEncounterMonster(map, isBoss = false) {
-  const template = pickMonsterTemplate(map, isBoss);
-  const mutationId = isBoss ? "" : rollMonsterMutation()?.id || "";
-  const level = rollMonsterLevel(map, isBoss, template);
-  const monster = buildMonsterStats(map, isBoss, level, template, mutationId);
-  return {
-    ...monster,
-    templateId: template.id,
-    mutationId,
-    currentHp: monster.maxHp,
-    alive: true,
-  };
-}
+function legacyCreateEncounterMonster(map, isBoss = false) { return; }
 
 function syncActiveEnemyFromGroup() {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -4989,25 +4598,7 @@ function syncActiveEnemyFromGroup() {
   return legacySyncActiveEnemyFromGroup();
 }
 
-function legacySyncActiveEnemyFromGroup() {
-  const group = normalizeEnemyGroup(state.enemyGroup);
-  state.enemyGroup = group;
-  const active = group?.monsters?.find((monster) => monster.alive);
-  if (!active) {
-    state.enemy = null;
-    state.enemyHp = 0;
-    state.enemyMaxHp = 0;
-    return null;
-  }
-  group.activeIndex = group.monsters.indexOf(active);
-  state.enemy = { ...active };
-  state.enemyTemplateId = active.templateId || active.id || "";
-  state.enemyMutationId = active.mutationId || "";
-  state.enemyLevel = active.level || 1;
-  state.enemyMaxHp = active.maxHp || 1;
-  state.enemyHp = clampNumber(Number(active.currentHp ?? active.maxHp ?? 1), 0, state.enemyMaxHp);
-  return active;
-}
+function legacySyncActiveEnemyFromGroup() { return; }
 
 function updateActiveEnemyHpInGroup() {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -5017,14 +4608,7 @@ function updateActiveEnemyHpInGroup() {
   return legacyUpdateActiveEnemyHpInGroup();
 }
 
-function legacyUpdateActiveEnemyHpInGroup() {
-  const group = state.enemyGroup;
-  if (!group || !Array.isArray(group.monsters)) return;
-  const monster = group.monsters[group.activeIndex];
-  if (!monster) return;
-  monster.currentHp = Math.max(0, Number(state.enemyHp) || 0);
-  monster.alive = monster.currentHp > 0;
-}
+function legacyUpdateActiveEnemyHpInGroup() { return; }
 
 function hasLivingEncounterMembers() {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -5034,10 +4618,7 @@ function hasLivingEncounterMembers() {
   return legacyHasLivingEncounterMembers();
 }
 
-function legacyHasLivingEncounterMembers() {
-  updateActiveEnemyHpInGroup();
-  return Boolean((state.enemyGroup?.monsters || []).some((monster) => monster.alive));
-}
+function legacyHasLivingEncounterMembers() { return; }
 
 function getMapLevelRange(mapOrId) {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -5047,12 +4628,7 @@ function getMapLevelRange(mapOrId) {
   return legacyGetMapLevelRange(mapOrId);
 }
 
-function legacyGetMapLevelRange(mapOrId) {
-  const id = typeof mapOrId === "string" ? mapOrId : mapOrId?.id;
-  if (mapLevelRanges[id]) return mapLevelRanges[id];
-  const tableId = mapDropTableAlias[id] || id;
-  return mapLevelRanges[tableId] || mapLevelRanges.beginner_field;
-}
+function legacyGetMapLevelRange(mapOrId) { return; }
 
 function bossDisplayName(map = currentMap(), difficulty = state.currentDifficulty) {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -5062,10 +4638,7 @@ function bossDisplayName(map = currentMap(), difficulty = state.currentDifficult
   return legacyBossDisplayName(map, difficulty);
 }
 
-function legacyBossDisplayName(map = currentMap(), difficulty = state.currentDifficulty) {
-  const name = map?.boss || "地图首领";
-  return difficulty === "abyss" ? `深渊 ${name}` : name;
-}
+function legacyBossDisplayName(map = currentMap(), difficulty = state.currentDifficulty) { return; }
 
 function pickMonsterTemplate(map, isBoss = false) {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -5075,15 +4648,7 @@ function pickMonsterTemplate(map, isBoss = false) {
   return legacyPickMonsterTemplate(map, isBoss);
 }
 
-function legacyPickMonsterTemplate(map, isBoss = false) {
-  if (isBoss) return map.bossTemplate || monsterTemplate(`${map.id}_boss`, map.boss, [map.maxLevel, map.maxLevel], [map.baseHp * map.bossMultiplier, map.baseHp * map.bossMultiplier], [20, 20], [10, 10], [map.baseExp * 8, map.baseExp * 8], [map.jobExp * 8, map.jobExp * 8], [map.gold * 8, map.gold * 8], "boss");
-  const monsters = Array.isArray(map.monsters) && map.monsters.length ? map.monsters : [monsterTemplate(`${map.id}_monster`, map.enemy, [map.minLevel, map.maxLevel], [map.baseHp, map.baseHp * 2], getMapLevelRange(map).attackRange, [1, 10], [map.baseExp, map.baseExp * 2], [map.jobExp, map.jobExp * 2], [map.gold, map.gold * 2])];
-  const elite = monsters.filter((entry) => entry.type === "elite");
-  if (elite.length && Math.random() < 0.1) return elite[Math.floor(Math.random() * elite.length)];
-  const normal = monsters.filter((entry) => entry.type !== "elite");
-  const pool = normal.length ? normal : monsters;
-  return pool[Math.floor(Math.random() * pool.length)];
-}
+function legacyPickMonsterTemplate(map, isBoss = false) { return; }
 
 function getMonsterTemplate(map, templateId, isBoss = false) {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -5093,11 +4658,7 @@ function getMonsterTemplate(map, templateId, isBoss = false) {
   return legacyGetMonsterTemplate(map, templateId, isBoss);
 }
 
-function legacyGetMonsterTemplate(map, templateId, isBoss = false) {
-  if (isBoss) return map.bossTemplate || pickMonsterTemplate(map, true);
-  const monsters = Array.isArray(map.monsters) ? map.monsters : [];
-  return monsters.find((entry) => entry.id === templateId) || monsters[0] || pickMonsterTemplate(map, false);
-}
+function legacyGetMonsterTemplate(map, templateId, isBoss = false) { return; }
 
 function currentDifficultyConfig() {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -5107,9 +4668,7 @@ function currentDifficultyConfig() {
   return legacyCurrentDifficultyConfig();
 }
 
-function legacyCurrentDifficultyConfig() {
-  return DIFFICULTY_CONFIG[state.currentDifficulty] || DIFFICULTY_CONFIG.normal;
-}
+function legacyCurrentDifficultyConfig() { return; }
 
 function getMutationById(id) {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -5119,9 +4678,7 @@ function getMutationById(id) {
   return legacyGetMutationById(id);
 }
 
-function legacyGetMutationById(id) {
-  return MUTATION_TYPES.find((mutation) => mutation.id === id) || null;
-}
+function legacyGetMutationById(id) { return; }
 
 function rollMonsterMutation(difficulty = state.currentDifficulty) {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -5131,11 +4688,7 @@ function rollMonsterMutation(difficulty = state.currentDifficulty) {
   return legacyRollMonsterMutation(difficulty);
 }
 
-function legacyRollMonsterMutation(difficulty = state.currentDifficulty) {
-  const config = DIFFICULTY_CONFIG[difficulty] || DIFFICULTY_CONFIG.normal;
-  if (Math.random() >= config.mutationChance) return null;
-  return MUTATION_TYPES[Math.floor(Math.random() * MUTATION_TYPES.length)];
-}
+function legacyRollMonsterMutation(difficulty = state.currentDifficulty) { return; }
 
 function rollMonsterLevel(map, isBoss = false, template = null) {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -5145,13 +4698,7 @@ function rollMonsterLevel(map, isBoss = false, template = null) {
   return legacyRollMonsterLevel(map, isBoss, template);
 }
 
-function legacyRollMonsterLevel(map, isBoss = false, template = null) {
-  const range = getMapLevelRange(map);
-  const levelRange = template?.levelRange || [range.minLevel, range.maxLevel];
-  const minLevel = clampNumber(levelRange[0], range.minLevel, isBoss ? range.maxLevel + 5 : range.maxLevel);
-  const maxLevel = clampNumber(levelRange[1], minLevel, isBoss ? range.maxLevel + 5 : range.maxLevel);
-  return randomInt(minLevel, maxLevel);
-}
+function legacyRollMonsterLevel(map, isBoss = false, template = null) { return; }
 
 function buildMonsterStats(map, isBoss, level, template = null, mutationId = state.enemyMutationId) {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -5161,58 +4708,7 @@ function buildMonsterStats(map, isBoss, level, template = null, mutationId = sta
   return legacyBuildMonsterStats(map, isBoss, level, template, mutationId);
 }
 
-function legacyBuildMonsterStats(map, isBoss, level, template = null, mutationId = state.enemyMutationId) {
-  const monster = template || getMonsterTemplate(map, state.enemyTemplateId, isBoss);
-  const difficulty = currentDifficultyConfig();
-  const mutation = isBoss ? null : getMutationById(mutationId);
-  const levelRange = monster.levelRange || [map.minLevel || 1, map.maxLevel || 1];
-  const levelRatio = levelRange[1] === levelRange[0] ? 1 : clampNumber((level - levelRange[0]) / (levelRange[1] - levelRange[0]), 0, 1);
-  const nameParts = [];
-  if (state.currentDifficulty !== "normal") nameParts.push(difficulty.label || "困难");
-  if (mutation) nameParts.push(mutation.prefix);
-  nameParts.push(monster.name || (isBoss ? map.boss : map.enemy));
-  const expMultiplier = (isBoss ? BOSS_EXP_MULTIPLIER : 1) * (mutation?.exp || 1) * difficulty.exp;
-  const jobExpMultiplier = (isBoss ? BOSS_EXP_MULTIPLIER : 1) * (mutation?.jobExp || 1) * difficulty.jobExp;
-  const baseStats = {
-    maxHp: Math.max(1, Math.round(lerpRange(monster.hpRange, map.baseHp || 1, levelRatio) * (mutation?.hp || 1) * difficulty.hp)),
-    attack: Math.max(1, Math.round(lerpRange(monster.attackRange, getMapLevelRange(map).attackRange[0], levelRatio) * (mutation?.attack || 1) * difficulty.attack)),
-    defense: Math.max(1, Math.round(lerpRange(monster.defenseRange, 1, levelRatio) * (mutation?.defense || 1) * difficulty.defense)),
-    exp: Math.max(1, Math.round(lerpRange(monster.baseExpRange, map.baseExp || 1, levelRatio) * BASE_EXP_GLOBAL_MULTIPLIER * expMultiplier)),
-    jobExp: Math.max(1, Math.round(lerpRange(monster.jobExpRange, map.jobExp || map.baseExp || 1, levelRatio) * JOB_EXP_GLOBAL_MULTIPLIER * jobExpMultiplier)),
-    gold: Math.max(1, Math.round(lerpRange(monster.goldRange, map.gold || 1, levelRatio) * (mutation?.gold || 1) * difficulty.gold)),
-  };
-  const baselineStats = applyDifficultyTierBaseline(map, baseStats, isBoss, state.currentDifficulty);
-  const difficultyType = getMonsterDifficultyType({ isBoss, monster, mutation, difficultyId: state.currentDifficulty });
-  const finalStats = applyMonsterDifficultyModifier(baselineStats, difficultyType);
-  return {
-    id: monster.id || `${map.id}_${isBoss ? "boss" : "monster"}`,
-    name: nameParts.join(" "),
-    type: monster.type || (isBoss ? "boss" : "normal"),
-    difficultyType,
-    mutation,
-    difficulty: state.currentDifficulty,
-    level,
-    maxHp: finalStats.maxHp,
-    currentHp: state.enemyHp,
-    attack: finalStats.attack,
-    defense: finalStats.defense,
-    armorPierce: finalStats.armorPierce || 0,
-    critChance: finalStats.critChance || 0,
-    critDamage: finalStats.critDamage || 0,
-    executeDamage: finalStats.executeDamage || 0,
-    damageReduction: finalStats.damageReduction || 0,
-    antiLifeSteal: finalStats.antiLifeSteal || 0,
-    abyssSuppression: finalStats.abyssSuppression || 0,
-    abyssPower: finalStats.abyssPower || 0,
-    hit: finalStats.hit || 1,
-    recommendedScores: getRecommendedScoresForMonster(map, difficultyType, isBoss),
-    exp: finalStats.exp,
-    jobExp: finalStats.jobExp,
-    gold: finalStats.gold,
-    image: monsterImageSource(monster.id || `${map.id}_${isBoss ? "boss" : "monster"}`),
-    mapId: map.id,
-  };
-}
+function legacyBuildMonsterStats(map, isBoss, level, template = null, mutationId = state.enemyMutationId) { return; }
 
 function getMonsterDifficultyType({ isBoss = false, monster = {}, mutation = null, difficultyId = state.currentDifficulty } = {}) {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -5222,18 +4718,7 @@ function getMonsterDifficultyType({ isBoss = false, monster = {}, mutation = nul
   return legacyGetMonsterDifficultyType({ isBoss, monster, mutation, difficultyId });
 }
 
-function legacyGetMonsterDifficultyType({ isBoss = false, monster = {}, mutation = null, difficultyId = state.currentDifficulty } = {}) {
-  const eliteLike = monster.type === "elite" || mutation?.id === "elite";
-  if (difficultyId === "abyss" && isBoss) return "abyssBoss";
-  if (difficultyId === "abyss" && eliteLike) return "abyssElite";
-  if (difficultyId === "abyss") return "abyss";
-  if (difficultyId === "hard" && isBoss) return "hardBoss";
-  if (difficultyId === "hard" && eliteLike) return "hardElite";
-  if (difficultyId === "hard") return "hard";
-  if (isBoss) return "boss";
-  if (eliteLike) return "elite";
-  return "normal";
-}
+function legacyGetMonsterDifficultyType({ isBoss = false, monster = {}, mutation = null, difficultyId = state.currentDifficulty } = {}) { return; }
 
 function applyMonsterDifficultyModifier(stats = {}, type = "normal") {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -5243,25 +4728,7 @@ function applyMonsterDifficultyModifier(stats = {}, type = "normal") {
   return legacyApplyMonsterDifficultyModifier(stats, type);
 }
 
-function legacyApplyMonsterDifficultyModifier(stats = {}, type = "normal") {
-  const modifier = MONSTER_DIFFICULTY_MODIFIERS[type] || MONSTER_DIFFICULTY_MODIFIERS.normal;
-  const critDamage = Math.max(Number(stats.critDamage || 0), Number(modifier.critDamage || 1.5) - 1);
-  return {
-    ...stats,
-    maxHp: Math.max(1, Math.round(Number(stats.maxHp || 1) * Number(modifier.hp || 1))),
-    attack: Math.max(1, Math.round(Number(stats.attack || 1) * Number(modifier.atk || 1))),
-    defense: Math.max(1, Math.round(Number(stats.defense || 1) * Number(modifier.def || 1))),
-    hit: Number(modifier.hit || stats.hit || 1),
-    critChance: Math.max(Number(stats.critChance || 0), Number(modifier.critChance || 0)),
-    critDamage,
-    damageReduction: Math.max(Number(stats.damageReduction || 0), Number(modifier.damageReduction || 0)),
-    armorPierce: Math.max(Number(stats.armorPierce || 0), Number(modifier.armorPierce || 0)),
-    executeDamage: Math.max(Number(stats.executeDamage || 0), Number(modifier.executeDamage || 0)),
-    antiLifeSteal: Math.max(Number(stats.antiLifeSteal || 0), Number(modifier.antiLifeSteal || 0)),
-    abyssSuppression: Math.max(Number(stats.abyssSuppression || 0), Number(modifier.abyssSuppression || 0)),
-    abyssPower: Math.max(Number(stats.abyssPower || 0), Number(modifier.abyssPower || 0)),
-  };
-}
+function legacyApplyMonsterDifficultyModifier(stats = {}, type = "normal") { return; }
 
 function getRecommendedScoresForMonster(map = currentMap(), difficultyType = "normal", isBoss = false) {
   const difficultyId = difficultyType.startsWith("abyss") ? "abyss" : state.currentDifficulty;
@@ -5355,22 +4822,7 @@ function lerpRange(range, fallback, ratio) {
   return min + (max - min) * ratio;
 }
 
-function legacyRollDrops(options = {}) {
-  const stats = computeStats();
-  const isBoss = Boolean(options.boss);
-  const equipmentDropCount = rollEquipmentTableDrops(stats, { boss: isBoss });
-  const zodiacDropCount = rollZodiacSetDrops(options.monster || currentMonsterStats(), stats, { boss: isBoss });
-  const transitionDropCount = rollTransitionSetDrops(options.monster || currentMonsterStats(), stats, { boss: isBoss });
-  const mythicDropCount = rollMythicEquipmentDrop(options.monster || currentMonsterStats(), stats, { boss: isBoss });
-  rollMapMaterialDrops(stats, { boss: isBoss });
-  maybeDropMythicEssence(stats, { boss: isBoss });
-  maybeDropDarkGoldFragments(stats, { boss: isBoss });
-  maybeDropSocketMaterials(stats, { boss: isBoss });
-
-  rollCardDropsFromTable(stats, { boss: isBoss });
-  maybeDropBossCardFragments(stats, { boss: isBoss });
-  return equipmentDropCount + zodiacDropCount + transitionDropCount + mythicDropCount;
-}
+function legacyRollDrops(options = {}) { return; }
 
 function rollDrops(options = {}) {
   const runtime = window.RuneFrontierDropsRuntime;
@@ -5380,17 +4832,7 @@ function rollDrops(options = {}) {
   return legacyRollDrops(options);
 }
 
-function legacyGrantCardDrop(card, rarity = "rare", source = "卡片掉落") {
-  if (!card?.id) return;
-  state.cards[card.id] = (state.cards[card.id] || 0) + 1;
-  state.cardCodex[card.id] = state.cardCodex[card.id] || { obtained: false, obtainCount: 0, firstObtainedAt: 0 };
-  state.cardCodex[card.id].obtained = true;
-  state.cardCodex[card.id].obtainCount += 1;
-  if (!state.cardCodex[card.id].firstObtainedAt) state.cardCodex[card.id].firstObtainedAt = Date.now();
-  recordSessionReward({ cards: 1 });
-  recordRecentLoot({ cards: [{ cardId: card.id, name: card.name, rarity: rarity || card.rarity || "rare", qty: 1 }] }, source);
-  addLog(`${source}：${card.name}。`);
-}
+function legacyGrantCardDrop(card, rarity = "rare", source = "卡片掉落") { return; }
 
 function grantCardDrop(card, rarity = "rare", source = "卡片掉落") {
   const runtime = window.RuneFrontierDropsRuntime;
@@ -5400,20 +4842,7 @@ function grantCardDrop(card, rarity = "rare", source = "卡片掉落") {
   return legacyGrantCardDrop(card, rarity, source);
 }
 
-function legacyRollCardDropsFromTable(stats = computeStats(), options = {}) {
-  const rows = cardDropTables[currentMap().id] || [];
-  const difficulty = currentDifficultyConfig();
-  const isBoss = Boolean(options.boss);
-  rows.forEach((drop) => {
-    if (drop.bossOnly && !isBoss) return;
-    const bossMultiplier = drop.bossOnly ? (state.currentDifficulty === "abyss" ? 2.5 : 1) : (isBoss ? 1.5 : 1);
-    const finalDropRate = drop.dropRate * (1 + Number(stats.cardDropBonus ?? stats.dropBonus ?? 0)) * difficulty.cardDrop * bossMultiplier;
-    if (Math.random() >= finalDropRate) return;
-    const card = getSocketCard(drop.cardId);
-    if (!card) return;
-    grantCardDrop(card, drop.rarity || card.rarity || "rare", drop.bossOnly ? "Boss卡片掉落" : "卡片掉落");
-  });
-}
+function legacyRollCardDropsFromTable(stats = computeStats(), options = {}) { return; }
 
 function rollCardDropsFromTable(stats = computeStats(), options = {}) {
   const runtime = window.RuneFrontierDropsRuntime;
@@ -5423,18 +4852,7 @@ function rollCardDropsFromTable(stats = computeStats(), options = {}) {
   return legacyRollCardDropsFromTable(stats, options);
 }
 
-function legacyMaybeDropBossCardFragments(stats = computeStats(), options = {}) {
-  if (!options.boss) return;
-  const difficulty = state.currentDifficulty || "normal";
-  const baseRate = difficulty === "abyss" ? 0.85 : difficulty === "hard" ? 0.45 : 0.25;
-  const rate = Math.min(1, baseRate * (1 + Math.min(1, Number(stats.cardDropBonus || stats.dropBonus || 0))));
-  if (Math.random() >= rate) return;
-  const qty = difficulty === "abyss" ? randomInt(2, 4) : difficulty === "hard" ? randomInt(1, 2) : 1;
-  state.materials.bossCardShard = (state.materials.bossCardShard || 0) + qty;
-  recordSessionReward({ materials: qty });
-  recordRecentLoot({ materials: [{ materialId: "bossCardShard", name: materialNames.bossCardShard, qty, rarity: "legend" }] }, "Boss卡片碎片");
-  addLog(`获得 ${materialNames.bossCardShard} ×${qty}。`);
-}
+function legacyMaybeDropBossCardFragments(stats = computeStats(), options = {}) { return; }
 
 function maybeDropBossCardFragments(stats = computeStats(), options = {}) {
   const runtime = window.RuneFrontierDropsRuntime;
@@ -5444,26 +4862,7 @@ function maybeDropBossCardFragments(stats = computeStats(), options = {}) {
   return legacyMaybeDropBossCardFragments(stats, options);
 }
 
-function legacyMaybeDropSocketMaterials(stats = computeStats(), options = {}) {
-  const difficultyId = state.currentDifficulty || "normal";
-  const isBoss = Boolean(options.boss);
-  const entries = [
-    { id: "socketStone", rate: isBoss ? 0.08 : 0.0025, qty: [1, 1] },
-    { id: "advancedSocketStone", rate: isBoss ? 0.025 : 0.0007, qty: [1, 1], minMap: 4 },
-    { id: "mythicSocketStone", rate: difficultyId === "abyss" ? (isBoss ? 0.012 : 0.00045) : 0, qty: [1, 1] },
-    { id: "cardRemover", rate: isBoss ? 0.035 : 0.001, qty: [1, 1] },
-  ];
-  entries.forEach((entry) => {
-    if ((state.currentMap || 0) < (entry.minMap || 0)) return;
-    const rate = Math.min(0.3, entry.rate * (1 + Math.min(1, Number(stats.dropBonus || 0) + Number(stats.materialDropBonus || 0))));
-    if (rate <= 0 || Math.random() >= rate) return;
-    const qty = randomInt(entry.qty[0], entry.qty[1]);
-    state.materials[entry.id] = (state.materials[entry.id] || 0) + qty;
-    recordSessionReward({ materials: qty });
-    recordRecentLoot({ materials: [{ materialId: entry.id, name: materialNames[entry.id] || entry.id, qty, rarity: MATERIAL_DB[entry.id]?.rarity || "epic" }] }, isBoss ? "Boss打孔材料" : "打孔材料");
-    addLog(`获得 ${materialNames[entry.id] || entry.id} ×${qty}。`);
-  });
-}
+function legacyMaybeDropSocketMaterials(stats = computeStats(), options = {}) { return; }
 
 function maybeDropSocketMaterials(stats = computeStats(), options = {}) {
   const runtime = window.RuneFrontierDropsRuntime;
@@ -5473,22 +4872,7 @@ function maybeDropSocketMaterials(stats = computeStats(), options = {}) {
   return legacyMaybeDropSocketMaterials(stats, options);
 }
 
-function legacyMaybeDropDarkGoldFragments(stats = computeStats(), options = {}) {
-  if (!options.boss) return;
-  const difficultyId = state.currentDifficulty || "normal";
-  const config = DARK_GOLD_FRAGMENT_DROPS[difficultyId] || DARK_GOLD_FRAGMENT_DROPS.normal;
-  const mapIndex = Math.max(0, state.currentMap || 0);
-  if (mapIndex < (config.minMapIndex || 0)) return;
-  const equipmentBonus = Math.min(1.2, Number(stats.equipmentDropBonus || 0));
-  const finalRate = Math.min(1, (config.rate || 0) * (1 + equipmentBonus * 0.35));
-  if (Math.random() >= finalRate) return;
-  const qtyRange = Array.isArray(config.qty) ? config.qty : [1, 1];
-  const qty = randomInt(qtyRange[0] || 1, qtyRange[1] || qtyRange[0] || 1);
-  state.materials.darkGoldFragment = (state.materials.darkGoldFragment || 0) + qty;
-  recordSessionReward({ materials: qty });
-  recordRecentLoot({ materials: [{ materialId: "darkGoldFragment", name: materialNames.darkGoldFragment, qty, rarity: "darkGold" }] }, difficultyId === "abyss" ? "深渊Boss材料" : "Boss材料");
-  addLog(`获得 ${materialNames.darkGoldFragment} ×${qty}。`);
-}
+function legacyMaybeDropDarkGoldFragments(stats = computeStats(), options = {}) { return; }
 
 function maybeDropDarkGoldFragments(stats = computeStats(), options = {}) {
   const runtime = window.RuneFrontierDropsRuntime;
@@ -5498,19 +4882,7 @@ function maybeDropDarkGoldFragments(stats = computeStats(), options = {}) {
   return legacyMaybeDropDarkGoldFragments(stats, options);
 }
 
-function legacyRollMythicEquipmentDrop(monster, stats, options = {}) {
-  if (state.currentDifficulty !== "abyss") return 0;
-  const isBoss = Boolean(options.boss);
-  const baseRate = isBoss ? MYTHIC_DROP_RATES.abyssBoss : monster?.mutation ? MYTHIC_DROP_RATES.abyssMutation : MYTHIC_DROP_RATES.abyssNormal;
-  const bossBoost = isBoss ? ABYSS_BOSS_EXTRA_MULTIPLIER.mythicDrop || 1 : 1;
-  const rate = baseRate * bossBoost;
-  if (Math.random() >= rate) return 0;
-  const item = createMutationEquipment("mythic");
-  if (!item) return 0;
-  addEquipmentToInventory(item, { logDrop: true });
-  addLogHtml(`神话装备现世：${renderItemName(item)}`);
-  return 1;
-}
+function legacyRollMythicEquipmentDrop(monster, stats, options = {}) { return; }
 
 function rollMythicEquipmentDrop(monster, stats, options = {}) {
   const runtime = window.RuneFrontierDropsRuntime;
@@ -5520,22 +4892,7 @@ function rollMythicEquipmentDrop(monster, stats, options = {}) {
   return legacyRollMythicEquipmentDrop(monster, stats, options);
 }
 
-function legacyRollMapMaterialDrops(stats, options = {}) {
-  const rows = materialDropTables[currentMap().id] || [];
-  if (!rows.length) return;
-  const difficulty = currentDifficultyConfig();
-  const bossMultiplier = options.boss ? 2.5 : 1;
-  rows.forEach((drop) => {
-    const abyssBonus = state.currentDifficulty === "abyss" ? stats.abyssMaterialDropBonus || 0 : 0;
-    const finalDropRate = drop.dropRate * (1 + stats.dropBonus + abyssBonus) * difficulty.materialDrop * bossMultiplier;
-    if (Math.random() >= finalDropRate) return;
-    const qty = applyMaterialQuantityBonus(randomInt(drop.minQty || 1, drop.maxQty || drop.minQty || 1), stats);
-    state.materials[drop.materialId] = (state.materials[drop.materialId] || 0) + qty;
-    recordSessionReward({ materials: qty });
-    recordRecentLoot({ materials: [{ materialId: drop.materialId, name: materialNames[drop.materialId] || drop.materialId, qty }] }, options.boss ? "Boss材料" : "材料掉落");
-    addLog(`获得材料：${materialNames[drop.materialId] || drop.materialId} × ${qty}。`);
-  });
-}
+function legacyRollMapMaterialDrops(stats, options = {}) { return; }
 
 function rollMapMaterialDrops(stats, options = {}) {
   const runtime = window.RuneFrontierDropsRuntime;
@@ -5545,45 +4902,7 @@ function rollMapMaterialDrops(stats, options = {}) {
   return legacyRollMapMaterialDrops(stats, options);
 }
 
-function legacyRollZodiacSetDrops(monster, stats, options = {}) {
-  const map = currentMap();
-  const setIds = zodiacSetDropMap[map.id] || [];
-  if (!setIds.length) return 0;
-  const isBoss = Boolean(options.boss);
-  const isHard = state.currentDifficulty === "hard";
-  const isAbyss = state.currentDifficulty === "abyss";
-  const isMutated = Boolean(monster?.mutation);
-  const baseRate = isBoss
-    ? isAbyss
-      ? ZODIAC_SET_DROP_RATES.hardBoss * 1.35 * ABYSS_BOSS_EXTRA_MULTIPLIER.abyssSetDrop
-      : isHard
-      ? ZODIAC_SET_DROP_RATES.hardBoss
-      : ZODIAC_SET_DROP_RATES.boss
-    : isMutated
-      ? isAbyss
-        ? ZODIAC_SET_DROP_RATES.hardMutation * 1.25
-        : isHard
-        ? ZODIAC_SET_DROP_RATES.hardMutation
-        : ZODIAC_SET_DROP_RATES.mutation
-      : isAbyss
-        ? ZODIAC_SET_DROP_RATES.hard * 1.2
-        : isHard
-        ? ZODIAC_SET_DROP_RATES.hard
-        : ZODIAC_SET_DROP_RATES.normal;
-  const rate = baseRate * (1 + Math.min(1.5, stats.equipmentDropBonus || 0));
-  if (Math.random() >= rate) return 0;
-  const set = equipmentSets[setIds[Math.floor(Math.random() * setIds.length)]];
-  if (!set?.items?.length) return 0;
-  const darkRate = (isBoss ? ZODIAC_SET_DROP_RATES.darkGoldBoss : ZODIAC_SET_DROP_RATES.darkGoldNormal) * (isAbyss ? 1.5 : isHard ? 1.25 : 1) * (1 + Math.min(1, stats.equipmentDropBonus || 0));
-  const qualityWeight = (stats.mythicWeightBonus || 0) + (isBoss ? stats.bossQualityWeight || 0 : 0);
-  const mythicRate = isAbyss ? (isBoss ? MYTHIC_DROP_RATES.abyssBoss * ABYSS_BOSS_EXTRA_MULTIPLIER.mythicDrop : MYTHIC_DROP_RATES.abyssNormal) * 0.5 * (1 + Math.min(1.5, qualityWeight)) : 0;
-  const rarity = Math.random() < mythicRate ? "mythic" : Math.random() < darkRate ? "darkGold" : "legend";
-  const template = set.items[Math.floor(Math.random() * set.items.length)];
-  const dropLevel = monster?.level || template.level || getMapLevelRange(map).maxLevel;
-  const item = createItem(template, dropLevel, rarity, { dropMapId: map.id, dropLevel, difficulty: state.currentDifficulty, allowMythic: rarity === "mythic" });
-  addEquipmentToInventory(item, { logDrop: true });
-  return 1;
-}
+function legacyRollZodiacSetDrops(monster, stats, options = {}) { return; }
 
 function rollZodiacSetDrops(monster, stats, options = {}) {
   const runtime = window.RuneFrontierDropsRuntime;
@@ -5593,34 +4912,7 @@ function rollZodiacSetDrops(monster, stats, options = {}) {
   return legacyRollZodiacSetDrops(monster, stats, options);
 }
 
-function legacyRollTransitionSetDrops(monster, stats, options = {}) {
-  const map = currentMap();
-  const setIds = transitionSetDropMap[map.id] || [];
-  if (!setIds.length) return 0;
-  const isBoss = Boolean(options.boss);
-  const isHard = state.currentDifficulty === "hard";
-  const isAbyss = state.currentDifficulty === "abyss";
-  const baseRate = isBoss
-    ? isAbyss
-      ? TRANSITION_SET_DROP_RATES.abyssBoss
-      : isHard
-      ? TRANSITION_SET_DROP_RATES.hardBoss
-      : TRANSITION_SET_DROP_RATES.boss
-    : isAbyss
-      ? TRANSITION_SET_DROP_RATES.abyss
-      : isHard
-      ? TRANSITION_SET_DROP_RATES.hard
-      : TRANSITION_SET_DROP_RATES.normal;
-  const rate = baseRate * (1 + Math.min(1.2, stats.equipmentDropBonus || 0));
-  if (Math.random() >= rate) return 0;
-  const set = equipmentSets[setIds[Math.floor(Math.random() * setIds.length)]];
-  if (!set?.items?.length) return 0;
-  const template = set.items[Math.floor(Math.random() * set.items.length)];
-  const dropLevel = monster?.level || template.level || getMapLevelRange(map).maxLevel;
-    const item = createItem(template, dropLevel, template.rarity || "rare", { dropMapId: map.id, dropLevel, difficulty: state.currentDifficulty });
-  addEquipmentToInventory(item, { logDrop: true });
-  return 1;
-}
+function legacyRollTransitionSetDrops(monster, stats, options = {}) { return; }
 
 function rollTransitionSetDrops(monster, stats, options = {}) {
   const runtime = window.RuneFrontierDropsRuntime;
@@ -5630,14 +4922,7 @@ function rollTransitionSetDrops(monster, stats, options = {}) {
   return legacyRollTransitionSetDrops(monster, stats, options);
 }
 
-function legacyRollEquipmentTableDrops(stats, options = {}) {
-  const map = currentMap();
-  const tableId = mapDropTableAlias[map.id] || map.id;
-  const rows = equipmentDropTables[tableId] || [];
-  const drops = rollEquipmentDropsFromTable(rows, stats, options);
-  drops.forEach((item) => addEquipmentToInventory(item, { logDrop: true }));
-  return drops.length;
-}
+function legacyRollEquipmentTableDrops(stats, options = {}) { return; }
 
 function rollEquipmentTableDrops(stats, options = {}) {
   const runtime = window.RuneFrontierDropsRuntime;
@@ -5647,43 +4932,7 @@ function rollEquipmentTableDrops(stats, options = {}) {
   return legacyRollEquipmentTableDrops(stats, options);
 }
 
-function legacyRollEquipmentDropsFromTable(rows, stats, options = {}) {
-  if (!Array.isArray(rows) || !rows.length) return [];
-  const isOffline = options.offline === true;
-  const isBoss = options.boss === true;
-  const guaranteed = options.guaranteed === true;
-  const maxDrops = isBoss ? MAX_BOSS_EQUIPMENT_DROPS : MAX_EQUIPMENT_DROPS_PER_KILL;
-  const weighted = rows
-    .map((drop) => {
-      const finalRate = getEffectiveEquipmentDropRate(drop, stats, { offline: isOffline, boss: isBoss });
-      return { drop, finalRate };
-    })
-    .filter((entry) => entry.finalRate > 0 && equipmentTemplateDb[entry.drop.equipmentId]);
-  const drops = [];
-  for (let attempt = 0; attempt < maxDrops && weighted.length; attempt += 1) {
-    const totalChance = isOffline
-      ? Math.min(0.75, weighted.reduce((sum, entry) => sum + entry.finalRate, 0))
-      : getOnlineEquipmentDropChance(stats, { boss: isBoss, rows });
-    if (!guaranteed && Math.random() >= totalChance) break;
-    const pick = weightedChoice(weighted, (entry) => applyRebirthPrestigeDropWeight(entry.drop, Math.max(0, Number(entry.drop.dropRate || 0)), stats, { boss: isBoss }));
-    if (!pick) break;
-    const template = equipmentTemplateDb[pick.drop.equipmentId];
-    const bonus = DIFFICULTY_DROP_LEVEL_BONUS[state.currentDifficulty] || DIFFICULTY_DROP_LEVEL_BONUS.normal;
-    const minLv = clampNumber((pick.drop.minLevel || 1) + (bonus.min || 0), 1, MAX_EQUIPMENT_LEVEL);
-    const maxLv = clampNumber((pick.drop.maxLevel || 1) + (bonus.max || 0), 1, MAX_EQUIPMENT_LEVEL);
-    const dropLevel = randomInt(Math.min(minLv, maxLv), Math.max(minLv, maxLv));
-    const darkGoldUpgradeRate = getDarkGoldUpgradeRate({ mapId: pick.drop.mapId || currentMap().id, stats, boss: isBoss, drop: pick.drop });
-    const mythicQualityWeight = (stats.mythicWeightBonus || 0) + (isBoss ? stats.bossQualityWeight || 0 : 0);
-    const rolledRarity = state.currentDifficulty === "abyss" && Math.random() < Math.min(0.08, mythicQualityWeight)
-      ? "mythic"
-      : Math.random() < darkGoldUpgradeRate
-      ? "darkGold"
-      : template.rarity;
-    drops.push(createItem(template, dropLevel, rolledRarity, { dropMapId: pick.drop.mapId || currentMap().id, dropLevel, difficulty: state.currentDifficulty, allowMythic: rolledRarity === "mythic" }));
-    if (!isBoss) break;
-  }
-  return drops;
-}
+function legacyRollEquipmentDropsFromTable(rows, stats, options = {}) { return; }
 
 function rollEquipmentDropsFromTable(rows, stats, options = {}) {
   const runtime = window.RuneFrontierDropsRuntime;
@@ -5748,37 +4997,7 @@ function getOnlineEquipmentDropChance(stats, options = {}) {
   return Math.min(0.75, baseRate * (1 + equipmentBonus) * bossMultiplier * abyssBossMultiplier * currentDifficultyConfig().equipmentDrop);
 }
 
-function legacyRollMutationExtraDrops(monster, stats, existingEquipmentDrops = 0) {
-  const mutation = monster.mutation;
-  if (!mutation) return 0;
-  const difficulty = currentDifficultyConfig();
-  const dropBonus = Math.min(1.5, stats.dropBonus || 0);
-  const equipmentDropBonus = Math.min(1.5, stats.equipmentDropBonus ?? stats.dropBonus ?? 0);
-  const hardExtra = state.currentDifficulty === "abyss" ? 2 : state.currentDifficulty === "hard" ? 1.5 : 1;
-  const materialRate = MUTATION_EXTRA_DROPS.materialBonusRate * hardExtra * (1 + dropBonus) * (mutation.rareMaterialBonus || 1);
-  const rareMaterialRate = MUTATION_EXTRA_DROPS.rareMaterialBonusRate * hardExtra * (1 + dropBonus) * (mutation.rareMaterialBonus || 1);
-  if (Math.random() < materialRate * difficulty.materialDrop) grantMutationMaterial(false);
-  if (Math.random() < rareMaterialRate * difficulty.materialDrop) grantMutationMaterial(true);
-
-  const maxEquipment = state.enemyBoss ? MAX_BOSS_EQUIPMENT_DROPS : MAX_EQUIPMENT_DROPS_PER_KILL;
-  if (existingEquipmentDrops >= maxEquipment) return 0;
-  const highRate = MUTATION_EXTRA_DROPS.highRarityEquipmentRate * hardExtra * (1 + equipmentDropBonus) * (mutation.highRarityEquipmentBonus || 1);
-  const darkRate = MUTATION_EXTRA_DROPS.darkGoldEquipmentRate * (state.currentDifficulty === "abyss" ? 1.5 : state.currentDifficulty === "hard" ? 1.2 : 1) * (1 + equipmentDropBonus) * (mutation.highRarityEquipmentBonus || 1);
-  if (Math.random() < darkRate) {
-    const item = createMutationEquipment("darkGold");
-    if (item) {
-      addEquipmentToInventory(item, { logDrop: true });
-      return 1;
-    }
-  } else if (Math.random() < highRate) {
-    const item = createMutationEquipment(state.currentMap >= 3 ? "legend" : "epic");
-    if (item) {
-      addEquipmentToInventory(item, { logDrop: true });
-      return 1;
-    }
-  }
-  return 0;
-}
+function legacyRollMutationExtraDrops(monster, stats, existingEquipmentDrops = 0) { return; }
 
 function rollMutationExtraDrops(monster, stats, existingEquipmentDrops = 0) {
   const runtime = window.RuneFrontierDropsRuntime;
@@ -5788,17 +5007,7 @@ function rollMutationExtraDrops(monster, stats, existingEquipmentDrops = 0) {
   return legacyRollMutationExtraDrops(monster, stats, existingEquipmentDrops);
 }
 
-function legacyGrantMutationMaterial(rareOnly = false) {
-  const pool = rareOnly ? ["rune", "ancientCore", "starShard"] : ["ore", "crystal", "rune"];
-  const material = pool[Math.min(pool.length - 1, Math.floor(Math.random() * pool.length))];
-  const stats = computeStats();
-  let amount = applyMaterialQuantityBonus(rareOnly ? 1 : randomInt(1, 2), stats);
-  if (!rareOnly && Math.random() < (stats.mutationMaterialDoubleChance || 0)) amount *= 2;
-  state.materials[material] = (state.materials[material] || 0) + amount;
-  recordSessionReward({ materials: amount });
-  recordRecentLoot({ materials: [{ materialId: material, name: materialNames[material] || material, qty: amount }] }, "变异怪材料");
-  addLog(`变异怪额外掉落 ${materialNames[material] || material} × ${amount}。`);
-}
+function legacyGrantMutationMaterial(rareOnly = false) { return; }
 
 function grantMutationMaterial(rareOnly = false) {
   const runtime = window.RuneFrontierDropsRuntime;
@@ -5808,14 +5017,7 @@ function grantMutationMaterial(rareOnly = false) {
   return legacyGrantMutationMaterial(rareOnly);
 }
 
-function legacyMaybeDropMythicEssence(stats = computeStats(), options = {}) {
-  if (state.currentDifficulty !== "abyss") return;
-  const rate = 0.002 * (options.boss ? 3 : 1) * (1 + (stats.mythicEssenceDropBonus || 0));
-  if (Math.random() >= rate) return;
-  state.materials.mythicEssence = (state.materials.mythicEssence || 0) + 1;
-  recordRecentLoot({ materials: [{ materialId: "mythicEssence", name: materialNames.mythicEssence, qty: 1 }] }, options.boss ? "深渊Boss材料" : "深渊材料");
-  addLog("深渊凝结出 神话精粹 ×1。");
-}
+function legacyMaybeDropMythicEssence(stats = computeStats(), options = {}) { return; }
 
 function maybeDropMythicEssence(stats = computeStats(), options = {}) {
   const runtime = window.RuneFrontierDropsRuntime;
@@ -5862,42 +5064,7 @@ function shouldAutoSalvage(item) {
   return rarityRank(item.rarity) >= 0 && rarityRank(item.rarity) <= rarityRank(setting.maxRarity || "normal");
 }
 
-function legacyAddEquipmentToInventory(item, options = {}) {
-  const normalized = legacyNormalizeItem(item);
-  if (shouldAutoSalvage(normalized)) {
-    const rewards = getSalvageRewards(normalized);
-    addMaterials(rewards);
-    if (!options.offline) recordSessionReward({ autoSalvaged: 1, materials: Object.values(rewards).reduce((sum, amount) => sum + Number(amount || 0), 0) });
-    if (!options.offline) recordRecentLoot({ autoSalvagedMaterials: rewards, salvagedMaterials: rewards }, "自动分解");
-    if (!options.offline) {
-      autoSalvageBatchCount += 1;
-      Object.entries(rewards).forEach(([id, qty]) => { autoSalvageBatchMaterials[id] = (autoSalvageBatchMaterials[id] || 0) + qty; });
-    }
-    showAutoSalvageFeedback(normalized, rewards, options);
-    if (options.logDrop) addLog(`自动分解 ${rarityName(normalized.rarity)}装备：${getDisplayItemName(normalized)}，获得 ${materialText(rewards)}。`);
-    return { added: false, salvaged: true, rewards };
-  }
-  if (state.inventory.length >= getInventoryLimit()) {
-    if (options.logDrop) addLog("背包已满，装备掉落未能拾取。");
-    return { added: false, skipped: true };
-  }
-  state.inventory.unshift(normalized);
-  if (!options.offline) {
-    recordSessionReward({ equipments: 1 });
-    runtimeSessionStats.equipmentByRarity[normalized.rarity] = (runtimeSessionStats.equipmentByRarity[normalized.rarity] || 0) + 1;
-    if (normalized.setId) runtimeSessionStats.zodiacEquipmentCount += 1;
-    if (isAbyssEquipment(normalized)) runtimeSessionStats.abyssEquipmentCount += 1;
-    if (isAbyssEquipment(normalized) && normalized.setId) runtimeSessionStats.abyssSetEquipmentCount += 1;
-    updateDailyGoalProgress("daily_equipment", 1);
-  }
-  trackEquipmentAchievement(normalized);
-  if (options.logDrop) {
-    addDropLog(normalized);
-    if (!options.offline) { showLootDropFeedback(normalized); showRareLootBroadcast(normalized); }
-  }
-  if (!options.offline) recordRecentLoot({ equipments: [normalized], equipment: [normalized] }, isAbyssEquipment(normalized) ? "深渊装备掉落" : state.enemyBoss ? "Boss装备掉落" : "装备掉落");
-  return { added: true };
-}
+function legacyAddEquipmentToInventory(item, options = {}) { return; }
 
 function addEquipmentToInventory(item, options = {}) {
   const runtime = window.RuneFrontierEquipmentRuntime;
@@ -5970,130 +5137,7 @@ function safeHeroBaseLevel() {
   }
 }
 
-function legacyCreateItem(template, level, forcedTierId = null, context = {}) {
-  const fixedTier = template.source === "monster_drop" || template.setId;
-  const tier = forcedTierId
-    ? equipmentTiers.find((entry) => entry.id === forcedTierId)
-    : fixedTier && template.rarity
-      ? equipmentTiers.find((entry) => entry.id === template.rarity) || rollEquipmentTier()
-      : rollEquipmentTier();
-  let safeTier = tier || equipmentTiers[0];
-  if (safeTier.id === "mythic" && !canCreateMythic(context)) {
-    safeTier = equipmentTiers.find((entry) => entry.id === "darkGold") || equipmentTiers.find((entry) => entry.id === "legend") || equipmentTiers[0];
-  }
-  const dropLevel = Math.max(1, Math.round(context.dropLevel || level || safeHeroBaseLevel()));
-  const itemTier = context.itemTier ? { id: context.itemTier, ...ITEM_TIER_CONFIG[context.itemTier] } : getItemTierForLevel(dropLevel);
-  const slotGrowth = getSlotLevelGrowth(template.slot);
-  const quality = randomFloat(safeTier.rolls[0], safeTier.rolls[1]);
-  const statScale = safeTier.scale * itemTier.scale * quality * (1 + level * slotGrowth);
-  const item = {
-    id: `${template.slot}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
-    instanceId: "",
-    templateId: template.id || "",
-    name: template.name,
-    slot: template.slot,
-    equipSlot: template.equipSlot || normalizeEquipmentSlot(template.slot),
-    weaponType: template.weaponType || "",
-    armorType: template.armorType || "",
-    subType: template.subType || inferEquipmentSubType(template),
-    equipType: template.equipType || template.weaponType || template.armorType || template.slot,
-    source: template.source || "monster_drop",
-    image: template.image || equipmentImagePath(template.id || template.name || template.slot),
-    requiredLevel: template.requiredLevel || 1,
-    requiredJob: template.requiredJob || [],
-    allowedJobs: template.allowedJobs || [],
-    setId: template.setId || "",
-    setName: template.setName || "",
-    baseStats: template.baseStats || {},
-    description: template.description || "",
-    rarity: safeTier.id,
-    tier: safeTier.id,
-    itemTier: itemTier.id,
-    dropMapId: context.dropMapId || "",
-    dropLevel,
-    sourceDifficulty: context.difficulty || "",
-    abyssForged: context.difficulty === "abyss",
-    prefix: context.difficulty === "abyss" ? "深渊" : "",
-    abyssBonus: {},
-    abyssAffixes: [],
-    abyssBonusApplied: false,
-    abyssSetVariant: false,
-    abyssSetBonusApplied: false,
-    originalSetId: template.setId || "",
-    cardSlots: [],
-    templateBaseStats: getTemplateBaseStats(template),
-    quality: Math.round(quality * 100),
-    refine: 0,
-    refineFailCount: 0,
-    empower: 0,
-    locked: false,
-    affixes: [],
-    affixDetails: [],
-    mechanicAffixes: [],
-    ranges: {},
-    randomStats: shouldRollRandomStats(template) ? rollRandomStats(safeTier.id) : defaultRandomStats(),
-    level,
-    atk: Math.round((template.atk || 0) * statScale),
-    matk: Math.round((template.matk || 0) * statScale),
-    def: Math.round((template.def || 0) * statScale),
-    hp: Math.round((template.hp || 0) * statScale),
-    aspd: Number(((template.aspd || 0) * (1 + level * 0.018)).toFixed(3)),
-    luck: Math.round((template.luck || 0) * statScale),
-    str: Math.round((template.str || 0) * statScale),
-    agi: Math.round((template.agi || 0) * statScale),
-    vit: Math.round((template.vit || 0) * statScale),
-    int: Math.round((template.int || 0) * statScale),
-    dex: Math.round((template.dex || 0) * statScale),
-    luk: Math.round((template.luk || 0) * statScale),
-    gold: Number(((template.gold || 0) * (1 + level * 0.025)).toFixed(3)),
-    crit: Number(((template.crit || 0) * (1 + level * 0.018)).toFixed(3)),
-    drop: Number(((template.drop || 0) * (1 + level * 0.018)).toFixed(3)),
-    hpRegen: Math.round((template.hpRegen || 0) * statScale),
-    dodgeRate: Number(((template.dodgeRate || 0) * (1 + level * 0.018)).toFixed(3)),
-    atkPct: template.atkPct || 0,
-    matkPct: template.matkPct || 0,
-    hpPct: template.hpPct || 0,
-    defPct: template.defPct || 0,
-    attackSpeedPct: template.attackSpeedPct || 0,
-    critRatePct: template.critRatePct || 0,
-    critDamageBonus: template.critDamageBonus || 0,
-    skillDamageBonus: template.skillDamageBonus || 0,
-    monsterDamageBonus: template.monsterDamageBonus || 0,
-    bossDamageBonus: template.bossDamageBonus || 0,
-    finalDamageBonus: template.finalDamageBonus || 0,
-    eliteDamageBonus: template.eliteDamageBonus || 0,
-    rareDropBonus: template.rareDropBonus || 0,
-    damageReductionPct: template.damageReductionPct || 0,
-    lifeSteal: template.lifeSteal || 0,
-    dodgeRatePct: template.dodgeRatePct || 0,
-    hpRegenPct: template.hpRegenPct || 0,
-    ignoreDefense: template.ignoreDefense || 0,
-    baseExpBonus: template.baseExpBonus || 0,
-    jobExpBonus: template.jobExpBonus || 0,
-    equipmentDrop: template.equipmentDrop || 0,
-    cardDrop: template.cardDrop || 0,
-    materialQuantityBonus: template.materialQuantityBonus || 0,
-    powerPct: template.powerPct || 0,
-    combatPaceBonus: template.combatPaceBonus || 0,
-    patrolEfficiency: template.patrolEfficiency || 0,
-    hitRate: template.hitRate || 0,
-    statusResist: template.statusResist || 0,
-    abyssDamageBonus: template.abyssDamageBonus || 0,
-    abyssBossDamageBonus: template.abyssBossDamageBonus || 0,
-    abyssDamageReduction: template.abyssDamageReduction || 0,
-    mythicWeightBonus: template.mythicWeightBonus || 0,
-    echoChance: template.echoChance || 0,
-    mutationMaterialDoubleChance: template.mutationMaterialDoubleChance || 0,
-    thornVitMultiplier: template.thornVitMultiplier || 0,
-  };
-  item.instanceId = item.id;
-
-  addBaseRanges(item, template, safeTier, level, itemTier, slotGrowth);
-  applyTierExtra(item, safeTier, level, itemTier);
-  applyRandomAffixes(item, safeTier, level, itemTier);
-  applyAbyssEquipmentBonus(item);
-  return item;
-}
+function legacyCreateItem(template, level, forcedTierId = null, context = {}) { return; }
 
 function createItem(template, level, forcedTierId = null, context = {}) {
   const runtime = window.RuneFrontierEquipmentRuntime;
@@ -6365,11 +5409,7 @@ function isAbyssEquipment(item = {}) {
   return Boolean(item.abyssForged || item.sourceDifficulty === "abyss" || item.prefix === "深渊");
 }
 
-function legacyGetDisplayItemName(item = {}) {
-  const baseName = item.name || item.templateName || "未知装备";
-  if (isAbyssEquipment(item) && !baseName.startsWith("深渊 ")) return `深渊 ${baseName}`;
-  return baseName;
-}
+function legacyGetDisplayItemName(item = {}) { return; }
 
 function getDisplayItemName(item = {}) {
   const runtime = window.RuneFrontierEquipmentRuntime;
@@ -6383,109 +5423,7 @@ function canCreateMythic(context = {}) {
   return context.allowMythic === true || context.difficulty === "abyss" || state?.currentDifficulty === "abyss";
 }
 
-function legacyNormalizeItem(item) {
-  const fallbackPower = item.power || 0;
-  const normalized = {
-    id: item.id || `legacy-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
-    instanceId: item.instanceId || item.id || "",
-    templateId: item.templateId || "",
-    name: item.name || "旧式装备",
-    slot: item.slot || "trinket",
-    equipSlot: item.equipSlot || normalizeEquipmentSlot(item.slot || "trinket"),
-    weaponType: item.weaponType || "",
-    armorType: item.armorType || "",
-    subType: item.subType || inferEquipmentSubType(item),
-    equipType: item.equipType || item.weaponType || item.armorType || item.slot || "trinket",
-    source: item.source || "legacy",
-    image: item.image || equipmentImagePath(item.templateId || item.id || item.name || "equipment"),
-    requiredLevel: item.requiredLevel || 1,
-    requiredJob: Array.isArray(item.requiredJob) ? item.requiredJob : [],
-    allowedJobs: Array.isArray(item.allowedJobs) ? item.allowedJobs : [],
-    setId: item.setId || "",
-    setName: item.setName || "",
-    baseStats: item.baseStats || {},
-    description: item.description || "",
-    rarity: item.rarity || "normal",
-    tier: item.tier || item.rarity || "normal",
-    itemTier: inferItemTier(item).id,
-    dropMapId: item.dropMapId || "",
-    dropLevel: item.dropLevel || item.level || 1,
-    sourceDifficulty: item.sourceDifficulty || "",
-    abyssForged: Boolean(item.abyssForged || item.sourceDifficulty === "abyss" || item.prefix === "深渊"),
-    prefix: item.prefix || (item.sourceDifficulty === "abyss" || item.abyssForged ? "深渊" : ""),
-    abyssBonus: item.abyssBonus || {},
-    abyssAffixes: Array.isArray(item.abyssAffixes) ? item.abyssAffixes : [],
-    abyssBonusApplied: Boolean(item.abyssBonusApplied),
-    abyssSetVariant: Boolean(item.abyssSetVariant || ((item.abyssForged || item.sourceDifficulty === "abyss") && item.setId)),
-    abyssSetBonusApplied: Boolean(item.abyssSetBonusApplied),
-    originalSetId: item.originalSetId || item.setId || "",
-    cardSlots: normalizeCardSlots(item.cardSlots),
-    templateBaseStats: item.templateBaseStats || {},
-    quality: item.quality || 100,
-    refine: item.refine || 0,
-    refineFailCount: Math.max(0, Math.floor(item.refineFailCount || 0)),
-    empower: item.empower || 0,
-    locked: Boolean(item.locked),
-    affixes: Array.isArray(item.affixes) ? item.affixes : [],
-    affixDetails: Array.isArray(item.affixDetails) ? item.affixDetails : [],
-    mechanicAffixes: Array.isArray(item.mechanicAffixes) ? item.mechanicAffixes : [],
-    ranges: item.ranges || inferItemRanges(item),
-    randomStats: normalizeRandomStats(item.randomStats),
-    level: item.level || 1,
-    atk: item.atk ?? Math.round(fallbackPower * 0.6),
-    matk: item.matk ?? Math.round(fallbackPower * 0.35),
-    def: item.def ?? Math.round(fallbackPower * 0.25),
-    hp: item.hp ?? 0,
-    aspd: item.aspd ?? 0,
-    luck: item.luck ?? 0,
-    str: item.str ?? 0,
-    agi: item.agi ?? 0,
-    vit: item.vit ?? 0,
-    int: item.int ?? 0,
-    dex: item.dex ?? 0,
-    luk: item.luk ?? 0,
-    gold: item.gold ?? 0,
-    crit: item.crit ?? 0,
-    drop: item.drop ?? 0,
-    hpRegen: item.hpRegen ?? 0,
-    dodgeRate: item.dodgeRate ?? 0,
-    atkPct: item.atkPct ?? 0,
-    matkPct: item.matkPct ?? 0,
-    hpPct: item.hpPct ?? 0,
-    defPct: item.defPct ?? 0,
-    attackSpeedPct: item.attackSpeedPct ?? 0,
-    critRatePct: item.critRatePct ?? 0,
-    critDamageBonus: item.critDamageBonus ?? 0,
-    skillDamageBonus: item.skillDamageBonus ?? 0,
-    monsterDamageBonus: item.monsterDamageBonus ?? 0,
-    bossDamageBonus: item.bossDamageBonus ?? 0,
-    finalDamageBonus: item.finalDamageBonus ?? 0,
-    eliteDamageBonus: item.eliteDamageBonus ?? 0,
-    rareDropBonus: item.rareDropBonus ?? 0,
-    damageReductionPct: item.damageReductionPct ?? 0,
-    dodgeRatePct: item.dodgeRatePct ?? 0,
-    hpRegenPct: item.hpRegenPct ?? 0,
-    ignoreDefense: item.ignoreDefense ?? 0,
-    baseExpBonus: item.baseExpBonus ?? 0,
-    jobExpBonus: item.jobExpBonus ?? 0,
-    equipmentDrop: item.equipmentDrop ?? 0,
-    cardDrop: item.cardDrop ?? 0,
-    materialQuantityBonus: item.materialQuantityBonus ?? 0,
-    powerPct: item.powerPct ?? 0,
-    combatPaceBonus: item.combatPaceBonus ?? 0,
-    patrolEfficiency: item.patrolEfficiency ?? 0,
-    hitRate: item.hitRate ?? 0,
-    statusResist: item.statusResist ?? 0,
-    echoChance: item.echoChance ?? 0,
-    mutationMaterialDoubleChance: item.mutationMaterialDoubleChance ?? 0,
-    thornVitMultiplier: item.thornVitMultiplier ?? 0,
-    enhanceLevel: item.enhanceLevel || 0,
-    specialPassives: Array.isArray(item.specialPassives) ? item.specialPassives : [],
-  };
-  applyAbyssEquipmentBonus(normalized);
-  applyAbyssSetItemBonus(normalized);
-  return normalized;
-}
+function legacyNormalizeItem(item) { return; }
 
 function normalizeItem(item) {
   const runtime = window.RuneFrontierEquipmentRuntime;
@@ -7105,56 +6043,7 @@ function equipBest() {
   renderAll();
 }
 
-function legacyClaimOffline() {
-  const pending = normalizeOfflineRewards(state.offlinePending || state.offlineRewards);
-  if (!pending || (pending.seconds <= 0 && !pending.equipments.length)) {
-    showToast("暂无离线收益");
-    return;
-  }
-  state.gold += pending.gold;
-  gainExp(pending.baseExp, pending.jobExp);
-  let claimSkippedEquipment = 0;
-  const offlineAutoSalvaged = {};
-  const unclaimedEquipment = [];
-  pending.equipments.forEach((item) => {
-    const result = addEquipmentToInventory(item, { logDrop: false, offline: true });
-    if (result.skipped) {
-      claimSkippedEquipment += 1;
-      unclaimedEquipment.push(item);
-    }
-    if (result.salvaged) {
-      Object.entries(result.rewards || {}).forEach(([id, qty]) => {
-        offlineAutoSalvaged[id] = (offlineAutoSalvaged[id] || 0) + qty;
-      });
-    }
-  });
-  pending.autoSalvagedMaterials = offlineAutoSalvaged;
-  pending.skippedEquipment += claimSkippedEquipment;
-  pending.cards.forEach((card) => {
-    state.cards[card.cardId] = (state.cards[card.cardId] || 0) + (card.qty || 0);
-    state.cardCodex[card.cardId] = state.cardCodex[card.cardId] || { obtained: false, obtainCount: 0, firstObtainedAt: 0 };
-    state.cardCodex[card.cardId].obtained = true;
-    state.cardCodex[card.cardId].obtainCount += (card.qty || 0);
-    if (!state.cardCodex[card.cardId].firstObtainedAt) state.cardCodex[card.cardId].firstObtainedAt = Date.now();
-  });
-  pending.materials.forEach((material) => {
-    state.materials[material.materialId] = (state.materials[material.materialId] || 0) + (material.qty || 0);
-  });
-  state.lastOfflineRewardsForView = pending;
-  recordRecentLoot(pending, "离线收益");
-  state.offlinePending = buildOfflineReward(0);
-  if (unclaimedEquipment.length) {
-    state.offlinePending.seconds = 1;
-    state.offlinePending.equipments = unclaimedEquipment;
-    state.offlinePending.skippedEquipment = unclaimedEquipment.length;
-  }
-  state.offlineRewards = state.offlinePending;
-  closeOfflineRewardModal();
-  showToast("离线收益已领取");
-  updateDailyGoalProgress("daily_loot", 1);
-  renderAll();
-  save();
-}
+function legacyClaimOffline() { return; }
 
 function claimOffline() {
   const runtime = window.RuneFrontierOfflineRuntime;
@@ -7164,27 +6053,11 @@ function claimOffline() {
   return legacyClaimOffline();
 }
 
-function legacyGetPendingOfflineRewards() {
-  return normalizeOfflineRewards(state.offlinePending || state.offlineRewards);
-}
+function legacyGetPendingOfflineRewards() { return; }
 
-function legacyHasPendingOfflineRewards() {
-  const pending = legacyGetPendingOfflineRewards();
-  return Boolean(pending && (
-    pending.seconds > 0 ||
-    pending.gold > 0 ||
-    pending.baseExp > 0 ||
-    pending.jobExp > 0 ||
-    pending.equipments.length ||
-    pending.cards.length ||
-    pending.materials.length ||
-    offlineObjectTotal(pending.autoSalvagedMaterials) > 0
-  ));
-}
+function legacyHasPendingOfflineRewards() { return; }
 
-function legacyGetLootRewardsForView() {
-  return legacyHasPendingOfflineRewards() ? legacyGetPendingOfflineRewards() : getLatestRecentLootRewards();
-}
+function legacyGetLootRewardsForView() { return; }
 
 function getPendingOfflineRewards() {
   const runtime = window.RuneFrontierOfflineRuntime;
@@ -7396,25 +6269,7 @@ function normalizeOfflineRewards(rewards = {}) {
   };
 }
 
-function legacyNormalizeRecentLoot(entries = []) {
-  if (!Array.isArray(entries)) return [];
-  return entries
-    .map((entry) => {
-      const rewards = normalizeOfflineRewards(entry?.rewards || entry || {});
-      return {
-        id: entry?.id || `loot-${Date.now().toString(36)}`,
-        source: entry?.source || "最近战利品",
-        time: Number(entry?.time || entry?.createdAt || Date.now()),
-        rewards,
-      };
-    })
-    .filter((entry) => {
-      const rewards = entry.rewards;
-      return rewards.gold > 0 || rewards.baseExp > 0 || rewards.jobExp > 0 || rewards.equipments.length || rewards.cards.length || rewards.materials.length || offlineObjectTotal(rewards.autoSalvagedMaterials) > 0;
-    })
-    .sort((a, b) => b.time - a.time)
-    .slice(0, 12);
-}
+function legacyNormalizeRecentLoot(entries = []) { return; }
 
 function normalizeRecentLoot(entries = []) {
   const runtime = window.RuneFrontierDropsRuntime;
@@ -7424,21 +6279,7 @@ function normalizeRecentLoot(entries = []) {
   return legacyNormalizeRecentLoot(entries);
 }
 
-function legacyRecordRecentLoot(rewards = {}, source = "最近战利品") {
-  const normalized = normalizeOfflineRewards(rewards);
-  const hasContent = normalized.gold > 0 || normalized.baseExp > 0 || normalized.jobExp > 0 || normalized.equipments.length || normalized.cards.length || normalized.materials.length || offlineObjectTotal(normalized.autoSalvagedMaterials) > 0;
-  if (!hasContent) return;
-  const entry = {
-    id: `loot-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
-    source,
-    time: Date.now(),
-    rewards: normalized,
-  };
-  state.recentLoot = [entry, ...legacyNormalizeRecentLoot(state.recentLoot)].slice(0, 12);
-  const hasRealLoot = normalized.equipments.length || normalized.cards.length || normalized.materials.length || offlineObjectTotal(normalized.autoSalvagedMaterials) > 0 || source.includes("离线");
-  if (hasRealLoot) state.lootNotifyUnread = true;
-  state.lastLootUpdatedAt = entry.time;
-}
+function legacyRecordRecentLoot(rewards = {}, source = "最近战利品") { return; }
 
 function recordRecentLoot(rewards = {}, source = "最近战利品") {
   const runtime = window.RuneFrontierDropsRuntime;
@@ -7516,18 +6357,9 @@ function recordLootFeedEntry(rewards, source = "最近战利品", time = Date.no
   ]);
 }
 
-function legacyGetLatestRecentLootRewards() {
-  state.recentLoot = normalizeRecentLoot(state.recentLoot);
-  if (!state.recentLoot.length) return null;
-  const newest = state.recentLoot[0].time;
-  const batch = state.recentLoot.filter((entry) => newest - entry.time <= 10000).slice(0, 8);
-  return legacyMergeRecentLootRewards(batch.map((entry) => entry.rewards));
-}
+function legacyGetLatestRecentLootRewards() { return; }
 
-function legacyMarkRecentLootViewed() {
-  state.lootNotifyUnread = false;
-  state.lastLootViewedAt = Date.now();
-}
+function legacyMarkRecentLootViewed() { return; }
 
 function markLootViewed() {
   const runtime = window.RuneFrontierOfflineRuntime;
@@ -7537,24 +6369,7 @@ function markLootViewed() {
   return legacyMarkRecentLootViewed();
 }
 
-function legacyMergeRecentLootRewards(rewardsList = []) {
-  const merged = defaultOfflineRewards();
-  rewardsList.reverse().forEach((raw) => {
-    const rewards = normalizeOfflineRewards(raw);
-    merged.gold += rewards.gold;
-    merged.baseExp += rewards.baseExp;
-    merged.jobExp += rewards.jobExp;
-    merged.killCount += rewards.killCount || 0;
-    merged.equipments.push(...rewards.equipments);
-    merged.cards = mergeCountEntries([...merged.cards, ...rewards.cards], "cardId");
-    merged.materials = mergeCountEntries([...merged.materials, ...rewards.materials], "materialId");
-    Object.entries(rewards.autoSalvagedMaterials || {}).forEach(([material, amount]) => {
-      merged.autoSalvagedMaterials[material] = (merged.autoSalvagedMaterials[material] || 0) + Number(amount || 0);
-    });
-    merged.skippedEquipment += rewards.skippedEquipment || 0;
-  });
-  return merged;
-}
+function legacyMergeRecentLootRewards(rewardsList = []) { return; }
 
 function getLatestRecentLootRewards() {
   const runtime = window.RuneFrontierDropsRuntime;
@@ -7667,51 +6482,7 @@ function calculateOfflineRewards(character, offlineMs, mapId) {
   return legacyCalculateOfflineRewards(character, offlineMs, mapId);
 }
 
-function legacyCalculateOfflineRewards(character, offlineMs, mapId) {
-  const rewards = defaultOfflineRewards();
-  const durationMs = Math.max(0, Math.floor(offlineMs || 0));
-  const cappedDurationMs = Math.min(durationMs, (MAX_OFFLINE_SECONDS + (getVipMilestoneBonuses().offlineHoursBonus || 0) * 3600) * 1000);
-  rewards.durationMs = durationMs;
-  rewards.cappedDurationMs = cappedDurationMs;
-  rewards.seconds = Math.floor(cappedDurationMs / 1000);
-  rewards.mapId = mapId || currentMap().id;
-  rewards.calculatedAt = new Date().toISOString();
-  if (cappedDurationMs <= 0) return rewards;
-
-  const stats = computeStats();
-  if ((character?.currentHp ?? state.hero.currentHp ?? stats.maxHp) <= 0) {
-    rewards.noRewardsReason = "角色生命值为 0，离线战斗停止。";
-    return rewards;
-  }
-
-  const mapIndex = Math.max(0, maps.findIndex((map) => map.id === rewards.mapId));
-  const map = maps[mapIndex] || currentMap();
-  const seconds = cappedDurationMs / 1000;
-  const averageHp = estimateMapAverageMonsterHp(map);
-  const onlineKills = Math.max(0, stats.dps / Math.max(1, averageHp)) * seconds;
-  const killCount = Math.min(OFFLINE_MAX_KILLS, Math.floor(onlineKills * Math.min(1, OFFLINE_EFFICIENCY + (getVipMilestoneBonuses().offlineEfficiencyBonus || 0) + (stats.offlineEfficiencyBonus || 0))));
-  rewards.killCount = killCount;
-  if (killCount <= 0) return rewards;
-
-  let mutationKills = 0;
-  for (let kill = 0; kill < killCount; kill += 1) {
-    const monster = buildOfflineMonsterStats(map);
-    if (monster.mutation) mutationKills += 1;
-    rewards.gold += Math.round(monster.gold * stats.goldMultiplier * stats.monsterGoldMultiplier);
-    rewards.baseExp += Math.round(monster.exp * stats.baseExpMultiplier);
-    rewards.jobExp += Math.round(monster.jobExp * stats.jobExpMultiplier);
-  }
-
-  rollOfflineEquipmentDrops(rewards, stats, map, mapIndex, killCount);
-  rollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills);
-  rollOfflineTransitionSetDrops(rewards, stats, map, killCount);
-  rollOfflineMythicDrops(rewards, stats, map, killCount, mutationKills);
-  rollOfflineCardDrops(rewards, stats, map, mapIndex, killCount);
-  rollOfflineMaterialDrops(rewards, stats, map, killCount);
-  rollOfflineMutationExtraDrops(rewards, stats, map, mutationKills);
-  gainMapExploration(map.id, killCount + mutationKills * 4, { offline: true });
-  return rewards;
-}
+function legacyCalculateOfflineRewards(character, offlineMs, mapId) { return; }
 
 function estimateMapAverageMonsterHp(map) {
   const monsters = Array.isArray(map.monsters) && map.monsters.length ? map.monsters : [pickMonsterTemplate(map, false)];
@@ -7731,16 +6502,7 @@ function buildOfflineMonsterStats(map) {
   return legacyBuildOfflineMonsterStats(map);
 }
 
-function legacyBuildOfflineMonsterStats(map) {
-  const template = pickMonsterTemplate(map, false);
-  const level = rollMonsterLevel(map, false, template);
-  const previousMutation = state.enemyMutationId;
-  const mutation = rollMonsterMutation(state.currentDifficulty);
-  state.enemyMutationId = mutation?.id || "";
-  const monster = buildMonsterStats(map, false, level, template);
-  state.enemyMutationId = previousMutation;
-  return monster;
-}
+function legacyBuildOfflineMonsterStats(map) { return; }
 
 function rollOfflineEquipmentDrops(rewards, stats, map, mapIndex, killCount) {
   const tableId = mapDropTableAlias[map.id] || map.id;
@@ -7780,29 +6542,7 @@ function processOfflineGeneratedEquipment(rewards, items, capacity, options = {}
   return capacity;
 }
 
-function legacyRollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills = 0) {
-  const setIds = zodiacSetDropMap[map.id] || [];
-  if (!setIds.length) return;
-  const capacity = { freeSlots: Math.max(0, getInventoryLimit() - state.inventory.length - rewards.equipments.length) };
-  const isHard = state.currentDifficulty === "hard";
-  const isAbyss = state.currentDifficulty === "abyss";
-  const baseRate = (isAbyss ? ZODIAC_SET_DROP_RATES.hard * 1.2 : isHard ? ZODIAC_SET_DROP_RATES.hard : ZODIAC_SET_DROP_RATES.normal) * OFFLINE_EQUIPMENT_DROP_RATE_MULTIPLIER;
-  const mutationRate = (isAbyss ? ZODIAC_SET_DROP_RATES.hardMutation * 1.25 : isHard ? ZODIAC_SET_DROP_RATES.hardMutation : ZODIAC_SET_DROP_RATES.mutation) * OFFLINE_EQUIPMENT_DROP_RATE_MULTIPLIER;
-  const dropBonus = 1 + Math.min(1.5, stats.equipmentDropBonus || 0);
-  for (let kill = 0; kill < Math.min(killCount, OFFLINE_MAX_KILLS); kill += 1) {
-    const rate = (baseRate + (kill < mutationKills ? mutationRate : 0)) * dropBonus;
-    if (Math.random() >= rate) continue;
-    const set = equipmentSets[setIds[Math.floor(Math.random() * setIds.length)]];
-    if (!set?.items?.length) continue;
-    const darkRate = ZODIAC_SET_DROP_RATES.darkGoldNormal * OFFLINE_EQUIPMENT_DROP_RATE_MULTIPLIER * (isAbyss ? 1.5 : isHard ? 1.25 : 1) * dropBonus;
-    const mythicRate = isAbyss ? MYTHIC_DROP_RATES.abyssNormal * OFFLINE_EQUIPMENT_DROP_RATE_MULTIPLIER * 0.5 * dropBonus : 0;
-    const rarity = Math.random() < mythicRate ? "mythic" : Math.random() < darkRate ? "darkGold" : "legend";
-    const template = set.items[Math.floor(Math.random() * set.items.length)];
-    const dropLevel = template.level || getMapLevelRange(map).maxLevel;
-    const item = createItem(template, dropLevel, rarity, { dropMapId: map.id, dropLevel, difficulty: state.currentDifficulty, allowMythic: rarity === "mythic" });
-    processOfflineGeneratedEquipment(rewards, [item], capacity);
-  }
-}
+function legacyRollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills = 0) { return; }
 
 function rollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills = 0) {
   const runtime = window.RuneFrontierOfflineRuntime;
@@ -7812,24 +6552,7 @@ function rollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills
   return legacyRollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills);
 }
 
-function legacyRollOfflineTransitionSetDrops(rewards, stats, map, killCount) {
-  const setIds = transitionSetDropMap[map.id] || [];
-  if (!setIds.length) return;
-  const capacity = { freeSlots: Math.max(0, getInventoryLimit() - state.inventory.length - rewards.equipments.length) };
-  const isHard = state.currentDifficulty === "hard";
-  const isAbyss = state.currentDifficulty === "abyss";
-  const baseRate = (isAbyss ? TRANSITION_SET_DROP_RATES.hard * 1.2 : isHard ? TRANSITION_SET_DROP_RATES.hard : TRANSITION_SET_DROP_RATES.normal) * OFFLINE_EQUIPMENT_DROP_RATE_MULTIPLIER;
-  const dropBonus = 1 + Math.min(1.2, stats.equipmentDropBonus || 0);
-  for (let kill = 0; kill < Math.min(killCount, OFFLINE_MAX_KILLS); kill += 1) {
-    if (Math.random() >= baseRate * dropBonus) continue;
-    const set = equipmentSets[setIds[Math.floor(Math.random() * setIds.length)]];
-    if (!set?.items?.length) continue;
-    const template = set.items[Math.floor(Math.random() * set.items.length)];
-    const dropLevel = template.level || getMapLevelRange(map).maxLevel;
-    const item = createItem(template, dropLevel, template.rarity || "rare", { dropMapId: map.id, dropLevel, difficulty: state.currentDifficulty });
-    processOfflineGeneratedEquipment(rewards, [item], capacity);
-  }
-}
+function legacyRollOfflineTransitionSetDrops(rewards, stats, map, killCount) { return; }
 
 function rollOfflineTransitionSetDrops(rewards, stats, map, killCount) {
   const runtime = window.RuneFrontierOfflineRuntime;
@@ -7839,18 +6562,7 @@ function rollOfflineTransitionSetDrops(rewards, stats, map, killCount) {
   return legacyRollOfflineTransitionSetDrops(rewards, stats, map, killCount);
 }
 
-function legacyRollOfflineMythicDrops(rewards, stats, map, killCount, mutationKills = 0) {
-  if (state.currentDifficulty !== "abyss") return;
-  const capacity = { freeSlots: Math.max(0, getInventoryLimit() - state.inventory.length - rewards.equipments.length) };
-  const dropBonus = 1 + Math.min(1.5, stats.equipmentDropBonus || 0);
-  for (let kill = 0; kill < Math.min(killCount, OFFLINE_MAX_KILLS); kill += 1) {
-    const baseRate = kill < mutationKills ? MYTHIC_DROP_RATES.abyssMutation : MYTHIC_DROP_RATES.abyssNormal;
-    if (Math.random() >= baseRate * OFFLINE_EQUIPMENT_DROP_RATE_MULTIPLIER * dropBonus) continue;
-    const item = createMutationEquipment("mythic");
-    if (!item) continue;
-    processOfflineGeneratedEquipment(rewards, [item], capacity);
-  }
-}
+function legacyRollOfflineMythicDrops(rewards, stats, map, killCount, mutationKills = 0) { return; }
 
 function rollOfflineMythicDrops(rewards, stats, map, killCount, mutationKills = 0) {
   const runtime = window.RuneFrontierOfflineRuntime;
@@ -7860,23 +6572,7 @@ function rollOfflineMythicDrops(rewards, stats, map, killCount, mutationKills = 
   return legacyRollOfflineMythicDrops(rewards, stats, map, killCount, mutationKills);
 }
 
-function legacyRollOfflineCardDrops(rewards, stats, map, mapIndex, killCount) {
-  const rows = cardDropTables[map.id] || [];
-  const found = {};
-  const difficulty = currentDifficultyConfig();
-  for (let kill = 0; kill < killCount; kill += 1) {
-    rows.forEach((drop) => {
-      if (drop.bossOnly) return;
-      const finalDropRate = drop.dropRate * (1 + Number(stats.cardDropBonus ?? stats.dropBonus ?? 0)) * difficulty.cardDrop;
-      if (Math.random() >= finalDropRate) return;
-      const card = cardPool.find((entry) => entry.id === drop.cardId);
-      if (!card) return;
-      found[card.id] = found[card.id] || { cardId: card.id, name: card.name, rarity: drop.rarity || "rare", qty: 0 };
-      found[card.id].qty += 1;
-    });
-  }
-  rewards.cards = Object.values(found);
-}
+function legacyRollOfflineCardDrops(rewards, stats, map, mapIndex, killCount) { return; }
 
 function rollOfflineCardDrops(rewards, stats, map, mapIndex, killCount) {
   const runtime = window.RuneFrontierOfflineRuntime;
@@ -7886,21 +6582,7 @@ function rollOfflineCardDrops(rewards, stats, map, mapIndex, killCount) {
   return legacyRollOfflineCardDrops(rewards, stats, map, mapIndex, killCount);
 }
 
-function legacyRollOfflineMaterialDrops(rewards, stats, map, killCount) {
-  const rows = materialDropTables[map.id] || [];
-  const found = {};
-  const difficulty = currentDifficultyConfig();
-  for (let kill = 0; kill < killCount; kill += 1) {
-    rows.forEach((drop) => {
-      const finalDropRate = drop.dropRate * (1 + stats.dropBonus) * difficulty.materialDrop;
-      if (Math.random() >= finalDropRate) return;
-      const qty = applyMaterialQuantityBonus(randomInt(drop.minQty || 1, drop.maxQty || drop.minQty || 1), stats);
-      found[drop.materialId] = found[drop.materialId] || { materialId: drop.materialId, name: materialNames[drop.materialId] || drop.materialId, rarity: MATERIAL_DB[drop.materialId]?.rarity || "normal", qty: 0 };
-      found[drop.materialId].qty += qty;
-    });
-  }
-  rewards.materials = mergeCountEntries([...rewards.materials, ...Object.values(found)], "materialId");
-}
+function legacyRollOfflineMaterialDrops(rewards, stats, map, killCount) { return; }
 
 function rollOfflineMaterialDrops(rewards, stats, map, killCount) {
   const runtime = window.RuneFrontierOfflineRuntime;
@@ -7910,35 +6592,7 @@ function rollOfflineMaterialDrops(rewards, stats, map, killCount) {
   return legacyRollOfflineMaterialDrops(rewards, stats, map, killCount);
 }
 
-function legacyRollOfflineMutationExtraDrops(rewards, stats, map, mutationKills) {
-  if (!mutationKills) return;
-  const difficulty = currentDifficultyConfig();
-  const dropBonus = Math.min(1.5, stats.dropBonus || 0);
-  const equipmentDropBonus = Math.min(1.5, stats.equipmentDropBonus ?? stats.dropBonus ?? 0);
-  const isAbyss = state.currentDifficulty === "abyss";
-  const hardExtra = isAbyss ? 2 : state.currentDifficulty === "hard" ? 1.5 : 1;
-  const materialRate = MUTATION_EXTRA_DROPS.materialBonusRate * hardExtra * (1 + dropBonus) * difficulty.materialDrop * OFFLINE_EFFICIENCY;
-  const rareMaterialRate = MUTATION_EXTRA_DROPS.rareMaterialBonusRate * hardExtra * (1 + dropBonus) * difficulty.materialDrop * OFFLINE_EFFICIENCY;
-  const highRate = MUTATION_EXTRA_DROPS.highRarityEquipmentRate * hardExtra * (1 + equipmentDropBonus) * OFFLINE_EQUIPMENT_DROP_RATE_MULTIPLIER;
-  const darkRate = MUTATION_EXTRA_DROPS.darkGoldEquipmentRate * (isAbyss ? 1.5 : state.currentDifficulty === "hard" ? 1.2 : 1) * (1 + equipmentDropBonus) * OFFLINE_EQUIPMENT_DROP_RATE_MULTIPLIER;
-  const mythicRate = isAbyss ? MYTHIC_DROP_RATES.abyssMutation * (1 + equipmentDropBonus) * OFFLINE_EQUIPMENT_DROP_RATE_MULTIPLIER : 0;
-  const capacity = { freeSlots: Math.max(0, getInventoryLimit() - state.inventory.length - rewards.equipments.length) };
-
-  for (let i = 0; i < mutationKills; i += 1) {
-    if (Math.random() < materialRate) {
-      let qty = applyMaterialQuantityBonus(randomInt(1, 2), stats);
-      if (Math.random() < (stats.mutationMaterialDoubleChance || 0)) qty *= 2;
-      mergeMaterialRewardIntoList(rewards.materials, { ore: qty });
-    }
-    if (Math.random() < rareMaterialRate) mergeMaterialRewardIntoList(rewards.materials, { rune: applyMaterialQuantityBonus(1, stats) });
-
-    const rarity = Math.random() < mythicRate ? "mythic" : Math.random() < darkRate ? "darkGold" : Math.random() < highRate ? (maps.indexOf(map) >= 3 ? "legend" : "epic") : "";
-    if (!rarity) continue;
-    const item = createMutationEquipment(rarity);
-    if (!item) continue;
-    processOfflineGeneratedEquipment(rewards, [item], capacity);
-  }
-}
+function legacyRollOfflineMutationExtraDrops(rewards, stats, map, mutationKills) { return; }
 
 function rollOfflineMutationExtraDrops(rewards, stats, map, mutationKills) {
   const runtime = window.RuneFrontierOfflineRuntime;
@@ -7957,37 +6611,7 @@ function renderOfflineRewardSummary(rewards) { const runtime = window.RuneFronti
   }
 }
 
-function legacyNormalizeLootRewards(input = {}) {
-  const rewards = input || {};
-  const normalized = normalizeOfflineRewards(rewards);
-  const pendingCount = Math.min(Number(normalized.skippedEquipment || 0), normalized.equipments.length);
-  const pendingEquipment = Array.isArray(rewards.pendingEquipment)
-    ? rewards.pendingEquipment
-    : pendingCount
-      ? normalized.equipments.slice(-pendingCount)
-      : [];
-  const equipment = Array.isArray(rewards.equipment)
-    ? rewards.equipment
-    : pendingCount
-      ? normalized.equipments.slice(0, -pendingCount)
-      : normalized.equipments;
-  return {
-    seconds: Number(normalized.seconds || rewards.offlineSeconds || rewards.duration || 0),
-    kills: Number(normalized.killCount || rewards.kills || 0),
-    gold: Number(normalized.gold || 0),
-    baseExp: Number(normalized.baseExp || rewards.exp || 0),
-    jobExp: Number(normalized.jobExp || 0),
-    materials: Array.isArray(normalized.materials) ? normalized.materials : [],
-    cards: Array.isArray(normalized.cards) ? normalized.cards : [],
-    equipment: Array.isArray(equipment) ? equipment.filter(Boolean).map(normalizeItem) : [],
-    salvagedMaterials: normalized.autoSalvagedMaterials || rewards.salvagedMaterials || rewards.salvageMaterials || {},
-    autoSalvaged: Number(rewards.autoSalvaged || rewards.salvagedCount || offlineObjectTotal(normalized.autoSalvagedMaterials) || 0),
-    pendingEquipment: Array.isArray(pendingEquipment) ? pendingEquipment.filter(Boolean).map(normalizeItem) : [],
-    skippedEquipment: Number(normalized.skippedEquipment || 0),
-    noRewardsReason: normalized.noRewardsReason || "",
-    errors: Array.isArray(rewards.errors) ? rewards.errors : [],
-  };
-}
+function legacyNormalizeLootRewards(input = {}) { return; }
 
 function normalizeLootRewards(input = {}) {
   const runtime = window.RuneFrontierDropsRuntime;
@@ -12561,75 +11185,7 @@ function isJobFocusedEquipment(stats, job = currentJob()) {
   return mainTotal >= 18 || getItemStatValue(stats, "skillDamageBonus") >= 0.04;
 }
 
-function legacyCalculateEquipmentScores(item, job = currentJob()) {
-  const stats = getEffectiveItemStats(item || {}, true);
-  const attrTotal = attributeKeys.reduce((sum, stat) => sum + getItemStatValue(stats, stat), 0);
-  const output =
-    getItemStatValue(stats, "atk") * 1.7 +
-    getItemStatValue(stats, "matk") * 1.7 +
-    attrTotal * 8 +
-    getItemStatValue(stats, "aspd") * 900 +
-    getItemStatValue(stats, "attackSpeedPct") * 2600 +
-    getItemStatValue(stats, "crit") * 3500 +
-    getItemStatValue(stats, "critRatePct") * 3500 +
-    getItemStatValue(stats, "critDamageBonus") * 4200 +
-    getItemStatValue(stats, "finalDamageBonus") * 6200 +
-    getItemStatValue(stats, "skillDamageBonus") * 4200 +
-    getItemStatValue(stats, "monsterDamageBonus") * 3600;
-  const survival =
-    getItemStatValue(stats, "hp") * 0.35 +
-    getItemStatValue(stats, "def") * 2.6 +
-    getItemStatValue(stats, "vit") * 12 +
-    getItemStatValue(stats, "hpPct") * 6200 +
-    getItemStatValue(stats, "defPct") * 4200 +
-    getItemStatValue(stats, "damageReductionPct") * 9000 +
-    getItemStatValue(stats, "lifeSteal") * 7000 +
-    getItemStatValue(stats, "hpRegen") * 3 +
-    getItemStatValue(stats, "hpRegenPct") * 2800 +
-    getItemStatValue(stats, "dodgeRate") * 3000 +
-    getItemStatValue(stats, "dodgeRatePct") * 2600 +
-    getItemStatValue(stats, "blockRate") * 3200 +
-    getItemStatValue(stats, "antiCrit") * 2600;
-  const boss =
-    output * 0.28 +
-    getItemStatValue(stats, "bossDamageBonus") * 8500 +
-    getItemStatValue(stats, "eliteDamageBonus") * 6200 +
-    getItemStatValue(stats, "bossDamageReduction") * 5000 +
-    getItemStatValue(stats, "finalDamageBonus") * 4200 +
-    getItemStatValue(stats, "critDamageBonus") * 2400 +
-    getItemStatValue(stats, "lifeSteal") * 3000;
-  const abyss =
-    output * 0.18 +
-    survival * 0.18 +
-    (isAbyssEquipment(item) ? 900 : 0) +
-    getItemStatValue(stats, "abyssDamageBonus") * 12000 +
-    getItemStatValue(stats, "abyssDamageReduction") * 14000 +
-    getItemStatValue(stats, "abyssBossDamageBonus") * 9500 +
-    getItemStatValue(stats, "abyssResist") * 8000 +
-    getItemStatValue(stats, "abyssPower") * 5000 +
-    getItemStatValue(stats, "mythicWeightBonus") * 11000;
-  const treasure =
-    getItemStatValue(stats, "drop") * 3600 +
-    getItemStatValue(stats, "gold") * 2000 +
-    getItemStatValue(stats, "goldBonus") * 2000 +
-    getItemStatValue(stats, "rareDropBonus") * 5200 +
-    getItemStatValue(stats, "equipmentDrop") * 4600 +
-    getItemStatValue(stats, "cardDrop") * 3800 +
-    getItemStatValue(stats, "materialQuantityBonus") * 3200 +
-    getItemStatValue(stats, "baseExpBonus") * 1800 +
-    getItemStatValue(stats, "jobExpBonus") * 1800 +
-    getItemStatValue(stats, "abyssMaterialDropBonus") * 3200 +
-    getItemStatValue(stats, "mythicEssenceDropBonus") * 6000;
-  const comprehensive = output * 0.38 + survival * 0.26 + boss * 0.16 + abyss * 0.14 + treasure * 0.06;
-  return {
-    comprehensive: Math.max(0, Math.round(comprehensive)),
-    output: Math.max(0, Math.round(output)),
-    survival: Math.max(0, Math.round(survival)),
-    boss: Math.max(0, Math.round(boss)),
-    abyss: Math.max(0, Math.round(abyss)),
-    treasure: Math.max(0, Math.round(treasure)),
-  };
-}
+function legacyCalculateEquipmentScores(item, job = currentJob()) { return; }
 
 function calculateEquipmentScores(item, job = currentJob()) {
   const runtime = window.RuneFrontierEquipmentRuntime;
@@ -12950,123 +11506,7 @@ function renderRandomStatsPanel(item) { const runtime = window.RuneFrontierRende
   return `<div class="random-stats-panel"><div class="random-stats-title">随机附加</div><div class="random-stat-chips">${chips}</div></div>`;
 }
 
-function legacyGetEffectiveItemStats(item, includeRandom = true) {
-  const multiplier = refineMultiplier(item.refine || 0);
-  const empowerMultiplier = 1 + (item.empower || 0) * 0.04;
-  const scaleFlat = (value) => Math.round((value || 0) * multiplier * empowerMultiplier);
-  const scalePercent = (value, stat = "") => Number(((value || 0) * (refineGrowthFactorForStat(stat, item.refine || 0) + (item.empower || 0) * 0.012)).toFixed(3));
-  const addScaledStat = (target, stat, value, { applyRefine = true } = {}) => {
-    const numeric = Number(value || 0);
-    if (!Number.isFinite(numeric) || numeric === 0) return;
-    const factor = applyRefine ? refineGrowthFactorForStat(stat, item.refine || 0) : 1;
-    const decimals = statIsPercent(stat) || stat.endsWith("Bonus") || stat.endsWith("Pct") || stat === "thornVitMultiplier" ? 3 : 0;
-    const scaled = decimals ? Number((numeric * factor).toFixed(decimals)) : Math.round(numeric * factor);
-    target[stat] = Number(((target[stat] || 0) + scaled).toFixed(decimals));
-  };
-  const stats = {
-    atk: scaleFlat(item.atk),
-    matk: scaleFlat(item.matk),
-    def: scaleFlat(item.def),
-    hp: scaleFlat(item.hp),
-    luck: 0,
-    str: scaleFlat(item.str),
-    agi: scaleFlat(item.agi),
-    vit: scaleFlat(item.vit),
-    int: scaleFlat(item.int),
-    dex: scaleFlat(item.dex),
-    luk: scaleFlat(item.luk) + scaleFlat(item.luck),
-    aspd: scalePercent(item.aspd, "aspd"),
-    crit: scalePercent(item.crit, "crit"),
-    drop: scalePercent(item.drop, "drop"),
-    gold: scalePercent(item.gold, "gold"),
-    hpRegen: scaleFlat(item.hpRegen),
-    dodgeRate: scalePercent(item.dodgeRate, "dodgeRate"),
-    atkPct: scalePercent(item.atkPct, "atkPct"),
-    matkPct: scalePercent(item.matkPct, "matkPct"),
-    hpPct: scalePercent(item.hpPct, "hpPct"),
-    defPct: scalePercent(item.defPct, "defPct"),
-    attackSpeedPct: scalePercent(item.attackSpeedPct, "attackSpeedPct"),
-    critRatePct: scalePercent(item.critRatePct, "critRatePct"),
-    critDamageBonus: scalePercent(item.critDamageBonus, "critDamageBonus"),
-    skillDamageBonus: scalePercent(item.skillDamageBonus, "skillDamageBonus"),
-    monsterDamageBonus: scalePercent(item.monsterDamageBonus, "monsterDamageBonus"),
-    bossDamageBonus: scalePercent(item.bossDamageBonus, "bossDamageBonus"),
-    bossDamageReduction: scalePercent(item.bossDamageReduction, "bossDamageReduction"),
-    finalDamageBonus: scalePercent(item.finalDamageBonus, "finalDamageBonus"),
-    eliteDamageBonus: scalePercent(item.eliteDamageBonus, "eliteDamageBonus"),
-    rareDropBonus: scalePercent(item.rareDropBonus, "rareDropBonus"),
-    damageReductionPct: scalePercent(item.damageReductionPct, "damageReductionPct"),
-    damageReduction: scalePercent(item.damageReduction, "damageReduction"),
-    lifeSteal: scalePercent(item.lifeSteal, "lifeSteal"),
-    blockRate: scalePercent(item.blockRate, "blockRate"),
-    antiCrit: scalePercent(item.antiCrit, "antiCrit"),
-    dodgeRatePct: scalePercent(item.dodgeRatePct, "dodgeRatePct"),
-    hpRegenPct: scalePercent(item.hpRegenPct, "hpRegenPct"),
-    ignoreDefense: scalePercent(item.ignoreDefense, "ignoreDefense"),
-    baseExpBonus: scalePercent(item.baseExpBonus, "baseExpBonus"),
-    jobExpBonus: scalePercent(item.jobExpBonus, "jobExpBonus"),
-    expBonus: scalePercent(item.expBonus, "expBonus"),
-    equipmentDrop: scalePercent(item.equipmentDrop, "equipmentDrop"),
-    cardDrop: scalePercent(item.cardDrop, "cardDrop"),
-    materialQuantityBonus: scalePercent(item.materialQuantityBonus, "materialQuantityBonus"),
-    powerPct: scalePercent(item.powerPct, "powerPct"),
-    combatPaceBonus: scalePercent(item.combatPaceBonus, "combatPaceBonus"),
-    patrolEfficiency: scalePercent(item.patrolEfficiency, "patrolEfficiency"),
-    hitRate: scalePercent(item.hitRate, "hitRate"),
-    statusResist: scalePercent(item.statusResist, "statusResist"),
-    echoChance: scalePercent(item.echoChance, "echoChance"),
-    mutationMaterialDoubleChance: scalePercent(item.mutationMaterialDoubleChance, "mutationMaterialDoubleChance"),
-    thornVitMultiplier: Number(((item.thornVitMultiplier || 0) * refineGrowthFactorForStat("thornVitMultiplier", item.refine || 0)).toFixed(3)),
-    abyssPower: scalePercent(item.abyssPower, "abyssPower"),
-    abyssResist: scalePercent(item.abyssResist, "abyssResist"),
-  };
-  [
-    "abyssDamageBonus",
-    "abyssBossDamageBonus",
-    "abyssDamageReduction",
-    "abyssMaterialDropBonus",
-    "abyssSkillDamageBonus",
-    "abyssExecuteDamageBonus",
-    "mythicWeightBonus",
-    "mythicEssenceDropBonus",
-    "rebirthPrestigeWeightBonus",
-    "setPowerBonus",
-    "finalDamageBonus",
-    "eliteDamageBonus",
-    "rareDropBonus",
-    "bossDamageReduction",
-  ].forEach((stat) => {
-    if (!(stat in stats)) addScaledStat(stats, stat, item[stat]);
-  });
-  (item.mechanicAffixes || []).forEach((id) => {
-    const mechanic = MECHANIC_AFFIXES[id];
-    Object.entries(mechanic?.effects || {}).forEach(([stat, value]) => {
-      addScaledStat(stats, stat, value);
-    });
-  });
-  Object.entries(item.abyssBonus || {}).forEach(([stat, value]) => {
-    addScaledStat(stats, stat, value);
-  });
-  (item.abyssAffixes || []).forEach((affix) => {
-    Object.entries(affix?.effects || {}).forEach(([stat, value]) => {
-      addScaledStat(stats, stat, value);
-    });
-  });
-  Object.entries(computeCardSocketBonuses(item)).forEach(([stat, value]) => {
-    stats[stat] = Number(((stats[stat] || 0) + Number(value || 0)).toFixed(statIsPercent(stat) || stat.endsWith("Bonus") ? 3 : 0));
-  });
-  if (includeRandom) {
-    const randomStats = normalizeRandomStats(item.randomStats);
-    attributeKeys.forEach((stat) => {
-      stats[stat] += Math.round((randomStats[stat] || 0) * multiplier);
-    });
-  }
-  const bonus = star15Bonus(item);
-  Object.entries(bonus).forEach(([stat, value]) => {
-    stats[stat] = Number(((stats[stat] || 0) + value).toFixed(statIsPercent(stat) || stat.endsWith("Bonus") ? 3 : 0));
-  });
-  return stats;
-}
+function legacyGetEffectiveItemStats(item, includeRandom = true) { return; }
 
 function getEffectiveItemStats(item, includeRandom = true) {
   const runtime = window.RuneFrontierEquipmentRuntime;
