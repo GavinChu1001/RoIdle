@@ -13917,71 +13917,15 @@ function addLogHtml(html) {
   state.log = state.log.slice(0, 24);
 }
 
-// [CANDIDATE-CLEANUP] Format utilities below duplicate src/utils/. Keep until unified tool loading.
-// formatDuration differs: game.js "小时/分钟", src/utils "时/分".
+// [CLEANED] Format/math utilities (formatNumber, formatDuration, percent, escapeHtml, etc.)
+// moved to tools.js. Loaded before game.js in index.html. See tools.js for authoritative source.
+
 function showToast(text) {
   els.toast.textContent = text;
   els.toast.classList.add("show");
   window.clearTimeout(toastTimer);
   toastTimer = window.setTimeout(() => els.toast.classList.remove("show"), 1800);
 }
-
-function formatNumber(value) {
-  if (!Number.isFinite(value)) return "0";
-  const abs = Math.abs(value);
-  if (abs >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(2)}B`;
-  if (abs >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`;
-  if (abs >= 10_000) return `${(value / 1_000).toFixed(1)}K`;
-  return `${Math.floor(value)}`;
-}
-
-function formatDuration(seconds) {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  if (h > 0) return `${h}小时${m}分钟`;
-  if (m > 0) return `${m}分钟`;
-  return `${Math.max(0, seconds)}秒`;
-}
-
-function percent(value) {
-  return `${Math.round((value || 0) * 100)}%`;
-}
-
-function formatSignedPercent(value) {
-  const safe = Number(value) || 0;
-  return `${safe >= 0 ? "+" : ""}${percent(safe)}`;
-}
-
-function formatDropRate(rate) {
-  if (!rate || rate <= 0) return "0%";
-  const value = rate * 100;
-  if (value < 0.01) return "<0.01%";
-  if (value < 1) return `${value.toFixed(2)}%`;
-  return `${value.toFixed(1)}%`;
-}
-
-function clampNumber(value, min, max) {
-  return Math.max(min, Math.min(max, Number.isFinite(value) ? value : min));
-}
-
-function escapeAttr(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-const devDiagnosticsEnabled = new URLSearchParams(window.location.search).get("dev") === "1";
 
 // [AUTHORITY] equipment-runtime: 28 config tables exposed. Module-owned: itemFactory, itemStats, itemScore, itemNaming, dismantle, refine, starRefine, socket. Deferred: equipmentTiers, ITEM_TIER_CONFIG, salvageRewards (in game.js data section).
 window.RuneFrontierLegacyEquipmentContext = () => Object.freeze({
@@ -14568,80 +14512,8 @@ window.RuneFrontierLegacyStateContext = () => Object.freeze({
   loadAuth, refreshAuthUi,
 });
 
-if (devDiagnosticsEnabled) {
-  const cloneForDev = (value) => {
-    try {
-      return JSON.parse(JSON.stringify(value));
-    } catch (error) {
-      return { cloneError: error?.message || "Unable to clone diagnostics value." };
-    }
-  };
-
-  const apiPresence = () => ({
-    renderAll: typeof renderAll === "function",
-    renderEquipment: typeof renderEquipment === "function",
-    renderSmithyPage: typeof renderSmithyPage === "function",
-    renderVip: typeof renderVip === "function",
-    renderCodex: typeof renderCodex === "function",
-    renderShop: typeof renderShop === "function",
-    computeStats: typeof computeStats === "function",
-    getEffectiveItemStats: typeof getEffectiveItemStats === "function",
-    calculateEquipmentScores: typeof calculateEquipmentScores === "function",
-    getVipProgressInfo: typeof getVipProgressInfo === "function",
-    getInventoryLimit: typeof getInventoryLimit === "function",
-    recordRecentLoot: typeof recordRecentLoot === "function",
-    rollDrops: typeof rollDrops === "function",
-    claimOffline: typeof claimOffline === "function",
-    tryAutoChallengeBoss: typeof tryAutoChallengeBoss === "function",
-  });
-
-  // [DEV-DIAGNOSTIC-ADAPTER] Required by selfCheck.js:59 and debugPanel.js for state inspection / maintenance.
-  // Do not remove until diagnostic tools are refactored to use a standalone bridge.
-  window.RuneFrontierDevBridge = Object.freeze({
-    getSnapshot() {
-      return {
-        state: cloneForDev(state),
-        maps: cloneForDev(maps.map((map) => ({ id: map.id, name: map.name }))),
-        mapDropTableAlias: cloneForDev(mapDropTableAlias),
-        equipmentDropTables: cloneForDev(equipmentDropTables),
-        materialDropTables: cloneForDev(materialDropTables),
-        materialNames: cloneForDev(materialNames),
-        materialDb: cloneForDev(MATERIAL_DB),
-        inventoryLimit: getInventoryLimit(),
-        vipProgress: cloneForDev(getVipProgressInfo(state.vip)),
-        playerCritRateCap: PLAYER_CRIT_RATE_CAP,
-        api: apiPresence(),
-      };
-    },
-    runMaintenance(action) {
-      if (action === "migrate") {
-        sanitizeProgression();
-        save();
-        renderAll();
-        return true;
-      }
-      if (action === "clear-log") {
-        state.log = [];
-        save();
-        renderAll();
-        return true;
-      }
-      if (action === "clear-recent-loot") {
-        state.recentLoot = [];
-        state.lootNotifyUnread = false;
-        state.lastLootViewedAt = Date.now();
-        save();
-        renderAll();
-        return true;
-      }
-      if (action === "render") {
-        renderAll();
-        return true;
-      }
-      return false;
-    },
-  });
-}
+// [DEV-DIAGNOSTIC-ADAPTER] Moved to src/dev/devBridge.js + src/main.js installation.
+// window.RuneFrontierDevBridge is now created by main.js in DEV_MODE via createDevBridge().
 
 let legacyRuntimeStarted = false;
 

@@ -43,7 +43,7 @@ for (const name of requiredLegacyFunctions) {
   assert.match(game, new RegExp(`function\\s+${name}\\s*\\(`), `Missing runtime authority function: ${name}`);
 }
 
-assert.match(game, /window\.RuneFrontierDevBridge\s*=/, 'Developer diagnostics bridge must remain available.');
+assert.match(main, /window\.RuneFrontierDevBridge\s*=/, 'Developer diagnostics bridge must remain available (now installed via main.js).');
 assert.match(html, /src="\.\/src\/main\.js"/, 'Module compatibility entry must remain loaded.');
 assert.match(html, /src="game\.js[^"]*"/, 'Classic runtime must remain loaded in this migration batch.');
 assert.match(main, /RUNTIME_AUTHORITY\s*=\s*'game\.js'/, 'Module entry must document the current runtime authority.');

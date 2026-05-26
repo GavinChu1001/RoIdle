@@ -79,6 +79,15 @@ if (typeof window.bootstrapLegacyRuntime === 'function') {
 }
 
 if (DEV_MODE) {
+  import('./dev/devBridge.js')
+    .then(({ createDevBridge }) => {
+      window.RuneFrontierDevBridge = createDevBridge({
+        state: window.state || {},
+        logCountFn: () => window.state?.log?.length || 0,
+        apiPresenceFn: () => ({}),
+      });
+    })
+    .catch((error) => console.error('[Dev Debug] Failed to initialize dev bridge.', error));
   import('./ui/debugPanel.js')
     .then(({ mountDebugPanel }) => mountDebugPanel())
     .catch((error) => console.error('[Dev Debug] Failed to initialize debug panel.', error));
