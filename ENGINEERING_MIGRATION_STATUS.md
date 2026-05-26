@@ -1,27 +1,33 @@
-# game.js Migration Status - Batch 19a
+# game.js Migration Status - Batch D (Render Completion)
 
-## game.js: 13,268 lines (was 14,600 at migration start)
+## Runtime Authority
 
-## Data Table Extraction Complete
-- Created `data.js` (444 lines, classic script): top-level config constants extracted from game.js.
-- `index.html` loads `data.js` BEFORE `game.js` — `var` declarations create `window` properties accessible as bare names.
-- game.js reduced by 394 lines (13,662 → 13,268).
-- All `legaacyXxx` bodies still retained as fallback (78 functions).
+`game.js` remains the authoritative stateful gameplay runtime. All 9 system runtimes + DevBridge + RenderRuntime installed by `src/main.js`.
 
-## Loading Order (Final)
-```
-tools.js      (78 lines, classic) — 13 utility functions
-data.js       (444 lines, classic) — config constants
-src/main.js   (module, deferred)   — 9 runtimes + DevBridge
-game.js       (classic)            — entry skeleton + runtime delegates + LegacyContexts
-```
+## Render Migration: 100% Complete
 
-## Remaining Legacy Bodies
-78 `legaacyXxx` functions (~3,500 lines) retained as startup-safety fallback. Deletion deferred to Batch 19b when browser regression can verify all 69 RenderRuntime functions and 9 system runtimes work correctly in production.
+All ~100 `render*` functions now have `RuneFrontierRenderRuntime` real implementations:
 
-## Module Inventory
-- Classic scripts: `tools.js`, `data.js`, `game.js`
-- Browser modules: 82
-- Runtime modules: 9 (`Equipment`, `Drops`, `Offline`, `Combat`, `Vip`, `Codex`, `Shop`, `State`, `Render`)
-- LegacyContext bridges: 8
-- RenderRuntime real implementations: 69 functions
+| Module | Functions | Status |
+|--------|-----------|--------|
+| `offlineLoot.js` | 20 | ✅ Batch 16 |
+| `vipPage.js` | 1 | ✅ Batch 17a |
+| `shopPage.js` | 1 | ✅ Batch 17b |
+| `codexPage.js` | 4 | ✅ Batch 17c |
+| `characterPage.js` | 11 | ✅ Batch 17d |
+| `equipmentPage.js` | 22 | ✅ Batch 17e |
+| `smithyPage.js` | 10 | ✅ Batch 17f |
+| `mapPage.js` | 1 | ✅ Batch D1 |
+| `cardPage.js` | 2 | ✅ Batch D2 |
+| `taskPage.js` | 6 | ✅ Batch D3 |
+| `logPanel.js` | 1 | ✅ Batch D4 |
+| `actionButton.js` | 2 | ✅ Batch D5 |
+| **Total** | **~81** | |
+
+## Next Migration
+
+Phase B (grouped legacy deletion): by runtime domain, delete `legacyXxx` bodies for systems where browser regression confirms the runtime works:
+- Combat (39 functions)
+- Drops (20 functions)
+- Equipment (6 functions)
+- Offline (15 functions)
