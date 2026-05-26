@@ -863,4 +863,99 @@ normalCombat.updateCombat(1);
 assert.equal(roundState.enemyHp, 0, 'Online combat round must apply the active-target hit once.');
 assert.equal(settledRounds, 1, 'Online combat round must settle a defeated target once.');
 
-console.log('Migration batch 7 tests passed: combat-round routing and existing reward settlement are intact.');
+// VIP module tests
+const vipSource = read('src/systems/vip.js');
+const vip = await importSource(vipSource);
+vip.configureVipContext({
+  getVipMaxLevel: () => 10,
+  getVipExpRequirements: () => [0, 100, 300, 700, 1500, 3000, 6000, 10000, 16000, 24000, 36000],
+  getVipBonusPerLevel: () => ({ gold: 0.06, itemDrop: 0.025, equipmentDrop: 0.02 }),
+  getVipMilestoneBonuses: () => ({ 5: { allStatsPct: 0.05 }, 10: { allStatsPct: 0.15 } }),
+  getOnlineRewardLevels: () => [{ minutes: 15 }, { minutes: 30 }, { minutes: 60 }],
+  gainExp: () => {},
+  getDisplayItemName: (item) => item?.name || '',
+});
+const normalized = vip.normalizeVip({ level: -1, exp: 50, totalExp: 200 }, vip.vipContext);
+assert.equal(normalized.level, 0, 'VIP level must be clamped to zero.');
+assert.equal(normalized.exp, 50, 'VIP normalize must preserve raw exp.');
+assert.equal(normalized.totalExp, 200, 'VIP normalize must preserve total exp.');
+const maxed = vip.normalizeVip({ level: 15, exp: 0, totalExp: 99999 }, vip.vipContext);
+assert.equal(maxed.level, 10, 'VIP level must be capped at max level.');
+const bonuses = vip.getVipBonuses(5, vip.vipContext);
+assert.equal(bonuses.gold, 0.3, 'VIP gold bonus at level 5 must be 5 * 0.06.');
+assert.equal(bonuses.equipmentDrop, 0.1, 'VIP equipment drop bonus at level 5 must be 5 * 0.02.');
+const progress = vip.getVipProgressInfo({ level: 1, totalExp: 150 }, vip.vipContext);
+assert.equal(progress.level, 1, 'VIP progress must report current level.');
+assert.ok(progress.requiredForNext >= 100, 'VIP progress must report a valid next-level requirement.');
+assert.ok(progress.progressPct > 0 && progress.progressPct < 1, 'VIP progress percentage must be between 0 and 1.');
+const maxProgress = vip.getVipProgressInfo({ level: 10, totalExp: 99999 }, vip.vipContext);
+assert.equal(maxProgress.isMax, true, 'Max VIP level must be detected.');
+
+// Codex module tests
+const codexSource = read('src/systems/codex.js');
+const codex = await importSource(codexSource);
+const mockConfig = {
+  grass: {
+    name: '南门青草地',
+    monsters: [{ id: 'poring', name: '波波利' }, { id: 'lunatic', name: '疯兔' }],
+    bossTemplate: { id: 'grass_boss', name: '青草首领' },
+  },
+  forest: {
+    name: '斑光森林',
+    monsters: [{ id: 'shroom', name: '蘑菇怪' }],
+    bossTemplate: { id: 'forest_boss', name: '森林首领' },
+  },
+};
+codex.configureCodexContext({
+  getMapMonsterConfig: () => mockConfig,
+  getCardPool: () => [{ monsterId: 'poring', name: '波波利卡片' }, { monsterId: 'poring', name: '波波利★' }],
+  getKillMilestones: () => [1, 100, 1000, 5000],
+  getKillRewards: () => ({ 1: { atk: 1 }, 100: { atk: 2, hp: 100 } }),
+  getStatCaps: () => ({ atk: 50, hp: 5000 }),
+  getCardMilestones: () => [3, 5, 8],
+  getCardRewards: () => [{ atk: 5 }, { atk: 10, hp: 200 }, { atk: 20, hp: 500 }],
+  getMasteryThresholds: () => [0, 10, 100, 500],
+  getResearchThresholds: () => [0, 1, 10, 50],
+  getMasteryBonuses: () => ({ 1: { damageBonus: 0.05 } }),
+  getResearchBonuses: () => ({ 1: { dropBonus: 0.1 } }),
+  getCaps: () => ({ mastery: 3, research: 3 }),
+});
+const nameMap = codex.buildMonsterNameMap();
+assert.equal(nameMap.poring, '波波利', 'Monster name map must resolve normal monsters.');
+assert.equal(nameMap.grass_boss, '青草首领', 'Monster name map must resolve boss templates.');
+assert.equal(nameMap.shroom, '蘑菇怪', 'Monster name map must span multiple config entries.');
+const sourceMap = codex.buildMonsterSourceMap();
+assert.deepEqual(sourceMap.poring, ['南门青草地'], 'Monster source map must resolve single-map monsters.');
+const cardMap = codex.buildMonsterCardDropMap();
+assert.ok(cardMap.poring.length >= 2, 'Card drop map must collect all cards for a monster.');
+assert.equal(codex.getMonsterTypeLabel('poring'), '普通', 'Monster type label must detect normal monsters.');
+assert.ok(codex.getMonsterTypeLabel('grass_boss').includes('Boss'), 'Monster type label must detect bosses.');
+
+// Shop module tests
+const shopSource = read('src/systems/shop.js');
+const shop = await importSource(shopSource);
+const shopState = { shopState: { dailyPurchases: {}, weeklyPurchases: {}, totalPurchases: {}, lastDailyRefresh: '', lastWeeklyRefresh: '' } };
+shop.configureShopContext({
+  getState: () => shopState,
+  getMaterialName: (id) => ({ dust: '研磨粉', gold: '金币' }[id] || id),
+});
+shop.normalizeShopState();
+const today = new Date().toISOString().slice(0, 10);
+assert.equal(shopState.shopState.lastDailyRefresh, today, 'Shop normalize must set today as lastDailyRefresh.');
+assert.equal(shopState.shopState.dailyPurchases && typeof shopState.shopState.dailyPurchases === 'object', true, 'Shop normalize must ensure daily purchases object.');
+shopState.shopState.dailyPurchases.potion = 2;
+assert.equal(shop.getShopPurchaseCount('potion', 'daily'), 2, 'Shop purchase count must return daily purchases.');
+shopState.shopState.weeklyPurchases.scroll = 1;
+assert.equal(shop.getShopPurchaseCount('scroll', 'weekly'), 1, 'Shop purchase count must return weekly purchases.');
+assert.equal(shop.getShopPurchaseCount('new-item', 'daily'), 0, 'Shop purchase count must default to zero for unvisited items.');
+const goldCost = shop.formatShopCostItem('gold', 5000);
+assert.match(goldCost, /金币/, 'Shop gold cost must show Chinese label.');
+assert.match(goldCost, /5[,.]?000/, 'Shop gold cost must include formatted amount.');
+const matCost = shop.formatShopCostItem('dust', 99);
+assert.match(matCost, /研磨粉/, 'Shop material cost must show material name.');
+assert.match(matCost, /99/, 'Shop material cost must include quantity.');
+const formatted = shop.formatShopCost({ gold: 1000, dust: 50 });
+assert.match(formatted, /金币/, 'Formatted cost must include gold entry.');
+assert.match(formatted, /研磨粉/, 'Formatted cost must include material entry.');
+
+console.log('Migration batch 7 tests passed: combat-round routing, VIP, Codex, Shop, and existing reward settlement are intact.');
