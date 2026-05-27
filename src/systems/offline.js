@@ -337,7 +337,13 @@ export function rollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutati
     const rarity = random(context) < mythicRate ? 'mythic' : random(context) < darkRate ? 'darkGold' : 'legend';
     const template = set.items[Math.floor(random(context) * set.items.length)];
     const range = context.getMapLevelRange?.(map) || { maxLevel: 1 };
-    const dropLevel = template.level || range.maxLevel;
+    const baseLevel = template.level || range.maxLevel;
+    const dropLevel = context.resolveEquipmentDropLevel?.({
+      baseLevel,
+      mapId: map.id,
+      difficulty,
+      source: 'offline-zodiac-set',
+    }) ?? baseLevel;
     const item = context.createItem?.(template, dropLevel, rarity, { dropMapId: map.id, dropLevel, difficulty, allowMythic: rarity === 'mythic' });
     if (!item) continue;
     processGeneratedOfflineEquipment(rewards, [item], capacity, {}, context);
@@ -380,7 +386,13 @@ export function rollOfflineTransitionSetDrops(rewards, stats, map, killCount, co
     if (!set?.items?.length) continue;
     const template = set.items[Math.floor(random(context) * set.items.length)];
     const range = context.getMapLevelRange?.(map) || { maxLevel: 1 };
-    const dropLevel = template.level || range.maxLevel;
+    const baseLevel = template.level || range.maxLevel;
+    const dropLevel = context.resolveEquipmentDropLevel?.({
+      baseLevel,
+      mapId: map.id,
+      difficulty,
+      source: 'offline-transition-set',
+    }) ?? baseLevel;
     const item = context.createItem?.(template, dropLevel, template.rarity || 'rare', { dropMapId: map.id, dropLevel, difficulty });
     if (!item) continue;
     processGeneratedOfflineEquipment(rewards, [item], capacity, {}, context);

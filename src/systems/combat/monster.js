@@ -256,7 +256,24 @@ export function buildMonsterStats(map, isBoss, level, template = null, mutationI
   };
   const baselineStats = applyDifficultyTierBaseline(map, baseStats, isBoss, state.currentDifficulty, context);
   const difficultyType = getMonsterDifficultyType({ isBoss, monster: mTemplate, mutation, difficultyId: state.currentDifficulty }, context);
-  const finalStats = applyMonsterDifficultyModifier(baselineStats, difficultyType, context);
+  let finalStats = applyMonsterDifficultyModifier(baselineStats, difficultyType, context);
+
+  // 转生模式难度加成
+  if (state.rebirthMode && (state.hero?.rebirths || 0) > 0) {
+    const rebirths = state.hero.rebirths || 0;
+    const perRebirth = (typeof window !== 'undefined' ? window.REBIRTH_MODE_DIFFICULTY_PER_REBIRTH : undefined) ?? 0.08;
+    const cap = (typeof window !== 'undefined' ? window.REBIRTH_MODE_DIFFICULTY_CAP : undefined) ?? 2.0;
+    const diffMult = Math.min(cap, 1 + rebirths * perRebirth);
+    finalStats = {
+      ...finalStats,
+      maxHp: Math.round(finalStats.maxHp * diffMult),
+      attack: Math.round(finalStats.attack * (1 + (diffMult - 1) * 0.85)),
+      defense: Math.round(finalStats.defense * (1 + (diffMult - 1) * 0.7)),
+      exp: Math.round(finalStats.exp * (1 + (diffMult - 1) * 0.5)),
+      jobExp: Math.round(finalStats.jobExp * (1 + (diffMult - 1) * 0.5)),
+      gold: Math.round(finalStats.gold * (1 + (diffMult - 1) * 0.5)),
+    };
+  }
   return {
     id: mTemplate.id || `${map.id}_${isBoss ? 'boss' : 'monster'}`,
     name: nameParts.join(' '),

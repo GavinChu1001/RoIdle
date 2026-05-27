@@ -55,7 +55,15 @@ export function renderHeroes(ctx = charCtx) {
         <button type="button" data-batch-upgrade="base" ${atBaseCap ? 'disabled' : ''}>\u6279\u91cf\u8bad\u7ec3</button>
         <button class="ghost" type="button" data-rebirth ${atBaseCap ? '' : 'disabled'}>\u8f6c\u751f</button>
       </div>
-      <details class="hero-details">
+      ${F(state.hero?.rebirths) > 0 ? `
+      <div class="rebirth-mode-section">
+        <label class="rebirth-toggle">
+          <input type="checkbox" data-rebirth-mode ${state.rebirthMode ? 'checked' : ''} />
+          <span>\u8f6e\u56de\u6a21\u5f0f</span>
+        </label>
+        <span class="rebirth-seal-count">\u26a1 \u8f6e\u56de\u5370\u8bb0\uff1a${fmtn(state.rebirthSeals || 0)}</span>
+      </div>` : ''}
+      <details class="hero-details" ${state.heroDetailsOpen !== false ? 'open' : ''}>
         <summary>\u5c5e\u6027\u6765\u6e90 \xb7 \u5957\u88c5 \xb7 \u79f0\u53f7 \xb7 \u6280\u80fd</summary>
         ${ctx.renderCharacterStatSections?.(stats) || ''}
         ${ctx.renderCharacterStatBreakdown?.(stats) || ''}
@@ -67,12 +75,70 @@ export function renderHeroes(ctx = charCtx) {
           <small>\u7d2f\u8ba1\u8f6c\u751f ${prestige.totalRebirths} \u6b21 \xb7 \u5f71\u54cd\u88c5\u5907\u54c1\u8d28\u6743\u91cd\uff0c\u4e0d\u589e\u52a0\u88c5\u5907\u6389\u843d\u6570\u91cf</small>
           <small>\u7a00\u6709+ +${pct(prestigeBonus.rarePlusWeightBonus)} \xb7 \u53f2\u8bd7+ +${pct(prestigeBonus.epicPlusWeightBonus)} \xb7 \u4f20\u8bf4+ +${pct(prestigeBonus.legendPlusWeightBonus)} \xb7 \u6697\u91d1+ +${pct(prestigeBonus.darkGoldPlusWeightBonus)} \xb7 \u795e\u8bdd +${pct(prestigeBonus.mythicWeightBonus)}</small>
         </section>
+        ${renderRebirthResearchPanel(state, fmtn)}
         <p class="job-growth">${ctx.describeJobGrowth?.() || ''}</p>
         <section class="skill-panel">${ctx.renderSkillPanel?.() || ''}</section>
       </details>
       <div class="meter"><div style="width:${Math.min(1, F(state.hero?.jobExp) / jobExpCost) * 100}%"></div></div>
     </div>
   </article>`;
+}
+
+function renderRebirthResearchPanel(state, fmtn) {
+  if (F(state.hero?.rebirths) <= 0) return '';
+  const tree = window.REBIRTH_RESEARCH_TREE || [];
+  const affixes = window.REBIRTH_FORGE_AFFIXES || [];
+  const runtime = window.RuneFrontierRebirthRuntime;
+  const seals = F(state.rebirthSeals);
+  const research = state.rebirthResearch || {};
+  const forging = state.rebirthForging || {};
+
+  const researchNodes = tree.map((node) => {
+    const unlocked = research[node.id]?.unlocked;
+    const canUnlock = runtime?.canUnlockNode?.(node.id) ?? false;
+    const requiresMet = (node.requires || []).every((req) => research[req]?.unlocked);
+    let status = '';
+    if (unlocked) status = `<span class="rebirth-node-unlocked">\u2713 \u5df2\u89e3\u9501</span>`;
+    else if (canUnlock) status = `<button type="button" class="rebirth-node-btn" data-rebirth-research="${esc(node.id)}">\u89e3\u9501 ${esc(node.desc)}\uff08\u6d88\u8017 ${fmtn(node.cost)} \u5370\u8bb0\uff09</button>`;
+    else status = `<span class="rebirth-node-locked">\u9501 ${esc(node.desc)}\uff08${requiresMet ? `\u5370\u8bb0\u4e0d\u8db3\uff08\u9700 ${fmtn(node.cost)}` : '\u524d\u7f6e\u672a\u89e3\u9501'}）</span>`;
+    return `<div class="rebirth-node"><strong>${esc(node.name)}</strong>${status}</div>`;
+  }).join('');
+
+  const forgeNodes = affixes.map((affix) => {
+    const currentLevel = F(forging[affix.id]);
+    const maxLevel = affix.maxLevel || 5;
+    const canUpgrade = runtime?.canUpgradeAffix?.(affix.id) ?? false;
+    const cost = runtime?.getAffixUpgradeCost?.(affix.id) ?? Infinity;
+    let action = '';
+    if (currentLevel >= maxLevel) action = `<span class="rebirth-node-unlocked">\u2713 \u5df2\u6ee1\u7ea7 Lv.${fmtn(currentLevel)}/${fmtn(maxLevel)}</span>`;
+    else if (canUpgrade) action = `<button type="button" class="rebirth-node-btn" data-rebirth-forge="${esc(affix.id)}">\u5347\u7ea7\u81f3 Lv.${fmtn(currentLevel + 1)}\uff08\u6d88\u8017 ${fmtn(cost)} \u5370\u8bb0\uff09</button>`;
+    else action = `<span class="rebirth-node-locked">\u5370\u8bb0\u4e0d\u8db3\uff08\u9700 ${fmtn(cost)}）</span>`;
+    return `<div class="rebirth-node"><strong>${esc(affix.name)} Lv.${fmtn(currentLevel)}/${fmtn(maxLevel)}</strong><small>${esc(affix.desc)}</small>${action}</div>`;
+  }).join('');
+
+  return `
+    <section class="rebirth-panel">
+      <strong>\u8f6c\u751f\u7814\u7a76</strong>
+      <small>\u5f53\u524d\u5370\u8bb0\uff1a${fmtn(seals)}</small>
+      ${researchNodes}
+      ${forgeNodes ? '<hr /><strong>\u8f6e\u56de\u953b\u9020</strong>' + forgeNodes : ''}
+      ${renderAwakeningSection(state, fmtn)}
+    </section>`;
+}
+
+function renderAwakeningSection(state, fmtn) {
+  const runtime = window.RuneFrontierRebirthRuntime;
+  const config = runtime?.getAwakenableSkill?.();
+  if (!config) return '';
+  const jobId = (window.currentJob?.() || {}).id;
+  const awakened = runtime?.isSkillAwakened?.(jobId);
+  if (awakened) return '<hr /><strong>\u89c9\u9192</strong><span class="rebirth-node-unlocked">\u2713 \u5df2\u89c9\u9192\uff1a' + esc(config.skill) + '\u2014\u2014' + esc(config.desc) + '</span>';
+  const hasAwakeningMarks = Object.prototype.hasOwnProperty.call(state || {}, 'awakeningMarks');
+  const marks = Math.max(0, Number(state?.awakeningMarks) || 0);
+  const canDo = hasAwakeningMarks && marks >= Number(config.cost || 0);
+  if (canDo) return '<hr /><strong>\u89c9\u9192</strong><button type="button" class="rebirth-node-btn" data-rebirth-awaken>' + esc(config.skill) + '\uff1a' + esc(config.desc) + '\uff08\u6d88\u8017 ' + fmtn(config.cost) + ' \u89c9\u9192\u5370\u8bb0\uff09</button>';
+  if (!hasAwakeningMarks) return '<hr /><strong>\u89c9\u9192</strong><span class="rebirth-node-locked">\u89c9\u9192\u5370\u8bb0\u83b7\u53d6\u6682\u672a\u5f00\u653e\uff1a' + esc(config.desc) + '\uff08\u9700 ' + fmtn(config.cost) + ' \u89c9\u9192\u5370\u8bb0\uff09</span>';
+  return '<hr /><strong>\u89c9\u9192</strong><span class="rebirth-node-locked">\u89c9\u9192\u5370\u8bb0\u4e0d\u8db3\uff08\u9700 ' + fmtn(config.cost) + '\uff09\uff1a' + esc(config.desc) + '</span>';
 }
 
 export function renderPowerSourcePanel(stats, ctx = charCtx) {
@@ -224,13 +290,22 @@ export function renderTitlePanel(ctx = charCtx) {
 
 export function renderSkillSummaryCard(ctx = charCtx) {
   const state = ctx.getState?.() || {};
-  const unlocked = ctx.getUnlockedSkills?.() || [];
+  const stats = ctx.computeStats?.() || {};
+  // V3 被动机制效果
+  const passiveEffects = window.RuneFrontierCombatRuntime?.getPassiveMechanismEffects?.(state, stats) || {};
+  const v3Entries = [];
+  if (passiveEffects.damagePct) v3Entries.push(`伤害 +${pct(passiveEffects.damagePct)}`);
+  if (passiveEffects.damageReductionPct) v3Entries.push(`减伤 +${pct(passiveEffects.damageReductionPct)}`);
+  if (passiveEffects.ignoreDefRatio) v3Entries.push(`忽视防御 ${pct(passiveEffects.ignoreDefRatio)}`);
+  if (passiveEffects.critDamageBonus) v3Entries.push(`暴击伤害 +${pct(passiveEffects.critDamageBonus)}`);
+  if (passiveEffects.markedVulnerablePct) v3Entries.push(`标记增伤 +${pct(passiveEffects.markedVulnerablePct)}`);
+  // 兜底：显示旧被动
   const passiveTotal = ctx.getPassiveSkillTotals?.() || {};
-  return `<section class="skill-summary"><strong>\u88ab\u52a8\u6280\u80fd\u52a0\u6210</strong>
-    <div class="stat-grid">${Object.entries(passiveTotal).map(([k, v]) => {
-      if (!v || k === 'atkPct' || k === 'matkPct') return '';
-      return `<span>${ctx.statLabelName?.(k) || k} +${fmtn(v)}</span>`;
-    }).filter(Boolean).join('')}</div>
+  const oldEntries = Object.entries(passiveTotal).filter(([k, v]) => v && k !== 'atkPct' && k !== 'matkPct')
+    .map(([k, v]) => `<span>${ctx.statLabelName?.(k) || k} +${fmtn(v)}</span>`);
+  const allEntries = [...v3Entries.map((e) => `<span>${e}</span>`), ...oldEntries];
+  return `<section class="skill-summary"><strong>被动机制</strong>
+    <div class="stat-grid">${allEntries.join('') || '<span>暂未解锁被动技能</span>'}</div>
   </section>`;
 }
 
@@ -242,6 +317,19 @@ export function renderJobSkills(ctx = charCtx) {
   const milestoneFn = ctx.getSkillMilestoneBonuses || (() => ({}));
   const descFn = ctx.describeSkillMilestone || (() => '');
 
+  // V3 技能数据优先
+  const v3Skills = ctx.getV3CombatSkills?.(job.id) || window.v3JobSkills?.[job.id] || [];
+  const cds = state.skillCooldowns || {};
+
+  // 渲染 V3 技能（如果有）
+  if (v3Skills.length) {
+    return `<section class="job-skills-section skill-v3-section"><strong>技能机制</strong>
+      <p class="codex-desc">技能伤害 = ATK/MATK × 总倍率 × 暴击期望修正 × 怪物减伤修正</p>
+      <div class="stat-grid">${v3Skills.map((entry) => renderV3SkillEntry(entry, job, cds)).join('')}</div>
+    </section>`;
+  }
+
+  // 兜底：旧技能渲染
   return `<section class="job-skills-section"><strong>\u4e3b\u52a8\u6280\u80fd</strong>
     <div class="stat-grid">${(job.skills || []).map((entry, i) => {
       const unlocked = skills.find((s) => s.name === entry.name);
@@ -259,11 +347,81 @@ export function renderJobSkills(ctx = charCtx) {
   </section>`;
 }
 
+function renderV3SkillEntry(entry, job, cooldowns) {
+  const isPassive = entry.kind === '被动';
+  const cooldown = Math.max(0, F(entry.cooldown));
+  const remaining = Math.max(0, F(cooldowns?.[entry.id]));
+  const progress = cooldown > 0 ? Math.max(0, Math.min(100, (1 - remaining / cooldown) * 100)) : 100;
+  const typeText = isPassive ? '被动机制' : `主动 · ${formatV3Seconds(cooldown)}s`;
+  const statusClass = isPassive ? 'skill-status-passive' : remaining > 0 ? 'skill-status-cd' : 'skill-status-ready';
+  const statusText = isPassive ? '持续生效' : remaining > 0 ? `冷却中 ${formatV3Seconds(remaining)}s` : '⚡可释放';
+  const mechanismText = v3MechanismText(entry.mechanism);
+  const attackTypeText = isPassive ? '持续生效' : entry.mechanism?.stat === 'matk' ? '魔法攻击' : '物理攻击';
+  const awakening = window.v3SkillAwakenings?.[job.id];
+  const awakeningText = awakening?.skill === entry.name
+    ? `<p class="skill-awakening-hint">觉醒：${esc(awakening.desc)} · 消耗 ${fmtn(awakening.cost)} 觉醒印记</p>`
+    : '';
+
+  return `<article class="skill-entry skill-v3-entry ${isPassive ? 'is-passive' : 'is-active'}">
+    <div class="skill-title-row">
+      <strong>${esc(entry.name)}</strong>
+      <small class="skill-kind">${typeText}</small>
+    </div>
+    <p class="codex-desc">${esc(entry.description || '暂无技能说明')}</p>
+    <div class="skill-effect-summary">
+      <span>机制：${esc(mechanismText)} · ${attackTypeText}</span>
+      <span class="skill-status ${statusClass}">${statusText}</span>
+    </div>
+    ${!isPassive && cooldown > 0 ? `<div class="skill-cd-bar" aria-label="冷却状态"><div style="width:${progress}%"></div></div>` : ''}
+    ${awakeningText}
+  </article>`;
+}
+
+function formatV3Seconds(value) {
+  const rounded = Math.round(F(value) * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
+function v3MechanismText(mechanism = {}) {
+  const labels = {
+    multihit: '多段连击',
+    selfDamage: '自伤爆发',
+    deathDefy: '濒死守护',
+    hpThreshold: '生命阈值增益',
+    zone: '区域持续效果',
+    finisher: '终结技',
+    enhanceSkill: '技能强化',
+    singleHit: '元素标记攻击',
+    elementalResonance: '元素联动',
+    cooldownReduce: '冷却联动',
+    statusExploitAll: '状态爆发',
+    markDuration: '标记强化',
+    ignoreDefIfMarked: '标记破防',
+    statusExploit: '状态追击',
+    markedVulnerable: '标记易伤',
+    heal: '治疗',
+    lifestealDamage: '伤害转治疗',
+    shield: '护盾防护',
+    revive: '复活',
+    goldCost: '金币爆发',
+    goldBonus: '金币收益',
+    selfBuff: '自我强化',
+    stackTrigger: '叠层触发',
+    delayedBurst: '延迟爆发',
+    goldGenerate: '攻击产金币',
+    stealth: '隐匿爆发',
+    spreadMark: '状态扩散',
+    markedCritBonus: '状态暴击强化',
+  };
+  return labels[mechanism?.type] || '特殊机制';
+}
+
 export function renderSkillMilestonePanel(entry, unlocked, ctx = charCtx) {
   if (!unlocked) return '';
-  const milestones = ctx.getSkillMilestoneEntries?.(entry) || [];
+  const milestones = (ctx.getSkillMilestoneEntries?.(entry) || [])
+    .filter((ms) => Number.isFinite(Number(ms?.level)));
   if (!milestones.length) return '';
-  return `<div class="skill-milestones">${milestones.map((ms) => `<span class="skill-milestone"><small>Lv.${ms.level}</small><strong>${esc(ms.label || '')}</strong></span>`).join('')}</div>`;
+  return `<div class="skill-milestones">${milestones.map((ms) => `<span class="skill-milestone"><small>Lv.${fmtn(ms.level)}</small><strong>${esc(ms.label || '')}</strong></span>`).join('')}</div>`;
 }
 
 export function renderSkillSpecialization(entry, unlocked, growth, ctx = charCtx) {

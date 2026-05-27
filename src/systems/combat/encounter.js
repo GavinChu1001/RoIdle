@@ -2,6 +2,34 @@ import { buildMonsterStats, configureMonsterContext, currentDifficultyConfig, ge
 
 let encounterContext = {};
 
+function getGlobal(name) {
+  return typeof window !== 'undefined' ? window[name] : undefined;
+}
+
+function getRebirthSealDropChanceSquad() {
+  return getGlobal('REBIRTH_SEAL_DROP_CHANCE_SQUAD') ?? 0.35;
+}
+
+function getRebirthSealDropChanceBoss() {
+  return getGlobal('REBIRTH_SEAL_DROP_CHANCE_BOSS') ?? 1.0;
+}
+
+function getRebirthSquadSpawnChance() {
+  return getGlobal('REBIRTH_SQUAD_SPAWN_CHANCE') ?? 0.15;
+}
+
+function getRebirthBossSpawnChance() {
+  return getGlobal('REBIRTH_BOSS_SPAWN_CHANCE') ?? 0.05;
+}
+
+function getRebirthSquadSizeMin() {
+  return getGlobal('REBIRTH_SQUAD_SIZE_MIN') ?? 3;
+}
+
+function getRebirthSquadSizeMax() {
+  return getGlobal('REBIRTH_SQUAD_SIZE_MAX') ?? 5;
+}
+
 function finite(value) {
   return Number.isFinite(Number(value || 0)) ? Number(value || 0) : 0;
 }
@@ -33,6 +61,8 @@ export function getEncounterSize(isBoss = false, context = encounterContext) {
 
 export function getEncounterLabel(monsters = [], context = encounterContext) {
   const state = context.getState?.() || {};
+  if (monsters.some((m) => m.rebirthType === 'rebirthBoss')) return '轮回Boss';
+  if (monsters.some((m) => m.rebirthType === 'rebirthSquad')) return '轮回小队';
   if (state.currentDifficulty === 'abyss') return monsters.some((m) => m.mutation) ? '深渊突袭' : '深渊遭遇';
   if (monsters.some((m) => m.mutation)) return '变异突袭';
   if (monsters.some((m) => m.type === 'elite')) return '精英带队';
@@ -60,6 +90,30 @@ export function createEnemyGroup(map, isBoss = false, context = encounterContext
   return { label, activeIndex: 0, monsters };
 }
 
+export function createRebirthSquadGroup(map, context = encounterContext) {
+  const state = context.getState?.() || {};
+  const size = randomIntVal(getRebirthSquadSizeMin(), getRebirthSquadSizeMax(), context);
+  const monsters = Array.from({ length: size }, () => {
+    const monster = createEncounterMonster(map, false, context);
+    monster.name = `⚡轮回 ${monster.name}`;
+    monster.rebirthType = 'rebirthSquad';
+    return monster;
+  });
+  return { label: '轮回小队', activeIndex: 0, monsters, rebirthEncounter: true };
+}
+
+export function createRebirthBossGroup(map, context = encounterContext) {
+  const monster = createEncounterMonster(map, true, context);
+  monster.name = `⚡轮回 ${monster.name}`;
+  monster.rebirthType = 'rebirthBoss';
+  // Boss stats already boosted; add extra rebirth oomph
+  monster.maxHp = Math.round(monster.maxHp * 1.15);
+  monster.attack = Math.round(monster.attack * 1.1);
+  monster.defense = Math.round(monster.defense * 1.05);
+  monster.currentHp = monster.maxHp;
+  return { label: '轮回Boss', activeIndex: 0, monsters: [monster], rebirthEncounter: true };
+}
+
 export function normalizeEnemyGroup(group, context = encounterContext) {
   if (!group || !Array.isArray(group.monsters) || !group.monsters.length) return null;
   const monsters = group.monsters.map((monster) => ({
@@ -79,15 +133,30 @@ export function spawnEnemy(isBoss = false, context = encounterContext) {
   const showBossFn = context.showBossBanner;
   if (!state || !currentMapFn) return;
   const map = currentMapFn();
-  state.enemyBoss = Boolean(isBoss);
-  state.enemyGroup = createEnemyGroup(map, state.enemyBoss, context);
+
+  const rebirthMode = Boolean(state.rebirthMode && (state.hero?.rebirths || 0) > 0);
+
+  if (!isBoss && rebirthMode && random(context) < getRebirthBossSpawnChance()) {
+    state.enemyBoss = true;
+    state.enemyGroup = createRebirthBossGroup(map, context);
+  } else if (!isBoss && rebirthMode && random(context) < getRebirthSquadSpawnChance()) {
+    state.enemyBoss = false;
+    state.enemyGroup = createRebirthSquadGroup(map, context);
+  } else {
+    state.enemyBoss = Boolean(isBoss);
+    state.enemyGroup = createEnemyGroup(map, state.enemyBoss, context);
+  }
+
   syncActiveEnemyFromGroup(context);
   state.enemyAttackTimer = 0;
   state.playerAttackTimer = 0;
   state.damageCarry = 0;
+  state.reviveUsedThisLife = false;
   if (state.enemyBoss && showBossFn) showBossFn(map);
   (state.enemyGroup?.monsters || []).forEach((monster) => {
     if (monster.mutation && addLogFn) addLogFn(`遭遇变异怪：${monster.name}。`);
+    if (monster.rebirthType === 'rebirthBoss' && addLogFn) addLogFn(`⚡轮回Boss降临：${monster.name}！`);
+    if (monster.rebirthType === 'rebirthSquad' && addLogFn) addLogFn(`⚡轮回小队出现：${monster.name}。`);
   });
 }
 

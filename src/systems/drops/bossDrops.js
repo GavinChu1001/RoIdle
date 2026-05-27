@@ -1,3 +1,5 @@
+import { resolveEquipmentDropLevel } from './equipmentDrops.js';
+
 let runtimeContext = {};
 
 export function configureBossDropsContext(context = {}) {
@@ -56,7 +58,12 @@ export function rollZodiacSetDrops(monster, stats = {}, options = {}, context = 
   const rarity = random(context) < mythicRate ? 'mythic' : random(context) < darkRate ? 'darkGold' : 'legend';
   const template = set.items[Math.floor(random(context) * set.items.length)];
   const range = context.getMapLevelRange?.(map) || { maxLevel: 1 };
-  const dropLevel = monster?.level || template.level || range.maxLevel;
+  const dropLevel = resolveEquipmentDropLevel({
+    baseLevel: monster?.level || template.level || range.maxLevel,
+    mapId: map.id,
+    difficulty,
+    source: 'zodiac-set',
+  }, context);
   const item = context.createItem?.(template, dropLevel, rarity, { dropMapId: map.id, dropLevel, difficulty, allowMythic: rarity === 'mythic' });
   if (!item) return 0;
   context.addEquipmentToInventory?.(item, { logDrop: true });
@@ -87,7 +94,12 @@ export function rollTransitionSetDrops(monster, stats = {}, options = {}, contex
   if (!set?.items?.length) return 0;
   const template = set.items[Math.floor(random(context) * set.items.length)];
   const range = context.getMapLevelRange?.(map) || { maxLevel: 1 };
-  const dropLevel = monster?.level || template.level || range.maxLevel;
+  const dropLevel = resolveEquipmentDropLevel({
+    baseLevel: monster?.level || template.level || range.maxLevel,
+    mapId: map.id,
+    difficulty,
+    source: 'transition-set',
+  }, context);
   const item = context.createItem?.(template, dropLevel, template.rarity || 'rare', { dropMapId: map.id, dropLevel, difficulty });
   if (!item) return 0;
   context.addEquipmentToInventory?.(item, { logDrop: true });

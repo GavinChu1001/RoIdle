@@ -9,7 +9,7 @@ export * from './lootModel.js';
 export * from './lootSummary.js';
 export * from './dropStats.js';
 
-import { configureEquipmentDropsContext, rollEquipmentDropsFromTable, rollEquipmentTableDrops } from './equipmentDrops.js';
+import { configureEquipmentDropsContext, resolveEquipmentDropLevel, rollEquipmentDropsFromTable, rollEquipmentTableDrops } from './equipmentDrops.js';
 import { configureRecentLootContext, normalizeRecentLoot, recordRecentLoot } from './recentLoot.js';
 import { configureLootModelContext, getLatestRecentLootRewards, mergeLootRewards, normalizeLootRewards } from './lootModel.js';
 import { configureMaterialDropsContext, grantMaterialDrop, grantMutationMaterial, maybeDropDarkGoldFragments, maybeDropMythicEssence, maybeDropSocketMaterials, rollMapMaterialDrops } from './materialDrops.js';
@@ -33,6 +33,7 @@ export function installDropsRuntime(context = {}) {
     normalizeLootRewards,
     mergeLootRewards,
     getLatestRecentLootRewards,
+    resolveEquipmentDropLevel,
     rollEquipmentTableDrops,
     rollEquipmentDropsFromTable,
     grantMaterialDrop,

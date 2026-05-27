@@ -84,6 +84,18 @@ export function settleBossVictory({ map, difficulty } = {}, context = runtimeCon
     context.addLog?.(`首次击败 ${currentMap.name} ${context.getDifficultyLabel?.(difficultyId) || difficultyId} Boss，获得冒险者荣誉经验 +${vipReward}。`);
     firstBossClear = true;
   }
+
+  // 转生模式自动巡逻：轮回共鸣解锁后，Boss通关自动进下一图
+  const stateForPatrol = stateFrom(context);
+  if (stateForPatrol.rebirthMode && typeof window !== 'undefined' && window.RuneFrontierRebirthRuntime?.isAutoPatrolUnlocked?.()) {
+    const maps = context.getMaps?.() || [];
+    if (mapIndex + 1 < maps.length) {
+      stateForPatrol.currentMap = mapIndex + 1;
+      const nextMap = maps[mapIndex + 1];
+      context.addLog?.(`⚡轮回共鸣：自动进入 ${nextMap?.name || '下一地图'}。`);
+    }
+  }
+
   return { bossVictory: true, firstBossClear, vipReward };
 }
 
@@ -97,10 +109,18 @@ export function settleDefeatedEnemy(payload = {}, context = runtimeContext) {
   const stats = payload.stats || context.computeStats?.() || {};
   const bossBonus = isBoss ? 2 : 1;
   const goldGain = Math.round(finite(monster.gold) * bossBonus * finite(stats.goldMultiplier || 1) * finite(stats.monsterGoldMultiplier || 1));
+  // V3 议价被动：击杀额外金币
+  let goldBonus = 0;
+  if (typeof window !== 'undefined' && window.RuneFrontierCombatRuntime?.getPassiveMechanismEffects) {
+    const passive = window.RuneFrontierCombatRuntime.getPassiveMechanismEffects(state, stats);
+    const bonusRate = isBoss ? finite(passive.bossGoldBonus) : finite(passive.killGoldBonus);
+    if (bonusRate > 0) goldBonus = Math.round(goldGain * bonusRate);
+  }
+  const totalGold = goldGain + goldBonus;
   const baseExpGain = Math.round(finite(monster.exp) * finite(stats.baseExpMultiplier || 1));
   const jobExpGain = Math.round(finite(monster.jobExp) * (state.hero?.jobId === 'novice' ? 1.12 : 1) * finite(stats.jobExpMultiplier || 1));
 
-  state.gold = finite(state.gold) + goldGain;
+  state.gold = finite(state.gold) + totalGold;
   context.presentKillRewards?.({ monster, baseExpGain, jobExpGain });
   context.gainExp?.(baseExpGain, jobExpGain);
   state.totalKills = finite(state.totalKills) + 1;
@@ -108,7 +128,7 @@ export function settleDefeatedEnemy(payload = {}, context = runtimeContext) {
     kills: 1,
     bossKills: isBoss ? 1 : 0,
     abyssKills: difficulty === 'abyss' ? 1 : 0,
-    gold: goldGain,
+    gold: totalGold,
     baseExp: baseExpGain,
     jobExp: jobExpGain,
   });
@@ -139,6 +159,37 @@ export function settleDefeatedEnemy(payload = {}, context = runtimeContext) {
     ? finite(context.rollMutationExtraDrops?.(monster, stats, equipmentDropCount))
     : 0;
   if (monster.mutation) context.addLog?.('击败变异怪，获得额外奖励判定。');
+
+  // 转生印记掉落
+  const rebirthType = state.enemyGroup?.monsters?.[state.enemyGroup.activeIndex]?.rebirthType;
+  if (rebirthType) {
+    const rebirths = state.hero?.rebirths || 0;
+    const dropChanceSquad = (typeof window !== 'undefined' ? window.REBIRTH_SEAL_DROP_CHANCE_SQUAD : undefined) ?? 0.35;
+    const dropChanceBoss = (typeof window !== 'undefined' ? window.REBIRTH_SEAL_DROP_CHANCE_BOSS : undefined) ?? 1.0;
+    const researchBonus = (state.rebirthResearch?.sealPerception?.unlocked) ? 0.25 : 0;
+    let sealDrop = false;
+    let sealQty = 0;
+    if (rebirthType === 'rebirthBoss') {
+      sealDrop = true;
+      sealQty = 1 + Math.floor(rebirths / 3);
+    } else if (rebirthType === 'rebirthSquad') {
+      const finalChance = Math.min(1, dropChanceSquad * (1 + researchBonus));
+      const rand = (typeof context.random === 'function' ? context.random() : Math.random());
+      if (rand < finalChance) {
+        sealDrop = true;
+        sealQty = 1;
+      }
+    }
+    if (sealDrop && sealQty > 0) {
+      state.rebirthSeals = Math.max(0, Number(state.rebirthSeals) || 0) + sealQty;
+      context.addLog?.(`获得 ⚡轮回印记 × ${sealQty}。`);
+      context.recordRecentLoot?.(
+        { materials: [{ materialId: 'rebirthSeal', name: '轮回印记', qty: sealQty, rarity: 'epic' }] },
+        rebirthType === 'rebirthBoss' ? '轮回Boss' : '轮回小队'
+      );
+    }
+  }
+
   context.grantPassiveSkillKillExp?.({ isBoss, isMutated: Boolean(monster.mutation) });
   context.updateQuestProgress?.({
     mapId: map.id,

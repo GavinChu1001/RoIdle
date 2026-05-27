@@ -24,6 +24,7 @@ import './systems/shop.js';
 import { installEquipmentRuntime } from './systems/equipment/index.js';
 import { installDropsRuntime } from './systems/drops/index.js';
 import { installCombatRuntime } from './systems/combat/index.js';
+import { installRebirthRuntime } from './systems/rebirth.js';
 import { installOfflineRuntime } from './systems/offline.js';
 import { installVipRuntime } from './systems/vip.js';
 import { installCodexRuntime } from './systems/codex.js';
@@ -52,7 +53,7 @@ document.documentElement.dataset.runeModuleStatus = 'installing';
 window.RuneFrontierModuleStatus = Object.freeze({
   authority: RUNTIME_AUTHORITY,
   bootstrapOwner: 'src/main.js',
-  migrated: ['platform', 'storage-adapter', 'utils-surface', 'state-surface', 'equipment-read-calculations', 'equipment-online-mutations', 'online-equipment-drops', 'online-reward-categories', 'recent-loot-recording', 'loot-view-model', 'offline-equipment-settlement', 'offline-reward-categories', 'kill-and-boss-settlement', 'boss-challenge-state', 'combat-rounds-and-damage', 'active-skill-resolution', 'monster-spawn-and-stat-building', 'vip-calculations', 'codex-calculations', 'shop-calculations', 'dev-diagnostics'],
+  migrated: ['platform', 'storage-adapter', 'utils-surface', 'state-surface', 'equipment-read-calculations', 'equipment-online-mutations', 'online-equipment-drops', 'online-reward-categories', 'recent-loot-recording', 'loot-view-model', 'offline-equipment-settlement', 'offline-reward-categories', 'kill-and-boss-settlement', 'boss-challenge-state', 'combat-rounds-and-damage', 'active-skill-resolution', 'skill-mechanics-v3', 'monster-spawn-and-stat-building', 'vip-calculations', 'codex-calculations', 'shop-calculations', 'rebirth-research-and-forging', 'dev-diagnostics'],
   bridged: ['offline-time-and-exp-calculation', 'renderers', 'vip-render', 'codex-render', 'shop-render'],
 });
 
@@ -68,6 +69,10 @@ const offlineContext = typeof window.RuneFrontierLegacyOfflineContext === 'funct
   ? window.RuneFrontierLegacyOfflineContext()
   : {};
 installOfflineRuntime(offlineContext);
+const rebirthContext = typeof window.RuneFrontierLegacyRebirthContext === 'function'
+  ? window.RuneFrontierLegacyRebirthContext()
+  : {};
+installRebirthRuntime(rebirthContext);
 const combatContext = typeof window.RuneFrontierLegacyCombatContext === 'function'
   ? window.RuneFrontierLegacyCombatContext()
   : {};
@@ -207,6 +212,7 @@ const characterRenderContext = {
   normalizeTitles: window.normalizeTitles,
   titleEffectText: window.titleEffectText,
   getUnlockedSkills: window.getUnlockedSkills,
+  getV3CombatSkills: window.getV3CombatSkills,
   getPassiveSkillTotals: window.getPassiveSkillTotals,
   getSkillGrowthEntry: window.getSkillGrowthEntry,
   getSkillMilestoneBonuses: window.getSkillMilestoneBonuses,
@@ -415,6 +421,13 @@ window.addEventListener('DOMContentLoaded', () => {
       rarity: 'darkGold',
       type: 'material',
       description: 'Boss\u6218\u548c\u6df1\u6e0a\u6218\u6781\u7a00\u6709\u6389\u843d\uff0c\u7528\u4e8e\u6697\u91d1\u88c5\u5907\u5151\u6362\u3002',
+    };
+    window.MATERIAL_DB.rebirthSeal = {
+      id: 'rebirthSeal',
+      name: window.materialNames.rebirthSeal,
+      rarity: 'epic',
+      type: 'material',
+      description: '\u8f6c\u751f\u6a21\u5f0f\u51fb\u8d25\u8f6e\u56de\u654c\u4eba\u83b7\u5f97\uff0c\u7528\u4e8e\u8f6c\u751f\u7814\u7a76\u4e0e\u953b\u9020\u3002',
     };
     console.log('[Rune Frontier] Post-load material overrides applied.');
   };

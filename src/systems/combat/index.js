@@ -5,6 +5,7 @@ export * from './abyssCombat.js';
 export * from './damage.js';
 export * from './hit.js';
 export * from './skills.js';
+export * from './skillMechanics.js';
 export * from './passives.js';
 export * from './statusEffects.js';
 export * from './combatLog.js';
@@ -26,6 +27,7 @@ import {
 } from './damage.js';
 import { configureNormalCombatContext, updateCombat, updateMonsterAttack, updateRecovery } from './normalCombat.js';
 import { configureSkillsContext, resolveActiveSkillCast, rollActiveSkill, skillAttributeMultiplier } from './skills.js';
+import { configureSkillMechanicsContext, tickSkillSystem, getPassiveMechanismEffects, getSkillBuffMultipliers, applyShieldReduction } from './skillMechanics.js';
 import {
   canHeroFight,
   challengeBoss,
@@ -48,6 +50,7 @@ export function installCombatRuntime(context = {}) {
   configureNormalCombatContext(context);
   configureMonsterContext(context);
   configureEncounterContext(context);
+  configureSkillMechanicsContext(context);
   const runtime = Object.freeze({
     grantBossEssence,
     settleBossVictory,
@@ -87,6 +90,10 @@ export function installCombatRuntime(context = {}) {
     currentDifficultyConfig,
     getMonsterDifficultyType,
     currentMonsterStats,
+    tickSkillSystem,
+    getPassiveMechanismEffects,
+    getSkillBuffMultipliers,
+    applyShieldReduction,
     normalizeEnemyGroup,
     syncActiveEnemyFromGroup,
     updateActiveEnemyHpInGroup,

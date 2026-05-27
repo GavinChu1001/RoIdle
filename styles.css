@@ -4445,3 +4445,335 @@ button.ghost {
   }
 }
 
+/* ── 转生模式视觉变化 ── */
+
+.rebirth-mode .app-shell {
+  border-color: #c41e3a;
+  box-shadow: 0 0 24px rgba(196, 30, 58, 0.18);
+}
+
+.rebirth-mode .topbar {
+  border-bottom-color: #c41e3a;
+  background: linear-gradient(180deg, #faf5f0 0%, #f8efe0 100%);
+}
+
+.rebirth-mode-section {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  margin: 4px 0;
+}
+
+.rebirth-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--coral);
+  user-select: none;
+}
+
+.rebirth-toggle input[type="checkbox"] {
+  width: 40px;
+  height: 22px;
+  appearance: none;
+  background: var(--muted);
+  border-radius: 11px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.rebirth-toggle input[type="checkbox"]::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.rebirth-toggle input[type="checkbox"]:checked {
+  background: var(--coral);
+}
+
+.rebirth-toggle input[type="checkbox"]:checked::before {
+  transform: translateX(18px);
+}
+
+.rebirth-seal-count {
+  font-size: 0.9rem;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.rebirth-panel {
+  padding: 8px 0;
+}
+
+.rebirth-panel > strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--coral);
+}
+
+.rebirth-panel > small {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+}
+
+.rebirth-panel hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 8px 0;
+}
+
+.rebirth-node {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px dotted var(--line);
+}
+
+.rebirth-node strong {
+  font-size: 0.9rem;
+}
+
+.rebirth-node small {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.rebirth-node-unlocked {
+  color: var(--green);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.rebirth-node-locked {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.rebirth-node-btn {
+  padding: 2px 8px;
+  border: 1px solid var(--coral);
+  background: transparent;
+  color: var(--coral);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+}
+
+.rebirth-node-btn:hover {
+  background: var(--coral);
+  color: #fff;
+}
+
+/* ── 技能 V3 UI ── */
+
+.skill-kind {
+  display: inline-block;
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-left: 6px;
+}
+
+.skill-cd-bar {
+  height: 6px;
+  background: var(--line);
+  border-radius: 3px;
+  margin: 6px 0;
+  overflow: hidden;
+}
+
+.skill-cd-bar div {
+  height: 100%;
+  background: var(--blue);
+  border-radius: 3px;
+  transition: width 0.5s;
+}
+
+.skill-status-ready {
+  color: #2d8a4e;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.skill-status-cd {
+  color: #d48c3d;
+  font-weight: 500;
+  font-size: 0.8rem;
+}
+
+.skill-status-passive {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.skill-effect-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  margin: 2px 0;
+}
+
+.skill-v3-entry {
+  padding: 6px 8px;
+  border-radius: 6px;
+  margin: 4px 0;
+  transition: background 0.3s;
+}
+
+.skill-v3-entry.is-active {
+  background: #faf8f4;
+  border: 1px solid var(--line);
+}
+
+.skill-v3-entry.is-passive {
+  background: #f6f4f0;
+  border: 1px solid transparent;
+}
+
+.skill-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* ── 主动技能栏（战斗页面底部）── */
+
+.skill-bar-v3 {
+  display: flex;
+  gap: 8px;
+  padding: 8px 0;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.skill-bar-icon {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  background: #2a3040;
+  border: 2px solid #3a4050;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: default;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.skill-bar-icon.ready {
+  border-color: #4a8a5a;
+  box-shadow: 0 0 10px rgba(74, 138, 90, 0.4);
+}
+
+.skill-bar-icon.cooldown {
+  border-color: #5a4a3a;
+}
+
+.skill-bar-icon .skill-bar-name {
+  font-size: 0.6rem;
+  color: #c8ccd4;
+  text-align: center;
+  line-height: 1.1;
+  z-index: 1;
+  padding: 0 2px;
+}
+
+.skill-bar-icon .skill-bar-timer {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #e8e8e8;
+  z-index: 1;
+}
+
+.skill-bar-icon.ready .skill-bar-timer {
+  color: #6fcf8a;
+}
+
+.skill-bar-icon .skill-bar-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.55);
+  transition: height 0.5s linear;
+  z-index: 0;
+}
+
+.skill-bar-icon .skill-bar-awaken {
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  font-size: 0.55rem;
+  color: #f0c040;
+  z-index: 2;
+}
+
+.skill-v3-section .stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.skill-v3-entry {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(110, 93, 61, 0.16);
+  border-radius: 10px;
+  background: rgba(255, 251, 244, 0.82);
+}
+
+.skill-v3-entry.is-active {
+  border-color: rgba(196, 131, 48, 0.25);
+}
+
+.skill-v3-entry.is-passive {
+  border-color: rgba(77, 120, 171, 0.24);
+}
+
+.skill-v3-entry .skill-title-row {
+  align-items: baseline;
+}
+
+.skill-v3-entry .skill-kind {
+  margin-left: 0;
+  white-space: nowrap;
+}
+
+.skill-v3-entry .codex-desc,
+.skill-v3-entry .skill-effect-summary {
+  margin: 0;
+}
+
+.skill-awakening-hint {
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: 7px;
+  background: rgba(151, 114, 177, 0.1);
+  color: #6d4c87;
+  font-size: 0.74rem;
+  font-weight: 760;
+  line-height: 1.45;
+}
