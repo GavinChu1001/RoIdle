@@ -38,6 +38,7 @@ const encounterSource = read('src/systems/combat/encounter.js');
 const taskPageSource = read('src/ui/taskPage.js');
 const cardPageSource = read('src/ui/cardPage.js');
 const onboardingSource = read('src/systems/onboarding.js');
+const onboardingGuideSource = read('src/ui/onboardingGuide.js');
 
 const classicDataContext = { console };
 createContext(classicDataContext);
@@ -141,6 +142,9 @@ assert.match(main, /installOnboardingRuntime\(\)/, 'Onboarding runtime must be i
 assert.match(game, /onboarding:\s*defaultOnboardingState\(\)/, 'Default state must include onboarding.');
 assert.match(game, /onboarding:\s*normalizeOnboarding\(saved\.onboarding\s*\|\|\s*base\.onboarding\)/, 'Saved state merge must normalize onboarding.');
 assert.match(game, /state\.onboarding\s*=\s*normalizeOnboarding\(state\.onboarding\)/, 'Sanitize pass must keep onboarding normalized.');
+assert.match(onboardingGuideSource, /renderOnboardingTaskSection/, 'Onboarding UI must expose a task-page section renderer.');
+assert.match(main, /installOnboardingGuideRuntime\(onboardingGuideContext\)/, 'Onboarding guide render runtime must be installed before startup.');
+assert.match(taskPageSource, /renderOnboardingTaskSection/, 'Task page must render the beginner goal section.');
 assert.match(main, /migrated:\s*\[[^\]]*'kill-and-boss-settlement'/s, 'Combat settlement migration status is incomplete.');
 assert.match(stateSurface, /loadGame/);
 assert.match(stateSurface, /migrateSave/);

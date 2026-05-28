@@ -42,6 +42,7 @@ import { installEquipmentRenderRuntime } from './ui/equipmentPage.js';
 import { installSmithyRenderRuntime } from './ui/smithyPage.js';
 import { installMapRenderRuntime } from './ui/mapPage.js';
 import { installCardRenderRuntime } from './ui/cardPage.js';
+import { installOnboardingGuideRuntime } from './ui/onboardingGuide.js';
 import { installTaskRenderRuntime } from './ui/taskPage.js';
 import { installLogRenderRuntime } from './ui/logPanel.js';
 import { installAdviceRenderRuntime } from './ui/components/actionButton.js';
@@ -355,6 +356,14 @@ const cardRenderContext = {
 };
 installCardRenderRuntime(cardRenderContext);
 document.documentElement.dataset.runeModuleStatus = 'card-render-ready';
+
+const onboardingGuideContext = {
+	getState() { return window.state || {}; },
+	getEls() { return window.els || {}; },
+	escapeHtml: window.escapeHtml,
+};
+installOnboardingGuideRuntime(onboardingGuideContext);
+document.documentElement.dataset.runeModuleStatus = 'onboarding-render-ready';
 
 const taskRenderContext = { getState() { return window.state || {}; }, getEls() { return window.els || {}; }, escapeHtml: window.escapeHtml, formatNumber: window.formatNumber, normalizeDailyGoals: window.normalizeDailyGoals, achievementRewardText: window.achievementRewardText, questRewardText: window.questRewardText, getAchievementDb() { return window.ACHIEVEMENT_DB || []; }, getAchievementEntry: window.getAchievementEntry, };
 installTaskRenderRuntime(taskRenderContext);
