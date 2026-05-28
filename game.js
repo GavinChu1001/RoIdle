@@ -563,6 +563,7 @@ const monsterSpriteSources = {
   },
 };
 const monsterSpriteCache = {};
+const battleBackgroundCache = {};
 const attributeKeys = ["str", "agi", "vit", "int", "dex", "luk"];
 const randomStatRanges = {
   normal: [0, 2],
