@@ -9,7 +9,7 @@ RO-like idle web game. Personal hobby project, future plan to integrate WeChat m
 - **Module map:** `src/systems/combat/` (encounter, normalCombat, settlement, skillMechanics), `src/systems/equipment/` (itemFactory), `src/ui/` (characterPage, equipmentPage, taskPage, etc.), `data.js` (pure config data extracted from game.js)
 - **Current focus:** `codex/batch7-combat-round-runtime` — combat round runtime extraction from game.js
 - **Key commands:** `npm test` (test suite), `npm run check` (syntax check), `npm start` (launch server)
-- **Deploy:** Requires user approval before uploading (see memory). Server: root@47.116.135.132, path: /www/wwwroot/Roidle/ro/
+- **Deploy:** Requires user approval before uploading (see memory for server details)
 
 ## Behavioral Guidelines
 
