@@ -137,6 +137,10 @@ assert.match(game, /getV3CombatSkills,/, 'Combat runtime must receive the inheri
 assert.match(main, /installVipRuntime\(vipContext\)/, 'VIP runtime must be installed before startup.');
 assert.match(main, /installCodexRuntime\(codexContext\)/, 'Codex runtime must be installed before startup.');
 assert.match(main, /installShopRuntime\(shopContext\)/, 'Shop runtime must be installed before startup.');
+assert.match(main, /installOnboardingRuntime\(\)/, 'Onboarding runtime must be installed before startup.');
+assert.match(game, /onboarding:\s*defaultOnboardingState\(\)/, 'Default state must include onboarding.');
+assert.match(game, /onboarding:\s*normalizeOnboarding\(saved\.onboarding\s*\|\|\s*base\.onboarding\)/, 'Saved state merge must normalize onboarding.');
+assert.match(game, /state\.onboarding\s*=\s*normalizeOnboarding\(state\.onboarding\)/, 'Sanitize pass must keep onboarding normalized.');
 assert.match(main, /migrated:\s*\[[^\]]*'kill-and-boss-settlement'/s, 'Combat settlement migration status is incomplete.');
 assert.match(stateSurface, /loadGame/);
 assert.match(stateSurface, /migrateSave/);

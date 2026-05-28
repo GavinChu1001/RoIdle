@@ -29,6 +29,7 @@ import { installOfflineRuntime } from './systems/offline.js';
 import { installVipRuntime } from './systems/vip.js';
 import { installCodexRuntime } from './systems/codex.js';
 import { installShopRuntime } from './systems/shop.js';
+import { installOnboardingRuntime } from './systems/onboarding.js';
 
 // UI layer (delegates to game.js via window)
 import './ui/index.js';
@@ -90,6 +91,8 @@ const shopContext = typeof window.RuneFrontierLegacyShopContext === 'function'
   ? window.RuneFrontierLegacyShopContext()
   : {};
 installShopRuntime(shopContext);
+installOnboardingRuntime();
+document.documentElement.dataset.runeModuleStatus = 'onboarding-ready';
 document.documentElement.dataset.runeModuleStatus = 'systems-ready';
 
 const lootContext = {

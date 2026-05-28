@@ -1537,6 +1537,34 @@ function defaultQuestState() {
   return { active: [], completed: [], lastRefreshAt: "" };
 }
 
+function defaultOnboardingState() {
+  const runtime = window.RuneFrontierOnboardingRuntime;
+  if (runtime && typeof runtime.defaultOnboardingState === "function") return runtime.defaultOnboardingState();
+  return {
+    version: 1,
+    tutorialCompleted: false,
+    skipped: false,
+    currentStepId: "welcome",
+    completedStepIds: [],
+    dismissedHintIds: [],
+  };
+}
+
+function normalizeOnboarding(onboarding = {}) {
+  const runtime = window.RuneFrontierOnboardingRuntime;
+  if (runtime && typeof runtime.normalizeOnboarding === "function") return runtime.normalizeOnboarding(onboarding);
+  const base = defaultOnboardingState();
+  const uniq = (values) => [...new Set(Array.isArray(values) ? values.filter((value) => typeof value === "string" && value) : [])];
+  return {
+    version: 1,
+    tutorialCompleted: Boolean(onboarding.tutorialCompleted),
+    skipped: Boolean(onboarding.skipped),
+    currentStepId: typeof onboarding.currentStepId === "string" && onboarding.currentStepId ? onboarding.currentStepId : base.currentStepId,
+    completedStepIds: uniq(onboarding.completedStepIds),
+    dismissedHintIds: uniq(onboarding.dismissedHintIds),
+  };
+}
+
 function defaultSkillGrowth() {
   return {};
 }
@@ -2000,6 +2028,7 @@ function createDefaultState() {
     dailyGoals: defaultDailyGoals(),
     vip: defaultVipState(),
     quests: defaultQuestState(),
+    onboarding: defaultOnboardingState(),
     skillGrowth: defaultSkillGrowth(),
     mapPoolVersion: MAP_POOL_VERSION,
     floatTexts: [],
@@ -2793,6 +2822,7 @@ function mergeState(base, saved) {
     dailyGoals: normalizeDailyGoals(saved.dailyGoals || base.dailyGoals),
     vip: { ...base.vip, ...(saved.vip || {}) },
     quests: normalizeQuests(saved.quests || base.quests),
+    onboarding: normalizeOnboarding(saved.onboarding || base.onboarding),
     skillGrowth: { ...defaultSkillGrowth(), ...(saved.skillGrowth || {}) },
     mapPoolVersion: saved.mapPoolVersion || 0,
     needsMapPoolMigration: saved.mapPoolVersion !== MAP_POOL_VERSION,
@@ -2888,6 +2918,7 @@ function sanitizeProgression() {
   if (!rarityOrder.includes(state.autoSalvage.maxRarity) || ["ancient", "legend", "darkGold", "mythic"].includes(state.autoSalvage.maxRarity)) state.autoSalvage.maxRarity = "normal";
   state.vip = normalizeVip(state.vip);
   state.quests = normalizeQuests(state.quests);
+  state.onboarding = normalizeOnboarding(state.onboarding);
   ensureQuestLists();
   if (!jobTemplates[state.hero.jobId]) state.hero.jobId = "novice";
   state.formation.front = "main";
