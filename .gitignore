@@ -13,7 +13,30 @@ game.txt
 # Runtime
 node_modules/
 
+# Agent runtime
+.agents/
+
+# Player data (runtime generated)
+data/
+
+# MCP config (contains credentials)
+.mcp.json
+
 # OS files
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Dev tool configs
+.claude/
+.codegraph/
+.superpowers/
+
+# Screenshots
+screenshots/
+
+# Preview files
+preview-*.html
+
+# Superpowers docs
+docs/superpowers/

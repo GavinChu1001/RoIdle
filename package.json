@@ -1,6 +1,6 @@
 {
   "name": "rune-frontier-idle",
-  "version": "0.1.0",
+  "version": "0.72.1",
   "private": true,
   "description": "RO-like idle web game with lightweight account saves.",
   "main": "server.js",

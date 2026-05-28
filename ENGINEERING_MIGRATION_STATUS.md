@@ -1,36 +1,39 @@
-# game.js Migration Status - Batch 2
+# game.js Migration Status — Final
 
-## Runtime Authority
+## game.js: 11,844 lines (was 14,600 — -19%)
 
-`game.js` remains the authoritative stateful gameplay runtime in this batch. Startup ownership is now held by `src/main.js`: it installs module-owned read calculations and then invokes the guarded classic-runtime bootstrap exactly once. The classic fallback can still start the page if the module bootstrap is unavailable.
+## Phase B Complete + Fix
 
-Equipment display naming, effective item stats, and multi-axis equipment scores now have formal read-only implementations in `src/systems/equipment`. Existing global calls in `game.js` forward to the module runtime once installed, while legacy bodies are retained as startup-safety fallbacks during the staged migration.
+- 78 legacy bodies slimmed, `legacyCreateItem` restored (called by `createDefaultState()` during top-level init before runtime installation).
+- 77 remaining stubs confirmed safe — init chain does not call them before runtimes are installed.
+- `?dev=1` self-check verified: 0 errors, 1 warning (compat save version).
 
-## Formalized In This Batch
+## Completion Summary
 
-- Module-controlled one-shot startup via `window.bootstrapLegacyRuntime()`.
-- Read-only equipment module runtime via `window.RuneFrontierEquipmentRuntime`.
-- Equipment calculation parity fixtures covering refine/empower, abyss bonuses, mechanic affixes, socket bonuses, and safe display naming.
-- Module status metadata now distinguishes migrated equipment reads from still-bridged equipment actions.
+| Item | Status |
+|------|--------|
+| 9 system runtimes | ✅ Installed |
+| 81 render functions | ✅ True implementations |
+| `tools.js` | ✅ 13 utilities |
+| `data.js` | ✅ 444 configs |
+| DevBridge | ✅ Extracted |
+| 78 legacy bodies | ✅ 77 stubs + 1 restored |
+| Browser self-check | ✅ 0 errors |
+| `npm run check` | ✅ |
+| `npm run test` | ✅ |
 
-## Deliberately Retained In game.js
+## Init-Path Safety Audit
 
-- Equipment creation, normalization/migration writes, refine/star-refine/socket/dismantle actions.
-- Legacy equipment read bodies as guarded fallback implementations until stateful equipment migration is complete.
-- Drop rolls, recent loot, offline settlement, auto dismantle.
-- Combat, skills, Boss/abyss handling, main loop.
-- Character/equipment/smithy/VIP/codex/shop/battle renderers.
-- Save/auth implementation and all `window` action interfaces still consumed by pages or diagnostics.
+The only legacy function called before runtime install: `legacyCreateItem` (restored). All 77 other stubs are safe:
 
-## Deferred Because It Is Unsafe In Batch 1
+- `bootstrapLegacyRuntime` → `init()` runs AFTER `main.js` installs 9 runtimes
+- All other `legacyXxx` stubs are called only via delegation wrappers that hit runtime first
 
-- Data tables are not promoted as runtime authority yet. Some split table files contain historical display-text encoding damage or may differ from currently running tables.
-- Display/configuration tables are not promoted as authority because split copies still require a separate encoding and behavior audit.
-- No build pipeline is introduced. The repository currently has a Node server and browser ES modules, but no existing bundler configuration.
+## Remaining (Optional)
 
-## Next Migration Order
-
-1. Move stateful equipment creation, inventory insertion, salvage protection, and online equipment drops together, with regression coverage for auto dismantle and recent loot.
-2. Move offline equipment settlement after inventory and drop mutation ownership is stable.
-3. Move combat and remaining drop categories after item/drop dependencies are module-owned.
-4. Move page renderers, VIP, codex, and shop behavior, then retire legacy fallbacks.
+| Item | Priority |
+|------|----------|
+| Extract maps/pools to `data.js` | Low (~2,700 lines savable) |
+| Config authority unification | Low |
+| Module test expansion | Low |
+| Boss name panel BUG | Low (独立 BUG) |

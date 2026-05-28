@@ -10,10 +10,3 @@ export function computeAttributes(equip) {
   if (typeof window.computeAttributes === 'function') return window.computeAttributes(equip);
   return { str: 5, agi: 5, vit: 5, int: 5, dex: 5, luk: 5 };
 }
-export function spawnEnemy(isBoss) {
-  if (typeof window.spawnEnemy === 'function') return window.spawnEnemy(isBoss);
-}
-export function currentMonsterStats() {
-  if (typeof window.currentMonsterStats === 'function') return window.currentMonsterStats();
-  return {};
-}

@@ -1,0 +1,246 @@
+﻿function v3SkillId(name) {
+
+// ── 技能系统 V3 数据 ──
+
+const firstJobs = ["swordman", "mage", "archer", "acolyte", "merchant", "thief"];
+
+};
+  },
+    ],
+      skill("隐匿突袭", 10, "主动", "从阴影中发动重击。", { critPct: 0.03, active: { stat: "atk", multiplier: 3.1, chance: 0.026 } }),
+      skill("施毒", 8, "主动", "用毒刃造成伤害，威力受物攻影响。", { active: { stat: "atk", multiplier: 2.25, chance: 0.04 } }),
+      skill("偷窃", 5, "被动", "提高掉宝概率。", { dropPct: 0.035 }),
+      skill("残影", 3, "被动", "提高攻速与防御。", { aspdPct: 0.05, defPct: 0.05 }),
+      skill("二刀连击", 1, "主动", "快速追加一次攻击，威力受物攻影响。", { active: { stat: "atk", multiplier: 1.9, chance: 0.09 } }),
+    skills: [
+    growth: { atkPct: 0.04, matkPct: 0.004, hpPct: 0.03, defPct: 0.02, aspdPct: 0.007 },
+    color: "#56637f",
+    baseAspd: 0.46,
+    baseDef: 4,
+    baseHp: 165,
+    baseDps: 7.4,
+    role: "back",
+    name: "盗贼",
+    id: "thief",
+  thief: {
+  },
+    ],
+      skill("金钱攻击", 10, "主动", "把金币的气势砸向敌人。", { active: { stat: "atk", multiplier: 3.0, chance: 0.028 } }),
+      skill("强化手推车", 8, "被动", "提高物攻与防御。", { atkPct: 0.1, defPct: 0.08 }),
+      skill("露天商店", 5, "被动", "提高金币与掉宝收益。", { goldPct: 0.08, dropPct: 0.02 }),
+      skill("手推车攻击", 3, "主动", "用手推车撞击敌人，威力受物攻影响。", { active: { stat: "atk", multiplier: 2.35, chance: 0.06 } }),
+      skill("低价买进", 1, "被动", "更会过日子，金币收益提高。", { goldPct: 0.08 }),
+    skills: [
+    growth: { atkPct: 0.032, matkPct: 0.006, hpPct: 0.042, defPct: 0.032, aspdPct: 0.003 },
+    color: "#ba8750",
+    baseAspd: 0.33,
+    baseDef: 7,
+    baseHp: 210,
+    baseDps: 6.8,
+    role: "front",
+    name: "商人",
+    id: "merchant",
+  merchant: {
+  },
+    ],
+      skill("神圣之光", 10, "主动", "以神圣光芒攻击敌人。", { active: { stat: "matk", multiplier: 2.7, chance: 0.035 } }),
+      skill("钝器熟练", 8, "被动", "提高物攻与生命。", { atkPct: 0.08, hpPct: 0.08 }),
+      skill("加速术", 5, "被动", "提高行动速度。", { aspdPct: 0.05 }),
+      skill("治愈术", 3, "主动", "释放圣光治疗并伤害魔物，威力受魔攻影响。", { hpPct: 0.08, active: { stat: "matk", multiplier: 1.7, chance: 0.06 } }),
+      skill("天使之赐福", 1, "被动", "祝福自身，提高物攻、魔攻与防御。", { atkPct: 0.05, matkPct: 0.05, defPct: 0.06 }),
+    skills: [
+    growth: { atkPct: 0.012, matkPct: 0.036, hpPct: 0.042, defPct: 0.036, aspdPct: 0.003 },
+    color: "#d4a85d",
+    baseAspd: 0.34,
+    baseDef: 6,
+    baseHp: 185,
+    baseDps: 6.2,
+    role: "mid",
+    name: "服事",
+    id: "acolyte",
+  acolyte: {
+  },
+    ],
+      skill("精准射击", 10, "被动", "提高暴击与掉宝。", { critPct: 0.025, dropPct: 0.018 }),
+      skill("箭雨", 8, "主动", "向区域倾泻箭矢。", { active: { stat: "atk", multiplier: 1.8, chance: 0.05 } }),
+      skill("心神凝聚", 5, "被动", "提高物攻与攻速。", { atkPct: 0.08, aspdPct: 0.04 }),
+      skill("二连矢", 3, "主动", "连续射出两箭，威力受物攻影响。", { active: { stat: "atk", multiplier: 2.15, chance: 0.075 } }),
+      skill("苍鹰之眼", 1, "被动", "提高远程精准度与暴击。", { atkPct: 0.08, critPct: 0.02 }),
+    skills: [
+    growth: { atkPct: 0.044, matkPct: 0.004, hpPct: 0.032, defPct: 0.024, aspdPct: 0.006 },
+    color: "#5e9662",
+    baseAspd: 0.42,
+    baseDef: 5,
+    baseHp: 170,
+    baseDps: 7.2,
+    role: "back",
+    name: "弓箭手",
+    id: "archer",
+  archer: {
+  },
+    ],
+      skill("圣灵召唤", 10, "主动", "召唤魔力光弹连续轰击。", { active: { stat: "matk", multiplier: 3.2, chance: 0.028 } }),
+      skill("火焰之壁", 8, "被动", "用魔力形成防护。", { defPct: 0.08, hpPct: 0.06 }),
+      skill("禅心", 5, "被动", "提高魔攻与金币收益。", { matkPct: 0.12, goldPct: 0.04 }),
+      skill("冰箭术", 3, "主动", "以冰箭贯穿目标，威力受魔攻影响。", { active: { stat: "matk", multiplier: 2.05, chance: 0.055 } }),
+      skill("火箭术", 1, "主动", "凝聚火焰攻击，威力受魔攻影响。", { active: { stat: "matk", multiplier: 2.45, chance: 0.07 } }),
+    skills: [
+    growth: { atkPct: 0.004, matkPct: 0.056, hpPct: 0.026, defPct: 0.018, aspdPct: 0.003 },
+    color: "#8b64a7",
+    baseAspd: 0.31,
+    baseDef: 3,
+    baseHp: 145,
+    baseDps: 8.4,
+    role: "mid",
+    name: "魔法师",
+    id: "mage",
+  mage: {
+  },
+    ],
+      skill("霸体训练", 10, "被动", "减少战斗停顿。", { aspdPct: 0.04 }),
+      skill("快速回复", 8, "被动", "提高生命与防御。", { hpPct: 0.16, defPct: 0.08 }),
+      skill("挑衅", 5, "主动", "激怒敌人露出破绽，造成伤害并提高输出。", { dpsPct: 0.04, active: { stat: "atk", multiplier: 1.45, chance: 0.05 } }),
+      skill("狂击", 3, "主动", "以武器重击目标，威力受物攻影响。", { active: { stat: "atk", multiplier: 2.25, chance: 0.065 } }),
+      skill("剑术修炼", 1, "被动", "提高近战武器熟练度。", { atkPct: 0.12 }),
+    skills: [
+    growth: { atkPct: 0.038, matkPct: 0.004, hpPct: 0.052, defPct: 0.045, aspdPct: 0.004 },
+    color: "#5d7fba",
+    baseAspd: 0.38,
+    baseDef: 9,
+    baseHp: 230,
+    baseDps: 7.6,
+    role: "front",
+    name: "剑士",
+    id: "swordman",
+  swordman: {
+  },
+    ],
+      skill("装死", 8, "被动", "用夸张的倒地姿势规避危险。", { defPct: 0.1, dropPct: 0.01 }),
+      skill("投掷石头", 5, "主动", "丢出石块造成一次物理伤害。", { active: { stat: "atk", multiplier: 1.25, chance: 0.075 } }),
+      skill("急救", 3, "被动", "旅途中处理轻伤，提高生存能力。", { hpPct: 0.08 }),
+      skill("基础修炼", 1, "被动", "掌握最基本的武器和防具用法。", { atkPct: 0.04, defPct: 0.04 }),
+    skills: [
+    growth: { atkPct: 0.018, matkPct: 0.018, hpPct: 0.026, defPct: 0.018, aspdPct: 0.003 },
+    color: "#7d8b83",
+    baseAspd: 0.28,
+    baseDef: 3,
+    baseHp: 150,
+    baseDps: 4.8,
+    role: "front",
+    name: "初学者",
+    id: "novice",
+  novice: {
+const jobTemplates = {
+
+}
+  return [min, Math.max(min, max)];
+  const max = Math.round(range[0] + (range[1] - range[0]) * end);
+  const min = Math.round(range[0] + (range[1] - range[0]) * start);
+function sliceBalanceRange(range, start, end) {
+
+}
+  });
+    }
+      config.bossTemplate.jobExpRange = [balance.bossJob, balance.bossJob];
+      config.bossTemplate.baseExpRange = [balance.bossBase, balance.bossBase];
+    if (config.bossTemplate) {
+    });
+      monster.jobExpRange = sliceBalanceRange(balance.job, start, end);
+      monster.baseExpRange = sliceBalanceRange(balance.base, start, end);
+      const end = (index + 1) / Math.max(1, monsters.length);
+      const start = index / Math.max(1, monsters.length);
+    monsters.forEach((monster, index) => {
+    const monsters = config.monsters || [];
+    if (!config) return;
+    const config = mapMonsterConfig[mapId];
+  Object.entries(MAP_EXP_BALANCE).forEach(([mapId, balance]) => {
+function applyMapExpBalance() {
+
+});
+  });
+    recommendedPower: monsterConfig.recommendedPower || range.recommendedPower,
+    maxLevel: range.maxLevel,
+    minLevel: range.minLevel,
+    ...monsterConfig,
+  Object.assign(map, {
+  const monsterConfig = mapMonsterConfig[map.id] || {};
+  const range = mapLevelRanges[aliases[map.id] || map.id] || mapLevelRanges.beginner_field;
+  const aliases = { grass: "grass", forest: "forest", mine: "mine", clock: "clock", sky: "sky" };
+maps.forEach((map) => {
+
+applyMapExpBalance();
+
+};
+  sky: { base: [2300, 3800], job: [2000, 3300], bossBase: 72000, bossJob: 60000 },
+  abyss_lake: { base: [1600, 2650], job: [1380, 2300], bossBase: 42000, bossJob: 35000 },
+  glast_heim: { base: [1050, 1780], job: [900, 1550], bossBase: 24500, bossJob: 20500 },
+  clock: { base: [680, 1180], job: [580, 1020], bossBase: 14500, bossJob: 12200 },
+  mine: { base: [420, 760], job: [360, 660], bossBase: 8500, bossJob: 7200 },
+  orc_village: { base: [260, 520], job: [220, 450], bossBase: 5200, bossJob: 4300 },
+  desert: { base: [150, 320], job: [125, 270], bossBase: 2600, bossJob: 2100 },
+  sewer: { base: [80, 180], job: [65, 155], bossBase: 1300, bossJob: 1050 },
+  forest: { base: [30, 85], job: [26, 72], bossBase: 520, bossJob: 430 },
+  grass: { base: [8, 24], job: [6, 18], bossBase: 140, bossJob: 110 },
+const MAP_EXP_BALANCE = {
+
+});
+  },
+    bossTemplate: monsterTemplate("sky_boss_archon", "神殿首领 · 云阶执政官", [150, 150], [5200000, 5200000], [2400, 2400], [1800, 1800], [42000, 42000], [36000, 36000], [18000, 18000], "boss"),
+    ],
+      monsterTemplate("sky_judge", "神殿审判者", [140, 150], [720000, 1280000], [1180, 1650], [920, 1320], [2900, 4350], [2550, 3820], [2200, 3080], "elite"),
+      monsterTemplate("sky_priest", "云阶祭司", [130, 140], [520000, 920000], [960, 1320], [760, 1080], [2350, 3520], [2050, 3080], [1780, 2480]),
+      monsterTemplate("sky_guard", "星羽守卫", [120, 130], [380000, 680000], [760, 1120], [620, 900], [1850, 2780], [1650, 2480], [1400, 1980]),
+    monsters: [
+    recommendedPower: 16500,
+    bossSkill: "星辉审判",
+    boss: "神殿首领 · 云阶执政官",
+    enemy: "星羽守卫",
+    name: "浮岛神殿",
+  sky: {
+  },
+    bossTemplate: monsterTemplate("clock_boss_keeper", "钟塔首领 · 整点守钟人", [88, 88], [680000, 680000], [720, 720], [520, 520], [11500, 11500], [9600, 9600], [4700, 4700], "boss"),
+    ],
+      monsterTemplate("clock_guard", "逆时针守卫", [82, 88], [90000, 170000], [280, 430], [210, 330], [1050, 1580], [920, 1380], [700, 980], "elite"),
+      monsterTemplate("clock_ghost", "钟摆幽灵", [74, 82], [68000, 128000], [220, 330], [160, 250], [820, 1240], [720, 1080], [540, 780]),
+      monsterTemplate("clock_gear", "齿轮侍从", [68, 74], [52000, 94000], [170, 270], [130, 200], [650, 980], [560, 850], [420, 620]),
+    monsters: [
+    recommendedPower: 5200,
+    bossSkill: "逆时钟回响",
+    boss: "钟塔首领 · 整点守钟人",
+    enemy: "齿轮侍从",
+    name: "旧钟塔回廊",
+  clock: {
+  },
+    bossTemplate: monsterTemplate("mine_boss_crystal", "矿洞首领 · 水晶甲虫", [70, 70], [360000, 360000], [460, 460], [320, 320], [7600, 7600], [6200, 6200], [3000, 3000], "boss"),
+    ],
+      monsterTemplate("mine_golem", "矿洞傀儡", [64, 70], [52000, 98000], [190, 300], [150, 230], [720, 1080], [620, 930], [440, 640], "elite"),
+      monsterTemplate("mine_beetle", "蓝晶甲虫", [58, 65], [34000, 68000], [150, 220], [110, 170], [560, 840], [480, 720], [340, 500]),
+      monsterTemplate("mine_bat", "矿灯蝙蝠", [52, 58], [22000, 42000], [110, 175], [80, 125], [420, 620], [360, 540], [260, 380]),
+    monsters: [
+    recommendedPower: 3200,
+    bossSkill: "晶壳反震",
+    boss: "矿洞首领 · 水晶甲虫",
+    enemy: "矿灯蝙蝠",
+    name: "蓝晶矿洞",
+  mine: {
+Object.assign(mapMonsterConfig, {
+
+// [DATA->data.js] mapMonsterConfig extracted
+
+}
+  return { id, name, type, levelRange, hpRange, attackRange, defenseRange, baseExpRange, jobExpRange, goldRange };
+function monsterTemplate(id, name, levelRange, hpRange, attackRange, defenseRange, baseExpRange, jobExpRange, goldRange, type = "normal") {
+
+// [DATA->data.js] mapLevelRanges extracted
+
+maps.sort((a, b) => mapOrder.indexOf(a.id) - mapOrder.indexOf(b.id));
+});
+  if (!maps.some((entry) => entry.id === map.id)) maps.push(map);
+extraMaps.forEach((map) => {
+
+// [DATA->data.js] extraMaps array extracted
+
+// [DATA->data.js] maps array extracted
+
+// See data.js for: SAVE_KEY, DIFFICULTY_CONFIG, VIP_*, SHOP_ITEMS, CODEX_*, ENHANCE_*, etc.
+// [EXTRACTED] Top-level config constants moved to data.js (loaded before game.js in index.html).

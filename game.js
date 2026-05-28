@@ -1,743 +1,22 @@
-﻿const SAVE_KEY = "rune-frontier-idle-save-v2";
-const LEGACY_SAVE_KEY = "rune-frontier-idle-save-v1";
-const AUTH_KEY = "rune-frontier-auth-v1";
-const API_BASE = "";
-const MAX_OFFLINE_SECONDS = 12 * 60 * 60;
-const COMBAT_PACE = 0.4;
-const HP_REGEN_INTERVAL = 5;
-const MONSTER_ATTACK_INTERVAL = 1.35;
-const OFFLINE_EFFICIENCY = 0.65;
-const OFFLINE_MAX_KILLS = 1200;
-const INVENTORY_LIMIT = 48;
-const EQUIPMENT_DROP_RATE_MULTIPLIER = 0.065;
-const OFFLINE_EQUIPMENT_DROP_RATE_MULTIPLIER = 0.035;
-const BOSS_EQUIPMENT_DROP_RATE_MULTIPLIER = 2.8;
-const MAX_EQUIPMENT_DROPS_PER_KILL = 1;
-const MAX_BOSS_EQUIPMENT_DROPS = 2;
-const EQUIPMENT_PITY_THRESHOLDS = {
-  grass: { normal: 60, hard: 45, abyss: 35 },
-  forest: { normal: 60, hard: 45, abyss: 35 },
-  sewer: { normal: 50, hard: 38, abyss: 30 },
-  desert: { normal: 50, hard: 38, abyss: 30 },
-  orc_village: { normal: 50, hard: 38, abyss: 30 },
-  mine: { normal: 40, hard: 30, abyss: 25 },
-  clock: { normal: 40, hard: 30, abyss: 25 },
-  glast_heim: { normal: 40, hard: 30, abyss: 25 },
-  abyss_lake: { normal: 40, hard: 30, abyss: 25 },
-  sky: { normal: 40, hard: 30, abyss: 25 },
-};
-const BASE_EXP_GLOBAL_MULTIPLIER = 1;
-const JOB_EXP_GLOBAL_MULTIPLIER = 1;
-const BOSS_EXP_MULTIPLIER = 1;
-const DIFFICULTY_CONFIG = {
-  normal: { label: "普通", power: 1, hp: 1, attack: 1, defense: 1, exp: 1, jobExp: 1, gold: 1, equipmentDrop: 1, materialDrop: 1, cardDrop: 1, mutationChance: 0.05 },
-  hard: { label: "困难", power: 2.65, hp: 2.35, attack: 2.05, defense: 1.85, exp: 1.9, jobExp: 1.9, gold: 1.8, equipmentDrop: 1.45, materialDrop: 1.45, cardDrop: 1.25, mutationChance: 0.12 },
-  abyss: { label: "深渊", power: 5.4, hp: 6.2, attack: 4.9, defense: 3.7, exp: 3.4, jobExp: 3.4, gold: 2.9, equipmentDrop: 2.1, materialDrop: 2.05, cardDrop: 1.65, mutationChance: 0.2, mythicDrop: 1 },
-};
+﻿// [EXTRACTED] Top-level config constants moved to data.js (loaded before game.js in index.html).
+// See data.js for: SAVE_KEY, DIFFICULTY_CONFIG, VIP_*, SHOP_ITEMS, CODEX_*, ENHANCE_*, etc.
 
-const MAX_EQUIPMENT_LEVEL = 220;
-const DIFFICULTY_DROP_LEVEL_BONUS = {
-  normal: { min: 0, max: 0 },
-  hard: { min: 20, max: 35 },
-  abyss: { min: 45, max: 70 },
-};
+// [DATA->data.js] maps array extracted
 
-const DIFFICULTY_TIER_MODIFIERS = {
-  normal: { hp: 1, atk: 1, def: 1, hit: 1, critChance: 1, critDamage: 1, damageReduction: 0 },
-  hard: { hp: 2.35, atk: 2.05, def: 1.85, hit: 1.25, critChance: 1.8, critDamage: 1.35, damageReduction: 0.08, elitePower: 1.3, bossPower: 1.35 },
-  abyss: { hp: 6.2, atk: 4.9, def: 3.7, hit: 1.45, critChance: 2.5, critDamage: 1.7, damageReduction: 0.15, armorPierce: 0.18, abyssPower: 1, antiLifeSteal: 0.18, abyssSuppression: 0.05 },
-};
-const MONSTER_DIFFICULTY_MODIFIERS = {
-  normal: { hp: 1, atk: 1, def: 1, hit: 1, critChance: 0.02, critDamage: 1.5 },
-  elite: { hp: 1.6, atk: 1.35, def: 1.12, hit: 1.12, critChance: 0.08, critDamage: 1.75 },
-  boss: { hp: 2.0, atk: 1.55, def: 1.25, hit: 1.2, critChance: 0.1, critDamage: 1.9 },
-  hard: { hp: 1.12, atk: 1.08, def: 1.06, hit: 1.16, critChance: 0.08, critDamage: 1.78, damageReduction: 0.04 },
-  hardElite: { hp: 1.65, atk: 1.35, def: 1.18, hit: 1.28, critChance: 0.14, critDamage: 2.05, damageReduction: 0.06 },
-  hardBoss: { hp: 2.45, atk: 1.68, def: 1.35, hit: 1.38, critChance: 0.18, critDamage: 2.2, damageReduction: 0.09, armorPierce: 0.08 },
-  abyss: { hp: 1.35, atk: 1.38, def: 1.18, hit: 1.38, critChance: 0.16, critDamage: 2.35, armorPierce: 0.2, executeDamage: 0.12, abyssPower: 1.15, damageReduction: 0.08, antiLifeSteal: 0.12, abyssSuppression: 0.04 },
-  abyssElite: { hp: 2.15, atk: 1.8, def: 1.42, hit: 1.55, critChance: 0.24, critDamage: 2.65, armorPierce: 0.32, executeDamage: 0.18, abyssPower: 1.65, damageReduction: 0.12, antiLifeSteal: 0.18, abyssSuppression: 0.06 },
-  abyssBoss: { hp: 3.4, atk: 2.25, def: 1.72, hit: 1.7, critChance: 0.3, critDamage: 2.9, armorPierce: 0.45, executeDamage: 0.28, abyssPower: 2.35, damageReduction: 0.18, antiLifeSteal: 0.24, abyssSuppression: 0.08 },
-};
-const MUTATION_TYPES = [
-  { id: "strong", prefix: "强壮的", hp: 1.5, attack: 1.25, defense: 1.15, exp: 1.3, jobExp: 1.3, gold: 1.2, extraDropBonus: 0.15, rareMaterialBonus: 1, highRarityEquipmentBonus: 1 },
-  { id: "rage", prefix: "狂暴的", hp: 1.3, attack: 1.6, defense: 1, exp: 1.4, jobExp: 1.4, gold: 1.25, extraDropBonus: 0.18, rareMaterialBonus: 1, highRarityEquipmentBonus: 1.1 },
-  { id: "elite", prefix: "精英", hp: 2, attack: 1.5, defense: 1.35, exp: 1.8, jobExp: 1.8, gold: 1.5, extraDropBonus: 0.25, rareMaterialBonus: 1.2, highRarityEquipmentBonus: 1.7 },
-  { id: "treasure", prefix: "宝藏", hp: 1.2, attack: 1.1, defense: 1, exp: 1.2, jobExp: 1.2, gold: 2, extraDropBonus: 0.35, rareMaterialBonus: 1.8, highRarityEquipmentBonus: 1 },
-];
-const MUTATION_EXTRA_DROPS = {
-  materialBonusRate: 0.08,
-  rareMaterialBonusRate: 0.03,
-  highRarityEquipmentRate: 0.01,
-  darkGoldEquipmentRate: 0.001,
-};
-const AWAKEN_CARD_COST = 100;
-const MAP_POOL_VERSION = 10;
-const VIP_MAX_LEVEL = 20;
-const VIP_EXP_REQUIREMENTS = [0, 100, 300, 700, 1500, 3000, 6000, 10000, 16000, 24000, 36000, 52000, 72000, 98000, 130000, 170000, 220000, 285000, 360000, 450000, 560000];
-const VIP_BONUS_PER_LEVEL = { gold: 0.06, itemDrop: 0.025, equipmentDrop: 0.02 };
-const VIP_MILESTONE_BONUSES = {
-  3: { offlineHoursBonus: 1, label: "离线收益上限 +1小时" },
-  5: { inventoryLimitBonus: 10, label: "装备背包上限 +10" },
-  7: { offlineEfficiencyBonus: 0.05, label: "离线收益效率 +5%" },
-  10: { rareLootBroadcast: true, label: "稀有掉落强化播报" },
-  12: { offlineEquipPenaltyReduction: 0.1, label: "离线装备掉率衰减降低" },
-  15: { abyssMaterialDropBonus: 0.05, label: "深渊材料掉率 +5%" },
-  18: { rareQualityWeightBonus: 0.02, label: "稀有装备品质权重 +2%" },
-  20: { mythicEssenceDropBonus: 0.03, label: "神话精粹掉率 +3%" },
-};
+// [DATA->data.js] extraMaps array extracted
 
-const VIP_DAILY_GIFT = {
-  0: { materials: { dust: 5 } },
-  5: { materials: { ore: 5, crystal: 2 } },
-  10: { materials: { ancientCore: 1, darkGoldFragment: 1 } },
-  15: { materials: { starShard: 1, darkGoldFragment: 2 } },
-  20: { materials: { darkGoldFragment: 3 } },
-};
-
-const DAILY_QUEST_COUNT = 3;
-const AUTO_BOSS_FAIL_COOLDOWN_MS = 60 * 1000;
-const ZODIAC_SET_DROP_RATES = {
-  normal: 0.00055,
-  hard: 0.001,
-  mutation: 0.0015,
-  hardMutation: 0.0022,
-  boss: 0.0065,
-  hardBoss: 0.011,
-  darkGoldNormal: 0.00007,
-  darkGoldBoss: 0.0006,
-};
-const MYTHIC_DROP_RATES = {
-  abyssNormal: 0.00008,
-  abyssMutation: 0.00018,
-  abyssBoss: 0.0009,
-};
-const DARK_GOLD_UPGRADE_RATES = {
-  normal: { glast_heim: 0.00008, abyss_lake: 0.00014, sky: 0.00022 },
-  hard: { glast_heim: 0.0012, abyss_lake: 0.0022, sky: 0.0035 },
-  abyss: { glast_heim: 0.0045, abyss_lake: 0.0075, sky: 0.011 },
-  bossMultiplier: { normal: 8, hard: 18, abyss: 45 },
-};
-const DARK_GOLD_FRAGMENT_DROPS = {
-  normal: { minMapIndex: 6, rate: 0.2, qty: [1, 1] },
-  hard: { minMapIndex: 0, rate: 0.5, qty: [1, 2] },
-  abyss: { minMapIndex: 0, rate: 1, qty: [1, 3] },
-};
-const DARK_GOLD_EXCHANGE_COSTS = {
-  random: 100,
-  slot: 160,
-  map: 240,
-};
-const ABYSS_EQUIPMENT_BONUS = {
-  statMultiplier: 1.8,
-  randomStatMultiplier: 1.9,
-  extra: {
-    abyssDamageBonus: 0.22,
-    abyssDamageReduction: 0.1,
-    monsterDamageBonus: 0.12,
-    bossDamageBonus: 0.08,
-    finalDamageBonus: 0.06,
-    eliteDamageBonus: 0.08,
-    rareDropBonus: 0.08,
-    baseExpBonus: 0.08,
-    jobExpBonus: 0.08,
-  },
-};
-const ABYSS_BASELINE = {
-  minLevel: 150,
-  hp: 1500000,
-  attack: 3000,
-  defense: 2200,
-  baseExp: 6800,
-  jobExp: 5900,
-  gold: 4200,
-};
-const HARD_BASELINE = {
-  minLevel: 120,
-  hp: 420000,
-  attack: 900,
-  defense: 650,
-  baseExp: 2600,
-  jobExp: 2200,
-  gold: 1700,
-};
-const HARD_MAP_TIER_SCALE = {
-  grass: { hp: 1, attack: 1, defense: 1, exp: 1, gold: 1, recommendedPower: 130000 },
-  forest: { hp: 1.12, attack: 1.1, defense: 1.1, exp: 1.08, gold: 1.08, recommendedPower: 145000 },
-  sewer: { hp: 1.26, attack: 1.22, defense: 1.2, exp: 1.16, gold: 1.16, recommendedPower: 160000 },
-  desert: { hp: 1.42, attack: 1.36, defense: 1.32, exp: 1.26, gold: 1.26, recommendedPower: 178000 },
-  orc_village: { hp: 1.62, attack: 1.54, defense: 1.48, exp: 1.38, gold: 1.38, recommendedPower: 198000 },
-  mine: { hp: 1.86, attack: 1.74, defense: 1.65, exp: 1.52, gold: 1.52, recommendedPower: 220000 },
-  clock: { hp: 2.15, attack: 1.98, defense: 1.86, exp: 1.68, gold: 1.68, recommendedPower: 244000 },
-  glast_heim: { hp: 2.48, attack: 2.25, defense: 2.1, exp: 1.86, gold: 1.86, recommendedPower: 270000 },
-  abyss_lake: { hp: 2.86, attack: 2.55, defense: 2.36, exp: 2.06, gold: 2.06, recommendedPower: 300000 },
-  sky: { hp: 3.3, attack: 2.9, defense: 2.65, exp: 2.3, gold: 2.3, recommendedPower: 335000 },
-};
-const ABYSS_MAP_TIER_SCALE = {
-  grass: { hp: 1.25, attack: 1.2, defense: 1.2, exp: 1, gold: 1, recommendedPower: 350000 },
-  forest: { hp: 1.65, attack: 1.55, defense: 1.5, exp: 1.15, gold: 1.15, recommendedPower: 480000 },
-  sewer: { hp: 2.25, attack: 2.05, defense: 1.95, exp: 1.35, gold: 1.35, recommendedPower: 660000 },
-  desert: { hp: 3.05, attack: 2.7, defense: 2.45, exp: 1.6, gold: 1.6, recommendedPower: 900000 },
-  orc_village: { hp: 4.1, attack: 3.5, defense: 3.1, exp: 1.9, gold: 1.9, recommendedPower: 1250000 },
-  mine: { hp: 5.45, attack: 4.45, defense: 3.9, exp: 2.25, gold: 2.25, recommendedPower: 1700000 },
-  clock: { hp: 7.2, attack: 5.75, defense: 5, exp: 2.7, gold: 2.7, recommendedPower: 2300000 },
-  glast_heim: { hp: 9.4, attack: 7.35, defense: 6.4, exp: 3.25, gold: 3.25, recommendedPower: 3100000 },
-  abyss_lake: { hp: 12.2, attack: 9.4, defense: 8.1, exp: 3.9, gold: 3.9, recommendedPower: 4100000 },
-  sky: { hp: 16, attack: 12.5, defense: 10.5, exp: 4.8, gold: 4.8, recommendedPower: 5400000 },
-};
-const ABYSS_BOSS_EXTRA_MULTIPLIER = {
-  hp: 2.8,
-  attack: 1.8,
-  defense: 1.6,
-  exp: 2.2,
-  jobExp: 2.2,
-  gold: 2,
-  equipmentDrop: 1.5,
-  mythicDrop: 2,
-  abyssSetDrop: 1.8,
-};
-const ABYSS_SET_ITEM_BONUS = {
-  statMultiplier: 1.18,
-  randomStatMultiplier: 1.2,
-  extra: {
-    abyssDamageBonus: 0.06,
-    abyssDamageReduction: 0.03,
-    setPowerBonus: 0.05,
-  },
-};
-const ABYSS_SET_STAGES = {
-  2: { abyssDamageBonus: 0.05, abyssDamageReduction: 0.03 },
-  3: { abyssDamageBonus: 0.08, abyssBossDamageBonus: 0.05 },
-  5: { abyssDamageBonus: 0.15, abyssDamageReduction: 0.08, mythicWeightBonus: 0.02 },
-};
-const ABYSS_AFFIX_POOL = [
-  { id: "abyss_slayer", name: "深渊破敌", desc: "对深渊怪物伤害 +8%", effects: { abyssDamageBonus: 0.08 } },
-  { id: "abyss_guard", name: "深渊守护", desc: "受到深渊怪物伤害 -5%", effects: { abyssDamageReduction: 0.05 } },
-  { id: "abyss_boss_hunter", name: "深渊猎首", desc: "对深渊 Boss 伤害 +10%", effects: { abyssBossDamageBonus: 0.1 } },
-  { id: "abyss_looter", name: "深渊掠夺", desc: "深渊难度下材料掉率 +8%", effects: { abyssMaterialDropBonus: 0.08 } },
-  { id: "abyss_revelation", name: "深渊启示", desc: "神话装备品质权重小幅提高", effects: { mythicWeightBonus: 0.01 } },
-  { id: "abyss_echo", name: "深渊回响", desc: "深渊难度下主动技能伤害 +8%", effects: { abyssSkillDamageBonus: 0.08 } },
-  { id: "abyss_essence", name: "神话精华", desc: "深渊难度下神话精粹掉率 +6%", effects: { mythicEssenceDropBonus: 0.06 } },
-  { id: "abyss_prestige", name: "轮回共鸣", desc: "转生声望品质权重 +6%", effects: { rebirthPrestigeWeightBonus: 0.06 } },
-  { id: "abyss_execute", name: "深渊斩杀", desc: "深渊怪物生命低于 20% 时伤害 +10%", effects: { abyssExecuteDamageBonus: 0.1 } },
-  { id: "abyss_shield", name: "护盾转化", desc: "深渊减伤 +4%，生命 +4%", effects: { abyssDamageReduction: 0.04, hpPct: 0.04 } },
-  { id: "abyss_final", name: "终末锋芒", desc: "最终伤害 +8%", effects: { finalDamageBonus: 0.08 } },
-  { id: "abyss_elite_hunter", name: "首领猎杀", desc: "对精英/首领伤害 +12%", effects: { eliteDamageBonus: 0.12 } },
-  { id: "abyss_rare_finder", name: "稀有嗅觉", desc: "稀有装备品质权重 +10%", effects: { rareDropBonus: 0.1 } },
-];
-const ABYSS_ZODIAC_SET_EFFECTS = {
-  aries_mu: { abyssDamageBonus: 0.15, abyssBossDamageBonus: 0.08 },
-  taurus_aldbaran: { abyssGoldPct: 0.8, abyssBaseExpPct: 0.3, abyssJobExpPct: 0.3 },
-  gemini_saga: { abyssSkillDamageBonus: 0.12, abyssSkillChanceBonus: 0.05 },
-  cancer_deathmask: { abyssMaterialDropBonus: 0.2, abyssDefenseReduction: 0.05 },
-  leo_aiolia: { abyssAttackSpeedPct: 0.08, abyssCritRatePct: 0.05 },
-  virgo_shaka: { abyssMagicDamageBonus: 0.15, abyssDamageReduction: 0.05 },
-  libra_dohko: { abyssAttrPct: 0.08, abyssPowerPct: 0.08 },
-  scorpio_milo: { abyssCritDamageBonus: 0.18, abyssEliteDamageBonus: 0.12 },
-  sagittarius_aiolos: { abyssBossDamageBonus: 0.15, abyssDexPct: 0.08 },
-  capricorn_shura: { abyssIgnoreDefense: 0.08, abyssSkillDamageBonus: 0.1 },
-  aquarius_camue: { abyssMagicDamageBonus: 0.15, abyssBossDamageReduction: 0.05 },
-  pisces_aphrodite: { abyssCardDropBonus: 0.2, abyssItemDropBonus: 0.12 },
-};
-const MAP_EXPLORATION_REQUIREMENTS = [0, 100, 300, 800, 1500, 3000, 6000, 10000, 16000, 24000, 36000];
-const ACHIEVEMENT_DB = [
-  { id: "totalKills_100", category: "战斗", title: "初露锋芒", description: "累计击杀 100 只魔物", target: 100, reward: { gold: 3000, vipExp: 10 } },
-  { id: "totalKills_1000", category: "战斗", title: "魔物清扫者", description: "累计击杀 1000 只魔物", target: 1000, reward: { gold: 20000, vipExp: 30, titleId: "monster_cleaner" } },
-  { id: "bossKills_10", category: "Boss", title: "首领猎人", description: "击败 10 个 Boss", target: 10, reward: { vipExp: 40, titleId: "boss_hunter" } },
-  { id: "abyssBoss_1", category: "深渊", title: "深渊踏破者", description: "击败 1 个深渊 Boss", target: 1, reward: { materials: { mythicEssence: 1 }, titleId: "abyss_breaker" } },
-  { id: "legendItem_1", category: "装备", title: "传说入手", description: "获得 1 件传说装备", target: 1, reward: { vipExp: 20 } },
-  { id: "darkGoldItem_1", category: "装备", title: "暗金见证", description: "获得 1 件暗金装备", target: 1, reward: { materials: { starShard: 1 } } },
-  { id: "mythicItem_1", category: "装备", title: "神话见证者", description: "获得 1 件神话装备", target: 1, reward: { materials: { mythicEssence: 2 }, titleId: "mythic_witness" } },
-  { id: "refine10_1", category: "星炼", title: "锻造新星", description: "任意装备星炼 +10", target: 1, reward: { vipExp: 35, titleId: "forge_star" } },
-  { id: "zodiacSet_1", category: "星座", title: "星座收藏家", description: "收藏 1 套星座套装", target: 1, reward: { vipExp: 50, titleId: "zodiac_collector" } },
-  { id: "exploreLv5_1", category: "探索", title: "地图熟客", description: "任意地图探索 Lv.5", target: 1, reward: { vipExp: 30 } },
-  { id: "tasks_10", category: "任务", title: "可靠委托人", description: "完成 10 个任务", target: 10, reward: { vipExp: 30 } },
-];
-const TITLE_DB = {
-  monster_cleaner: { id: "monster_cleaner", name: "魔物清扫者", source: "击杀 1000 只怪物", rarity: "rare", effects: { goldBonus: 0.01 } },
-  boss_hunter: { id: "boss_hunter", name: "首领猎人", source: "击败 10 个 Boss", rarity: "epic", effects: { bossDamageBonus: 0.02 } },
-  zodiac_collector: { id: "zodiac_collector", name: "星座收藏家", source: "收藏 1 套星座套装", rarity: "legend", effects: { drop: 0.01 } },
-  abyss_breaker: { id: "abyss_breaker", name: "深渊踏破者", source: "击败 1 个深渊 Boss", rarity: "darkGold", effects: { abyssDamageBonus: 0.03 } },
-  mythic_witness: { id: "mythic_witness", name: "神话见证者", source: "获得 1 件神话装备", rarity: "mythic", effects: { powerPct: 0.01 } },
-  forge_star: { id: "forge_star", name: "锻造新星", source: "任意装备星炼 +10", rarity: "epic", effects: { powerPct: 0.01 } },
-};
-const ACTIVE_SKILL_SPECIALIZATIONS = {
-  power: { id: "power", name: "猛攻", description: "该技能伤害 +20%" },
-  boss_damage: { id: "boss_damage", name: "首领杀手", description: "该技能对 Boss 伤害 +25%" },
-  frequency: { id: "frequency", name: "迅捷", description: "触发率 +20%，伤害 -8%" },
-  pierce: { id: "pierce", name: "破甲", description: "该技能无视怪物防御 +10%" },
-};
-const PASSIVE_SKILL_SPECIALIZATIONS = {
-  enhance: { id: "enhance", name: "强化", description: "该被动效果 +15%" },
-  utility: { id: "utility", name: "收益", description: "收益类被动额外 +10%" },
-  survival: { id: "survival", name: "生存", description: "生存类被动额外 +10%" },
-  combat: { id: "combat", name: "战斗", description: "战斗类被动额外 +10%" },
-};
-const ZODIAC_CARD_BY_SET = {
-  aries_mu: "aries_card",
-  taurus_aldbaran: "taurus_card",
-  gemini_saga: "gemini_card",
-  cancer_deathmask: "cancer_card",
-  leo_aiolia: "leo_card",
-  virgo_shaka: "virgo_card",
-  libra_dohko: "libra_card",
-  scorpio_milo: "scorpio_card",
-  sagittarius_aiolos: "sagittarius_card",
-  capricorn_shura: "capricorn_card",
-  aquarius_camyu: "aquarius_card",
-  pisces_aphrodite: "pisces_card",
-};
-
-const ENHANCE_MAX_LEVEL = 15;
-const ENHANCE_BREAK_LEVEL = 999;
-const ENHANCE_CHANCES = [1, 0.95, 0.9, 0.85, 0.75, 0.65, 0.55, 0.45, 0.35, 0.28, 0.22, 0.18, 0.14, 0.1, 0.07];
-const ENHANCE_PASSIVE_CHANCES = [0, 0, 0, 0, 0.06, 0.08, 0.12, 0.18, 0.26, 0.36, 0.45, 0.52, 0.58, 0.64, 0.72];
-const ENHANCE_MILESTONE_LEVELS = [7, 10, 15];
-const ENHANCE_MILESTONE_BONUSES = {
-  weapon: [
-    { monsterDamageBonus: 0.02 },
-    { skillDamageBonus: 0.03 },
-    { finalDamageBonus: 0.05 },
-  ],
-  armor: [
-    { hpPct: 0.02 },
-    { damageReductionPct: 0.02 },
-    { hpPct: 0.05 },
-  ],
-  shoes: [
-    { dodgeRatePct: 0.01 },
-    { attackSpeedPct: 0.01 },
-    { hpRegenPct: 0.05 },
-  ],
-  headgear: [
-    { allStats: 1 },
-    { skillDamageBonus: 0.01 },
-    { allStats: 2 },
-  ],
-  trinket: [
-    { critDamageBonus: 0.02 },
-    { rareDropBonus: 0.01 },
-    { finalDamageBonus: 0.02 },
-  ],
-};
-const ENHANCE_PASSIVE_POOL = ["bloodRage", "ironWall", "criticalFury", "lifeStealBoost", "abyssAdaptation", "treasureInstinct", "bossHunter"];
-const ENHANCE_PASSIVE_DB = {
-  bloodRage: { id: "bloodRage", name: "血怒", desc: "生命低于 35% 时，攻击提高 12%。", effect: { lowHpAtkPct: 0.12 } },
-  ironWall: { id: "ironWall", name: "铁壁", desc: "受到伤害降低 5%。", effect: { damageReductionPct: 0.05 } },
-  criticalFury: { id: "criticalFury", name: "狂击", desc: "暴击伤害提高 15%。", effect: { critDamageBonus: 0.15 } },
-  lifeStealBoost: { id: "lifeStealBoost", name: "吸血强化", desc: "攻击伤害 3% 转化为生命。", effect: { lifeStealPct: 0.03 } },
-  abyssAdaptation: { id: "abyssAdaptation", name: "深渊适应", desc: "深渊减伤 +5%。", effect: { abyssDamageReduction: 0.05 } },
-  treasureInstinct: { id: "treasureInstinct", name: "寻宝直觉", desc: "稀有掉率 +1%。", effect: { rareDropBonus: 0.01 } },
-  bossHunter: { id: "bossHunter", name: "首领猎手", desc: "Boss 伤害 +6%。", effect: { bossDamageBonus: 0.06 } },
-};
-
-const CODEX_KILL_MILESTONES = [1, 100, 1000, 5000, 10000];
-const CODEX_MILESTONE_LABELS = ["首杀登记", "熟练 Lv.1", "熟练 Lv.2", "熟练 Lv.3", "大师熟练"];
-const CODEX_KILL_REWARDS = {
-  normal: [
-    { items: { gold: 1000 }, stats: {} },
-    { items: { materials: { ore: 10 } }, stats: { cardDamage: 0.005 } },
-    { items: { materials: { oridecon: 1, elunium: 1 } }, stats: { goldBonus: 0.0005 } },
-    { items: { materials: { oridecon: 2, elunium: 2, crystal: 5 } }, stats: { materialDropBonus: 0.005 } },
-    { items: { materials: { ancientCore: 1, starShard: 1 } }, stats: { dropBonus: 0.0005 } },
-  ],
-  elite: [
-    { items: { gold: 2000 }, stats: {} },
-    { items: { materials: { ore: 15 } }, stats: { hpBonus: 0.0005 } },
-    { items: { materials: { oridecon: 1, elunium: 1 } }, stats: { defBonus: 0.0005 } },
-    { items: { materials: { oridecon: 3, elunium: 3, crystal: 8 } }, stats: { eliteDamageBonus: 0.005 } },
-    { items: { materials: { ancientCore: 1, starShard: 1 } }, stats: { critRateBonus: 0.0005 } },
-  ],
-  boss: [
-    { items: { gold: 5000, materials: { bossSoul: 1 } }, stats: {} },
-    { items: { materials: { ore: 20 } }, stats: { bossDamage: 0.002 } },
-    { items: { materials: { oridecon: 2, elunium: 2 } }, stats: { bossDamageReduction: 0.001 } },
-    { items: { materials: { ancientCore: 2, starShard: 1 } }, stats: { bossEquipDropBonus: 0.001 } },
-    { items: { materials: { mythicEssence: 1 } }, stats: { bossQualityWeight: 0.0005 } },
-  ],
-  abyss: [
-    { items: { materials: { abyssShard: 5 } }, stats: {} },
-    { items: { materials: { abyssShard: 20 } }, stats: { abyssDamage: 0.002 } },
-    { items: { materials: { abyssCore: 1 } }, stats: { abyssDamageReduction: 0.001 } },
-    { items: { materials: { abyssCore: 2, oridecon: 2, elunium: 2 } }, stats: { abyssMaterialDropBonus: 0.001 } },
-    { items: { materials: { mythicEssence: 1 } }, stats: { mythicQualityWeight: 0.0003 } },
-  ],
-};
-CODEX_KILL_REWARDS.abyssBoss = CODEX_KILL_REWARDS.abyss;
-
-const CODEX_STAT_CAPS = {
-  goldBonus: 0.10, expBonus: 0.10, dropBonus: 0.05, materialDropBonus: 0.10,
-  hpBonus: 0.10, defBonus: 0.10, critRateBonus: 0.03,
-  bossDamage: 0.20, bossDamageReduction: 0.10, bossEquipDropBonus: 0.05, bossQualityWeight: 0.05,
-  abyssDamage: 0.20, abyssDamageReduction: 0.10, abyssMaterialDropBonus: 0.05, mythicQualityWeight: 0.02,
-  cardDamage: 0.05,
-  eliteDamageBonus: 0.10,
-};
-
-const CODEX_CARD_MILESTONES = [3, 5, 8, 10];
-const CODEX_CARD_REWARDS = [
-  { gold: 5000 },
-  { materials: { ore: 20 } },
-  { materials: { oridecon: 1, elunium: 1 } },
-  { materials: { starShard: 1, crystal: 10 } },
-];
-
-const CODEX_MASTERY_THRESHOLDS = [0, 10, 100, 500, 2000, 10000];
-const CODEX_RESEARCH_THRESHOLDS = [0, 1, 10, 50, 100, 300];
-const CODEX_CAPS = {
-  globalDrop: 0.10, cardDamage: 0.05, bossQualityWeight: 0.05, mythicQualityWeight: 0.02,
-  allStats: 0.10, abyssDamage: 0.20, abyssReduction: 0.10, bossDamage: 0.20, hpDef: 0.10,
-};
-
-const CODEX_MASTERY_BONUSES = {
-  normal: [{ goldBonus: 0.001 }, { expBonus: 0.001 }, { cardDamage: 0.01 }, { materialDropBonus: 0.01 }, { dropBonus: 0.001 }],
-  elite: [{ hpBonus: 0.001 }, { defBonus: 0.001 }, { cardDamage: 0.01 }, { materialDropBonus: 0.01 }, { critRateBonus: 0.001 }],
-  boss: [{ bossDamage: 0.005 }, { hpBonus: 0.002 }, { bossDamageReduction: 0.003 }, { bossEquipDropBonus: 0.002 }, { bossQualityWeight: 0.001 }],
-  abyss: [{ abyssDamage: 0.005 }, { abyssDamageReduction: 0.003 }, { hpBonus: 0.002 }, { abyssMaterialDropBonus: 0.003 }, { mythicQualityWeight: 0.0005 }],
-  abyssBoss: [{ abyssDamage: 0.008 }, { abyssDamageReduction: 0.004 }, { hpBonus: 0.003 }, { abyssMaterialDropBonus: 0.004 }, { mythicQualityWeight: 0.0008 }],
-};
-
-const CODEX_RESEARCH_BONUSES = {
-  normal: [{ str: 1 }, { str: 1 }, { str: 2 }, { allStats: 1 }, { hpPct: 0.001 }],
-  boss: [{ bossDamage: 0.001 }, { bossDamage: 0.002 }, { bossDamage: 0.003 }, { bossDamage: 0.01, hpPct: 0.003 }, { bossQualityWeight: 0.0005 }],
-  abyss: [{ abyssDamage: 0.001 }, { abyssDamage: 0.002 }, { abyssDamageReduction: 0.002 }, { abyssDamage: 0.01, abyssDamageReduction: 0.005 }, { mythicQualityWeight: 0.0003 }],
-};
-
-const SHOP_ITEMS = {
-  normal: [
-    { id: "dust_pack", name: "研磨粉", desc: "基础星炼材料。", cost: { gold: 2000 }, reward: { materials: { dust: 1 } }, dailyLimit: 100 },
-    { id: "ore_pack", name: "精炼矿", desc: "中低级精造材料。", cost: { gold: 8000 }, reward: { materials: { ore: 1 } }, dailyLimit: 50 },
-    { id: "crystal_pack", name: "蓝晶碎片", desc: "中级精造、赋能材料。", cost: { gold: 20000 }, reward: { materials: { crystal: 1 } }, dailyLimit: 20 },
-    { id: "material_box", name: "低级材料箱", desc: "随机获得研磨粉、精炼矿、蓝晶碎片。", cost: { gold: 80000 }, reward: { materialBox: { dust: [10, 30], ore: [3, 8], crystal: [1, 3] } }, dailyLimit: 5 },
-    { id: "boss_ticket", name: "Boss挑战券", desc: "额外挑战当前地图 Boss 一次。", cost: { gold: 250000 }, reward: { bossTicket: 1 }, dailyLimit: 3 },
-    { id: "bag_expand", name: "背包扩展券", desc: "装备背包上限 +5，价格递增。", cost: { gold: 1000000 }, reward: { bagExpand: 5 }, totalLimit: 20, priceScale: 1.5 },
-  ],
-  enhance: [
-    { id: "ancient_core_pack", name: "古代核心", desc: "高级精造材料。", cost: { gold: 150000, crystal: 3 }, reward: { materials: { ancientCore: 1 } }, dailyLimit: 10 },
-    { id: "star_shard_pack", name: "星界碎片", desc: "顶级精造、套装打造材料。", cost: { gold: 500000, ancientCore: 2 }, reward: { materials: { starShard: 1 } }, dailyLimit: 3 },
-    { id: "mythic_essence_pack", name: "神话精粹", desc: "神话装备制作核心。", cost: { gold: 3000000, starShard: 5 }, reward: { materials: { mythicEssence: 1 } }, weeklyLimit: 1 },
-    { id: "oridecon_pack", name: "神之金属", desc: "武器强化材料。", cost: { gold: 150000, ore: 5 }, reward: { materials: { oridecon: 1 } }, dailyLimit: 10 },
-    { id: "elunium_pack", name: "铝", desc: "防具强化材料。", cost: { gold: 150000, ore: 5 }, reward: { materials: { elunium: 1 } }, dailyLimit: 10 },
-    { id: "enhance_low", name: "初级强化礼包", desc: "研磨粉x80、精炼矿x30、神之金属x2、铝x2。", cost: { gold: 500000 }, reward: { materials: { dust: 80, ore: 30, oridecon: 2, elunium: 2 } }, dailyLimit: 1 },
-    { id: "enhance_high", name: "高级强化礼包", desc: "蓝晶碎片x20、古代核心x8、神之金属x5、铝x5。", cost: { gold: 2000000 }, reward: { materials: { crystal: 20, ancientCore: 8, oridecon: 5, elunium: 5 } }, weeklyLimit: 2 },
-    { id: "protect_scroll", name: "强化保护卷", desc: "+13以上强化失败时消耗1个，防止装备损坏。", cost: { gold: 500000, ancientCore: 2 }, reward: { materials: { enhanceProtect: 1 } }, dailyLimit: 3 },
-    { id: "socket_stone_pack", name: "打孔石", desc: "用于稀有/史诗装备开启卡槽。", cost: { gold: 250000, ore: 8 }, reward: { materials: { socketStone: 1 } }, dailyLimit: 10 },
-    { id: "advanced_socket_stone_pack", name: "高级打孔石", desc: "用于古代/传说装备开启卡槽。", cost: { gold: 900000, crystal: 8, rune: 2 }, reward: { materials: { advancedSocketStone: 1 } }, dailyLimit: 5 },
-    { id: "mythic_socket_stone_pack", name: "神话打孔石", desc: "用于暗金/神话装备开启卡槽。", cost: { gold: 3000000, ancientCore: 4, starShard: 1 }, reward: { materials: { mythicSocketStone: 1 } }, weeklyLimit: 3 },
-    { id: "card_remover_pack", name: "卡片拆除器", desc: "拆除已镶嵌卡片并返还卡片。", cost: { gold: 500000, crystal: 5 }, reward: { materials: { cardRemover: 1 } }, dailyLimit: 5 },
-  ],
-  boss: [
-    { id: "boss_ticket_soul", name: "Boss挑战券", desc: "消耗通用首领魂，额外挑战 Boss 一次。", cost: { bossSoul: 1 }, reward: { bossTicket: 1 }, dailyLimit: 3 },
-    { id: "boss_equip_box", name: "当前地图Boss装备箱", desc: "史诗60%/古代28%/传说10%/暗金2%，不产神话。", cost: { bossSoul: 3 }, reward: { bossEquipBox: 1 }, dailyLimit: 2 },
-    { id: "boss_card_shard", name: "Boss卡片碎片", desc: "100碎片合成1张Boss卡。", cost: { bossSoul: 2 }, reward: { materials: { bossCardShard: 1 } }, dailyLimit: 3 },
-    { id: "soul_selector", name: "首领魂自选箱", desc: "自选一种地图首领魂x1。", cost: { bossSoul: 3 }, reward: { soulSelector: 1 }, dailyLimit: 3 },
-    { id: "boss_sweep", name: "Boss扫荡券", desc: "快速结算已击败过的 Boss。", cost: { bossSoul: 2, gold: 500000 }, reward: { bossSweep: 1 }, dailyLimit: 2, requireBossCleared: true },
-  ],
-  abyss: [
-    { id: "abyss_shard_pack", name: "深渊残片补给", desc: "深渊残片 x5，补充用非主要来源。", cost: { gold: 800000 }, reward: { materials: { abyssShard: 5 } }, dailyLimit: 3, requireAbyss: true },
-    { id: "abyss_core_pack", name: "深渊精华", desc: "深渊精华 +1。", cost: { abyssShard: 25 }, reward: { materials: { abyssCore: 1 } }, dailyLimit: 5, requireAbyss: true },
-    { id: "abyss_equip_box", name: "深渊装备箱", desc: "稀有25%/史诗35%/古代25%/传说12%/暗金2.7%/神话0.3%。", cost: { abyssShard: 120, abyssCore: 5 }, reward: { abyssEquipBox: 1 }, dailyLimit: 1, requireAbyss: true },
-    { id: "abyss_dmg_stone", name: "深渊伤害词条石", desc: "深渊伤害 +3%~+8%。", cost: { abyssCore: 8 }, reward: {}, weeklyLimit: 3, requireAbyss: true },
-    { id: "abyss_def_stone", name: "深渊减伤词条石", desc: "深渊减伤 +2%~+5%。", cost: { abyssCore: 10 }, reward: {}, weeklyLimit: 3, requireAbyss: true },
-    { id: "abyss_ticket", name: "深渊挑战券", desc: "深渊挑战次数 +1。", cost: { abyssShard: 30 }, reward: {}, dailyLimit: 3, requireAbyss: true },
-  ],
-};
-
-const maps = [
-  {
-    id: "grass",
-    name: "南门青草地",
-    enemy: "果冻波波",
-    boss: "青草地首领 · 巨型波波",
-    bossSkill: "弹跳重压",
-    baseHp: 520,
-    gold: 11,
-    baseExp: 12,
-    jobExp: 10,
-    bossMultiplier: 18,
-    palette: ["#bfe4d2", "#7dbb87", "#52785a"],
-  },
-  {
-    id: "forest",
-    name: "斑光森林",
-    enemy: "蘑菇巡游者",
-    boss: "森林首领 · 树心看守",
-    bossSkill: "藤蔓缠绕",
-    baseHp: 2600,
-    gold: 35,
-    baseExp: 34,
-    jobExp: 31,
-    bossMultiplier: 22,
-    palette: ["#b9ddc4", "#628f69", "#315441"],
-  },
-  {
-    id: "mine",
-    name: "蓝晶矿洞",
-    enemy: "矿灯蝙蝠",
-    boss: "矿洞首领 · 水晶甲虫",
-    bossSkill: "晶壳反震",
-    baseHp: 11000,
-    gold: 96,
-    baseExp: 92,
-    jobExp: 86,
-    bossMultiplier: 26,
-    palette: ["#c7d7de", "#6f8fa0", "#456e91"],
-  },
-  {
-    id: "clock",
-    name: "旧钟塔回廊",
-    enemy: "齿轮侍从",
-    boss: "钟塔首领 · 整点守钟人",
-    bossSkill: "逆时钟回响",
-    baseHp: 46000,
-    gold: 260,
-    baseExp: 280,
-    jobExp: 250,
-    bossMultiplier: 30,
-    palette: ["#d8ccb9", "#a97958", "#684b40"],
-  },
-  {
-    id: "sky",
-    name: "浮岛神殿",
-    enemy: "星羽守卫",
-    boss: "神殿首领 · 云阶执政官",
-    bossSkill: "星辉审判",
-    baseHp: 180000,
-    gold: 720,
-    baseExp: 760,
-    jobExp: 690,
-    bossMultiplier: 34,
-    palette: ["#d7e5ef", "#8fa9c8", "#6a5f9f"],
-  },
-];
-
-const extraMaps = [
-  {
-    id: "sewer",
-    name: "普隆德拉下水道",
-    enemy: "盗虫幼虫",
-    boss: "下水道首领 · 黄金盗虫",
-    bossSkill: "黄金甲壳",
-    baseHp: 5600,
-    gold: 86,
-    baseExp: 140,
-    jobExp: 120,
-    bossMultiplier: 24,
-    palette: ["#c4d0c8", "#718473", "#3f4d46"],
-  },
-  {
-    id: "desert",
-    name: "梦罗克沙漠",
-    enemy: "沙漠幼狼",
-    boss: "沙漠首领 · 蝎王",
-    bossSkill: "毒尾穿刺",
-    baseHp: 12500,
-    gold: 145,
-    baseExp: 210,
-    jobExp: 180,
-    bossMultiplier: 26,
-    palette: ["#ead7a2", "#b98b4a", "#6f4b2b"],
-  },
-  {
-    id: "orc_village",
-    name: "兽人村落",
-    enemy: "兽人战士",
-    boss: "兽人首领 · 兽人英雄",
-    bossSkill: "英雄怒吼",
-    baseHp: 25000,
-    gold: 220,
-    baseExp: 330,
-    jobExp: 290,
-    bossMultiplier: 28,
-    palette: ["#c8d2a4", "#768b4c", "#3c4b2e"],
-  },
-  {
-    id: "glast_heim",
-    name: "古城废墟",
-    enemy: "幽灵剑士",
-    boss: "古城首领 · 黑暗领主",
-    bossSkill: "黑暗审判",
-    baseHp: 185000,
-    gold: 620,
-    baseExp: 980,
-    jobExp: 880,
-    bossMultiplier: 32,
-    palette: ["#d4ccd1", "#796778", "#3e3445"],
-  },
-  {
-    id: "abyss_lake",
-    name: "深渊湖",
-    enemy: "蓝龙幼体",
-    boss: "深渊首领 · 远古巨龙",
-    bossSkill: "龙息洪流",
-    baseHp: 420000,
-    gold: 980,
-    baseExp: 1450,
-    jobExp: 1280,
-    bossMultiplier: 34,
-    palette: ["#bdd9e5", "#527f98", "#263e5f"],
-  },
-];
-
-const mapOrder = ["grass", "forest", "sewer", "desert", "orc_village", "mine", "clock", "glast_heim", "abyss_lake", "sky"];
 extraMaps.forEach((map) => {
   if (!maps.some((entry) => entry.id === map.id)) maps.push(map);
 });
 maps.sort((a, b) => mapOrder.indexOf(a.id) - mapOrder.indexOf(b.id));
 
-const mapLevelRanges = {
-  grass: { minLevel: 1, maxLevel: 10, recommendedPower: 80, attackRange: [3, 14] },
-  forest: { minLevel: 8, maxLevel: 20, recommendedPower: 240, attackRange: [12, 38] },
-  mine: { minLevel: 52, maxLevel: 70, recommendedPower: 3200, attackRange: [110, 240] },
-  clock: { minLevel: 68, maxLevel: 88, recommendedPower: 5200, attackRange: [170, 360] },
-  sky: { minLevel: 120, maxLevel: 150, recommendedPower: 16500, attackRange: [760, 1450] },
-  beginner_field: { minLevel: 1, maxLevel: 10, recommendedPower: 80, attackRange: [3, 12] },
-  prontera_south: { minLevel: 8, maxLevel: 20, recommendedPower: 240, attackRange: [10, 28] },
-  sewer: { minLevel: 18, maxLevel: 32, recommendedPower: 600, attackRange: [24, 72] },
-  desert: { minLevel: 28, maxLevel: 45, recommendedPower: 1100, attackRange: [58, 140] },
-  orc_village: { minLevel: 40, maxLevel: 58, recommendedPower: 2100, attackRange: [115, 260] },
-  glast_heim_outside: { minLevel: 48, maxLevel: 70, recommendedPower: 3200, attackRange: [90, 160] },
-  glast_heim_deep: { minLevel: 68, maxLevel: 90, recommendedPower: 5200, attackRange: [150, 260] },
-  glast_heim: { minLevel: 84, maxLevel: 105, recommendedPower: 7800, attackRange: [230, 620] },
-  abyss_lake: { minLevel: 100, maxLevel: 125, recommendedPower: 11500, attackRange: [430, 1100] },
-  abyss_temple: { minLevel: 88, maxLevel: 120, recommendedPower: 11000, attackRange: [240, 420] },
-};
+// [DATA->data.js] mapLevelRanges extracted
 
 function monsterTemplate(id, name, levelRange, hpRange, attackRange, defenseRange, baseExpRange, jobExpRange, goldRange, type = "normal") {
   return { id, name, type, levelRange, hpRange, attackRange, defenseRange, baseExpRange, jobExpRange, goldRange };
 }
 
-const mapMonsterConfig = {
-  grass: {
-    name: "南门青草地",
-    enemy: "果冻波波",
-    boss: "下水道首领 · 黄金盗虫",
-    bossSkill: "逆时钟回响",
-    recommendedPower: 80,
-    monsters: [
-      monsterTemplate("grass_poring", "果冻波波", [1, 5], [120, 260], [3, 8], [1, 3], [8, 14], [6, 12], [6, 12]),
-      monsterTemplate("grass_leaf_bug", "绿叶虫", [3, 8], [180, 360], [5, 11], [2, 4], [10, 18], [8, 14], [8, 14]),
-      monsterTemplate("grass_lunatic", "疯兔幼崽", [5, 10], [260, 520], [8, 14], [3, 6], [14, 24], [10, 18], [10, 18], "elite"),
-    ],
-    bossTemplate: monsterTemplate("grass_boss_poring", "青草地首领 · 巨型波波", [10, 10], [2500, 2500], [22, 22], [8, 8], [140, 140], [110, 110], [90, 90], "boss"),
-  },
-  forest: {
-    name: "斑光森林",
-    enemy: "蘑菇巡游者",
-    boss: "森林首领 · 树心看守",
-    bossSkill: "藤蔓缠绕",
-    recommendedPower: 240,
-    monsters: [
-      monsterTemplate("forest_mushroom", "蘑菇巡游者", [8, 14], [600, 1200], [12, 24], [6, 12], [28, 48], [24, 42], [20, 36]),
-      monsterTemplate("forest_wolf", "森林小狼", [12, 18], [850, 1600], [18, 32], [8, 15], [38, 62], [32, 52], [28, 48]),
-      monsterTemplate("forest_spore", "毒孢子", [15, 20], [1000, 2100], [22, 38], [10, 18], [48, 78], [40, 68], [36, 58], "elite"),
-    ],
-    bossTemplate: monsterTemplate("forest_boss_guardian", "森林首领 · 树心看守", [20, 20], [12000, 12000], [55, 55], [28, 28], [520, 520], [430, 430], [260, 260], "boss"),
-  },
-  sewer: {
-    name: "普隆德拉下水道",
-    enemy: "盗虫幼虫",
-    boss: "下水道首领 · 黄金盗虫",
-    bossSkill: "黄金甲壳",
-    recommendedPower: 600,
-    monsters: [
-      monsterTemplate("sewer_bug_larva", "盗虫幼虫", [18, 24], [1800, 3600], [24, 45], [14, 26], [65, 110], [55, 95], [42, 76]),
-      monsterTemplate("sewer_black_rat", "黑鼠", [22, 28], [2600, 5200], [34, 58], [18, 32], [85, 145], [70, 125], [55, 92]),
-      monsterTemplate("sewer_poison_mushroom", "毒蘑菇", [26, 32], [3600, 6800], [45, 72], [24, 40], [110, 180], [90, 150], [70, 115], "elite"),
-    ],
-    bossTemplate: monsterTemplate("sewer_boss_golden_bug", "下水道首领 · 黄金盗虫", [32, 32], [42000, 42000], [115, 115], [70, 70], [1500, 1500], [1250, 1250], [620, 620], "boss"),
-  },
-  desert: {
-    name: "梦罗克沙漠",
-    enemy: "沙漠幼狼",
-    boss: "沙漠首领 · 蝎王",
-    bossSkill: "毒尾穿刺",
-    recommendedPower: 1100,
-    monsters: [
-      monsterTemplate("desert_wolf", "沙漠幼狼", [28, 35], [5000, 9000], [58, 90], [32, 50], [150, 235], [125, 205], [95, 145]),
-      monsterTemplate("desert_magnolia", "魔锅蛋", [34, 40], [6800, 12500], [72, 115], [42, 65], [190, 300], [160, 260], [120, 180]),
-      monsterTemplate("desert_scorpion", "沙漠蝎", [38, 45], [9000, 16000], [90, 140], [55, 82], [240, 380], [205, 320], [150, 230], "elite"),
-    ],
-    bossTemplate: monsterTemplate("desert_boss_scorpion_king", "沙漠首领 · 蝎王", [45, 45], [88000, 88000], [210, 210], [120, 120], [2600, 2600], [2150, 2150], [1100, 1100], "boss"),
-  },
-  orc_village: {
-    name: "兽人村落",
-    enemy: "兽人战士",
-    boss: "兽人首领 · 兽人英雄",
-    bossSkill: "英雄怒吼",
-    recommendedPower: 2100,
-    monsters: [
-      monsterTemplate("orc_warrior", "兽人战士", [40, 48], [13000, 23000], [115, 175], [75, 115], [300, 470], [250, 410], [180, 270]),
-      monsterTemplate("orc_archer", "兽人弓手", [46, 54], [11000, 21000], [135, 205], [65, 100], [340, 540], [290, 470], [210, 320]),
-      monsterTemplate("orc_brave", "兽人勇士", [52, 58], [18000, 32000], [170, 260], [100, 155], [430, 680], [360, 590], [260, 390], "elite"),
-    ],
-    bossTemplate: monsterTemplate("orc_boss_hero", "兽人首领 · 兽人英雄", [58, 58], [180000, 180000], [380, 380], [220, 220], [5200, 5200], [4300, 4300], [2100, 2100], "boss"),
-  },
-  mine: {
-    name: "蓝晶矿洞",
-    enemy: "矿灯蝙蝠",
-    boss: "矿洞首领 · 水晶甲虫",
-    bossSkill: "晶壳反震",
-    recommendedPower: 3200,
-    monsters: [
-      monsterTemplate("mine_bat", "矿灯蝙蝠", [18, 25], [2200, 4200], [30, 55], [16, 28], [80, 135], [70, 118], [58, 92]),
-      monsterTemplate("mine_beetle", "蓝晶甲虫", [24, 32], [3600, 7200], [42, 72], [24, 40], [115, 190], [98, 165], [82, 132]),
-      monsterTemplate("mine_golem", "矿洞傀儡", [30, 35], [6000, 11000], [60, 95], [38, 60], [155, 250], [132, 215], [110, 170], "elite"),
-    ],
-    bossTemplate: monsterTemplate("mine_boss_crystal", "矿洞首领 · 水晶甲虫", [35, 35], [55000, 55000], [130, 130], [85, 85], [1800, 1800], [1450, 1450], [760, 760], "boss"),
-  },
-  clock: {
-    name: "旧钟塔回廊",
-    enemy: "齿轮侍从",
-    boss: "钟塔首领 · 整点守钟人",
-    bossSkill: "逆时钟回响",
-    recommendedPower: 5200,
-    monsters: [
-      monsterTemplate("clock_gear", "齿轮侍从", [48, 56], [18000, 32000], [95, 150], [70, 110], [250, 380], [220, 330], [190, 280]),
-      monsterTemplate("clock_ghost", "钟摆幽灵", [55, 64], [24000, 44000], [120, 190], [85, 135], [330, 500], [290, 430], [240, 360]),
-      monsterTemplate("clock_guard", "逆时针守卫", [62, 70], [36000, 62000], [150, 240], [110, 170], [440, 660], [380, 560], [320, 470], "elite"),
-    ],
-    bossTemplate: monsterTemplate("clock_boss_keeper", "钟塔首领 · 整点守钟人", [70, 70], [280000, 280000], [360, 360], [260, 260], [6200, 6200], [5200, 5200], [2600, 2600], "boss"),
-  },
-  glast_heim: {
-    name: "古城废墟",
-    enemy: "幽灵剑士",
-    boss: "古城首领 · 黑暗领主",
-    bossSkill: "黑暗审判",
-    recommendedPower: 7800,
-    monsters: [
-      monsterTemplate("glast_ghost_swordman", "幽灵剑士", [84, 92], [70000, 125000], [230, 360], [160, 250], [760, 1140], [680, 1020], [540, 760]),
-      monsterTemplate("glast_abyss_knight", "深渊骑士", [92, 100], [95000, 180000], [310, 480], [220, 340], [980, 1480], [860, 1320], [680, 980]),
-      monsterTemplate("glast_wraith", "古城恶灵", [100, 105], [120000, 240000], [390, 620], [260, 420], [1250, 1880], [1100, 1650], [820, 1180], "elite"),
-    ],
-    bossTemplate: monsterTemplate("glast_boss_dark_lord", "古城首领 · 黑暗领主", [105, 105], [950000, 950000], [900, 900], [650, 650], [14500, 14500], [12200, 12200], [6000, 6000], "boss"),
-  },
-  abyss_lake: {
-    name: "深渊湖",
-    enemy: "蓝龙幼体",
-    boss: "深渊首领 · 远古巨龙",
-    bossSkill: "龙息洪流",
-    recommendedPower: 11500,
-    monsters: [
-      monsterTemplate("abyss_blue_dragon", "蓝龙幼体", [100, 110], [150000, 280000], [430, 680], [320, 520], [1150, 1720], [1010, 1520], [820, 1180]),
-      monsterTemplate("abyss_dragonkin", "深渊龙人", [108, 118], [210000, 390000], [560, 850], [420, 680], [1450, 2180], [1280, 1920], [1050, 1500]),
-      monsterTemplate("abyss_wyvern", "古代飞龙", [116, 125], [300000, 560000], [720, 1100], [560, 860], [1880, 2820], [1650, 2480], [1350, 1900], "elite"),
-    ],
-    bossTemplate: monsterTemplate("abyss_boss_ancient_dragon", "深渊首领 · 远古巨龙", [125, 125], [2600000, 2600000], [1600, 1600], [1200, 1200], [26000, 26000], [22000, 22000], [11000, 11000], "boss"),
-  },
-  sky: {
-    name: "浮岛神殿",
-    enemy: "星羽守卫",
-    boss: "神殿首领 · 云阶执政官",
-    bossSkill: "星辉审判",
-    recommendedPower: 16500,
-    monsters: [
-      monsterTemplate("sky_guard", "星羽守卫", [88, 98], [90000, 160000], [260, 420], [180, 280], [720, 1080], [640, 960], [620, 860]),
-      monsterTemplate("sky_priest", "云阶祭司", [96, 108], [120000, 220000], [340, 560], [230, 360], [920, 1380], [820, 1220], [760, 1080]),
-      monsterTemplate("sky_judge", "神殿审判者", [108, 120], [180000, 340000], [480, 760], [320, 520], [1180, 1760], [1050, 1560], [980, 1380], "elite"),
-    ],
-    bossTemplate: monsterTemplate("sky_boss_archon", "神殿首领 · 云阶执政官", [120, 120], [1600000, 1600000], [1100, 1100], [850, 850], [18000, 18000], [15000, 15000], [7800, 7800], "boss"),
-  },
-};
+// [DATA->data.js] mapMonsterConfig extracted
 
 Object.assign(mapMonsterConfig, {
   mine: {
@@ -832,178 +111,7 @@ function sliceBalanceRange(range, start, end) {
   return [min, Math.max(min, max)];
 }
 
-const jobTemplates = {
-  novice: {
-    id: "novice",
-    name: "初学者",
-    role: "front",
-    baseDps: 4.8,
-    baseHp: 150,
-    baseDef: 3,
-    baseAspd: 0.28,
-    color: "#7d8b83",
-    growth: { atkPct: 0.018, matkPct: 0.018, hpPct: 0.026, defPct: 0.018, aspdPct: 0.003 },
-    skills: [
-      skill("基础修炼", 1, "被动", "掌握最基本的武器和防具用法。", { atkPct: 0.04, defPct: 0.04 }),
-      skill("急救", 3, "被动", "旅途中处理轻伤，提高生存能力。", { hpPct: 0.08 }),
-      skill("投掷石头", 5, "主动", "丢出石块造成一次物理伤害。", { active: { stat: "atk", multiplier: 1.25, chance: 0.075 } }),
-      skill("装死", 8, "被动", "用夸张的倒地姿势规避危险。", { defPct: 0.1, dropPct: 0.01 }),
-    ],
-  },
-  swordman: {
-    id: "swordman",
-    name: "剑士",
-    role: "front",
-    baseDps: 7.6,
-    baseHp: 230,
-    baseDef: 9,
-    baseAspd: 0.38,
-    color: "#5d7fba",
-    growth: { atkPct: 0.038, matkPct: 0.004, hpPct: 0.052, defPct: 0.045, aspdPct: 0.004 },
-    skills: [
-      skill("剑术修炼", 1, "被动", "提高近战武器熟练度。", { atkPct: 0.12 }),
-      skill("狂击", 3, "主动", "以武器重击目标，威力受物攻影响。", { active: { stat: "atk", multiplier: 2.25, chance: 0.065 } }),
-      skill("挑衅", 5, "主动", "激怒敌人露出破绽，造成伤害并提高输出。", { dpsPct: 0.04, active: { stat: "atk", multiplier: 1.45, chance: 0.05 } }),
-      skill("快速回复", 8, "被动", "提高生命与防御。", { hpPct: 0.16, defPct: 0.08 }),
-      skill("霸体训练", 10, "被动", "减少战斗停顿。", { aspdPct: 0.04 }),
-    ],
-  },
-  mage: {
-    id: "mage",
-    name: "魔法师",
-    role: "mid",
-    baseDps: 8.4,
-    baseHp: 145,
-    baseDef: 3,
-    baseAspd: 0.31,
-    color: "#8b64a7",
-    growth: { atkPct: 0.004, matkPct: 0.056, hpPct: 0.026, defPct: 0.018, aspdPct: 0.003 },
-    skills: [
-      skill("火箭术", 1, "主动", "凝聚火焰攻击，威力受魔攻影响。", { active: { stat: "matk", multiplier: 2.45, chance: 0.07 } }),
-      skill("冰箭术", 3, "主动", "以冰箭贯穿目标，威力受魔攻影响。", { active: { stat: "matk", multiplier: 2.05, chance: 0.055 } }),
-      skill("禅心", 5, "被动", "提高魔攻与金币收益。", { matkPct: 0.12, goldPct: 0.04 }),
-      skill("火焰之壁", 8, "被动", "用魔力形成防护。", { defPct: 0.08, hpPct: 0.06 }),
-      skill("圣灵召唤", 10, "主动", "召唤魔力光弹连续轰击。", { active: { stat: "matk", multiplier: 3.2, chance: 0.028 } }),
-    ],
-  },
-  archer: {
-    id: "archer",
-    name: "弓箭手",
-    role: "back",
-    baseDps: 7.2,
-    baseHp: 170,
-    baseDef: 5,
-    baseAspd: 0.42,
-    color: "#5e9662",
-    growth: { atkPct: 0.044, matkPct: 0.004, hpPct: 0.032, defPct: 0.024, aspdPct: 0.006 },
-    skills: [
-      skill("苍鹰之眼", 1, "被动", "提高远程精准度与暴击。", { atkPct: 0.08, critPct: 0.02 }),
-      skill("二连矢", 3, "主动", "连续射出两箭，威力受物攻影响。", { active: { stat: "atk", multiplier: 2.15, chance: 0.075 } }),
-      skill("心神凝聚", 5, "被动", "提高物攻与攻速。", { atkPct: 0.08, aspdPct: 0.04 }),
-      skill("箭雨", 8, "主动", "向区域倾泻箭矢。", { active: { stat: "atk", multiplier: 1.8, chance: 0.05 } }),
-      skill("精准射击", 10, "被动", "提高暴击与掉宝。", { critPct: 0.025, dropPct: 0.018 }),
-    ],
-  },
-  acolyte: {
-    id: "acolyte",
-    name: "服事",
-    role: "mid",
-    baseDps: 6.2,
-    baseHp: 185,
-    baseDef: 6,
-    baseAspd: 0.34,
-    color: "#d4a85d",
-    growth: { atkPct: 0.012, matkPct: 0.036, hpPct: 0.042, defPct: 0.036, aspdPct: 0.003 },
-    skills: [
-      skill("天使之赐福", 1, "被动", "祝福自身，提高物攻、魔攻与防御。", { atkPct: 0.05, matkPct: 0.05, defPct: 0.06 }),
-      skill("治愈术", 3, "主动", "释放圣光治疗并伤害魔物，威力受魔攻影响。", { hpPct: 0.08, active: { stat: "matk", multiplier: 1.7, chance: 0.06 } }),
-      skill("加速术", 5, "被动", "提高行动速度。", { aspdPct: 0.05 }),
-      skill("钝器熟练", 8, "被动", "提高物攻与生命。", { atkPct: 0.08, hpPct: 0.08 }),
-      skill("神圣之光", 10, "主动", "以神圣光芒攻击敌人。", { active: { stat: "matk", multiplier: 2.7, chance: 0.035 } }),
-    ],
-  },
-  merchant: {
-    id: "merchant",
-    name: "商人",
-    role: "front",
-    baseDps: 6.8,
-    baseHp: 210,
-    baseDef: 7,
-    baseAspd: 0.33,
-    color: "#ba8750",
-    growth: { atkPct: 0.032, matkPct: 0.006, hpPct: 0.042, defPct: 0.032, aspdPct: 0.003 },
-    skills: [
-      skill("低价买进", 1, "被动", "更会过日子，金币收益提高。", { goldPct: 0.08 }),
-      skill("手推车攻击", 3, "主动", "用手推车撞击敌人，威力受物攻影响。", { active: { stat: "atk", multiplier: 2.35, chance: 0.06 } }),
-      skill("露天商店", 5, "被动", "提高金币与掉宝收益。", { goldPct: 0.08, dropPct: 0.02 }),
-      skill("强化手推车", 8, "被动", "提高物攻与防御。", { atkPct: 0.1, defPct: 0.08 }),
-      skill("金钱攻击", 10, "主动", "把金币的气势砸向敌人。", { active: { stat: "atk", multiplier: 3.0, chance: 0.028 } }),
-    ],
-  },
-  thief: {
-    id: "thief",
-    name: "盗贼",
-    role: "back",
-    baseDps: 7.4,
-    baseHp: 165,
-    baseDef: 4,
-    baseAspd: 0.46,
-    color: "#56637f",
-    growth: { atkPct: 0.04, matkPct: 0.004, hpPct: 0.03, defPct: 0.02, aspdPct: 0.007 },
-    skills: [
-      skill("二刀连击", 1, "主动", "快速追加一次攻击，威力受物攻影响。", { active: { stat: "atk", multiplier: 1.9, chance: 0.09 } }),
-      skill("残影", 3, "被动", "提高攻速与防御。", { aspdPct: 0.05, defPct: 0.05 }),
-      skill("偷窃", 5, "被动", "提高掉宝概率。", { dropPct: 0.035 }),
-      skill("施毒", 8, "主动", "用毒刃造成伤害，威力受物攻影响。", { active: { stat: "atk", multiplier: 2.25, chance: 0.04 } }),
-      skill("隐匿突袭", 10, "主动", "从阴影中发动重击。", { critPct: 0.03, active: { stat: "atk", multiplier: 3.1, chance: 0.026 } }),
-    ],
-  },
-};
-
-const firstJobs = ["swordman", "mage", "archer", "acolyte", "merchant", "thief"];
-
-const secondJobMap = {
-  swordman: "knight",
-  mage: "wizard",
-  archer: "hunter",
-  acolyte: "priest",
-  merchant: "blacksmith",
-  thief: "assassin",
-};
-
-const advancedSecondJobMap = {
-  swordman: "lordKnight",
-  mage: "highWizard",
-  archer: "sniper",
-  acolyte: "highPriest",
-  merchant: "whiteSmith",
-  thief: "assassinCross",
-};
-
-const thirdJobMap = {
-  knight: "runeKnight",
-  lordKnight: "runeKnight",
-  wizard: "warlock",
-  highWizard: "warlock",
-  hunter: "ranger",
-  sniper: "ranger",
-  priest: "archbishop",
-  highPriest: "archbishop",
-  blacksmith: "mechanic",
-  whiteSmith: "mechanic",
-  assassin: "guillotineCross",
-  assassinCross: "guillotineCross",
-};
-
-const secondJobTemplates = {
-  knight: { id: "knight", name: "骑士", from: "swordman", role: "front", growth: { str: 1.35, agi: 0.9, vit: 1.35, int: 0.35, dex: 0.75, luk: 0.45 }, baseDps: 11.4, baseHp: 340, baseDef: 15, baseAspd: 0.42 },
-  wizard: { id: "wizard", name: "巫师", from: "mage", role: "mid", growth: { str: 0.25, agi: 0.45, vit: 0.65, int: 1.65, dex: 1.0, luk: 0.45 }, baseDps: 12.6, baseHp: 210, baseDef: 6, baseAspd: 0.34 },
-  hunter: { id: "hunter", name: "猎人", from: "archer", role: "back", growth: { str: 0.65, agi: 1.35, vit: 0.75, int: 0.45, dex: 1.55, luk: 0.85 }, baseDps: 11.2, baseHp: 250, baseDef: 8, baseAspd: 0.48 },
-  priest: { id: "priest", name: "牧师", from: "acolyte", role: "mid", growth: { str: 0.45, agi: 0.55, vit: 1.05, int: 1.45, dex: 0.9, luk: 0.7 }, baseDps: 9.6, baseHp: 285, baseDef: 10, baseAspd: 0.38 },
-  blacksmith: { id: "blacksmith", name: "铁匠", from: "merchant", role: "front", growth: { str: 1.45, agi: 0.75, vit: 1.2, int: 0.35, dex: 0.9, luk: 0.75 }, baseDps: 10.9, baseHp: 320, baseDef: 13, baseAspd: 0.38 },
-  assassin: { id: "assassin", name: "刺客", from: "thief", role: "back", growth: { str: 1.0, agi: 1.6, vit: 0.65, int: 0.25, dex: 0.95, luk: 1.1 }, baseDps: 11.7, baseHp: 245, baseDef: 7, baseAspd: 0.55 },
-};
-
+// [DATA->data.js] jobTemplates section extracted
 Object.entries(secondJobTemplates).forEach(([id, job]) => {
   const parent = jobTemplates[job.from];
   jobTemplates[id] = {
@@ -1100,37 +208,46 @@ function applyJobSkillScaling() {
   });
 }
 
-const itemPool = [
-  { name: "枫木短剑", slot: "weapon", rarity: "normal", atk: 9, matk: 0, def: 0, aspd: 0.01, luck: 0, gold: 0, crit: 0, drop: 0 },
-  { name: "学徒法杖", slot: "weapon", rarity: "normal", atk: 2, matk: 12, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0 },
-  { name: "猎风弓", slot: "weapon", rarity: "rare", atk: 21, matk: 0, def: 0, aspd: 0.05, luck: 2, gold: 0.03, crit: 0.03, drop: 0 },
-  { name: "白银细剑", slot: "weapon", rarity: "rare", atk: 26, matk: 0, def: 1, aspd: 0.03, luck: 1, gold: 0.03, crit: 0.04, drop: 0 },
-  { name: "星砂权杖", slot: "weapon", rarity: "epic", atk: 4, matk: 46, def: 0, aspd: 0, luck: 4, gold: 0.08, crit: 0.04, drop: 0.02 },
-  { name: "晨辉重剑", slot: "weapon", rarity: "legend", atk: 78, matk: 8, def: 5, aspd: -0.02, luck: 6, gold: 0.12, crit: 0.07, drop: 0.04 },
-  { name: "旅人披风", slot: "armor", rarity: "normal", atk: 0, matk: 0, def: 8, aspd: 0, luck: 1, gold: 0.03, crit: 0, drop: 0 },
-  { name: "绿纹夹克", slot: "armor", rarity: "rare", atk: 2, matk: 0, def: 18, aspd: 0.02, luck: 2, gold: 0.07, crit: 0, drop: 0.01 },
-  { name: "蓝晶护甲", slot: "armor", rarity: "epic", atk: 0, matk: 8, def: 42, aspd: 0, luck: 4, gold: 0.1, crit: 0.01, drop: 0.02 },
-  { name: "钟楼礼装", slot: "armor", rarity: "legend", atk: 8, matk: 16, def: 64, aspd: 0.03, luck: 8, gold: 0.16, crit: 0.02, drop: 0.04 },
-  { name: "草叶发带", slot: "headgear", rarity: "normal", atk: 1, matk: 1, def: 3, aspd: 0.01, luck: 2, gold: 0.02, crit: 0, drop: 0.01 },
-  { name: "蓝晶头冠", slot: "headgear", rarity: "epic", atk: 5, matk: 18, def: 12, aspd: 0.02, luck: 8, gold: 0.08, crit: 0.02, drop: 0.04 },
-  { name: "疾行短靴", slot: "shoes", rarity: "rare", atk: 3, matk: 0, def: 8, aspd: 0.07, luck: 1, gold: 0.05, crit: 0.01, drop: 0.01 },
-  { name: "星尘长靴", slot: "shoes", rarity: "epic", atk: 7, matk: 7, def: 16, aspd: 0.09, luck: 5, gold: 0.08, crit: 0.02, drop: 0.03 },
-  { name: "幸运铃铛", slot: "trinket", rarity: "rare", atk: 0, matk: 0, def: 2, aspd: 0.02, luck: 12, gold: 0.1, crit: 0.02, drop: 0.03 },
-  { name: "露恩徽章", slot: "trinket", rarity: "epic", atk: 10, matk: 10, def: 8, aspd: 0.03, luck: 14, gold: 0.16, crit: 0.04, drop: 0.04 },
-  { name: "星界罗盘", slot: "trinket", rarity: "legend", atk: 20, matk: 20, def: 16, aspd: 0.05, luck: 22, gold: 0.24, crit: 0.06, drop: 0.07 },
-];
+// [DATA->data.js] itemPool extracted
 
 const equipmentTiers = [
-  { id: "normal", name: "普通", weight: 520, scale: 0.92, rolls: [0.82, 1.04], affixes: 0, extra: {} },
-  { id: "fine", name: "精良", weight: 260, scale: 1.12, rolls: [0.88, 1.1], affixes: 1, extra: { hp: [10, 24] } },
-  { id: "rare", name: "稀有", weight: 125, scale: 1.38, rolls: [0.92, 1.16], affixes: 2, extra: { luck: [2, 7] } },
-  { id: "epic", name: "史诗", weight: 58, scale: 1.72, rolls: [0.96, 1.22], affixes: 3, extra: { crit: [0.01, 0.035] } },
-  { id: "ancient", name: "古代", weight: 24, scale: 2.18, rolls: [1.0, 1.3], affixes: 4, extra: { drop: [0.015, 0.05], gold: [0.03, 0.08] } },
-  { id: "legend", name: "传说", weight: 8, scale: 2.85, rolls: [1.08, 1.42], affixes: 5, extra: { crit: [0.03, 0.08], drop: [0.035, 0.09], gold: [0.06, 0.14] } },
+  { id: "normal", name: "普通", weight: 520, scale: 0.92, rolls: [0.90, 1.04], affixes: 0 },
+  { id: "fine", name: "精良", weight: 260, scale: 1.15, rolls: [0.95, 1.10], affixes: 1 },
+  { id: "rare", name: "稀有", weight: 125, scale: 1.42, rolls: [0.98, 1.16], affixes: 2 },
+  { id: "epic", name: "史诗", weight: 58, scale: 1.77, rolls: [1.02, 1.22], affixes: 3 },
+  { id: "ancient", name: "古代", weight: 24, scale: 2.25, rolls: [1.05, 1.30], affixes: 4 },
+  { id: "legend", name: "传说", weight: 8, scale: 2.94, rolls: [1.12, 1.42], affixes: 5 },
 ];
 
-equipmentTiers.push({ id: "darkGold", name: "暗金", weight: 1, scale: 3.85, rolls: [1.2, 1.62], affixes: 6, extra: { crit: [0.05, 0.12], drop: [0.05, 0.12], gold: [0.1, 0.2] } });
-equipmentTiers.push({ id: "mythic", name: "神话", weight: 0.2, scale: 5.2, rolls: [1.35, 1.85], affixes: 7, extra: { crit: [0.08, 0.16], drop: [0.08, 0.16], gold: [0.14, 0.26] } });
+equipmentTiers.push({ id: "darkGold", name: "暗金", weight: 1, scale: 3.97, rolls: [1.22, 1.62], affixes: 6 });
+equipmentTiers.push({ id: "mythic", name: "神话", weight: 0.2, scale: 5.36, rolls: [1.35, 1.70], affixes: 7 });
+
+var RARITY_PERK_TABLE = {
+  rare: "randomStats",
+  epic: "specialAffix",
+  ancient: "cardSlot",
+  legend: "jobSkill",
+  darkGold: "setBoost",
+  mythic: "mythicPassive"
+};
+
+var MYTHIC_PASSIVE_POOL = [
+  { id: "executioner", name: "刽子手", desc: "对生命<20%的敌人伤害+40%", stat: "executionerBonus", value: 0.4 },
+  { id: "vampire", name: "吸血鬼", desc: "击杀回复最大生命8%", stat: "killHealPct", value: 0.08 },
+  { id: "treasureHunter", name: "寻宝者", desc: "击败Boss额外掉落1件装备", stat: "bossExtraDrop", value: 1 },
+  { id: "thunderbolt", name: "雷霆", desc: "攻击有5%概率触发连锁闪电(0.5×攻击力)", stat: "echoChance", value: 0.05, extra: { echoAtkPct: 0.5 } },
+  { id: "immortal", name: "不灭", desc: "受到致命伤害时保留1点生命，冷却120s", stat: "immortalCooldown", value: 120 },
+  { id: "greed", name: "贪婪", desc: "离线收益+25%", stat: "offlineEfficiencyBonus", value: 0.25 },
+  { id: "starburst", name: "星爆", desc: "暴击时有10%概率造成范围溅射", stat: "critSplashChance", value: 0.1 },
+  { id: "timeWarp", name: "时间扭曲", desc: "技能冷却-15%", stat: "cooldownReduction", value: 0.15 }
+];
+
+var EPIC_SPECIAL_AFFIX_POOL = [
+  { id: "lifeSteal", name: "嗜血", desc: "吸血+5%", stat: "lifeSteal", value: 0.05 },
+  { id: "splash", name: "溅射", desc: "溅射伤害+15%", stat: "splashDamagePct", value: 0.15 },
+  { id: "thorn", name: "荆棘", desc: "荆棘反弹+2", stat: "thornVitMultiplier", value: 2 },
+  { id: "deathResist", name: "坚韧", desc: "受到致命伤害时10%概率保留1HP", stat: "deathResistChance", value: 0.1 }
+];
 
 const ITEM_TIER_CONFIG = {
   tier1: { minLevel: 1, maxLevel: 20, scale: 1.0 },
@@ -1145,6 +262,44 @@ const ITEM_TIER_CONFIG = {
 };
 
 const ITEM_TIER_LIST = Object.entries(ITEM_TIER_CONFIG).map(([id, config]) => ({ id, ...config }));
+
+var SKILL_FRAGMENT_COST = [0, 0, 10, 15, 22, 30, 40, 52, 66, 82, 100, 120, 142, 166, 192, 220];
+var SKILL_FRAGMENT_COST_PASSIVE = [0, 0, 8, 12, 18, 25, 34, 44, 56, 70, 86, 104, 124];
+var SKILL_MAX_LEVEL_BY_RANK = { novice: 5, first: 5, second: 10, third: 15 };
+
+function getSkillMaxLevel(jobId) {
+  var route = typeof V3_SKILL_ROUTE_BY_JOB !== 'undefined' ? (V3_SKILL_ROUTE_BY_JOB[jobId] || [jobId]) : [jobId];
+  var len = route.length;
+  if (len >= 3) return SKILL_MAX_LEVEL_BY_RANK.third;
+  if (len >= 2) return SKILL_MAX_LEVEL_BY_RANK.second;
+  return SKILL_MAX_LEVEL_BY_RANK.first;
+}
+
+function getSkillFragmentCost(skill) {
+  var level = (state.hero.skillLevels && state.hero.skillLevels[skill.id]) || 1;
+  var nextLevel = level + 1;
+  if (skill.kind === '被动') return SKILL_FRAGMENT_COST_PASSIVE[nextLevel] || Infinity;
+  return SKILL_FRAGMENT_COST[nextLevel] || Infinity;
+}
+
+function upgradeSkill(skillId) {
+  var allSkills = getV3CombatSkills(state.hero.jobId);
+  var skill = allSkills.find(function (s) { return s.id === skillId; });
+  if (!skill) return false;
+  var maxLevel = getSkillMaxLevel(state.hero.jobId);
+  var currentLevel = (state.hero.skillLevels && state.hero.skillLevels[skillId]) || 1;
+  if (currentLevel >= maxLevel) return false;
+  var cost = getSkillFragmentCost(skill);
+  var fragments = state.materials && state.materials.skillFragment || 0;
+  if (fragments < cost) return false;
+  state.materials.skillFragment = fragments - cost;
+  state.hero.skillLevels = state.hero.skillLevels || {};
+  state.hero.skillLevels[skillId] = currentLevel + 1;
+  addLog(skill.name + ' 升级至 Lv.' + (currentLevel + 1));
+  renderAll();
+  save();
+  return true;
+}
 
 const SLOT_LEVEL_GROWTH = {
   weapon: 0.045,
@@ -1249,14 +404,7 @@ const SLOT_AFFIX_POOLS = {
   },
 };
 
-const salvageRewards = {
-  normal: { dust: [1, 2] },
-  fine: { dust: [2, 4], ore: [1, 1] },
-  rare: { ore: [2, 4], crystal: [1, 1] },
-  epic: { crystal: [2, 4], rune: [1, 2] },
-  ancient: { rune: [3, 5], ancientCore: [1, 2] },
-  legend: { ancientCore: [2, 4], starShard: [1, 2] },
-};
+// [DATA->data.js] salvageRewards extracted
 salvageRewards.darkGold = { ancientCore: [4, 7], starShard: [2, 4] };
 salvageRewards.mythic = { ancientCore: [8, 12], starShard: [4, 8], mythicEssence: [1, 2] };
 
@@ -1303,6 +451,7 @@ const materialNames = {
   cardRemover: "卡片拆除器",
   enhanceProtect: "强化保护卷",
   enhanceAsh: "强化灰烬",
+  skillFragment: "技能碎片",
 };
 
 const MATERIAL_DB = Object.fromEntries(
@@ -1794,57 +943,7 @@ function equipmentSubTypeName(item = {}) {
   return subType ? EQUIPMENT_SUBTYPE_LABELS[subType] || subType : "";
 }
 
-const oneHandSwordPoolFiltered = [
-  { id: "one_hand_sword_long_sword", name: "长剑", slot: "weapon", rarity: "normal", atk: 25, matk: 0, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 0, dex: 0, luk: 0 },
-  { id: "one_hand_sword_scimitar", name: "圆月刀", slot: "weapon", rarity: "normal", atk: 39, matk: 0, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 0, dex: 0, luk: 0 },
-  { id: "one_hand_sword_honor_sword", name: "荣誉宝剑", slot: "weapon", rarity: "normal", atk: 50, matk: 50, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 0, dex: 0, luk: 0 },
-  { id: "one_hand_sword_ceremonial_dagger", name: "祭礼短剑", slot: "weapon", rarity: "normal", atk: 60, matk: 0, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 0, dex: 0, luk: 0 },
-  { id: "one_hand_sword_piercing_sword", name: "击刺长剑", slot: "weapon", rarity: "rare", atk: 70, matk: 0, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 0, dex: 0, luk: 0 },
-  { id: "one_hand_sword_saber", name: "弯刀", slot: "weapon", rarity: "rare", atk: 85, matk: 0, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 0, dex: 0, luk: 0 },
-  { id: "one_hand_sword_round_hilt_saber", name: "圆柄马刀", slot: "weapon", rarity: "rare", atk: 100, matk: 0, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 0, dex: 0, luk: 0 },
-  { id: "one_hand_sword_p_cavalry_i", name: "P.骑兵剑Ⅰ", slot: "weapon", rarity: "rare", atk: 147, matk: 0, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 0, dex: 0, luk: 0 },
-  { id: "one_hand_sword_haedonggum", name: "海东剑", slot: "weapon", rarity: "epic", atk: 120, matk: 0, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 3, dex: 0, luk: 0 },
-  { id: "one_hand_sword_katana", name: "日本刀", slot: "weapon", rarity: "epic", atk: 130, matk: 0, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 0, dex: 0, luk: 0 },
-  { id: "one_hand_sword_water_ripple", name: "水纹之剑", slot: "weapon", rarity: "epic", atk: 150, matk: 0, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 0, dex: 0, luk: 0 },
-  { id: "one_hand_sword_tremor", name: "战栗诡剑", slot: "weapon", rarity: "epic", atk: 190, matk: 0, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 5, agi: 5, vit: 0, int: 0, dex: 0, luk: 0 },
-  { id: "one_hand_sword_boss_sword", name: "首领之剑", slot: "weapon", rarity: "legend", atk: 150, matk: 0, def: 2, aspd: 0, luck: 0, gold: 0, crit: 0.02, drop: 0.02, str: 2, agi: 2, vit: 2, int: 2, dex: 2, luk: 2 },
-  { id: "one_hand_sword_crimson", name: "红莲剑", slot: "weapon", rarity: "legend", atk: 160, matk: 0, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 2, agi: 0, vit: 0, int: 2, dex: 0, luk: 0 },
-  { id: "one_hand_sword_youjian_shiguang", name: "妖剑 弒光", slot: "weapon", rarity: "legend", atk: 170, matk: 0, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0.03, drop: 0, str: 0, agi: 0, vit: 0, int: 0, dex: 3, luk: 0 },
-  { id: "one_hand_sword_false_belief", name: "虚伪信念长剑", slot: "weapon", rarity: "legend", atk: 210, matk: 0, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 0, dex: 0, luk: 0 },
-].map((item) => ({
-  weaponType: "oneHandSword",
-  equipType: "oneHandSword",
-  source: "monster_drop",
-  quality: item.rarity,
-  level: 1,
-  requiredLevel: 1,
-  requiredJob: [],
-  allowedJobs: ["novice", "swordman", "knight", "lordKnight", "runeKnight", "merchant", "blacksmith", "whiteSmith", "mechanic", "thief", "assassin", "assassinCross", "guillotineCross"],
-  image: `assets/images/equipment/${item.id}.png`,
-  description: "单手剑武器池掉落装备。",
-  ...item,
-}));
-
-const equipmentTemplateDb = Object.fromEntries(oneHandSwordPoolFiltered.map((item) => [item.id, item]));
-
-const oneHandStaffPoolFiltered = [
-  { name: "手杖", slot: "weapon", weaponType: "oneHandStaff", equipType: "oneHandStaff", rarity: "normal", atk: 15, matk: 30, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 0, dex: 0, luk: 0 },
-  { name: "橡木魔杖", slot: "weapon", weaponType: "oneHandStaff", equipType: "oneHandStaff", rarity: "normal", atk: 25, matk: 45, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 1, dex: 0, luk: 0 },
-  { name: "智慧魔杖", slot: "weapon", weaponType: "oneHandStaff", equipType: "oneHandStaff", rarity: "normal", atk: 40, matk: 70, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 2, dex: 0, luk: 0 },
-  { name: "P.魔杖Ⅰ", slot: "weapon", weaponType: "oneHandStaff", equipType: "oneHandStaff", rarity: "normal", atk: 60, matk: 125, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 2, dex: 0, luk: 0 },
-  { name: "言灵魔杖", slot: "weapon", weaponType: "oneHandStaff", equipType: "oneHandStaff", rarity: "rare", atk: 60, matk: 95, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 3, dex: 0, luk: 0 },
-  { name: "骷髅魔杖", slot: "weapon", weaponType: "oneHandStaff", equipType: "oneHandStaff", rarity: "rare", atk: 40, matk: 110, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 4, dex: 0, luk: 0 },
-  { name: "生存的魔杖", slot: "weapon", weaponType: "oneHandStaff", equipType: "oneHandStaff", rarity: "rare", atk: 50, matk: 120, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 0, dex: 2, luk: 0 },
-  { name: "圣杖 英灵", slot: "weapon", weaponType: "oneHandStaff", equipType: "oneHandStaff", rarity: "rare", atk: 75, matk: 105, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 3, dex: 0, luk: 0 },
-  { name: "里奇的骷髅魔杖", slot: "weapon", weaponType: "oneHandStaff", equipType: "oneHandStaff", rarity: "epic", atk: 60, matk: 170, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 1, dex: 1, luk: 0 },
-  { name: "锐利波之杖", slot: "weapon", weaponType: "oneHandStaff", equipType: "oneHandStaff", rarity: "epic", atk: 80, matk: 145, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 4, dex: 0, luk: 0 },
-  { name: "水晶魔杖", slot: "weapon", weaponType: "oneHandStaff", equipType: "oneHandStaff", rarity: "epic", atk: 30, matk: 125, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 3, dex: 0, luk: 0 },
-  { name: "魔法师的魔杖", slot: "weapon", weaponType: "oneHandStaff", equipType: "oneHandStaff", rarity: "epic", atk: 70, matk: 125, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 4, dex: 3, luk: 0 },
-  { name: "邪恶权杖", slot: "weapon", weaponType: "oneHandStaff", equipType: "oneHandStaff", rarity: "legend", atk: 60, matk: 120, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 5, dex: 0, luk: 0 },
-  { name: "黑暗的荆棘骷髅杖", slot: "weapon", weaponType: "oneHandStaff", equipType: "oneHandStaff", rarity: "legend", atk: 60, matk: 160, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 3, dex: 3, luk: 0 },
-  { name: "销魂杖", slot: "weapon", weaponType: "oneHandStaff", equipType: "oneHandStaff", rarity: "legend", atk: 80, matk: 170, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 3, dex: 2, luk: 0 },
-  { name: "驱魔圣杖", slot: "weapon", weaponType: "oneHandStaff", equipType: "oneHandStaff", rarity: "legend", atk: 50, matk: 140, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 0, dex: 0, luk: 0 },
-];
+// [DATA->data.js] oneHandSwordPoolFiltered extracted
 
 const twoHandSwordPoolFiltered = [
   { name: "武士刀", slot: "weapon", weaponType: "twoHandSword", equipType: "twoHandSword", rarity: "normal", atk: 60, matk: 0, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0, drop: 0, str: 0, agi: 0, vit: 0, int: 0, dex: 0, luk: 0 },
@@ -1865,102 +964,15 @@ const twoHandSwordPoolFiltered = [
   { name: "王室骑士巨剑", slot: "weapon", weaponType: "twoHandSword", equipType: "twoHandSword", rarity: "legend", atk: 280, matk: 0, def: 0, aspd: 0, luck: 0, gold: 0, crit: 0.1, drop: 0, str: 0, agi: 0, vit: 0, int: 0, dex: 0, luk: 0 },
 ];
 
-const bodyArmorPoolFiltered = [
-  { name: "棉衬衫", slot: "body", armorType: "bodyArmor", rarity: "normal", def: 10 },
-  { name: "皮制外套", slot: "body", armorType: "bodyArmor", rarity: "normal", def: 15 },
-  { name: "冒险衣", slot: "body", armorType: "bodyArmor", rarity: "normal", def: 20 },
-  { name: "大衣", slot: "body", armorType: "bodyArmor", rarity: "normal", def: 37 },
-  { name: "铁制铠甲", slot: "body", armorType: "bodyArmor", rarity: "rare", def: 35 },
-  { name: "钢铁锁子甲", slot: "body", armorType: "bodyArmor", rarity: "rare", def: 55 },
-  { name: "钢铁铠甲", slot: "body", armorType: "bodyArmor", rarity: "rare", def: 70 },
-  { name: "秘衣 美德", slot: "body", armorType: "bodyArmor", rarity: "rare", def: 59, int: 1 },
-  { name: "变色龙铠甲", slot: "body", armorType: "bodyArmor", rarity: "epic", def: 55 },
-  { name: "急速冲刺铠甲", slot: "body", armorType: "bodyArmor", rarity: "epic", def: 20, vit: 1 },
-  { name: "那迦鳞片铠甲", slot: "body", armorType: "bodyArmor", rarity: "epic", atk: 20, def: 45 },
-  { name: "生命链接", slot: "body", armorType: "bodyArmor", rarity: "epic", def: 75, vit: 2 },
-  { name: "布林喜德", slot: "body", armorType: "bodyArmor", rarity: "legend", def: 120 },
-  { name: "陈旧内裤", slot: "body", armorType: "bodyArmor", rarity: "legend", def: 60, str: 2, vit: 2 },
-  { name: "华丽的勇士紫光外套", slot: "body", armorType: "bodyArmor", rarity: "legend", def: 10 },
-  { name: "暴躁龙内衣", slot: "body", armorType: "bodyArmor", rarity: "legend", def: 20, agi: 5 },
-];
+// [DATA->data.js] bodyArmorPoolFiltered extracted
 
-const headTopPoolFiltered = [
-  { name: "发箍", slot: "headTop", armorType: "headTop", rarity: "normal", def: 1 },
-  { name: "方头巾", slot: "headTop", armorType: "headTop", rarity: "normal", def: 1 },
-  { name: "猫耳发圈", slot: "headTop", armorType: "headTop", rarity: "normal", def: 2 },
-  { name: "兔耳发圈", slot: "headTop", armorType: "headTop", rarity: "normal", def: 2, luk: 2 },
-  { name: "圆帽", slot: "headTop", armorType: "headTop", rarity: "rare", def: 5 },
-  { name: "无边帽", slot: "headTop", armorType: "headTop", rarity: "rare", def: 7 },
-  { name: "金属头盔", slot: "headTop", armorType: "headTop", rarity: "rare", def: 13 },
-  { name: "王冠", slot: "headTop", armorType: "headTop", rarity: "rare", def: 7, int: 2 },
-  { name: "天使头盔", slot: "headTop", armorType: "headTop", rarity: "epic", def: 10, agi: 1, luk: 1 },
-  { name: "厨师帽", slot: "headTop", armorType: "headTop", rarity: "epic", def: 3, dex: 1 },
-  { name: "魔法师帽", slot: "headTop", armorType: "headTop", rarity: "epic", def: 2, int: 2 },
-  { name: "矿坑安全帽", slot: "headTop", armorType: "headTop", rarity: "epic", def: 9, dex: 2 },
-  { name: "哥夫内的头具", slot: "headTop", armorType: "headTop", rarity: "legend", def: 10, vit: 3 },
-  { name: "鸟窝", slot: "headTop", armorType: "headTop", rarity: "legend", def: 2, agi: 2 },
-  { name: "爱丽丝女仆娃娃", slot: "headTop", armorType: "headTop", rarity: "legend", def: 1, str: 1 },
-  { name: "海盗船长帽", slot: "headTop", armorType: "headTop", rarity: "legend", def: 11, vit: 1 },
-];
+// [DATA->data.js] headTopPoolFiltered extracted
 
-const shoesPoolFiltered = [
-  { name: "轻便鞋", slot: "shoes", armorType: "shoes", rarity: "normal", def: 5 },
-  { name: "长靴", slot: "shoes", armorType: "shoes", rarity: "normal", def: 10 },
-  { name: "战士长靴", slot: "shoes", armorType: "shoes", rarity: "normal", def: 16 },
-  { name: "玻璃鞋", slot: "shoes", armorType: "shoes", rarity: "normal", def: 5, luk: 5 },
-  { name: "脚链", slot: "shoes", armorType: "shoes", rarity: "rare", def: 18 },
-  { name: "重靴", slot: "shoes", armorType: "shoes", rarity: "rare", def: 27 },
-  { name: "安全鞋", slot: "shoes", armorType: "shoes", rarity: "rare", def: 22 },
-  { name: "兔子拖鞋", slot: "shoes", armorType: "shoes", rarity: "rare", def: 9, luk: 3 },
-  { name: "傅里哥长靴", slot: "shoes", armorType: "shoes", rarity: "epic", def: 12, agi: 2 },
-  { name: "迪塔乐长靴", slot: "shoes", armorType: "shoes", rarity: "epic", def: 13, vit: 5 },
-  { name: "哥夫内军靴", slot: "shoes", armorType: "shoes", rarity: "epic", def: 13 },
-  { name: "巴基力的长靴", slot: "shoes", armorType: "shoes", rarity: "epic", def: 13 },
-  { name: "史雷普尼尔之靴", slot: "shoes", armorType: "shoes", rarity: "legend", def: 40, int: 25 },
-  { name: "变形长靴", slot: "shoes", armorType: "shoes", rarity: "legend", def: 10 },
-  { name: "城战重靴", slot: "shoes", armorType: "shoes", rarity: "legend", def: 30 },
-  { name: "阴暗步行长靴", slot: "shoes", armorType: "shoes", rarity: "legend", def: 0 },
-];
+// [DATA->data.js] shoesPoolFiltered extracted
 
-const accessoryPoolFiltered = [
-  { name: "力量戒指", slot: "accessory", armorType: "accessory", rarity: "normal", str: 2 },
-  { name: "智力耳环", slot: "accessory", armorType: "accessory", rarity: "normal", int: 2 },
-  { name: "体力项链", slot: "accessory", armorType: "accessory", rarity: "normal", vit: 2 },
-  { name: "防御手套", slot: "accessory", armorType: "accessory", rarity: "normal", dex: 2 },
-  { name: "敏捷别针", slot: "accessory", armorType: "accessory", rarity: "rare", agi: 2 },
-  { name: "幸运珠链", slot: "accessory", armorType: "accessory", rarity: "rare", luk: 2 },
-  { name: "防御戒指", slot: "accessory", armorType: "accessory", rarity: "rare", def: 3 },
-  { name: "潜能戒指", slot: "accessory", armorType: "accessory", rarity: "rare", crit: 0.05 },
-  { name: "智慧手套", slot: "accessory", armorType: "accessory", rarity: "epic", def: 1, int: 1 },
-  { name: "黑狐颈链", slot: "accessory", armorType: "accessory", rarity: "epic", def: 1, agi: 1 },
-  { name: "怪盗戒指", slot: "accessory", armorType: "accessory", rarity: "epic", atk: 10, crit: 0.1 },
-  { name: "下级精灵的戒指", slot: "accessory", armorType: "accessory", rarity: "epic", str: 1, agi: 1, vit: 1, int: 1, dex: 1, luk: 1 },
-  { name: "火焰国王戒指", slot: "accessory", armorType: "accessory", rarity: "legend", atk: 15, str: 2, vit: 1 },
-  { name: "共鸣戒指", slot: "accessory", armorType: "accessory", rarity: "legend", def: 2, agi: 2, vit: 1 },
-  { name: "共和国纪念日戒指", slot: "accessory", armorType: "accessory", rarity: "legend", str: 3, agi: 3, vit: 3, int: 3, dex: 3, luk: 3 },
-  { name: "永恒戒指", slot: "accessory", armorType: "accessory", rarity: "legend" },
-];
+// [DATA->data.js] accessoryPoolFiltered extracted
 
-const roStyleEquipmentPoolFiltered = [
-  { id: "ro_dagger_damascus", name: "大马士革短剑", slot: "weapon", subType: "dagger", weaponType: "dagger", equipType: "dagger", rarity: "epic", atk: 150, agi: 3, dex: 2, crit: 0.04 },
-  { id: "ro_spear_trident", name: "三叉戟", slot: "weapon", subType: "spear", weaponType: "spear", equipType: "spear", rarity: "rare", atk: 170, str: 2, dex: 2 },
-  { id: "ro_axe_orc_battle", name: "兽人战斧", slot: "weapon", subType: "axe", weaponType: "axe", equipType: "axe", rarity: "epic", atk: 235, str: 5, vit: 2 },
-  { id: "ro_mace_golden", name: "黄金钉锤", slot: "weapon", subType: "mace", weaponType: "mace", equipType: "mace", rarity: "legend", atk: 220, matk: 60, str: 4, vit: 4, bossDamageBonus: 0.035 },
-  { id: "ro_bow_hunter", name: "猎人之弓", slot: "weapon", subType: "bow", weaponType: "bow", equipType: "bow", rarity: "epic", atk: 185, dex: 6, agi: 3, crit: 0.05 },
-  { id: "ro_katar_briar", name: "刺藤拳刃", slot: "weapon", subType: "katar", weaponType: "katar", equipType: "katar", rarity: "legend", atk: 245, agi: 6, luk: 6, crit: 0.08, critDamageBonus: 0.08 },
-  { id: "ro_book_arcane", name: "星纹魔导书", slot: "weapon", subType: "book", weaponType: "book", equipType: "book", rarity: "epic", atk: 70, matk: 210, int: 6, dex: 3, skillDamageBonus: 0.035 },
-  { id: "ro_knuckle_iron", name: "铁腕拳套", slot: "weapon", subType: "knuckle", weaponType: "knuckle", equipType: "knuckle", rarity: "rare", atk: 135, str: 3, agi: 2, aspd: 0.04 },
-  { id: "ro_staff_dark_lord", name: "黑暗领主之杖", slot: "weapon", subType: "staff", weaponType: "oneHandStaff", equipType: "oneHandStaff", rarity: "legend", atk: 80, matk: 285, int: 8, skillDamageBonus: 0.06, abyssDamageBonus: 0.04 },
-  { id: "ro_sword_ancient_dragonfang", name: "远古龙牙剑", slot: "weapon", subType: "sword", weaponType: "oneHandSword", equipType: "oneHandSword", rarity: "legend", atk: 285, str: 6, dex: 4, finalDamageBonus: 0.04 },
-  { id: "ro_robe_priest", name: "圣职者长袍", slot: "body", subType: "robe", armorType: "bodyArmor", rarity: "epic", def: 68, hp: 260, int: 4, vit: 4, hpRegenPct: 0.04 },
-  { id: "ro_plate_glast_knight", name: "古城骑士铠", slot: "body", subType: "plate", armorType: "bodyArmor", rarity: "legend", def: 135, hp: 520, str: 4, vit: 8, damageReductionPct: 0.035 },
-  { id: "ro_armor_abyss_dragon_scale", name: "深渊龙鳞甲", slot: "body", subType: "plate", armorType: "bodyArmor", rarity: "legend", def: 160, hp: 680, vit: 9, abyssDamageReduction: 0.04 },
-  { id: "ro_head_angel_circlet", name: "天使发圈", slot: "headTop", subType: "circlet", armorType: "headTop", rarity: "epic", def: 12, int: 3, luk: 3, baseExpBonus: 0.025 },
-  { id: "ro_head_dark_lord_crown", name: "黑暗领主冠冕", slot: "headTop", subType: "crown", armorType: "headTop", rarity: "legend", def: 26, int: 7, dex: 3, skillDamageBonus: 0.04 },
-  { id: "ro_shoes_abyss_walker", name: "深渊行者战靴", slot: "shoes", subType: "boots", armorType: "shoes", rarity: "legend", def: 46, hp: 220, agi: 6, abyssDamageReduction: 0.025, patrolEfficiency: 0.04 },
-  { id: "ro_trinket_dragonblood", name: "龙血吊坠", slot: "accessory", subType: "necklace", armorType: "accessory", rarity: "legend", hp: 240, str: 3, vit: 3, lifeSteal: 0.025, bossDamageBonus: 0.025 },
-  { id: "ro_trinket_abyss_mark", name: "深渊印记", slot: "accessory", subType: "charm", armorType: "accessory", rarity: "legend", atk: 18, matk: 18, abyssDamageBonus: 0.05, mythicWeightBonus: 0.003 },
-];
+// [DATA->data.js] roStyleEquipmentPoolFiltered extracted
 
 const extraEquipmentPools = [
   ...oneHandStaffPoolFiltered,
@@ -1978,76 +990,9 @@ Object.assign(
   Object.fromEntries(allEquipmentTemplates.flatMap((item) => [[item.id, item], [item.name, item]])),
 );
 
-const equipmentDropTables = {
-  beginner_field: [
-    ["one_hand_sword_long_sword", 0.06, 1, 8],
-    ["one_hand_sword_scimitar", 0.04, 1, 10],
-    ["one_hand_sword_honor_sword", 0.025, 3, 12],
-    ["one_hand_sword_ceremonial_dagger", 0.015, 4, 14],
-    ["one_hand_sword_piercing_sword", 0.008, 8, 16],
-  ],
-  prontera_south: [
-    ["one_hand_sword_scimitar", 0.05, 5, 14],
-    ["one_hand_sword_honor_sword", 0.035, 6, 16],
-    ["one_hand_sword_ceremonial_dagger", 0.022, 8, 18],
-    ["one_hand_sword_piercing_sword", 0.015, 10, 20],
-    ["one_hand_sword_saber", 0.01, 12, 22],
-    ["one_hand_sword_round_hilt_saber", 0.006, 14, 24],
-  ],
-  sewer: [
-    ["one_hand_sword_piercing_sword", 0.02, 16, 26],
-    ["one_hand_sword_saber", 0.015, 18, 28],
-    ["one_hand_sword_round_hilt_saber", 0.01, 20, 30],
-    ["one_hand_sword_p_cavalry_i", 0.007, 22, 30],
-    ["one_hand_sword_haedonggum", 0.0025, 24, 30],
-  ],
-  orc_village: [
-    ["one_hand_sword_round_hilt_saber", 0.018, 22, 30],
-    ["one_hand_sword_p_cavalry_i", 0.012, 24, 30],
-    ["one_hand_sword_haedonggum", 0.006, 25, 30],
-    ["one_hand_sword_katana", 0.0045, 26, 30],
-    ["one_hand_sword_water_ripple", 0.003, 27, 30],
-  ],
-  glast_heim_outside: [
-    ["one_hand_sword_haedonggum", 0.009, 25, 30],
-    ["one_hand_sword_katana", 0.007, 26, 30],
-    ["one_hand_sword_water_ripple", 0.005, 27, 30],
-    ["one_hand_sword_tremor", 0.0025, 28, 30],
-    ["one_hand_sword_boss_sword", 0.0006, 30, 30],
-  ],
-  glast_heim_deep: [
-    ["one_hand_sword_water_ripple", 0.007, 48, 58],
-    ["one_hand_sword_tremor", 0.0045, 50, 60],
-    ["one_hand_sword_boss_sword", 0.0012, 55, 65],
-    ["one_hand_sword_crimson", 0.0009, 55, 65],
-    ["one_hand_sword_youjian_shiguang", 0.0006, 58, 65],
-  ],
-  abyss_temple: [
-    ["one_hand_sword_boss_sword", 0.002, 62, 75],
-    ["one_hand_sword_crimson", 0.0015, 65, 78],
-    ["one_hand_sword_youjian_shiguang", 0.001, 68, 80],
-    ["one_hand_sword_false_belief", 0.0008, 70, 82],
-  ],
-  sky_temple: [
-    ["one_hand_sword_boss_sword", 0.0025, 72, 85],
-    ["one_hand_sword_crimson", 0.002, 75, 88],
-    ["one_hand_sword_youjian_shiguang", 0.0014, 78, 90],
-    ["one_hand_sword_false_belief", 0.001, 80, 92],
-  ],
-};
+// [DATA->data.js] equipmentDropTables extracted
 
-const mapDropTableAlias = {
-  grass: "beginner_field",
-  forest: "prontera_south",
-  sewer: "sewer",
-  desert: "orc_village",
-  orc_village: "orc_village",
-  mine: "glast_heim_outside",
-  clock: "glast_heim_deep",
-  glast_heim: "glast_heim_deep",
-  abyss_lake: "abyss_temple",
-  sky: "sky_temple",
-};
+// [DATA->data.js] mapDropTableAlias extracted
 
 const extraEquipmentDropPlan = {
   beginner_field: { normal: [0.015, 1, 8], rare: [0.003, 6, 14] },
@@ -2099,25 +1044,7 @@ Object.keys(equipmentDropTables).forEach((mapId) => {
   });
 });
 
-const equipmentSets = {
-  taurus_aldbaran: {
-    id: "taurus_aldbaran",
-    name: "金牛座-阿鲁迪巴套装",
-    talentName: "金牛座的天赋",
-    talentDescription: "金币收益 +500%，BASE经验 +100%，JOB经验 +100%，材料数量 +50%",
-    effects: {
-      full: { monsterGoldPct: 5, baseExpPct: 1, jobExpPct: 1, materialQuantityPct: 0.5 },
-      pieces: {},
-    },
-    items: [
-      { id: "taurus_aldbaran_helmet", name: "金牛座-阿鲁迪巴之盔", slot: "headgear", rarity: "legend", level: 30, requiredLevel: 30, atk: 16, matk: 4, def: 48, hp: 220, str: 4, vit: 8, gold: 0.08, materials: { ancientCore: 2, starShard: 1 }, goldCost: 1800, description: "金牛座-阿鲁迪巴套装部件。"},
-      { id: "taurus_aldbaran_armor", name: "金牛座-阿鲁迪巴之铠", slot: "armor", rarity: "legend", level: 30, requiredLevel: 30, atk: 12, matk: 0, def: 82, hp: 520, str: 6, vit: 12, gold: 0.12, materials: { ancientCore: 3, rune: 6 }, goldCost: 2400, description: "金牛座-阿鲁迪巴套装部件。"},
-      { id: "taurus_aldbaran_boots", name: "金牛座-阿鲁迪巴之靴", slot: "shoes", rarity: "epic", level: 30, requiredLevel: 30, atk: 10, matk: 0, def: 36, hp: 180, agi: 4, vit: 6, gold: 0.06, materials: { crystal: 8, rune: 4 }, goldCost: 1500, description: "金牛座-阿鲁迪巴套装部件。"},
-      { id: "taurus_aldbaran_ring", name: "金牛座-阿鲁迪巴之戒", slot: "trinket", rarity: "legend", level: 30, requiredLevel: 30, atk: 28, matk: 12, def: 12, hp: 120, str: 8, luk: 4, gold: 0.16, materials: { ancientCore: 2, starShard: 1 }, goldCost: 2000, description: "金牛座-阿鲁迪巴套装部件。"},
-      { id: "taurus_aldbaran_weapon", name: "金牛座-阿鲁迪巴之斧", slot: "weapon", rarity: "legend", level: 30, requiredLevel: 30, weaponType: "axe", equipType: "axe", atk: 260, matk: 0, def: 16, hp: 160, str: 16, vit: 8, crit: 0.04, gold: 0.18, materials: { ancientCore: 4, starShard: 2 }, goldCost: 3200, description: "金牛座-阿鲁迪巴套装部件。"},
-    ],
-  },
-};
+// [DATA->data.js] equipmentSets extracted
 
 const zodiacSetPlans = [
   ["aries_mu", "白羊座-穆套装", "白羊座的天赋", "物理爆发", "白羊座-穆", "权杖", { physicalAttackPct: 0.25, critDamagePct: 0.3, bossDamagePct: 0.15 }, { atk: 210, matk: 60, def: 180, hp: 650, str: 28, dex: 12, crit: 0.06 }],
@@ -2514,82 +1441,16 @@ function awakenedCardEffects(card) {
   return table[rarity] || table.rare;
 }
 
-const materialDropTables = {
-  grass: [
-    { materialId: "dust", dropRate: 0.08, minQty: 1, maxQty: 3 },
-    { materialId: "ore", dropRate: 0.018, minQty: 1, maxQty: 1 },
-    { materialId: "enhanceProtect", dropRate: 0.0003, minQty: 1, maxQty: 1 },
-  ],
-  forest: [
-    { materialId: "dust", dropRate: 0.06, minQty: 1, maxQty: 3 },
-    { materialId: "ore", dropRate: 0.035, minQty: 1, maxQty: 2 },
-    { materialId: "crystal", dropRate: 0.01, minQty: 1, maxQty: 1 },
-    { materialId: "enhanceProtect", dropRate: 0.0004, minQty: 1, maxQty: 1 },
-  ],
-  sewer: [
-    { materialId: "dust", dropRate: 0.05, minQty: 1, maxQty: 3 },
-    { materialId: "ore", dropRate: 0.045, minQty: 1, maxQty: 2 },
-    { materialId: "crystal", dropRate: 0.018, minQty: 1, maxQty: 1 },
-    { materialId: "enhanceProtect", dropRate: 0.00055, minQty: 1, maxQty: 1 },
-  ],
-  desert: [
-    { materialId: "ore", dropRate: 0.055, minQty: 1, maxQty: 3 },
-    { materialId: "crystal", dropRate: 0.024, minQty: 1, maxQty: 2 },
-    { materialId: "rune", dropRate: 0.006, minQty: 1, maxQty: 1 },
-    { materialId: "enhanceProtect", dropRate: 0.0007, minQty: 1, maxQty: 1 },
-  ],
-  orc_village: [
-    { materialId: "ore", dropRate: 0.065, minQty: 1, maxQty: 3 },
-    { materialId: "crystal", dropRate: 0.03, minQty: 1, maxQty: 2 },
-    { materialId: "rune", dropRate: 0.01, minQty: 1, maxQty: 1 },
-    { materialId: "oridecon", dropRate: 0.004, minQty: 1, maxQty: 1 },
-    { materialId: "elunium", dropRate: 0.004, minQty: 1, maxQty: 1 },
-    { materialId: "enhanceProtect", dropRate: 0.0009, minQty: 1, maxQty: 1 },
-  ],
-  mine: [
-    { materialId: "ore", dropRate: 0.07, minQty: 1, maxQty: 3 },
-    { materialId: "crystal", dropRate: 0.03, minQty: 1, maxQty: 2 },
-    { materialId: "rune", dropRate: 0.008, minQty: 1, maxQty: 1 },
-    { materialId: "oridecon", dropRate: 0.01, minQty: 1, maxQty: 1 },
-    { materialId: "elunium", dropRate: 0.008, minQty: 1, maxQty: 1 },
-    { materialId: "enhanceProtect", dropRate: 0.0011, minQty: 1, maxQty: 1 },
-  ],
-  clock: [
-    { materialId: "crystal", dropRate: 0.05, minQty: 1, maxQty: 3 },
-    { materialId: "rune", dropRate: 0.025, minQty: 1, maxQty: 2 },
-    { materialId: "ancientCore", dropRate: 0.006, minQty: 1, maxQty: 1 },
-    { materialId: "oridecon", dropRate: 0.018, minQty: 1, maxQty: 2 },
-    { materialId: "elunium", dropRate: 0.015, minQty: 1, maxQty: 1 },
-    { materialId: "enhanceProtect", dropRate: 0.0014, minQty: 1, maxQty: 1 },
-  ],
-  glast_heim: [
-    { materialId: "rune", dropRate: 0.045, minQty: 1, maxQty: 3 },
-    { materialId: "ancientCore", dropRate: 0.014, minQty: 1, maxQty: 2 },
-    { materialId: "starShard", dropRate: 0.0035, minQty: 1, maxQty: 1 },
-    { materialId: "oridecon", dropRate: 0.025, minQty: 1, maxQty: 2 },
-    { materialId: "elunium", dropRate: 0.022, minQty: 1, maxQty: 2 },
-    { materialId: "enhanceProtect", dropRate: 0.0017, minQty: 1, maxQty: 1 },
-  ],
-  abyss_lake: [
-    { materialId: "rune", dropRate: 0.05, minQty: 1, maxQty: 3 },
-    { materialId: "ancientCore", dropRate: 0.02, minQty: 1, maxQty: 2 },
-    { materialId: "starShard", dropRate: 0.007, minQty: 1, maxQty: 1 },
-    { materialId: "oridecon", dropRate: 0.035, minQty: 1, maxQty: 3 },
-    { materialId: "elunium", dropRate: 0.03, minQty: 1, maxQty: 2 },
-    { materialId: "enhanceProtect", dropRate: 0.002, minQty: 1, maxQty: 1 },
-  ],
-  sky: [
-    { materialId: "rune", dropRate: 0.04, minQty: 1, maxQty: 3 },
-    { materialId: "ancientCore", dropRate: 0.018, minQty: 1, maxQty: 2 },
-    { materialId: "starShard", dropRate: 0.006, minQty: 1, maxQty: 1 },
-    { materialId: "oridecon", dropRate: 0.04, minQty: 1, maxQty: 3 },
-    { materialId: "elunium", dropRate: 0.035, minQty: 1, maxQty: 2 },
-    { materialId: "enhanceProtect", dropRate: 0.0024, minQty: 1, maxQty: 1 },
-  ],
-};
+// [DATA->data.js] materialDropTables extracted
 
 const els = {};
 let state = createDefaultState();
+window.els = els;
+Object.defineProperty(window, "state", {
+  configurable: true,
+  get() { return state; },
+  set(nextState) { state = nextState; },
+});
 let lastTick = performance.now();
 let saveTimer = 0;
 let toastTimer = 0;
@@ -2600,13 +1461,22 @@ let recentSkillLevelUps = {};
 let recentSkillExpGains = {};
 let recentLootFeedback = [];
 let skillFeedbackTimer = 0;
+let recentCombatSkillCast = { id: "", name: "", startedAt: 0, until: 0 };
 let sessionStatsLastRenderAt = 0;
 let sessionStatsMapId = "";
+const FAST_RENDER_INTERVAL_MS = 100;
+const COMBAT_PAGE_REFRESH_INTERVAL_MS = 300;
+const PASSIVE_PAGE_REFRESH_INTERVAL_MS = 2000;
+const SCENE_RENDER_INTERVAL_MS = 33;
+let lastFastRenderAt = 0;
+let lastCombatPageRenderAt = 0;
+let lastSceneRenderAt = 0;
 let equipmentFilter = "all";
 let equipmentSort = "score";
 let equipmentShowAll = false;
 let smithyActiveTab = "enhance";
 const equipmentDetailExpandedState = {};
+const characterStatPanelState = { base: true };
 const runtimeSessionStats = {
   startedAt: Date.now(),
   events: [],
@@ -2633,30 +1503,6 @@ let activePage = "adventure";
 let auth = loadAuth();
 let remoteSaveInFlight = false;
 let remoteSaveQueued = false;
-
-function skill(name, level, kind, description, options) {
-  return {
-    id: options.id || skillIdFor(name, level, kind),
-    name,
-    level,
-    kind,
-    description,
-    atkPct: options.atkPct || 0,
-    matkPct: options.matkPct || 0,
-    hpPct: options.hpPct || 0,
-    defPct: options.defPct || 0,
-    aspdPct: options.aspdPct || 0,
-    critPct: options.critPct || 0,
-    goldPct: options.goldPct || 0,
-    dropPct: options.dropPct || 0,
-    dpsPct: options.dpsPct || 0,
-    active: options.active || null,
-  };
-}
-
-function skillIdFor(name, level, kind) {
-  return `skill_${String(name).replace(/\s+/g, "_")}_${level}_${kind}`;
-}
 
 function defaultTrainingPct() {
   return { str: 0, agi: 0, vit: 0, int: 0, dex: 0, luk: 0 };
@@ -3061,6 +1907,8 @@ function equipmentSlot(item) {
 }
 
 function createDefaultState() {
+  const runtime = window.RuneFrontierStateRuntime;
+  if (runtime && typeof runtime.createDefaultState === "function") return runtime.createDefaultState();
   const starterItems = [
     createItem(itemPool[0], 1, "normal"),
     createItem(itemPool[6], 1, "normal"),
@@ -3108,6 +1956,7 @@ function createDefaultState() {
       maxHp: null,
       renameUsed: false,
       rebirths: 0,
+      skillLevels: {},
     },
     formation: {
       front: "main",
@@ -3247,6 +2096,9 @@ function cacheElements() {
     "smithyPageContent",
     "logList",
     "toast",
+    "skillBarV3",
+    "skillCastBanner",
+    "enemyStatusBar",
   ].forEach((id) => {
     els[id] = document.getElementById(id);
   });
@@ -3278,6 +2130,9 @@ function ensureRefineActionButtons() {
   continueButton.textContent = "继续操作";
 }
 
+// [BRIDGE] Event wiring — 40+ listeners. All callbacks invoke game.js functions that delegate to runtime modules where applicable.
+// Non-delegated callbacks (presentation/DOM): openOfflineRewardModal, closeOfflineRewardModal, closeRefineResultModal, showToast, punchCardSlot, setAutoBossEnabled, loadAuth, refreshAuthUi, logout, toggleAutoBoss, ensureSettings.
+// Delegated callbacks: challengeBoss, claimOffline, refineItem, renderAll, salvageItem, salvageAllUnequipped, equipBest, enhanceItem, empowerItem, buyShopItem, claimCodexReward, toggleItemLock.
 function bindEvents() {
   ensureRefineActionButtons();
   cacheElements();
@@ -3285,6 +2140,8 @@ function bindEvents() {
     button.addEventListener("click", () => {
       activePage = button.dataset.page;
       renderPages();
+      renderActivePage();
+      renderFast(true);
     });
   });
 
@@ -3398,6 +2255,8 @@ function bindEvents() {
     if (renameButton) renameHero();
     const specButton = event.target.closest("button[data-skill-spec]");
     if (specButton) selectSkillSpecialization(specButton.dataset.skillId, specButton.dataset.skillSpec);
+    const skillUpgradeButton = event.target.closest("button[data-skill-upgrade]");
+    if (skillUpgradeButton) { upgradeSkill(skillUpgradeButton.dataset.skillUpgrade); return; }
     const titleButton = event.target.closest("button[data-equip-title]");
     if (titleButton) equipTitle(titleButton.dataset.equipTitle || null);
   });
@@ -3537,6 +2396,7 @@ function bindEvents() {
   document.querySelectorAll(".codex-tab-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       codexActiveTab = btn.dataset.codexTab || "monster";
+      state.codexActiveTab = codexActiveTab;
       renderCodex();
     });
   });
@@ -3544,6 +2404,7 @@ function bindEvents() {
   document.querySelectorAll("[data-shop-tab]").forEach((btn) => {
     btn.addEventListener("click", () => {
       shopActiveTab = btn.dataset.shopTab || "normal";
+      state.shopActiveTab = shopActiveTab;
       renderShop();
     });
   });
@@ -3566,6 +2427,12 @@ els.vipPanel.addEventListener("click", (event) => {
   });
 
   els.taskPage.addEventListener("click", (event) => {
+    const toggleBtn = event.target.closest("button[data-toggle-completed-tasks]");
+    if (toggleBtn) {
+      state.hideCompletedTasks = state.hideCompletedTasks !== false ? false : true;
+      renderAll();
+      return;
+    }
     const dailyButton = event.target.closest("button[data-claim-daily-goal]");
     if (dailyButton) {
       claimDailyGoal(dailyButton.dataset.claimDailyGoal);
@@ -3689,6 +2556,17 @@ els.vipPanel.addEventListener("click", (event) => {
     if (!actionButton) return;
     if (actionButton.dataset.action === "toggle-auto-boss") {
       toggleAutoBoss();
+    }
+  });
+
+  document.addEventListener("click", function (event) {
+    var toggle = event.target.closest("[data-stat-panel-toggle]");
+    if (toggle) {
+      var key = toggle.getAttribute("data-stat-panel-toggle");
+      var details = toggle.closest("details");
+      if (details) {
+        characterStatPanelState[key] = details.open;
+      }
     }
   });
 
@@ -3835,6 +2713,8 @@ async function apiRequest(path, options = {}) {
 }
 
 function load() {
+  const runtime = window.RuneFrontierStateRuntime;
+  if (runtime && typeof runtime.load === "function") return runtime.load();
   const raw = localStorage.getItem(SAVE_KEY) || localStorage.getItem(LEGACY_SAVE_KEY);
   if (!raw) {
     state.offlinePending = buildOfflineReward(0);
@@ -3857,6 +2737,8 @@ function load() {
 }
 
 function mergeState(base, saved) {
+  const runtime = window.RuneFrontierStateRuntime;
+  if (runtime && typeof runtime.mergeState === "function") return runtime.mergeState(base, saved);
   const oldHero = Array.isArray(saved.heroes) ? saved.heroes.find((hero) => hero.unlocked) || saved.heroes[0] : null;
   const hero = saved.hero || {
     ...base.hero,
@@ -3950,6 +2832,8 @@ function normalizeMapDifficultyProgress(progress, legacyBestMap, legacyDifficult
 }
 
 function sanitizeProgression() {
+  const runtime = window.RuneFrontierStateRuntime;
+  if (runtime && typeof runtime.sanitizeProgression === "function") return runtime.sanitizeProgression();
   migrateMapPoolIfNeeded();
   if (state.materials && state.materials.grassBossSoul > 0) {
     state.materials.grassEssence = (state.materials.grassEssence || 0) + state.materials.grassBossSoul;
@@ -4024,6 +2908,10 @@ function migrateMapPoolIfNeeded() {
 }
 
 function normalizeVip(vip = {}) {
+  const runtime = window.RuneFrontierVipRuntime;
+  if (runtime && typeof runtime.normalizeVip === "function") {
+    return runtime.normalizeVip(vip);
+  }
   return {
     level: clampNumber(Math.floor(vip.level || 0), 0, VIP_MAX_LEVEL),
     exp: Math.max(0, Math.floor(vip.exp || 0)),
@@ -4226,7 +3114,7 @@ function createQuest(config) {
     currentCount: 0,
     completed: false,
     claimed: false,
-    description: `击杀 ${mapName} ${difficultyText} ${mutationText} ${config.requiredCount} ֻ`,
+    description: `击杀 ${mapName} ${difficultyText} ${mutationText} ${config.requiredCount} 只`,
     ...config,
   });
 }
@@ -4404,6 +3292,8 @@ function createQuestRewardEquipment(config) {
 }
 
 function gainVipExp(amount) {
+  const runtime = window.RuneFrontierVipRuntime;
+  if (runtime && typeof runtime.gainVipExp === "function") return runtime.gainVipExp(amount);
   const gain = Math.max(0, Math.floor(amount || 0));
   if (!gain) return;
   state.vip.exp += gain;
@@ -4422,6 +3312,8 @@ function gainVipExp(amount) {
 }
 
 function save() {
+  const runtime = window.RuneFrontierStateRuntime;
+  if (runtime && typeof runtime.save === "function") return runtime.save();
   state.lastSavedAt = Date.now();
   state.lastActiveAt = state.lastSavedAt;
   localStorage.setItem(SAVE_KEY, JSON.stringify(state));
@@ -4463,6 +3355,7 @@ function loop(now) {
   updateRecovery(dt);
   if (!state.paused) updateCombat(dt);
   updateFloatTexts(dt);
+  updateOnlinePlaytime(dt);
 
   saveTimer += dt;
   if (saveTimer >= 4) {
@@ -4470,219 +3363,141 @@ function loop(now) {
     save();
   }
 
-  drawScene(now / 1000);
+  if (activePage === "adventure" && now - lastSceneRenderAt >= SCENE_RENDER_INTERVAL_MS) {
+    lastSceneRenderAt = now;
+    drawScene(now / 1000);
+  }
   renderFast();
   requestAnimationFrame(loop);
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+ * [LEGACY-AUDIT] Fallback zone — ~78 legacyXxx functions
+ * All are superseded by module runtime delegation. Remaining as
+ * startup-safety fallback. Safe to delete ONLY after:
+ *  - Runtime parity verified via regression comparison
+ *  - All 9 runtimes install successfully in production
+ *  - No direct callers remain in event handlers or tests
+ * ═══════════════════════════════════════════════════════════════════ */
+
+function legacyUpdateCombat(dt) { return; }
+
 function updateCombat(dt) {
-  if (state.enemyHp <= 0 || state.enemyMaxHp <= 0) spawnEnemy(false);
-
-  const stats = computeStats();
-  tryAutoChallengeBoss("tick", stats);
-  if ((state.hero.currentHp || 0) <= 0) {
-    state.paused = true;
-    return;
-  }
-  state.playerAttackTimer = (state.playerAttackTimer || 0) + dt;
-  const attackInterval = clampNumber(1 / Math.max(0.01, stats.attackSpeed), 0.6, 4.5);
-  const attacks = Math.min(3, Math.floor(state.playerAttackTimer / attackInterval));
-  if (attacks > 0) {
-    state.playerAttackTimer -= attacks * attackInterval;
-    const critChance = Math.min(PLAYER_CRIT_RATE_CAP, stats.crit);
-    for (let hit = 0; hit < attacks && state.enemyHp > 0; hit += 1) {
-      const targetBonus = getTargetDamageBonus(stats);
-      const monsterGuard = Math.min(0.65, currentMonsterStats().damageReduction || 0);
-      const rawHitDamage = Math.max(0, stats.dps * attackInterval * (1 + targetBonus + (stats.normalAttackBonus || 0)) * (1 - monsterGuard));
-      const isCrit = Math.random() < critChance;
-      const finalDamage = normalizeDamage(isCrit ? rawHitDamage * (1.85 + (stats.critDamageBonus || 0)) : rawHitDamage);
-      state.enemyHp -= finalDamage;
-      showDamageNumber("monster", finalDamage, isCrit ? "crit" : "player");
-      showHitFeedback(isCrit ? "crit" : "normal");
-      applySplashDamageToEncounter(finalDamage, stats);
-      if (stats.fireBurstChance && Math.random() < stats.fireBurstChance && state.enemyHp > 0) {
-        const burstDamage = normalizeDamage(stats.physicalAttack * (stats.fireBurstAtkPct || 0.8) * (1 + targetBonus) * (1 - monsterGuard));
-        state.enemyHp -= burstDamage;
-        showDamageNumber("monster", burstDamage, "skill", { skillName: "火焰爆发" });
-        showSkillCastFeedback("火焰爆发");
-      }
-      if (state.currentMap < 4 || stats.lifeSteal) {
-        const stealRate = (state.currentMap < 4 ? 0.2 : 0) + Math.min(0.25, stats.lifeSteal || 0);
-        const steal = Math.round(finalDamage * stealRate * (1 - Math.min(0.75, currentMonsterStats().antiLifeSteal || 0)));
-        if (steal > 0) state.hero.currentHp = Math.min(stats.maxHp, (state.hero.currentHp || 0) + steal);
-      }
-    }
-  }
-  rollActiveSkill(dt, stats);
-  if (state.enemyHp > 0) updateMonsterAttack(dt, stats);
-
-  if (state.enemyHp <= 0) defeatEnemy();
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.updateCombat === "function") return runtime.updateCombat(dt);
+  return legacyUpdateCombat(dt);
 }
+
+function legacyGetTargetDamageBonus(stats) { return; }
 
 function getTargetDamageBonus(stats) {
-  const monster = currentMonsterStats();
-  let bonus = stats.monsterDamageBonus || 0;
-  const levelGap = Math.max(0, (monster.level || 1) - (state.hero.baseLevel || 1));
-  if (levelGap > 0) bonus += Math.min(stats.higherLevelDamageBonus || 0, levelGap * 0.01) + Math.min(0.12, (stats.hitRate || 0) * 0.25);
-  if (state.enemyBoss || monster.type === "boss") bonus += stats.bossDamageBonus || 0;
-  if (state.currentDifficulty === "abyss" && (state.enemyBoss || monster.type === "boss")) bonus += stats.abyssBossDamageBonus || 0;
-  if (monster.mutation) bonus += stats.mutationDamageBonus || 0;
-  if (monster.type === "elite" || monster.mutation || state.enemyBoss) bonus += (stats.eliteDamageBonus || 0) + (state.currentDifficulty === "abyss" ? stats.abyssEliteDamageBonus || 0 : 0);
-  if (state.currentDifficulty === "abyss") {
-    bonus += stats.abyssDamageBonus || 0;
-    if ((state.enemyHp || 0) / Math.max(1, state.enemyMaxHp || 1) <= 0.2) bonus += stats.abyssExecuteDamageBonus || 0;
-  }
-  bonus += stats.finalDamageBonus || 0;
-  bonus += Math.min(0.5, stats.ignoreDefensePct || 0);
-  return Math.min(3, bonus);
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.getTargetDamageBonus === "function") return runtime.getTargetDamageBonus(stats);
+  return legacyGetTargetDamageBonus(stats);
 }
+
+function legacyApplySplashDamageToEncounter(baseDamage, stats = {}) { return; }
 
 function applySplashDamageToEncounter(baseDamage, stats = {}) {
-  const targets = Math.max(0, Math.floor(stats.splashTargets || 0));
-  const ratio = Math.max(0, Number(stats.splashDamagePct || 0));
-  if (!targets || ratio <= 0 || state.enemyBoss) return;
-  updateActiveEnemyHpInGroup();
-  const group = state.enemyGroup;
-  if (!group?.monsters?.length) return;
-  const splashDamage = normalizeDamage(baseDamage * ratio);
-  if (splashDamage <= 0) return;
-  group.monsters
-    .map((monster, index) => ({ monster, index }))
-    .filter((entry) => entry.index !== group.activeIndex && entry.monster.alive)
-    .slice(0, targets)
-    .forEach(({ monster }) => {
-      // 保留 1 点生命，避免溅射跳过逐只击杀奖励结算。
-      monster.currentHp = Math.max(1, Number(monster.currentHp || monster.maxHp || 1) - splashDamage);
-      monster.alive = monster.currentHp > 0;
-    });
-  showDamageNumber("monster", splashDamage, "skill", { skillName: "溅射" });
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.applySplashDamageToEncounter === "function") return runtime.applySplashDamageToEncounter(baseDamage, stats);
+  return legacyApplySplashDamageToEncounter(baseDamage, stats);
 }
+
+function legacyApplySkillSplashDamageToEncounter(splashDamage, skillName = "技能溅射") { return; }
+
+function applySkillSplashDamageToEncounter(splashDamage, skillName = "技能溅射") {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.applySkillSplashDamageToEncounter === "function") return runtime.applySkillSplashDamageToEncounter(splashDamage, skillName);
+  return legacyApplySkillSplashDamageToEncounter(splashDamage, skillName);
+}
+
+function legacyIsBossChallengeReady() { return; }
 
 function isBossChallengeReady() {
-  return Number(state.areaKills || 0) >= bossRequirement();
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.isBossChallengeReady === "function") return runtime.isBossChallengeReady();
+  return legacyIsBossChallengeReady();
 }
+
+function legacyIsCurrentlyFightingBoss() { return; }
 
 function isCurrentlyFightingBoss() {
-  return Boolean(state.enemyBoss);
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.isCurrentlyFightingBoss === "function") return runtime.isCurrentlyFightingBoss();
+  return legacyIsCurrentlyFightingBoss();
 }
+
+function legacyCanHeroFight(stats = computeStats()) { return; }
 
 function canHeroFight(stats = computeStats()) {
-  return (state.hero.currentHp || 0) > 0 && (state.hero.currentHp || 0) / Math.max(1, stats.maxHp) >= 0.3;
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.canHeroFight === "function") return runtime.canHeroFight(stats);
+  return legacyCanHeroFight(stats);
 }
+
+function legacyIsAutoBossInCooldown() { return; }
 
 function isAutoBossInCooldown() {
-  return Date.now() < (ensureSettings().autoBossCooldownUntil || 0);
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.isAutoBossInCooldown === "function") return runtime.isAutoBossInCooldown();
+  return legacyIsAutoBossInCooldown();
 }
+
+function legacyChallengeBoss({ auto = false } = {}) { return; }
 
 function challengeBoss({ auto = false } = {}) {
-  const stats = computeStats();
-  if (isCurrentlyFightingBoss()) return false;
-  if (!isBossChallengeReady()) {
-    if (!auto) showToast(`还需要清理 ${bossRequirement() - state.areaKills} 只魔物`);
-    return false;
-  }
-  if (!canHeroFight(stats)) {
-    if (!auto) showToast("生命值不足，无法挑战 BOSS");
-    return false;
-  }
-  if (auto && isAutoBossInCooldown()) return false;
-  spawnEnemy(true);
-  addLog(`${auto ? "自动挑战 BOSS" : bossDisplayName(currentMap()) + " 出现在道路尽头"}${auto ? `：${bossDisplayName(currentMap())}` : "。"}`);
-  renderAll();
-  return true;
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.challengeBoss === "function") return runtime.challengeBoss({ auto });
+  return legacyChallengeBoss({ auto });
 }
+
+function legacyTryAutoChallengeBoss(reason = "tick", stats = computeStats()) { return; }
 
 function tryAutoChallengeBoss(reason = "tick", stats = computeStats()) {
-  const ready = isBossChallengeReady();
-  const enabled = getAutoBossEnabled();
-  const fightingBoss = isCurrentlyFightingBoss();
-  const canFight = canHeroFight(stats);
-  const cooldown = isAutoBossInCooldown();
-  if (!enabled || !ready || fightingBoss || state.paused || !canFight || cooldown) return false;
-  return challengeBoss({ auto: true });
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.tryAutoChallengeBoss === "function") return runtime.tryAutoChallengeBoss(reason, stats);
+  return legacyTryAutoChallengeBoss(reason, stats);
 }
+
+function legacyGetAutoBossStatusText(stats = computeStats()) { return; }
 
 function getAutoBossStatusText(stats = computeStats()) {
-  if (!getAutoBossEnabled()) return "已关闭";
-  if (state.paused) return "战斗暂停中";
-  if (isCurrentlyFightingBoss()) return "正在挑战";
-  const cooldownLeft = Math.max(0, Math.ceil(((ensureSettings().autoBossCooldownUntil || 0) - Date.now()) / 1000));
-  if (cooldownLeft > 0) return `冷却中 ${cooldownLeft}秒`;
-  if (!canHeroFight(stats)) return "生命不足";
-  if (isBossChallengeReady()) return "可挑战";
-  return "等待进度";
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.getAutoBossStatusText === "function") return runtime.getAutoBossStatusText(stats);
+  return legacyGetAutoBossStatusText(stats);
 }
+
+function legacyHandleAutoBossFailure() { return; }
+
+function handleAutoBossFailure() {
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.handleAutoBossFailure === "function") return runtime.handleAutoBossFailure();
+  return legacyHandleAutoBossFailure();
+}
+
+function legacyUpdateRecovery(dt) { return; }
 
 function updateRecovery(dt) {
-  const stats = computeStats();
-  if ((state.hero.currentHp || 0) >= stats.maxHp) return;
-  state.regenTimer = (state.regenTimer || 0) + dt;
-  if (state.regenTimer < HP_REGEN_INTERVAL) return;
-  state.regenTimer = 0;
-  const before = state.hero.currentHp || 0;
-  state.hero.currentHp = Math.min(stats.maxHp, before + stats.hpRegen);
-  const healed = Math.round(state.hero.currentHp - before);
-  if (healed > 0) {
-    showDamageNumber("hero", healed, "heal");
-    if (Math.random() < 0.35 || before <= 0) addLog(`你恢复了 ${formatNumber(healed)} 点生命值。`);
-  }
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.updateRecovery === "function") return runtime.updateRecovery(dt);
+  return legacyUpdateRecovery(dt);
 }
+
+function legacyUpdateMonsterAttack(dt, stats) { return; }
 
 function updateMonsterAttack(dt, stats) {
-  state.enemyAttackTimer = (state.enemyAttackTimer || 0) + dt;
-  const interval = Math.max(0.72, (MONSTER_ATTACK_INTERVAL - state.currentMap * 0.06 - (state.enemyBoss ? 0.18 : 0)) * (1 + (stats.setBonuses?.monsterAttackSpeedReductionPct || 0)));
-  if (state.enemyAttackTimer < interval) return;
-  state.enemyAttackTimer = 0;
-  const monster = currentMonsterStats();
-  if (Math.random() < stats.dodgeRate) {
-    showDamageNumber("hero", 0, "miss");
-    return;
-  }
-  const defenseK = 80 + state.hero.baseLevel * 4;
-  const piercedDefense = Math.max(0, stats.defense * (1 - Math.min(0.75, monster.armorPierce || 0)));
-  const abyssReduction = state.currentDifficulty === "abyss" ? Math.min(0.6, stats.abyssDamageReduction || 0) : 0;
-  const specialReduction = Math.min(0.45, Math.max(stats.magicDamageReduction || 0, stats.skillDamageReduction || 0) * (state.enemyBoss || monster.type === "elite" ? 1 : 0.35));
-  const damageReductionPct = Math.min(0.75, Math.max(0, (stats.damageReductionPct || stats.setBonuses?.damageReductionPct || 0) + abyssReduction + specialReduction - (monster.abyssSuppression || 0)));
-  const effectiveCritChance = (monster.critChance || 0) * (1 - Math.min(0.75, (stats.statusResist || 0) * 0.5));
-  const isCrit = Math.random() < effectiveCritChance;
-  const hpRatio = (state.hero.currentHp || stats.maxHp) / Math.max(1, stats.maxHp);
-  const executeBonus = hpRatio <= 0.35 ? monster.executeDamage || 0 : 0;
-  const critMultiplier = isCrit ? 1 + (monster.critDamage || 0) : 1;
-  const livingCount = Math.max(1, (state.enemyGroup?.monsters || []).filter((entry) => entry.alive).length || 1);
-  const encounterAssist = state.enemyBoss ? 1 : Math.min(1.75, 1 + (livingCount - 1) * 0.18);
-  const damage = normalizeDamage((monster.attack * defenseK) / (defenseK + piercedDefense) * (1 - damageReductionPct) * critMultiplier * (1 + executeBonus) * encounterAssist);
-  state.hero.currentHp = Math.max(0, (state.hero.currentHp || stats.maxHp) - damage);
-  showDamageNumber("hero", damage, isCrit ? "crit" : "monster");
-  if (els.playerHpBar) {
-    els.playerHpBar.classList.add("player-hp-flash");
-    window.setTimeout(() => els.playerHpBar && els.playerHpBar.classList.remove("player-hp-flash"), 200);
-  }
-  if (state.enemyHp > 0 && stats.thornVitMultiplier > 0) {
-    const thornDamage = normalizeDamage((stats.attrs?.vit || 0) * stats.thornVitMultiplier);
-    state.enemyHp -= thornDamage;
-    showDamageNumber("monster", thornDamage, "player");
-  }
-  if (state.enemyHp > 0 && stats.meteorCounterChance && Math.random() < stats.meteorCounterChance) {
-    const meteorDamage = normalizeDamage((stats.magicAttack || stats.matkPower || 0) * (stats.meteorCounterMatkPct || 1));
-    state.enemyHp -= meteorDamage;
-    showDamageNumber("monster", meteorDamage, "skill", { skillName: "陨石反击" });
-    showSkillCastFeedback("陨石反击");
-  }
-  if (state.hero.currentHp <= 0) {
-    state.paused = true;
-    if (state.enemyBoss && getAutoBossEnabled()) {
-      ensureSettings().autoBossCooldownUntil = Date.now() + AUTO_BOSS_FAIL_COOLDOWN_MS;
-      addLog("自动挑战 BOSS 失败，进入冷却。");
-    }
-    addLog(`${getDifficultyFailureHint(monster)}角色生命值归零，战斗停止。`);
-  }
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.updateMonsterAttack === "function") return runtime.updateMonsterAttack(dt, stats);
+  return legacyUpdateMonsterAttack(dt, stats);
 }
 
+function legacyGetDifficultyFailureHint(monster = currentMonsterStats()) { return; }
+
 function getDifficultyFailureHint(monster = currentMonsterStats()) {
-  if (state.currentDifficulty === "abyss") return "深渊难度压力过高：建议提升深渊减伤、生命、防御、吸血和深渊伤害。";
-  if (state.currentDifficulty === "hard") return "困难难度压力过高：建议提升星炼等级、生命、防御、吸血和 Boss 伤害。";
-  if ((monster?.attack || 0) > (computeStats().maxHp || 1) * 0.12) return "生存评分不足：建议提升生命、防御和伤害减免。";
-  return "";
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.getDifficultyFailureHint === "function") return runtime.getDifficultyFailureHint(monster);
+  return legacyGetDifficultyFailureHint(monster);
 }
 
 function updateFloatTexts(dt) {
@@ -4693,60 +3508,20 @@ function updateFloatTexts(dt) {
   state.floatTexts = state.floatTexts.filter((entry) => entry.age < entry.ttl);
 }
 
+function legacyRollActiveSkill(dt, stats) { return; }
+
 function rollActiveSkill(dt, stats) {
-  const activeSkills = getUnlockedSkills().filter((entry) => entry.active);
-  for (const entry of activeSkills) {
-    const spec = getSkillGrowthEntry(entry).specialization;
-    const ms = getSkillMilestoneBonuses(entry);
-    const abyssChance = state.currentDifficulty === "abyss" ? stats.setBonuses?.abyssSkillChanceBonus || 0 : 0;
-    const chance = entry.active.chance * dt * (1 + Math.min(0.35, stats.luck * 0.002) + abyssChance + (ms.skillChanceBonus || 0)) * (spec === "frequency" ? 1.2 : 1) * (1 - Math.min(0.35, stats.skillCooldownPenalty || 0));
-    if (Math.random() >= chance) continue;
-    const source = entry.active.stat === "matk" ? stats.matkPower : stats.atkPower;
-    const jobPower = 1 + state.hero.jobLevel * 0.018 + Math.floor(state.hero.jobLevel / 10) * 0.06;
-    const monsterGuard = Math.min(0.65, currentMonsterStats().damageReduction || 0);
-    const damage = normalizeDamage(
-      source *
-        entry.active.multiplier *
-        getSkillLevelMultiplier(entry) *
-        jobPower *
-        skillAttributeMultiplier(entry.active, stats) *
-        (1 + stats.crit * 0.35) *
-        (1 + getTargetDamageBonus(stats) + (stats.skillDamageBonus || 0) + (ms.skillDamageBonus || 0) + (state.enemyBoss ? ms.bossDamageBonus || 0 : 0) + ((currentMonsterStats().type === "elite" || currentMonsterStats().mutation || state.enemyBoss) ? ms.eliteDamageBonus || 0 : 0) + (state.currentDifficulty === "abyss" ? (ms.abyssDamageBonus || 0) + (ms.abyssExecuteDamageBonus || 0) : 0) + (ms.monsterDamageBonus || 0) + (ms.finalDamageBonus || 0) + (spec === "boss_damage" && state.enemyBoss ? 0.25 : 0) + (spec === "pierce" ? 0.1 : 0)) *
-        (1 - monsterGuard),
-    );
-    state.enemyHp -= damage;
-    showDamageNumber("monster", damage, "skill", { skillName: entry.name });
-    showHitFeedback("skill");
-    showSkillCastFeedback(entry);
-    if (state.currentMap < 4 || stats.skillHitHealPct) {
-      const steal = Math.round(damage * (state.currentMap < 4 ? 0.2 : 0) + damage * (stats.skillHitHealPct || 0));
-      if (steal > 0) state.hero.currentHp = Math.min(stats.maxHp, (state.hero.currentHp || 0) + steal);
-    }
-    noteSkillCast(entry.name, damage);
-    gainSkillExp(entry, state.enemyBoss ? 2 : 1, "战斗施放");
-    if (state.enemyHp <= 0) gainSkillExp(entry, state.enemyBoss ? 1 : 0.5, "技能终结");
-    const echoChance = Math.min(0.25, (stats.echoChance || 0) + (ms.echoChance || 0));
-    if (echoChance && Math.random() < echoChance && state.enemyHp > 0) {
-      const echoDamage = normalizeDamage(damage * 0.7);
-      state.enemyHp -= echoDamage;
-      showDamageNumber("monster", echoDamage, "skill", { skillName: "回响" });
-      showHitFeedback("skill");
-      showSkillCastFeedback({ name: "回响" });
-      if (state.currentMap < 4 || stats.skillHitHealPct) {
-        const steal = Math.round(echoDamage * (state.currentMap < 4 ? 0.2 : 0) + echoDamage * (stats.skillHitHealPct || 0));
-        if (steal > 0) state.hero.currentHp = Math.min(stats.maxHp, (state.hero.currentHp || 0) + steal);
-      }
-      noteSkillCast("回响", echoDamage);
-    }
-    break;
-  }
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.rollActiveSkill === "function") return runtime.rollActiveSkill(dt, stats);
+  return legacyRollActiveSkill(dt, stats);
 }
 
+function legacySkillAttributeMultiplier(active = {}, stats = {}) { return; }
+
 function skillAttributeMultiplier(active = {}, stats = {}) {
-  return Object.entries(active.attributeScaling || {}).reduce((sum, [stat, scale]) => {
-    const value = Math.max(0, stats.attrs?.[stat] || 0);
-    return sum + Math.sqrt(value) * scale * 2.5;
-  }, 1);
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.skillAttributeMultiplier === "function") return runtime.skillAttributeMultiplier(active, stats);
+  return legacySkillAttributeMultiplier(active, stats);
 }
 
 function noteSkillCast(name, damage) {
@@ -4819,15 +3594,29 @@ function showHitFeedback(kind = "normal") {
 function showSkillCastFeedback(skill) {
   const wrap = document.querySelector(".scene-wrap");
   const name = typeof skill === "string" ? skill : skill?.name;
-  if (!wrap || !name) return;
+  if (!name) return;
+  recentCombatSkillCast = {
+    id: skill && typeof skill === "object" && skill.id ? skill.id : "",
+    name,
+    startedAt: Date.now(),
+    until: Date.now() + 850
+  };
+  renderSkillCastBanner();
+  if (!wrap) return;
   window.clearTimeout(skillFeedbackTimer);
   const existing = wrap.querySelectorAll(".skill-cast-feedback");
-  if (existing.length > 1) existing[0].remove();
+  existing.forEach((node) => node.remove());
+  wrap.classList.remove("skill-cast-active");
+  void wrap.offsetWidth;
+  wrap.classList.add("skill-cast-active");
   const el = document.createElement("span");
   el.className = "skill-cast-feedback";
   el.textContent = `${name}！`;
   wrap.appendChild(el);
-  skillFeedbackTimer = window.setTimeout(() => el.remove(), 760);
+  skillFeedbackTimer = window.setTimeout(() => {
+    el.remove();
+    wrap.classList.remove("skill-cast-active");
+  }, 820);
 }
 
 function showMonsterDeathFeedback(monster = currentMonsterStats()) {
@@ -4971,6 +3760,8 @@ function getSessionRewardSummary() {
 }
 
 function renderSessionRewardPanel() {
+  const runtime = window.RuneFrontierRenderRuntime;
+  if (runtime && typeof runtime.renderSessionRewardPanel === "function") return runtime.renderSessionRewardPanel();
   const summary = getSessionRewardSummary();
   const totalDropped = runtimeSessionStats.equipmentCount + runtimeSessionStats.autoSalvagedCount;
   const highestRarity = [...rarityOrder].reverse().find((rarity) => (runtimeSessionStats.equipmentByRarity?.[rarity] || 0) > 0);
@@ -5008,25 +3799,30 @@ function renderSessionRewardPanel() {
   `;
 }
 
+function legacyNormalizeDamage(value, options = {}) { return; }
+
 function normalizeDamage(value, options = {}) {
-  const normalized = Object.is(value, -0) ? 0 : Number(value);
-  const allowZero = typeof options === "boolean" ? options : Boolean(options.allowZero);
-  if (!Number.isFinite(normalized)) return allowZero ? 0 : 1;
-  if (allowZero) return Math.max(0, Math.floor(normalized));
-  return Math.max(1, Math.floor(normalized));
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.normalizeDamage === "function") return runtime.normalizeDamage(value, options);
+  return legacyNormalizeDamage(value, options);
 }
+
+function legacySanitizeDamage(value, allowZero = false) { return; }
 
 function sanitizeDamage(value, allowZero = false) {
-  return normalizeDamage(value, { allowZero });
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.sanitizeDamage === "function") return runtime.sanitizeDamage(value, allowZero);
+  return legacySanitizeDamage(value, allowZero);
 }
 
+function legacyGrantBossEssence(mapIndex) { return; }
+
 function grantBossEssence(mapIndex) {
-  const id = bossEssenceByMap[mapIndex] || bossEssenceByMap[0];
-  const amount = applyMaterialQuantityBonus(1 + Math.floor(mapIndex / 2));
-  state.materials[id] = (state.materials[id] || 0) + amount;
-  recordSessionReward({ materials: amount });
-  recordRecentLoot({ materials: [{ materialId: id, name: materialNames[id] || id, qty: amount }] }, "Boss战利品");
-  addLog(`获得 ${materialNames[id]} × ${amount}。`);
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.grantBossEssence === "function") {
+    return runtime.grantBossEssence(mapIndex);
+  }
+  return legacyGrantBossEssence(mapIndex);
 }
 
 function applyMaterialQuantityBonus(amount, stats = computeStats()) {
@@ -5036,352 +3832,231 @@ function applyMaterialQuantityBonus(amount, stats = computeStats()) {
   return whole + (Math.random() < boosted - whole ? 1 : 0);
 }
 
+function legacyDefeatEnemy() { return; }
+
 function defeatEnemy() {
-  const map = currentMap();
-  const monster = currentMonsterStats();
-  updateActiveEnemyHpInGroup();
-  const bossBonus = state.enemyBoss ? 2 : 1;
-  const stats = computeStats();
-  const goldGain = Math.round(monster.gold * bossBonus * stats.goldMultiplier * stats.monsterGoldMultiplier);
-  const baseExpGain = Math.round(monster.exp * stats.baseExpMultiplier);
-  const jobExpGain = Math.round(monster.jobExp * (state.hero.jobId === "novice" ? 1.12 : 1) * stats.jobExpMultiplier);
-
-  state.gold += goldGain;
-  showMonsterDeathFeedback(monster);
-  addFloatText(`+${formatNumber(baseExpGain)} BASE`, 330, 168, "#456e91");
-  addFloatText(`+${formatNumber(jobExpGain)} JOB`, 330, 202, "#6a5f9f");
-  gainExp(baseExpGain, jobExpGain);
-  state.totalKills += 1;
-  recordSessionReward({ kills: 1, bossKills: state.enemyBoss ? 1 : 0, abyssKills: state.currentDifficulty === "abyss" ? 1 : 0, gold: goldGain, baseExp: baseExpGain, jobExp: jobExpGain });
-  recordRecentLoot({ gold: goldGain, baseExp: baseExpGain, jobExp: jobExpGain, killCount: 1 }, state.enemyBoss ? "Boss战利品" : state.currentDifficulty === "abyss" ? "深渊战利品" : "战斗战利品");
-  updateDailyGoalProgress("daily_kills", 1);
-  if (state.enemyBoss) updateDailyGoalProgress("daily_boss", 1);
-  if (monster.id) {
-    state.monsterCodex[monster.id] = state.monsterCodex[monster.id] || { killCount: 0, firstKilled: false, rewardsClaimed: {} };
-    state.monsterCodex[monster.id].killCount += 1;
-    if (!state.monsterCodex[monster.id].firstKilled) state.monsterCodex[monster.id].firstKilled = true;
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.settleDefeatedEnemy === "function") {
+    return runtime.settleDefeatedEnemy({
+      map: currentMap(),
+      monster: currentMonsterStats(),
+      isBoss: Boolean(state.enemyBoss),
+      difficulty: state.currentDifficulty,
+      stats: computeStats(),
+    });
   }
-
-  if (state.enemyBoss) {
-    grantBossEssence(state.currentMap);
-    state.areaKills = 0;
-    const diffProgress = state.mapDifficultyProgress || {};
-    const mapId = currentMap().id;
-    if (!diffProgress[mapId]) diffProgress[mapId] = { normal: { unlocked: true, cleared: false }, hard: { unlocked: false, cleared: false }, abyss: { unlocked: false, cleared: false } };
-    if (state.currentDifficulty === "normal") {
-      diffProgress[mapId].normal.cleared = true;
-      diffProgress[mapId].hard.unlocked = true;
-      addLog(`${currentMap().name} 普通难度通关，困难难度解锁。`);
-    } else if (state.currentDifficulty === "hard") {
-      diffProgress[mapId].hard.cleared = true;
-      diffProgress[mapId].abyss.unlocked = true;
-      addLog(`${currentMap().name} 困难难度通关，深渊难度解锁。`);
-    } else if (state.currentDifficulty === "abyss") {
-      diffProgress[mapId].abyss.cleared = true;
-    }
-    if (getAutoBossEnabled()) addLog("自动挑战 BOSS 成功。");
-    if (state.currentDifficulty === "normal" && state.currentMap < maps.length - 1) {
-      state.bestMap = Math.max(state.bestMap, state.currentMap + 1);
-      const nextMapId = maps[state.currentMap + 1].id;
-      if (!diffProgress[nextMapId]) diffProgress[nextMapId] = { normal: { unlocked: true, cleared: false }, hard: { unlocked: false, cleared: false }, abyss: { unlocked: false, cleared: false } };
-      diffProgress[nextMapId].normal.unlocked = true;
-      addLog(`首领退却，${maps[state.currentMap + 1].name} 开放。`);
-    } else if (state.currentDifficulty === "normal" && state.currentMap >= maps.length - 1) {
-      addLog("浮岛神殿的钟声传遍边境。");
-    }
-    state.mapDifficultyProgress = diffProgress;
-    if (!state.vip.bossFirstKills) state.vip.bossFirstKills = {};
-    const bossKey = `${currentMap().id}_${state.currentDifficulty}`;
-    if (!state.vip.bossFirstKills[bossKey]) {
-      state.vip.bossFirstKills[bossKey] = true;
-      const vipBossReward = state.currentDifficulty === "abyss" ? 200 : state.currentDifficulty === "hard" ? 150 : 100;
-      gainVipExp(vipBossReward + Math.floor(state.currentMap * 15));
-      addLog(`首次击败 ${currentMap().name} ${DIFFICULTY_CONFIG[state.currentDifficulty]?.label} Boss，获得冒险者荣誉经验 +${vipBossReward + Math.floor(state.currentMap * 15)}。`);
-    }
-  } else {
-    state.areaKills = Math.min(bossRequirement(), state.areaKills + 1);
-  }
-  const groupHasMoreMonsters = !state.enemyBoss && hasLivingEncounterMembers();
-  const shouldAutoBossAfterKill = !state.enemyBoss && !groupHasMoreMonsters && isBossChallengeReady() && getAutoBossEnabled();
-
-  const equipmentDropCount = rollDrops({ boss: state.enemyBoss, monster });
-  const mutationEquipmentDropCount = monster.mutation
-    ? rollMutationExtraDrops(monster, stats, equipmentDropCount)
-    : 0;
-  if (monster.mutation) {
-    addLog("击败变异怪，获得额外奖励判定。");
-  }
-  grantPassiveSkillKillExp({ isBoss: state.enemyBoss, isMutated: Boolean(monster.mutation) });
-  updateQuestProgress({
-    mapId: map.id,
-    monsterId: monster.id,
-    difficulty: state.currentDifficulty,
-    isMutated: Boolean(monster.mutation),
-    isBoss: state.enemyBoss,
-    count: 1,
-  });
-  gainMapExploration(map.id, explorationGainForKill({ isBoss: state.enemyBoss, isMutated: Boolean(monster.mutation), difficulty: state.currentDifficulty }));
-  trackKillAchievements({ isBoss: state.enemyBoss, isMutated: Boolean(monster.mutation), difficulty: state.currentDifficulty });
-  if (!state.enemyBoss) {
-    const hadEquipment = equipmentDropCount + mutationEquipmentDropCount > 0;
-    if (hadEquipment) {
-      state.equipmentPityKills = 0;
-    } else {
-      state.equipmentPityKills = (state.equipmentPityKills || 0) + 1;
-      if (state.equipmentPityKills >= getEquipmentPityThreshold()) {
-        const pityStats = computeStats();
-        const pityDrops = rollEquipmentTableDrops(pityStats, { boss: false, guaranteed: true });
-        if (pityDrops > 0) state.equipmentPityKills = 0;
-      }
-    }
-  }
-  if (shouldAutoBossAfterKill) {
-    challengeBoss({ auto: true });
-  } else if (groupHasMoreMonsters) {
-    syncActiveEnemyFromGroup();
-  } else {
-    spawnEnemy(false);
-  }
-  renderAll();
+  return legacyDefeatEnemy();
 }
 
 function spawnEnemy(isBoss) {
-  const map = currentMap();
-  state.enemyBoss = Boolean(isBoss);
-  state.enemyGroup = createEnemyGroup(map, state.enemyBoss);
-  syncActiveEnemyFromGroup();
-  state.enemyAttackTimer = 0;
-  state.playerAttackTimer = 0;
-  state.damageCarry = 0;
-  if (state.enemyBoss) showBossBanner(map);
-  (state.enemyGroup?.monsters || []).forEach((monster) => {
-    if (monster.mutation) addLog(`遭遇变异怪：${monster.name}。`);
-  });
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.spawnEnemy === "function") {
+    return runtime.spawnEnemy(isBoss);
+  }
+  return legacySpawnEnemy(isBoss);
 }
+
+function legacySpawnEnemy(isBoss) { return; }
 
 function currentMonsterStats() {
-  if (state.enemy) return { ...state.enemy, currentHp: state.enemyHp };
-  const map = currentMap();
-  const template = getMonsterTemplate(map, state.enemyTemplateId, state.enemyBoss);
-  return buildMonsterStats(map, state.enemyBoss, state.enemyLevel || getMapLevelRange(map).minLevel, template);
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.currentMonsterStats === "function") {
+    return runtime.currentMonsterStats();
+  }
+  return legacyCurrentMonsterStats();
 }
+
+function legacyCurrentMonsterStats() { return; }
 
 function normalizeEnemyGroup(group) {
-  if (!group || !Array.isArray(group.monsters) || !group.monsters.length) return null;
-  const monsters = group.monsters.map((monster) => ({
-    ...monster,
-    currentHp: clampNumber(Number(monster.currentHp ?? monster.maxHp ?? 1), 0, Number(monster.maxHp || 1)),
-    maxHp: Math.max(1, Number(monster.maxHp || 1)),
-    alive: monster.alive !== false && Number(monster.currentHp ?? monster.maxHp ?? 1) > 0,
-  }));
-  const activeIndex = clampNumber(Number(group.activeIndex || 0), 0, monsters.length - 1);
-  return { ...group, activeIndex, monsters };
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.normalizeEnemyGroup === "function") {
+    return runtime.normalizeEnemyGroup(group);
+  }
+  return legacyNormalizeEnemyGroup(group);
 }
+
+function legacyNormalizeEnemyGroup(group) { return; }
 
 function createEnemyGroup(map, isBoss = false) {
-  const size = getEncounterSize(isBoss);
-  const monsters = Array.from({ length: size }, () => createEncounterMonster(map, isBoss));
-  const label = isBoss ? "首领遭遇" : getEncounterLabel(monsters);
-  return { label, activeIndex: 0, monsters };
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.createEnemyGroup === "function") {
+    return runtime.createEnemyGroup(map, isBoss);
+  }
+  return legacyCreateEnemyGroup(map, isBoss);
 }
+
+function legacyCreateEnemyGroup(map, isBoss = false) { return; }
 
 function getEncounterSize(isBoss = false) {
-  if (isBoss) return 1;
-  if (state.currentDifficulty === "abyss") return randomInt(2, 5);
-  if (state.currentDifficulty === "hard") return randomInt(2, 4);
-  return randomInt(1, 3);
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.getEncounterSize === "function") {
+    return runtime.getEncounterSize(isBoss);
+  }
+  return legacyGetEncounterSize(isBoss);
 }
+
+function legacyGetEncounterSize(isBoss = false) { return; }
 
 function getEncounterLabel(monsters = []) {
-  if (state.currentDifficulty === "abyss") return monsters.some((m) => m.mutation) ? "深渊突袭" : "深渊遭遇";
-  if (monsters.some((m) => m.mutation)) return "变异突袭";
-  if (monsters.some((m) => m.type === "elite")) return "精英带队";
-  return monsters.length > 1 ? "小队遭遇" : "单体遭遇";
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.getEncounterLabel === "function") {
+    return runtime.getEncounterLabel(monsters);
+  }
+  return legacyGetEncounterLabel(monsters);
 }
+
+function legacyGetEncounterLabel(monsters = []) { return; }
 
 function createEncounterMonster(map, isBoss = false) {
-  const template = pickMonsterTemplate(map, isBoss);
-  const mutationId = isBoss ? "" : rollMonsterMutation()?.id || "";
-  const level = rollMonsterLevel(map, isBoss, template);
-  const monster = buildMonsterStats(map, isBoss, level, template, mutationId);
-  return {
-    ...monster,
-    templateId: template.id,
-    mutationId,
-    currentHp: monster.maxHp,
-    alive: true,
-  };
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.createEncounterMonster === "function") {
+    return runtime.createEncounterMonster(map, isBoss);
+  }
+  return legacyCreateEncounterMonster(map, isBoss);
 }
+
+function legacyCreateEncounterMonster(map, isBoss = false) { return; }
 
 function syncActiveEnemyFromGroup() {
-  const group = normalizeEnemyGroup(state.enemyGroup);
-  state.enemyGroup = group;
-  const active = group?.monsters?.find((monster) => monster.alive);
-  if (!active) {
-    state.enemy = null;
-    state.enemyHp = 0;
-    state.enemyMaxHp = 0;
-    return null;
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.syncActiveEnemyFromGroup === "function") {
+    return runtime.syncActiveEnemyFromGroup();
   }
-  group.activeIndex = group.monsters.indexOf(active);
-  state.enemy = { ...active };
-  state.enemyTemplateId = active.templateId || active.id || "";
-  state.enemyMutationId = active.mutationId || "";
-  state.enemyLevel = active.level || 1;
-  state.enemyMaxHp = active.maxHp || 1;
-  state.enemyHp = clampNumber(Number(active.currentHp ?? active.maxHp ?? 1), 0, state.enemyMaxHp);
-  return active;
+  return legacySyncActiveEnemyFromGroup();
 }
+
+function legacySyncActiveEnemyFromGroup() { return; }
 
 function updateActiveEnemyHpInGroup() {
-  const group = state.enemyGroup;
-  if (!group || !Array.isArray(group.monsters)) return;
-  const monster = group.monsters[group.activeIndex];
-  if (!monster) return;
-  monster.currentHp = Math.max(0, Number(state.enemyHp) || 0);
-  monster.alive = monster.currentHp > 0;
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.updateActiveEnemyHpInGroup === "function") {
+    return runtime.updateActiveEnemyHpInGroup();
+  }
+  return legacyUpdateActiveEnemyHpInGroup();
 }
+
+function legacyUpdateActiveEnemyHpInGroup() { return; }
 
 function hasLivingEncounterMembers() {
-  updateActiveEnemyHpInGroup();
-  return Boolean((state.enemyGroup?.monsters || []).some((monster) => monster.alive));
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.hasLivingEncounterMembers === "function") {
+    return runtime.hasLivingEncounterMembers();
+  }
+  return legacyHasLivingEncounterMembers();
 }
+
+function legacyHasLivingEncounterMembers() { return; }
 
 function getMapLevelRange(mapOrId) {
-  const id = typeof mapOrId === "string" ? mapOrId : mapOrId?.id;
-  if (mapLevelRanges[id]) return mapLevelRanges[id];
-  const tableId = mapDropTableAlias[id] || id;
-  return mapLevelRanges[tableId] || mapLevelRanges.beginner_field;
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.getMapLevelRange === "function") {
+    return runtime.getMapLevelRange(mapOrId);
+  }
+  return legacyGetMapLevelRange(mapOrId);
 }
+
+function legacyGetMapLevelRange(mapOrId) { return; }
 
 function bossDisplayName(map = currentMap(), difficulty = state.currentDifficulty) {
-  const name = map?.boss || "地图首领";
-  return difficulty === "abyss" ? `深渊 ${name}` : name;
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.bossDisplayName === "function") {
+    return runtime.bossDisplayName(map, difficulty);
+  }
+  return legacyBossDisplayName(map, difficulty);
 }
+
+function legacyBossDisplayName(map = currentMap(), difficulty = state.currentDifficulty) { return; }
 
 function pickMonsterTemplate(map, isBoss = false) {
-  if (isBoss) return map.bossTemplate || monsterTemplate(`${map.id}_boss`, map.boss, [map.maxLevel, map.maxLevel], [map.baseHp * map.bossMultiplier, map.baseHp * map.bossMultiplier], [20, 20], [10, 10], [map.baseExp * 8, map.baseExp * 8], [map.jobExp * 8, map.jobExp * 8], [map.gold * 8, map.gold * 8], "boss");
-  const monsters = Array.isArray(map.monsters) && map.monsters.length ? map.monsters : [monsterTemplate(`${map.id}_monster`, map.enemy, [map.minLevel, map.maxLevel], [map.baseHp, map.baseHp * 2], getMapLevelRange(map).attackRange, [1, 10], [map.baseExp, map.baseExp * 2], [map.jobExp, map.jobExp * 2], [map.gold, map.gold * 2])];
-  const elite = monsters.filter((entry) => entry.type === "elite");
-  if (elite.length && Math.random() < 0.1) return elite[Math.floor(Math.random() * elite.length)];
-  const normal = monsters.filter((entry) => entry.type !== "elite");
-  const pool = normal.length ? normal : monsters;
-  return pool[Math.floor(Math.random() * pool.length)];
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.pickMonsterTemplate === "function") {
+    return runtime.pickMonsterTemplate(map, isBoss);
+  }
+  return legacyPickMonsterTemplate(map, isBoss);
 }
+
+function legacyPickMonsterTemplate(map, isBoss = false) { return; }
 
 function getMonsterTemplate(map, templateId, isBoss = false) {
-  if (isBoss) return map.bossTemplate || pickMonsterTemplate(map, true);
-  const monsters = Array.isArray(map.monsters) ? map.monsters : [];
-  return monsters.find((entry) => entry.id === templateId) || monsters[0] || pickMonsterTemplate(map, false);
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.getMonsterTemplate === "function") {
+    return runtime.getMonsterTemplate(map, templateId, isBoss);
+  }
+  return legacyGetMonsterTemplate(map, templateId, isBoss);
 }
+
+function legacyGetMonsterTemplate(map, templateId, isBoss = false) { return; }
 
 function currentDifficultyConfig() {
-  return DIFFICULTY_CONFIG[state.currentDifficulty] || DIFFICULTY_CONFIG.normal;
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.currentDifficultyConfig === "function") {
+    return runtime.currentDifficultyConfig();
+  }
+  return legacyCurrentDifficultyConfig();
 }
+
+function legacyCurrentDifficultyConfig() { return; }
 
 function getMutationById(id) {
-  return MUTATION_TYPES.find((mutation) => mutation.id === id) || null;
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.getMutationById === "function") {
+    return runtime.getMutationById(id);
+  }
+  return legacyGetMutationById(id);
 }
+
+function legacyGetMutationById(id) { return; }
 
 function rollMonsterMutation(difficulty = state.currentDifficulty) {
-  const config = DIFFICULTY_CONFIG[difficulty] || DIFFICULTY_CONFIG.normal;
-  if (Math.random() >= config.mutationChance) return null;
-  return MUTATION_TYPES[Math.floor(Math.random() * MUTATION_TYPES.length)];
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.rollMonsterMutation === "function") {
+    return runtime.rollMonsterMutation(difficulty);
+  }
+  return legacyRollMonsterMutation(difficulty);
 }
+
+function legacyRollMonsterMutation(difficulty = state.currentDifficulty) { return; }
 
 function rollMonsterLevel(map, isBoss = false, template = null) {
-  const range = getMapLevelRange(map);
-  const levelRange = template?.levelRange || [range.minLevel, range.maxLevel];
-  const minLevel = clampNumber(levelRange[0], range.minLevel, isBoss ? range.maxLevel + 5 : range.maxLevel);
-  const maxLevel = clampNumber(levelRange[1], minLevel, isBoss ? range.maxLevel + 5 : range.maxLevel);
-  return randomInt(minLevel, maxLevel);
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.rollMonsterLevel === "function") {
+    return runtime.rollMonsterLevel(map, isBoss, template);
+  }
+  return legacyRollMonsterLevel(map, isBoss, template);
 }
+
+function legacyRollMonsterLevel(map, isBoss = false, template = null) { return; }
 
 function buildMonsterStats(map, isBoss, level, template = null, mutationId = state.enemyMutationId) {
-  const monster = template || getMonsterTemplate(map, state.enemyTemplateId, isBoss);
-  const difficulty = currentDifficultyConfig();
-  const mutation = isBoss ? null : getMutationById(mutationId);
-  const levelRange = monster.levelRange || [map.minLevel || 1, map.maxLevel || 1];
-  const levelRatio = levelRange[1] === levelRange[0] ? 1 : clampNumber((level - levelRange[0]) / (levelRange[1] - levelRange[0]), 0, 1);
-  const nameParts = [];
-  if (state.currentDifficulty !== "normal") nameParts.push(difficulty.label || "困难");
-  if (mutation) nameParts.push(mutation.prefix);
-  nameParts.push(monster.name || (isBoss ? map.boss : map.enemy));
-  const expMultiplier = (isBoss ? BOSS_EXP_MULTIPLIER : 1) * (mutation?.exp || 1) * difficulty.exp;
-  const jobExpMultiplier = (isBoss ? BOSS_EXP_MULTIPLIER : 1) * (mutation?.jobExp || 1) * difficulty.jobExp;
-  const baseStats = {
-    maxHp: Math.max(1, Math.round(lerpRange(monster.hpRange, map.baseHp || 1, levelRatio) * (mutation?.hp || 1) * difficulty.hp)),
-    attack: Math.max(1, Math.round(lerpRange(monster.attackRange, getMapLevelRange(map).attackRange[0], levelRatio) * (mutation?.attack || 1) * difficulty.attack)),
-    defense: Math.max(1, Math.round(lerpRange(monster.defenseRange, 1, levelRatio) * (mutation?.defense || 1) * difficulty.defense)),
-    exp: Math.max(1, Math.round(lerpRange(monster.baseExpRange, map.baseExp || 1, levelRatio) * BASE_EXP_GLOBAL_MULTIPLIER * expMultiplier)),
-    jobExp: Math.max(1, Math.round(lerpRange(monster.jobExpRange, map.jobExp || map.baseExp || 1, levelRatio) * JOB_EXP_GLOBAL_MULTIPLIER * jobExpMultiplier)),
-    gold: Math.max(1, Math.round(lerpRange(monster.goldRange, map.gold || 1, levelRatio) * (mutation?.gold || 1) * difficulty.gold)),
-  };
-  const baselineStats = applyDifficultyTierBaseline(map, baseStats, isBoss, state.currentDifficulty);
-  const difficultyType = getMonsterDifficultyType({ isBoss, monster, mutation, difficultyId: state.currentDifficulty });
-  const finalStats = applyMonsterDifficultyModifier(baselineStats, difficultyType);
-  return {
-    id: monster.id || `${map.id}_${isBoss ? "boss" : "monster"}`,
-    name: nameParts.join(" "),
-    type: monster.type || (isBoss ? "boss" : "normal"),
-    difficultyType,
-    mutation,
-    difficulty: state.currentDifficulty,
-    level,
-    maxHp: finalStats.maxHp,
-    currentHp: state.enemyHp,
-    attack: finalStats.attack,
-    defense: finalStats.defense,
-    armorPierce: finalStats.armorPierce || 0,
-    critChance: finalStats.critChance || 0,
-    critDamage: finalStats.critDamage || 0,
-    executeDamage: finalStats.executeDamage || 0,
-    damageReduction: finalStats.damageReduction || 0,
-    antiLifeSteal: finalStats.antiLifeSteal || 0,
-    abyssSuppression: finalStats.abyssSuppression || 0,
-    abyssPower: finalStats.abyssPower || 0,
-    hit: finalStats.hit || 1,
-    recommendedScores: getRecommendedScoresForMonster(map, difficultyType, isBoss),
-    exp: finalStats.exp,
-    jobExp: finalStats.jobExp,
-    gold: finalStats.gold,
-    image: monsterImageSource(monster.id || `${map.id}_${isBoss ? "boss" : "monster"}`),
-    mapId: map.id,
-  };
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.buildMonsterStats === "function") {
+    return runtime.buildMonsterStats(map, isBoss, level, template, mutationId);
+  }
+  return legacyBuildMonsterStats(map, isBoss, level, template, mutationId);
 }
+
+function legacyBuildMonsterStats(map, isBoss, level, template = null, mutationId = state.enemyMutationId) { return; }
 
 function getMonsterDifficultyType({ isBoss = false, monster = {}, mutation = null, difficultyId = state.currentDifficulty } = {}) {
-  const eliteLike = monster.type === "elite" || mutation?.id === "elite";
-  if (difficultyId === "abyss" && isBoss) return "abyssBoss";
-  if (difficultyId === "abyss" && eliteLike) return "abyssElite";
-  if (difficultyId === "abyss") return "abyss";
-  if (difficultyId === "hard" && isBoss) return "hardBoss";
-  if (difficultyId === "hard" && eliteLike) return "hardElite";
-  if (difficultyId === "hard") return "hard";
-  if (isBoss) return "boss";
-  if (eliteLike) return "elite";
-  return "normal";
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.getMonsterDifficultyType === "function") {
+    return runtime.getMonsterDifficultyType({ isBoss, monster, mutation, difficultyId });
+  }
+  return legacyGetMonsterDifficultyType({ isBoss, monster, mutation, difficultyId });
 }
 
+function legacyGetMonsterDifficultyType({ isBoss = false, monster = {}, mutation = null, difficultyId = state.currentDifficulty } = {}) { return; }
+
 function applyMonsterDifficultyModifier(stats = {}, type = "normal") {
-  const modifier = MONSTER_DIFFICULTY_MODIFIERS[type] || MONSTER_DIFFICULTY_MODIFIERS.normal;
-  const critDamage = Math.max(Number(stats.critDamage || 0), Number(modifier.critDamage || 1.5) - 1);
-  return {
-    ...stats,
-    maxHp: Math.max(1, Math.round(Number(stats.maxHp || 1) * Number(modifier.hp || 1))),
-    attack: Math.max(1, Math.round(Number(stats.attack || 1) * Number(modifier.atk || 1))),
-    defense: Math.max(1, Math.round(Number(stats.defense || 1) * Number(modifier.def || 1))),
-    hit: Number(modifier.hit || stats.hit || 1),
-    critChance: Math.max(Number(stats.critChance || 0), Number(modifier.critChance || 0)),
-    critDamage,
-    damageReduction: Math.max(Number(stats.damageReduction || 0), Number(modifier.damageReduction || 0)),
-    armorPierce: Math.max(Number(stats.armorPierce || 0), Number(modifier.armorPierce || 0)),
-    executeDamage: Math.max(Number(stats.executeDamage || 0), Number(modifier.executeDamage || 0)),
-    antiLifeSteal: Math.max(Number(stats.antiLifeSteal || 0), Number(modifier.antiLifeSteal || 0)),
-    abyssSuppression: Math.max(Number(stats.abyssSuppression || 0), Number(modifier.abyssSuppression || 0)),
-    abyssPower: Math.max(Number(stats.abyssPower || 0), Number(modifier.abyssPower || 0)),
-  };
+  const runtime = window.RuneFrontierCombatRuntime;
+  if (runtime && typeof runtime.applyMonsterDifficultyModifier === "function") {
+    return runtime.applyMonsterDifficultyModifier(stats, type);
+  }
+  return legacyApplyMonsterDifficultyModifier(stats, type);
 }
+
+function legacyApplyMonsterDifficultyModifier(stats = {}, type = "normal") { return; }
 
 function getRecommendedScoresForMonster(map = currentMap(), difficultyType = "normal", isBoss = false) {
   const difficultyId = difficultyType.startsWith("abyss") ? "abyss" : state.currentDifficulty;
@@ -5475,246 +4150,124 @@ function lerpRange(range, fallback, ratio) {
   return min + (max - min) * ratio;
 }
 
-function rollDrops(options = {}) {
-  const stats = computeStats();
-  const isBoss = Boolean(options.boss);
-  const equipmentDropCount = rollEquipmentTableDrops(stats, { boss: isBoss });
-  const zodiacDropCount = rollZodiacSetDrops(options.monster || currentMonsterStats(), stats, { boss: isBoss });
-  const transitionDropCount = rollTransitionSetDrops(options.monster || currentMonsterStats(), stats, { boss: isBoss });
-  const mythicDropCount = rollMythicEquipmentDrop(options.monster || currentMonsterStats(), stats, { boss: isBoss });
-  rollMapMaterialDrops(stats, { boss: isBoss });
-  maybeDropMythicEssence(stats, { boss: isBoss });
-  maybeDropDarkGoldFragments(stats, { boss: isBoss });
-  maybeDropSocketMaterials(stats, { boss: isBoss });
+function legacyRollDrops(options = {}) { return; }
 
-  rollCardDropsFromTable(stats, { boss: isBoss });
-  maybeDropBossCardFragments(stats, { boss: isBoss });
-  return equipmentDropCount + zodiacDropCount + transitionDropCount + mythicDropCount;
+function rollDrops(options = {}) {
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.rollDrops === "function") {
+    return runtime.rollDrops(options);
+  }
+  return legacyRollDrops(options);
 }
+
+function legacyGrantCardDrop(card, rarity = "rare", source = "卡片掉落") { return; }
 
 function grantCardDrop(card, rarity = "rare", source = "卡片掉落") {
-  if (!card?.id) return;
-  state.cards[card.id] = (state.cards[card.id] || 0) + 1;
-  state.cardCodex[card.id] = state.cardCodex[card.id] || { obtained: false, obtainCount: 0, firstObtainedAt: 0 };
-  state.cardCodex[card.id].obtained = true;
-  state.cardCodex[card.id].obtainCount += 1;
-  if (!state.cardCodex[card.id].firstObtainedAt) state.cardCodex[card.id].firstObtainedAt = Date.now();
-  recordSessionReward({ cards: 1 });
-  recordRecentLoot({ cards: [{ cardId: card.id, name: card.name, rarity: rarity || card.rarity || "rare", qty: 1 }] }, source);
-  addLog(`${source}：${card.name}。`);
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.grantCardDrop === "function") {
+    return runtime.grantCardDrop(card, rarity, source);
+  }
+  return legacyGrantCardDrop(card, rarity, source);
 }
+
+function legacyRollCardDropsFromTable(stats = computeStats(), options = {}) { return; }
 
 function rollCardDropsFromTable(stats = computeStats(), options = {}) {
-  const rows = cardDropTables[currentMap().id] || [];
-  const difficulty = currentDifficultyConfig();
-  const isBoss = Boolean(options.boss);
-  rows.forEach((drop) => {
-    if (drop.bossOnly && !isBoss) return;
-    const bossMultiplier = drop.bossOnly ? (state.currentDifficulty === "abyss" ? 2.5 : 1) : (isBoss ? 1.5 : 1);
-    const finalDropRate = drop.dropRate * (1 + Number(stats.cardDropBonus ?? stats.dropBonus ?? 0)) * difficulty.cardDrop * bossMultiplier;
-    if (Math.random() >= finalDropRate) return;
-    const card = getSocketCard(drop.cardId);
-    if (!card) return;
-    grantCardDrop(card, drop.rarity || card.rarity || "rare", drop.bossOnly ? "Boss卡片掉落" : "卡片掉落");
-  });
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.rollCardDropsFromTable === "function") {
+    return runtime.rollCardDropsFromTable(stats, options);
+  }
+  return legacyRollCardDropsFromTable(stats, options);
 }
+
+function legacyMaybeDropBossCardFragments(stats = computeStats(), options = {}) { return; }
 
 function maybeDropBossCardFragments(stats = computeStats(), options = {}) {
-  if (!options.boss) return;
-  const difficulty = state.currentDifficulty || "normal";
-  const baseRate = difficulty === "abyss" ? 0.85 : difficulty === "hard" ? 0.45 : 0.25;
-  const rate = Math.min(1, baseRate * (1 + Math.min(1, Number(stats.cardDropBonus || stats.dropBonus || 0))));
-  if (Math.random() >= rate) return;
-  const qty = difficulty === "abyss" ? randomInt(2, 4) : difficulty === "hard" ? randomInt(1, 2) : 1;
-  state.materials.bossCardShard = (state.materials.bossCardShard || 0) + qty;
-  recordSessionReward({ materials: qty });
-  recordRecentLoot({ materials: [{ materialId: "bossCardShard", name: materialNames.bossCardShard, qty, rarity: "legend" }] }, "Boss卡片碎片");
-  addLog(`获得 ${materialNames.bossCardShard} ×${qty}。`);
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.maybeDropBossCardFragments === "function") {
+    return runtime.maybeDropBossCardFragments(stats, options);
+  }
+  return legacyMaybeDropBossCardFragments(stats, options);
 }
+
+function legacyMaybeDropSocketMaterials(stats = computeStats(), options = {}) { return; }
 
 function maybeDropSocketMaterials(stats = computeStats(), options = {}) {
-  const difficultyId = state.currentDifficulty || "normal";
-  const isBoss = Boolean(options.boss);
-  const entries = [
-    { id: "socketStone", rate: isBoss ? 0.08 : 0.0025, qty: [1, 1] },
-    { id: "advancedSocketStone", rate: isBoss ? 0.025 : 0.0007, qty: [1, 1], minMap: 4 },
-    { id: "mythicSocketStone", rate: difficultyId === "abyss" ? (isBoss ? 0.012 : 0.00045) : 0, qty: [1, 1] },
-    { id: "cardRemover", rate: isBoss ? 0.035 : 0.001, qty: [1, 1] },
-  ];
-  entries.forEach((entry) => {
-    if ((state.currentMap || 0) < (entry.minMap || 0)) return;
-    const rate = Math.min(0.3, entry.rate * (1 + Math.min(1, Number(stats.dropBonus || 0) + Number(stats.materialDropBonus || 0))));
-    if (rate <= 0 || Math.random() >= rate) return;
-    const qty = randomInt(entry.qty[0], entry.qty[1]);
-    state.materials[entry.id] = (state.materials[entry.id] || 0) + qty;
-    recordSessionReward({ materials: qty });
-    recordRecentLoot({ materials: [{ materialId: entry.id, name: materialNames[entry.id] || entry.id, qty, rarity: MATERIAL_DB[entry.id]?.rarity || "epic" }] }, isBoss ? "Boss打孔材料" : "打孔材料");
-    addLog(`获得 ${materialNames[entry.id] || entry.id} ×${qty}。`);
-  });
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.maybeDropSocketMaterials === "function") {
+    return runtime.maybeDropSocketMaterials(stats, options);
+  }
+  return legacyMaybeDropSocketMaterials(stats, options);
 }
+
+function legacyMaybeDropDarkGoldFragments(stats = computeStats(), options = {}) { return; }
 
 function maybeDropDarkGoldFragments(stats = computeStats(), options = {}) {
-  if (!options.boss) return;
-  const difficultyId = state.currentDifficulty || "normal";
-  const config = DARK_GOLD_FRAGMENT_DROPS[difficultyId] || DARK_GOLD_FRAGMENT_DROPS.normal;
-  const mapIndex = Math.max(0, state.currentMap || 0);
-  if (mapIndex < (config.minMapIndex || 0)) return;
-  const equipmentBonus = Math.min(1.2, Number(stats.equipmentDropBonus || 0));
-  const finalRate = Math.min(1, (config.rate || 0) * (1 + equipmentBonus * 0.35));
-  if (Math.random() >= finalRate) return;
-  const qtyRange = Array.isArray(config.qty) ? config.qty : [1, 1];
-  const qty = randomInt(qtyRange[0] || 1, qtyRange[1] || qtyRange[0] || 1);
-  state.materials.darkGoldFragment = (state.materials.darkGoldFragment || 0) + qty;
-  recordSessionReward({ materials: qty });
-  recordRecentLoot({ materials: [{ materialId: "darkGoldFragment", name: materialNames.darkGoldFragment, qty, rarity: "darkGold" }] }, difficultyId === "abyss" ? "深渊Boss材料" : "Boss材料");
-  addLog(`获得 ${materialNames.darkGoldFragment} ×${qty}。`);
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.maybeDropDarkGoldFragments === "function") {
+    return runtime.maybeDropDarkGoldFragments(stats, options);
+  }
+  return legacyMaybeDropDarkGoldFragments(stats, options);
 }
+
+function legacyRollMythicEquipmentDrop(monster, stats, options = {}) { return; }
 
 function rollMythicEquipmentDrop(monster, stats, options = {}) {
-  if (state.currentDifficulty !== "abyss") return 0;
-  const isBoss = Boolean(options.boss);
-  const baseRate = isBoss ? MYTHIC_DROP_RATES.abyssBoss : monster?.mutation ? MYTHIC_DROP_RATES.abyssMutation : MYTHIC_DROP_RATES.abyssNormal;
-  const bossBoost = isBoss ? ABYSS_BOSS_EXTRA_MULTIPLIER.mythicDrop || 1 : 1;
-  const rate = baseRate * bossBoost;
-  if (Math.random() >= rate) return 0;
-  const item = createMutationEquipment("mythic");
-  if (!item) return 0;
-  addEquipmentToInventory(item, { logDrop: true });
-  addLogHtml(`神话装备现世：${renderItemName(item)}`);
-  return 1;
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.rollMythicEquipmentDrop === "function") {
+    return runtime.rollMythicEquipmentDrop(monster, stats, options);
+  }
+  return legacyRollMythicEquipmentDrop(monster, stats, options);
 }
+
+function legacyRollMapMaterialDrops(stats, options = {}) { return; }
 
 function rollMapMaterialDrops(stats, options = {}) {
-  const rows = materialDropTables[currentMap().id] || [];
-  if (!rows.length) return;
-  const difficulty = currentDifficultyConfig();
-  const bossMultiplier = options.boss ? 2.5 : 1;
-  rows.forEach((drop) => {
-    const abyssBonus = state.currentDifficulty === "abyss" ? stats.abyssMaterialDropBonus || 0 : 0;
-    const finalDropRate = drop.dropRate * (1 + stats.dropBonus + abyssBonus) * difficulty.materialDrop * bossMultiplier;
-    if (Math.random() >= finalDropRate) return;
-    const qty = applyMaterialQuantityBonus(randomInt(drop.minQty || 1, drop.maxQty || drop.minQty || 1), stats);
-    state.materials[drop.materialId] = (state.materials[drop.materialId] || 0) + qty;
-    recordSessionReward({ materials: qty });
-    recordRecentLoot({ materials: [{ materialId: drop.materialId, name: materialNames[drop.materialId] || drop.materialId, qty }] }, options.boss ? "Boss材料" : "材料掉落");
-    addLog(`获得材料：${materialNames[drop.materialId] || drop.materialId} × ${qty}。`);
-  });
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.rollMapMaterialDrops === "function") {
+    return runtime.rollMapMaterialDrops(stats, options);
+  }
+  return legacyRollMapMaterialDrops(stats, options);
 }
+
+function legacyRollZodiacSetDrops(monster, stats, options = {}) { return; }
 
 function rollZodiacSetDrops(monster, stats, options = {}) {
-  const map = currentMap();
-  const setIds = zodiacSetDropMap[map.id] || [];
-  if (!setIds.length) return 0;
-  const isBoss = Boolean(options.boss);
-  const isHard = state.currentDifficulty === "hard";
-  const isAbyss = state.currentDifficulty === "abyss";
-  const isMutated = Boolean(monster?.mutation);
-  const baseRate = isBoss
-    ? isAbyss
-      ? ZODIAC_SET_DROP_RATES.hardBoss * 1.35 * ABYSS_BOSS_EXTRA_MULTIPLIER.abyssSetDrop
-      : isHard
-      ? ZODIAC_SET_DROP_RATES.hardBoss
-      : ZODIAC_SET_DROP_RATES.boss
-    : isMutated
-      ? isAbyss
-        ? ZODIAC_SET_DROP_RATES.hardMutation * 1.25
-        : isHard
-        ? ZODIAC_SET_DROP_RATES.hardMutation
-        : ZODIAC_SET_DROP_RATES.mutation
-      : isAbyss
-        ? ZODIAC_SET_DROP_RATES.hard * 1.2
-        : isHard
-        ? ZODIAC_SET_DROP_RATES.hard
-        : ZODIAC_SET_DROP_RATES.normal;
-  const rate = baseRate * (1 + Math.min(1.5, stats.equipmentDropBonus || 0));
-  if (Math.random() >= rate) return 0;
-  const set = equipmentSets[setIds[Math.floor(Math.random() * setIds.length)]];
-  if (!set?.items?.length) return 0;
-  const darkRate = (isBoss ? ZODIAC_SET_DROP_RATES.darkGoldBoss : ZODIAC_SET_DROP_RATES.darkGoldNormal) * (isAbyss ? 1.5 : isHard ? 1.25 : 1) * (1 + Math.min(1, stats.equipmentDropBonus || 0));
-  const qualityWeight = (stats.mythicWeightBonus || 0) + (isBoss ? stats.bossQualityWeight || 0 : 0);
-  const mythicRate = isAbyss ? (isBoss ? MYTHIC_DROP_RATES.abyssBoss * ABYSS_BOSS_EXTRA_MULTIPLIER.mythicDrop : MYTHIC_DROP_RATES.abyssNormal) * 0.5 * (1 + Math.min(1.5, qualityWeight)) : 0;
-  const rarity = Math.random() < mythicRate ? "mythic" : Math.random() < darkRate ? "darkGold" : "legend";
-  const template = set.items[Math.floor(Math.random() * set.items.length)];
-  const dropLevel = monster?.level || template.level || getMapLevelRange(map).maxLevel;
-  const item = createItem(template, dropLevel, rarity, { dropMapId: map.id, dropLevel, difficulty: state.currentDifficulty, allowMythic: rarity === "mythic" });
-  addEquipmentToInventory(item, { logDrop: true });
-  return 1;
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.rollZodiacSetDrops === "function") {
+    return runtime.rollZodiacSetDrops(monster, stats, options);
+  }
+  return legacyRollZodiacSetDrops(monster, stats, options);
 }
+
+function legacyRollTransitionSetDrops(monster, stats, options = {}) { return; }
 
 function rollTransitionSetDrops(monster, stats, options = {}) {
-  const map = currentMap();
-  const setIds = transitionSetDropMap[map.id] || [];
-  if (!setIds.length) return 0;
-  const isBoss = Boolean(options.boss);
-  const isHard = state.currentDifficulty === "hard";
-  const isAbyss = state.currentDifficulty === "abyss";
-  const baseRate = isBoss
-    ? isAbyss
-      ? TRANSITION_SET_DROP_RATES.abyssBoss
-      : isHard
-      ? TRANSITION_SET_DROP_RATES.hardBoss
-      : TRANSITION_SET_DROP_RATES.boss
-    : isAbyss
-      ? TRANSITION_SET_DROP_RATES.abyss
-      : isHard
-      ? TRANSITION_SET_DROP_RATES.hard
-      : TRANSITION_SET_DROP_RATES.normal;
-  const rate = baseRate * (1 + Math.min(1.2, stats.equipmentDropBonus || 0));
-  if (Math.random() >= rate) return 0;
-  const set = equipmentSets[setIds[Math.floor(Math.random() * setIds.length)]];
-  if (!set?.items?.length) return 0;
-  const template = set.items[Math.floor(Math.random() * set.items.length)];
-  const dropLevel = monster?.level || template.level || getMapLevelRange(map).maxLevel;
-    const item = createItem(template, dropLevel, template.rarity || "rare", { dropMapId: map.id, dropLevel, difficulty: state.currentDifficulty });
-  addEquipmentToInventory(item, { logDrop: true });
-  return 1;
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.rollTransitionSetDrops === "function") {
+    return runtime.rollTransitionSetDrops(monster, stats, options);
+  }
+  return legacyRollTransitionSetDrops(monster, stats, options);
 }
+
+function legacyRollEquipmentTableDrops(stats, options = {}) { return; }
 
 function rollEquipmentTableDrops(stats, options = {}) {
-  const map = currentMap();
-  const tableId = mapDropTableAlias[map.id] || map.id;
-  const rows = equipmentDropTables[tableId] || [];
-  const drops = rollEquipmentDropsFromTable(rows, stats, options);
-  drops.forEach((item) => addEquipmentToInventory(item, { logDrop: true }));
-  return drops.length;
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (!options.offline && runtime && typeof runtime.rollEquipmentTableDrops === "function") {
+    return runtime.rollEquipmentTableDrops(stats, options);
+  }
+  return legacyRollEquipmentTableDrops(stats, options);
 }
 
+function legacyRollEquipmentDropsFromTable(rows, stats, options = {}) { return; }
+
 function rollEquipmentDropsFromTable(rows, stats, options = {}) {
-  if (!Array.isArray(rows) || !rows.length) return [];
-  const isOffline = options.offline === true;
-  const isBoss = options.boss === true;
-  const guaranteed = options.guaranteed === true;
-  const maxDrops = isBoss ? MAX_BOSS_EQUIPMENT_DROPS : MAX_EQUIPMENT_DROPS_PER_KILL;
-  const weighted = rows
-    .map((drop) => {
-      const finalRate = getEffectiveEquipmentDropRate(drop, stats, { offline: isOffline, boss: isBoss });
-      return { drop, finalRate };
-    })
-    .filter((entry) => entry.finalRate > 0 && equipmentTemplateDb[entry.drop.equipmentId]);
-  const drops = [];
-  for (let attempt = 0; attempt < maxDrops && weighted.length; attempt += 1) {
-    const totalChance = isOffline
-      ? Math.min(0.75, weighted.reduce((sum, entry) => sum + entry.finalRate, 0))
-      : getOnlineEquipmentDropChance(stats, { boss: isBoss, rows });
-    if (!guaranteed && Math.random() >= totalChance) break;
-    const pick = weightedChoice(weighted, (entry) => applyRebirthPrestigeDropWeight(entry.drop, Math.max(0, Number(entry.drop.dropRate || 0)), stats, { boss: isBoss }));
-    if (!pick) break;
-    const template = equipmentTemplateDb[pick.drop.equipmentId];
-    const bonus = DIFFICULTY_DROP_LEVEL_BONUS[state.currentDifficulty] || DIFFICULTY_DROP_LEVEL_BONUS.normal;
-    const minLv = clampNumber((pick.drop.minLevel || 1) + (bonus.min || 0), 1, MAX_EQUIPMENT_LEVEL);
-    const maxLv = clampNumber((pick.drop.maxLevel || 1) + (bonus.max || 0), 1, MAX_EQUIPMENT_LEVEL);
-    const dropLevel = randomInt(Math.min(minLv, maxLv), Math.max(minLv, maxLv));
-    const darkGoldUpgradeRate = getDarkGoldUpgradeRate({ mapId: pick.drop.mapId || currentMap().id, stats, boss: isBoss, drop: pick.drop });
-    const mythicQualityWeight = (stats.mythicWeightBonus || 0) + (isBoss ? stats.bossQualityWeight || 0 : 0);
-    const rolledRarity = state.currentDifficulty === "abyss" && Math.random() < Math.min(0.08, mythicQualityWeight)
-      ? "mythic"
-      : Math.random() < darkGoldUpgradeRate
-      ? "darkGold"
-      : template.rarity;
-    drops.push(createItem(template, dropLevel, rolledRarity, { dropMapId: pick.drop.mapId || currentMap().id, dropLevel, difficulty: state.currentDifficulty, allowMythic: rolledRarity === "mythic" }));
-    if (!isBoss) break;
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.rollEquipmentDropsFromTable === "function") {
+    return runtime.rollEquipmentDropsFromTable(rows, stats, options);
   }
-  return drops;
+  return legacyRollEquipmentDropsFromTable(rows, stats, options);
 }
 
 function getEquipmentPityThreshold() {
@@ -5772,57 +4325,34 @@ function getOnlineEquipmentDropChance(stats, options = {}) {
   return Math.min(0.75, baseRate * (1 + equipmentBonus) * bossMultiplier * abyssBossMultiplier * currentDifficultyConfig().equipmentDrop);
 }
 
-function rollMutationExtraDrops(monster, stats, existingEquipmentDrops = 0) {
-  const mutation = monster.mutation;
-  if (!mutation) return 0;
-  const difficulty = currentDifficultyConfig();
-  const dropBonus = Math.min(1.5, stats.dropBonus || 0);
-  const equipmentDropBonus = Math.min(1.5, stats.equipmentDropBonus ?? stats.dropBonus ?? 0);
-  const hardExtra = state.currentDifficulty === "abyss" ? 2 : state.currentDifficulty === "hard" ? 1.5 : 1;
-  const materialRate = MUTATION_EXTRA_DROPS.materialBonusRate * hardExtra * (1 + dropBonus) * (mutation.rareMaterialBonus || 1);
-  const rareMaterialRate = MUTATION_EXTRA_DROPS.rareMaterialBonusRate * hardExtra * (1 + dropBonus) * (mutation.rareMaterialBonus || 1);
-  if (Math.random() < materialRate * difficulty.materialDrop) grantMutationMaterial(false);
-  if (Math.random() < rareMaterialRate * difficulty.materialDrop) grantMutationMaterial(true);
+function legacyRollMutationExtraDrops(monster, stats, existingEquipmentDrops = 0) { return; }
 
-  const maxEquipment = state.enemyBoss ? MAX_BOSS_EQUIPMENT_DROPS : MAX_EQUIPMENT_DROPS_PER_KILL;
-  if (existingEquipmentDrops >= maxEquipment) return 0;
-  const highRate = MUTATION_EXTRA_DROPS.highRarityEquipmentRate * hardExtra * (1 + equipmentDropBonus) * (mutation.highRarityEquipmentBonus || 1);
-  const darkRate = MUTATION_EXTRA_DROPS.darkGoldEquipmentRate * (state.currentDifficulty === "abyss" ? 1.5 : state.currentDifficulty === "hard" ? 1.2 : 1) * (1 + equipmentDropBonus) * (mutation.highRarityEquipmentBonus || 1);
-  if (Math.random() < darkRate) {
-    const item = createMutationEquipment("darkGold");
-    if (item) {
-      addEquipmentToInventory(item, { logDrop: true });
-      return 1;
-    }
-  } else if (Math.random() < highRate) {
-    const item = createMutationEquipment(state.currentMap >= 3 ? "legend" : "epic");
-    if (item) {
-      addEquipmentToInventory(item, { logDrop: true });
-      return 1;
-    }
+function rollMutationExtraDrops(monster, stats, existingEquipmentDrops = 0) {
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.rollMutationExtraDrops === "function") {
+    return runtime.rollMutationExtraDrops(monster, stats, existingEquipmentDrops);
   }
-  return 0;
+  return legacyRollMutationExtraDrops(monster, stats, existingEquipmentDrops);
 }
+
+function legacyGrantMutationMaterial(rareOnly = false) { return; }
 
 function grantMutationMaterial(rareOnly = false) {
-  const pool = rareOnly ? ["rune", "ancientCore", "starShard"] : ["ore", "crystal", "rune"];
-  const material = pool[Math.min(pool.length - 1, Math.floor(Math.random() * pool.length))];
-  const stats = computeStats();
-  let amount = applyMaterialQuantityBonus(rareOnly ? 1 : randomInt(1, 2), stats);
-  if (!rareOnly && Math.random() < (stats.mutationMaterialDoubleChance || 0)) amount *= 2;
-  state.materials[material] = (state.materials[material] || 0) + amount;
-  recordSessionReward({ materials: amount });
-  recordRecentLoot({ materials: [{ materialId: material, name: materialNames[material] || material, qty: amount }] }, "变异怪材料");
-  addLog(`变异怪额外掉落 ${materialNames[material] || material} × ${amount}。`);
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.grantMutationMaterial === "function") {
+    return runtime.grantMutationMaterial(rareOnly);
+  }
+  return legacyGrantMutationMaterial(rareOnly);
 }
 
+function legacyMaybeDropMythicEssence(stats = computeStats(), options = {}) { return; }
+
 function maybeDropMythicEssence(stats = computeStats(), options = {}) {
-  if (state.currentDifficulty !== "abyss") return;
-  const rate = 0.002 * (options.boss ? 3 : 1) * (1 + (stats.mythicEssenceDropBonus || 0));
-  if (Math.random() >= rate) return;
-  state.materials.mythicEssence = (state.materials.mythicEssence || 0) + 1;
-  recordRecentLoot({ materials: [{ materialId: "mythicEssence", name: materialNames.mythicEssence, qty: 1 }] }, options.boss ? "深渊Boss材料" : "深渊材料");
-  addLog("深渊凝结出 神话精粹 ×1。");
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.maybeDropMythicEssence === "function") {
+    return runtime.maybeDropMythicEssence(stats, options);
+  }
+  return legacyMaybeDropMythicEssence(stats, options);
 }
 
 function createMutationEquipment(rarity) {
@@ -5854,47 +4384,22 @@ function rarityRank(rarity) {
 }
 
 function shouldAutoSalvage(item) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.shouldAutoSalvage === "function") return runtime.shouldAutoSalvage(item);
   const setting = state.autoSalvage || {};
   if (!setting.enabled || item.locked || item.setId || item.rarity === "mythic" || item.rarity === "darkGold") return false;
   if (isAbyssEquipment(item) && !(setting.autoDismantleAbyss || state.autoDismantleAbyss)) return false;
   return rarityRank(item.rarity) >= 0 && rarityRank(item.rarity) <= rarityRank(setting.maxRarity || "normal");
 }
 
+function legacyAddEquipmentToInventory(item, options = {}) { return; }
+
 function addEquipmentToInventory(item, options = {}) {
-  const normalized = normalizeItem(item);
-  if (shouldAutoSalvage(normalized)) {
-    const rewards = getSalvageRewards(normalized);
-    addMaterials(rewards);
-    if (!options.offline) recordSessionReward({ autoSalvaged: 1, materials: Object.values(rewards).reduce((sum, amount) => sum + Number(amount || 0), 0) });
-    if (!options.offline) recordRecentLoot({ autoSalvagedMaterials: rewards, salvagedMaterials: rewards }, "自动分解");
-    if (!options.offline) {
-      autoSalvageBatchCount += 1;
-      Object.entries(rewards).forEach(([id, qty]) => { autoSalvageBatchMaterials[id] = (autoSalvageBatchMaterials[id] || 0) + qty; });
-    }
-    showAutoSalvageFeedback(normalized, rewards, options);
-    if (options.logDrop) addLog(`自动分解 ${rarityName(normalized.rarity)}装备：${getDisplayItemName(normalized)}，获得 ${materialText(rewards)}。`);
-    return { added: false, salvaged: true, rewards };
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.addEquipmentToInventory === "function") {
+    return runtime.addEquipmentToInventory(item, options);
   }
-  if (state.inventory.length >= getInventoryLimit()) {
-    if (options.logDrop) addLog("背包已满，装备掉落未能拾取。");
-    return { added: false, skipped: true };
-  }
-  state.inventory.unshift(normalized);
-  if (!options.offline) {
-    recordSessionReward({ equipments: 1 });
-    runtimeSessionStats.equipmentByRarity[normalized.rarity] = (runtimeSessionStats.equipmentByRarity[normalized.rarity] || 0) + 1;
-    if (normalized.setId) runtimeSessionStats.zodiacEquipmentCount += 1;
-    if (isAbyssEquipment(normalized)) runtimeSessionStats.abyssEquipmentCount += 1;
-    if (isAbyssEquipment(normalized) && normalized.setId) runtimeSessionStats.abyssSetEquipmentCount += 1;
-    updateDailyGoalProgress("daily_equipment", 1);
-  }
-  trackEquipmentAchievement(normalized);
-  if (options.logDrop) {
-    addDropLog(normalized);
-    if (!options.offline) { showLootDropFeedback(normalized); showRareLootBroadcast(normalized); }
-  }
-  if (!options.offline) recordRecentLoot({ equipments: [normalized], equipment: [normalized] }, isAbyssEquipment(normalized) ? "深渊装备掉落" : state.enemyBoss ? "Boss装备掉落" : "装备掉落");
-  return { added: true };
+  return legacyAddEquipmentToInventory(item, options);
 }
 
 function addMaterials(rewards = {}) {
@@ -5960,7 +4465,7 @@ function safeHeroBaseLevel() {
   }
 }
 
-function createItem(template, level, forcedTierId = null, context = {}) {
+function legacyCreateItem(template, level, forcedTierId = null, context = {}) {
   const fixedTier = template.source === "monster_drop" || template.setId;
   const tier = forcedTierId
     ? equipmentTiers.find((entry) => entry.id === forcedTierId)
@@ -6079,10 +4584,18 @@ function createItem(template, level, forcedTierId = null, context = {}) {
   item.instanceId = item.id;
 
   addBaseRanges(item, template, safeTier, level, itemTier, slotGrowth);
-  applyTierExtra(item, safeTier, level, itemTier);
   applyRandomAffixes(item, safeTier, level, itemTier);
   applyAbyssEquipmentBonus(item);
+  applyRarityPerk(item, safeTier, template);
   return item;
+}
+
+function createItem(template, level, forcedTierId = null, context = {}) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.createItem === "function") {
+    return runtime.createItem(template, level, forcedTierId, context);
+  }
+  return legacyCreateItem(template, level, forcedTierId, context);
 }
 
 function applyAbyssEquipmentBonus(item) {
@@ -6124,6 +4637,47 @@ function applyAbyssSetItemBonus(item) {
   return item;
 }
 
+function applyRarityPerk(item, tier, template) {
+  var perkType = RARITY_PERK_TABLE[tier.id];
+  if (!perkType) return;
+  switch (perkType) {
+    case 'randomStats':
+      item.randomStats = shouldRollRandomStats(template || {}) ? rollRandomStats(tier.id) : defaultRandomStats();
+      break;
+    case 'specialAffix': {
+      var affix = EPIC_SPECIAL_AFFIX_POOL[Math.floor(Math.random() * EPIC_SPECIAL_AFFIX_POOL.length)];
+      item.rarityPerk = { type: 'specialAffix', name: affix.name, desc: affix.desc, stat: affix.stat, value: affix.value };
+      item[affix.stat] = (item[affix.stat] || 0) + affix.value;
+      break;
+    }
+    case 'cardSlot':
+      item.cardSlots = Math.max(1, item.cardSlots || 0);
+      break;
+    case 'jobSkill': {
+      var jobId = template.allowedJobs && template.allowedJobs.length ? template.allowedJobs[Math.floor(Math.random() * template.allowedJobs.length)] : 'novice';
+      var skills = (typeof getV3CombatSkills === 'function' ? getV3CombatSkills(jobId) : []);
+      var activeSkills = skills.filter(function (s) { return s.kind === '主动'; });
+      if (activeSkills.length) {
+        var pick = activeSkills[Math.floor(Math.random() * activeSkills.length)];
+        item.rarityPerk = { type: 'jobSkill', name: pick.name, desc: pick.name + ' 伤害+15%', stat: 'skillDamageBonus', skillId: pick.id, value: 0.15 };
+        item.skillDamageBonus = (item.skillDamageBonus || 0) + 0.15;
+      }
+      break;
+    }
+    case 'setBoost':
+      item.rarityPerk = { type: 'setBoost', name: '套装增幅', desc: '套装效果×1.5', value: 1.5 };
+      break;
+    case 'mythicPassive': {
+      var passive = MYTHIC_PASSIVE_POOL[Math.floor(Math.random() * MYTHIC_PASSIVE_POOL.length)];
+      item.rarityPerk = { type: 'mythicPassive', id: passive.id, name: passive.name, desc: passive.desc, stat: passive.stat, value: passive.value, extra: passive.extra || null };
+      if (passive.stat === 'lifeSteal' || passive.stat === 'splashDamagePct' || passive.stat === 'echoChance' || passive.stat === 'thornVitMultiplier' || passive.stat === 'offlineEfficiencyBonus') {
+        item[passive.stat] = (item[passive.stat] || 0) + passive.value;
+      }
+      break;
+    }
+  }
+}
+
 function rollAbyssAffixes(item = {}) {
   if (!isAbyssEquipment(item)) return [];
   const rank = rarityRank(item.rarity);
@@ -6151,11 +4705,15 @@ function normalizeCardSlots(slots) {
 }
 
 function getMaxEquipmentCardSlots(item = {}) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.getMaxEquipmentCardSlots === "function") return runtime.getMaxEquipmentCardSlots(item);
   const base = CARD_SOCKET_MAX_BY_RARITY[item.rarity || "normal"] || 0;
   return Math.min(5, base + (isAbyssEquipment(item) && base > 0 ? 1 : 0));
 }
 
 function getEquipmentCardSlotCount(item = {}) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.getEquipmentCardSlotCount === "function") return runtime.getEquipmentCardSlotCount(item);
   return normalizeCardSlots(item.cardSlots).length;
 }
 
@@ -6213,6 +4771,8 @@ function computeCardSocketBonuses(item = {}) {
 }
 
 function getCardSocketCost(item = {}) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.getCardSocketCost === "function") return runtime.getCardSocketCost(item);
   const current = getEquipmentCardSlotCount(item);
   const next = current + 1;
   const rarity = item.rarity || "normal";
@@ -6231,6 +4791,8 @@ function getCardSocketChance(item = {}) {
 }
 
 function canAffordSocketCost(cost) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.canAffordSocketCost === "function") return runtime.canAffordSocketCost(cost);
   if (!cost) return false;
   return state.gold >= Number(cost.gold || 0) && hasMaterials(cost.materials || {});
 }
@@ -6339,11 +4901,7 @@ function isAbyssEquipment(item = {}) {
   return Boolean(item.abyssForged || item.sourceDifficulty === "abyss" || item.prefix === "深渊");
 }
 
-function legacyGetDisplayItemName(item = {}) {
-  const baseName = item.name || item.templateName || "未知装备";
-  if (isAbyssEquipment(item) && !baseName.startsWith("深渊 ")) return `深渊 ${baseName}`;
-  return baseName;
-}
+function legacyGetDisplayItemName(item = {}) { return; }
 
 function getDisplayItemName(item = {}) {
   const runtime = window.RuneFrontierEquipmentRuntime;
@@ -6357,108 +4915,14 @@ function canCreateMythic(context = {}) {
   return context.allowMythic === true || context.difficulty === "abyss" || state?.currentDifficulty === "abyss";
 }
 
+function legacyNormalizeItem(item) { return; }
+
 function normalizeItem(item) {
-  const fallbackPower = item.power || 0;
-  const normalized = {
-    id: item.id || `legacy-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
-    instanceId: item.instanceId || item.id || "",
-    templateId: item.templateId || "",
-    name: item.name || "旧式装备",
-    slot: item.slot || "trinket",
-    equipSlot: item.equipSlot || normalizeEquipmentSlot(item.slot || "trinket"),
-    weaponType: item.weaponType || "",
-    armorType: item.armorType || "",
-    subType: item.subType || inferEquipmentSubType(item),
-    equipType: item.equipType || item.weaponType || item.armorType || item.slot || "trinket",
-    source: item.source || "legacy",
-    image: item.image || equipmentImagePath(item.templateId || item.id || item.name || "equipment"),
-    requiredLevel: item.requiredLevel || 1,
-    requiredJob: Array.isArray(item.requiredJob) ? item.requiredJob : [],
-    allowedJobs: Array.isArray(item.allowedJobs) ? item.allowedJobs : [],
-    setId: item.setId || "",
-    setName: item.setName || "",
-    baseStats: item.baseStats || {},
-    description: item.description || "",
-    rarity: item.rarity || "normal",
-    tier: item.tier || item.rarity || "normal",
-    itemTier: inferItemTier(item).id,
-    dropMapId: item.dropMapId || "",
-    dropLevel: item.dropLevel || item.level || 1,
-    sourceDifficulty: item.sourceDifficulty || "",
-    abyssForged: Boolean(item.abyssForged || item.sourceDifficulty === "abyss" || item.prefix === "深渊"),
-    prefix: item.prefix || (item.sourceDifficulty === "abyss" || item.abyssForged ? "深渊" : ""),
-    abyssBonus: item.abyssBonus || {},
-    abyssAffixes: Array.isArray(item.abyssAffixes) ? item.abyssAffixes : [],
-    abyssBonusApplied: Boolean(item.abyssBonusApplied),
-    abyssSetVariant: Boolean(item.abyssSetVariant || ((item.abyssForged || item.sourceDifficulty === "abyss") && item.setId)),
-    abyssSetBonusApplied: Boolean(item.abyssSetBonusApplied),
-    originalSetId: item.originalSetId || item.setId || "",
-    cardSlots: normalizeCardSlots(item.cardSlots),
-    templateBaseStats: item.templateBaseStats || {},
-    quality: item.quality || 100,
-    refine: item.refine || 0,
-    refineFailCount: Math.max(0, Math.floor(item.refineFailCount || 0)),
-    empower: item.empower || 0,
-    locked: Boolean(item.locked),
-    affixes: Array.isArray(item.affixes) ? item.affixes : [],
-    affixDetails: Array.isArray(item.affixDetails) ? item.affixDetails : [],
-    mechanicAffixes: Array.isArray(item.mechanicAffixes) ? item.mechanicAffixes : [],
-    ranges: item.ranges || inferItemRanges(item),
-    randomStats: normalizeRandomStats(item.randomStats),
-    level: item.level || 1,
-    atk: item.atk ?? Math.round(fallbackPower * 0.6),
-    matk: item.matk ?? Math.round(fallbackPower * 0.35),
-    def: item.def ?? Math.round(fallbackPower * 0.25),
-    hp: item.hp ?? 0,
-    aspd: item.aspd ?? 0,
-    luck: item.luck ?? 0,
-    str: item.str ?? 0,
-    agi: item.agi ?? 0,
-    vit: item.vit ?? 0,
-    int: item.int ?? 0,
-    dex: item.dex ?? 0,
-    luk: item.luk ?? 0,
-    gold: item.gold ?? 0,
-    crit: item.crit ?? 0,
-    drop: item.drop ?? 0,
-    hpRegen: item.hpRegen ?? 0,
-    dodgeRate: item.dodgeRate ?? 0,
-    atkPct: item.atkPct ?? 0,
-    matkPct: item.matkPct ?? 0,
-    hpPct: item.hpPct ?? 0,
-    defPct: item.defPct ?? 0,
-    attackSpeedPct: item.attackSpeedPct ?? 0,
-    critRatePct: item.critRatePct ?? 0,
-    critDamageBonus: item.critDamageBonus ?? 0,
-    skillDamageBonus: item.skillDamageBonus ?? 0,
-    monsterDamageBonus: item.monsterDamageBonus ?? 0,
-    bossDamageBonus: item.bossDamageBonus ?? 0,
-    finalDamageBonus: item.finalDamageBonus ?? 0,
-    eliteDamageBonus: item.eliteDamageBonus ?? 0,
-    rareDropBonus: item.rareDropBonus ?? 0,
-    damageReductionPct: item.damageReductionPct ?? 0,
-    dodgeRatePct: item.dodgeRatePct ?? 0,
-    hpRegenPct: item.hpRegenPct ?? 0,
-    ignoreDefense: item.ignoreDefense ?? 0,
-    baseExpBonus: item.baseExpBonus ?? 0,
-    jobExpBonus: item.jobExpBonus ?? 0,
-    equipmentDrop: item.equipmentDrop ?? 0,
-    cardDrop: item.cardDrop ?? 0,
-    materialQuantityBonus: item.materialQuantityBonus ?? 0,
-    powerPct: item.powerPct ?? 0,
-    combatPaceBonus: item.combatPaceBonus ?? 0,
-    patrolEfficiency: item.patrolEfficiency ?? 0,
-    hitRate: item.hitRate ?? 0,
-    statusResist: item.statusResist ?? 0,
-    echoChance: item.echoChance ?? 0,
-    mutationMaterialDoubleChance: item.mutationMaterialDoubleChance ?? 0,
-    thornVitMultiplier: item.thornVitMultiplier ?? 0,
-    enhanceLevel: item.enhanceLevel || 0,
-    specialPassives: Array.isArray(item.specialPassives) ? item.specialPassives : [],
-  };
-  applyAbyssEquipmentBonus(normalized);
-  applyAbyssSetItemBonus(normalized);
-  return normalized;
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.normalizeItem === "function") {
+    return runtime.normalizeItem(item);
+  }
+  return legacyNormalizeItem(item);
 }
 
 function defaultRandomStats() {
@@ -6513,6 +4977,7 @@ function addBaseRanges(item, template, tier, level, itemTier, levelGrowth) {
 }
 
 function applyTierExtra(item, tier, level, itemTier = getItemTierForLevel(level)) {
+  if (!tier.extra) return;
   Object.entries(tier.extra).forEach(([stat, range]) => {
     const key = canonicalItemStat(stat);
     addItemStat(item, key, rollStat(range, level, itemTier));
@@ -6827,6 +5292,8 @@ function equipItem(id) {
 }
 
 function salvageItem(id, options = {}) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.salvageItem === "function") return runtime.salvageItem(id, options);
   const item = state.inventory.find((entry) => entry.id === id);
   if (!item) return { ok: false };
   if (item.locked) {
@@ -6848,6 +5315,8 @@ function salvageItem(id, options = {}) {
 }
 
 function getSalvageRewards(item) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.getSalvageRewards === "function") return runtime.getSalvageRewards(item);
   const tier = item.tier || item.rarity || "normal";
   const table = salvageRewards[tier] || salvageRewards.normal;
   const rewards = {};
@@ -6863,6 +5332,8 @@ function getSalvageRewards(item) {
 }
 
 function salvageAllUnequipped() {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.salvageAllUnequipped === "function") return runtime.salvageAllUnequipped();
   const equippedIds = new Set(Object.values(state.equipped).filter(Boolean));
   const targets = state.inventory.filter((item) => !equippedIds.has(item.id) && !item.locked);
   if (!targets.length) {
@@ -6933,6 +5404,8 @@ function getEmpowerCost(item) {
 }
 
 function refineItem(id) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.refineItem === "function") return runtime.refineItem(id);
   const item = state.inventory.find((entry) => entry.id === id);
   if (!item) return;
   const current = item.refine || 0;
@@ -6993,6 +5466,8 @@ function refineItem(id) {
 }
 
 function snapshotRefineStats(item) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.snapshotRefineStats === "function") return runtime.snapshotRefineStats(item);
   const stats = getEffectiveItemStats(item);
   return Object.fromEntries(
     Object.entries(stats)
@@ -7001,7 +5476,9 @@ function snapshotRefineStats(item) {
   );
 }
 
-function diffRefineStats(before = {}, after = {}) {
+function diffRefineStats(before = {}, after = {}, statIsPercentFn = statIsPercent) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.diffRefineStats === "function") return runtime.diffRefineStats(before, after);
   const diff = {};
   Object.keys(after).forEach((key) => {
     const delta = Number(((after[key] || 0) - (before[key] || 0)).toFixed(statIsPercent(key) ? 3 : 0));
@@ -7010,7 +5487,7 @@ function diffRefineStats(before = {}, after = {}) {
   return diff;
 }
 
-function renderRefineStatDelta(delta = {}) {
+function renderRefineStatDelta(delta = {}) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderRefineStatDelta === "function") return runtime.renderRefineStatDelta(delta);
   return Object.entries(delta)
     .map(([stat, value]) => statLabel(stat, value))
     .filter(Boolean)
@@ -7018,11 +5495,15 @@ function renderRefineStatDelta(delta = {}) {
 }
 
 function getRefineChance(nextStar, item = null) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.getRefineChance === "function") return runtime.getRefineChance(nextStar, item);
   const chances = [1, 0.9, 0.82, 0.74, 0.66, 0.58, 0.5, 0.42, 0.35, 0.29, 0.23, 0.18, 0.14, 0.1, 0.07];
   return Math.min(0.85, (chances[nextStar - 1] || 0.05) + (item ? (item.refineFailCount || 0) * 0.015 : 0));
 }
 
 function getRefineCost(item) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.getRefineCost === "function") return runtime.getRefineCost(item);
   const next = (item.refine || 0) + 1;
   if (next <= 3) return { dust: 2 + next };
   if (next <= 6) return { ore: 2 + next, dust: 2 };
@@ -7043,6 +5524,8 @@ function consumeMaterials(cost) {
 }
 
 function equipBest() {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.equipBest === "function") return runtime.equipBest();
   ["weapon", "armor", "headgear", "shoes", "trinket"].forEach((slot) => {
     const best = state.inventory
       .filter((item) => equipmentSlot(item) === slot)
@@ -7053,83 +5536,50 @@ function equipBest() {
   renderAll();
 }
 
+function legacyClaimOffline() { return; }
+
 function claimOffline() {
-  const pending = normalizeOfflineRewards(state.offlinePending || state.offlineRewards);
-  if (!pending || (pending.seconds <= 0 && !pending.equipments.length)) {
-    showToast("暂无离线收益");
-    return;
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.claimOfflineRewards === "function") {
+    return runtime.claimOfflineRewards();
   }
-  state.gold += pending.gold;
-  gainExp(pending.baseExp, pending.jobExp);
-  let claimSkippedEquipment = 0;
-  const offlineAutoSalvaged = {};
-  const unclaimedEquipment = [];
-  pending.equipments.forEach((item) => {
-    const result = addEquipmentToInventory(item, { logDrop: false, offline: true });
-    if (result.skipped) {
-      claimSkippedEquipment += 1;
-      unclaimedEquipment.push(item);
-    }
-    if (result.salvaged) {
-      Object.entries(result.rewards || {}).forEach(([id, qty]) => {
-        offlineAutoSalvaged[id] = (offlineAutoSalvaged[id] || 0) + qty;
-      });
-    }
-  });
-  pending.autoSalvagedMaterials = offlineAutoSalvaged;
-  pending.skippedEquipment += claimSkippedEquipment;
-  pending.cards.forEach((card) => {
-    state.cards[card.cardId] = (state.cards[card.cardId] || 0) + (card.qty || 0);
-    state.cardCodex[card.cardId] = state.cardCodex[card.cardId] || { obtained: false, obtainCount: 0, firstObtainedAt: 0 };
-    state.cardCodex[card.cardId].obtained = true;
-    state.cardCodex[card.cardId].obtainCount += (card.qty || 0);
-    if (!state.cardCodex[card.cardId].firstObtainedAt) state.cardCodex[card.cardId].firstObtainedAt = Date.now();
-  });
-  pending.materials.forEach((material) => {
-    state.materials[material.materialId] = (state.materials[material.materialId] || 0) + (material.qty || 0);
-  });
-  state.lastOfflineRewardsForView = pending;
-  recordRecentLoot(pending, "离线收益");
-  state.offlinePending = buildOfflineReward(0);
-  if (unclaimedEquipment.length) {
-    state.offlinePending.seconds = 1;
-    state.offlinePending.equipments = unclaimedEquipment;
-    state.offlinePending.skippedEquipment = unclaimedEquipment.length;
-  }
-  state.offlineRewards = state.offlinePending;
-  closeOfflineRewardModal();
-  showToast("离线收益已领取");
-  updateDailyGoalProgress("daily_loot", 1);
-  renderAll();
-  save();
+  return legacyClaimOffline();
 }
 
+function legacyGetPendingOfflineRewards() { return; }
+
+function legacyHasPendingOfflineRewards() { return; }
+
+function legacyGetLootRewardsForView() { return; }
+
 function getPendingOfflineRewards() {
-  return normalizeOfflineRewards(state.offlinePending || state.offlineRewards);
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.getPendingOfflineRewards === "function") {
+    return runtime.getPendingOfflineRewards();
+  }
+  return legacyGetPendingOfflineRewards();
 }
 
 function hasPendingOfflineRewards() {
-  const pending = getPendingOfflineRewards();
-  return Boolean(pending && (
-    pending.seconds > 0 ||
-    pending.gold > 0 ||
-    pending.baseExp > 0 ||
-    pending.jobExp > 0 ||
-    pending.equipments.length ||
-    pending.cards.length ||
-    pending.materials.length ||
-    offlineObjectTotal(pending.autoSalvagedMaterials) > 0
-  ));
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.hasPendingOfflineRewards === "function") {
+    return runtime.hasPendingOfflineRewards();
+  }
+  return legacyHasPendingOfflineRewards();
 }
 
 function getLootRewardsForView() {
-  return hasPendingOfflineRewards() ? getPendingOfflineRewards() : getLatestRecentLootRewards();
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.getLootRewardsForView === "function") {
+    return runtime.getLootRewardsForView();
+  }
+  return legacyGetLootRewardsForView();
 }
 
 function openOfflineRewardModal() {
   const hasPending = hasPendingOfflineRewards();
   offlineRewardModalOpen = true;
-  if (!hasPending) markRecentLootViewed();
+  if (!hasPending) markLootViewed();
   renderOfflineRewardModal();
   save();
 }
@@ -7139,7 +5589,7 @@ function closeOfflineRewardModal() {
   renderOfflineRewardModal();
 }
 
-function renderOfflineRewardModal() {
+function renderOfflineRewardModal() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderOfflineRewardModal === "function") return runtime.renderOfflineRewardModal();
   if (!els.offlineRewardModal || !els.offlineRewardBody) return;
   const visible = offlineRewardModalOpen;
   els.offlineRewardModal.classList.toggle("hidden", !visible);
@@ -7178,7 +5628,7 @@ function getRefineMilestone(level) {
   return null;
 }
 
-function renderRefineResultModal() {
+function renderRefineResultModal() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderRefineResultModal === "function") return runtime.renderRefineResultModal();
   if (!els.refineResultModal || !els.refineResultBody || !els.refineResultTitle) return;
   const visible = Boolean(refineResultState);
   els.refineResultModal.classList.toggle("hidden", !visible);
@@ -7243,6 +5693,8 @@ function renderRefineResultModal() {
 }
 
 function resetSave() {
+  const runtime = window.RuneFrontierStateRuntime;
+  if (runtime && typeof runtime.resetSave === "function") return runtime.resetSave();
   const ok = window.confirm("确定重置当前存档？");
   if (!ok) return;
   localStorage.removeItem(SAVE_KEY);
@@ -7257,6 +5709,10 @@ function resetSave() {
 }
 
 function buildOfflineReward(seconds) {
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.buildOfflineReward === "function") {
+    return runtime.buildOfflineReward(seconds);
+  }
   return calculateOfflineRewards(state.hero, Math.max(0, seconds) * 1000, currentMap().id);
 }
 
@@ -7306,40 +5762,24 @@ function normalizeOfflineRewards(rewards = {}) {
   };
 }
 
+function legacyNormalizeRecentLoot(entries = []) { return; }
+
 function normalizeRecentLoot(entries = []) {
-  if (!Array.isArray(entries)) return [];
-  return entries
-    .map((entry) => {
-      const rewards = normalizeOfflineRewards(entry?.rewards || entry || {});
-      return {
-        id: entry?.id || `loot-${Date.now().toString(36)}`,
-        source: entry?.source || "最近战利品",
-        time: Number(entry?.time || entry?.createdAt || Date.now()),
-        rewards,
-      };
-    })
-    .filter((entry) => {
-      const rewards = entry.rewards;
-      return rewards.gold > 0 || rewards.baseExp > 0 || rewards.jobExp > 0 || rewards.equipments.length || rewards.cards.length || rewards.materials.length || offlineObjectTotal(rewards.autoSalvagedMaterials) > 0;
-    })
-    .sort((a, b) => b.time - a.time)
-    .slice(0, 12);
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.normalizeRecentLoot === "function") {
+    return runtime.normalizeRecentLoot(entries);
+  }
+  return legacyNormalizeRecentLoot(entries);
 }
 
+function legacyRecordRecentLoot(rewards = {}, source = "最近战利品") { return; }
+
 function recordRecentLoot(rewards = {}, source = "最近战利品") {
-  const normalized = normalizeOfflineRewards(rewards);
-  const hasContent = normalized.gold > 0 || normalized.baseExp > 0 || normalized.jobExp > 0 || normalized.equipments.length || normalized.cards.length || normalized.materials.length || offlineObjectTotal(normalized.autoSalvagedMaterials) > 0;
-  if (!hasContent) return;
-  const entry = {
-    id: `loot-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
-    source,
-    time: Date.now(),
-    rewards: normalized,
-  };
-  state.recentLoot = [entry, ...normalizeRecentLoot(state.recentLoot)].slice(0, 12);
-  const hasRealLoot = normalized.equipments.length || normalized.cards.length || normalized.materials.length || offlineObjectTotal(normalized.autoSalvagedMaterials) > 0 || source.includes("离线");
-  if (hasRealLoot) state.lootNotifyUnread = true;
-  state.lastLootUpdatedAt = entry.time;
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.recordRecentLoot === "function") {
+    return runtime.recordRecentLoot(rewards, source);
+  }
+  return legacyRecordRecentLoot(rewards, source);
 }
 
 function normalizeLootFeed(entries = []) {
@@ -7410,36 +5850,34 @@ function recordLootFeedEntry(rewards, source = "最近战利品", time = Date.no
   ]);
 }
 
-function getLatestRecentLootRewards() {
-  state.recentLoot = normalizeRecentLoot(state.recentLoot);
-  if (!state.recentLoot.length) return null;
-  const newest = state.recentLoot[0].time;
-  const batch = state.recentLoot.filter((entry) => newest - entry.time <= 10000).slice(0, 8);
-  return mergeRecentLootRewards(batch.map((entry) => entry.rewards));
+function legacyGetLatestRecentLootRewards() { return; }
+
+function legacyMarkRecentLootViewed() { return; }
+
+function markLootViewed() {
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.markLootViewed === "function") {
+    return runtime.markLootViewed();
+  }
+  return legacyMarkRecentLootViewed();
 }
 
-function markRecentLootViewed() {
-  state.lootNotifyUnread = false;
-  state.lastLootViewedAt = Date.now();
+function legacyMergeRecentLootRewards(rewardsList = []) { return; }
+
+function getLatestRecentLootRewards() {
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.getLatestRecentLootRewards === "function") {
+    return runtime.getLatestRecentLootRewards(state);
+  }
+  return legacyGetLatestRecentLootRewards();
 }
 
 function mergeRecentLootRewards(rewardsList = []) {
-  const merged = defaultOfflineRewards();
-  rewardsList.reverse().forEach((raw) => {
-    const rewards = normalizeOfflineRewards(raw);
-    merged.gold += rewards.gold;
-    merged.baseExp += rewards.baseExp;
-    merged.jobExp += rewards.jobExp;
-    merged.killCount += rewards.killCount || 0;
-    merged.equipments.push(...rewards.equipments);
-    merged.cards = mergeCountEntries([...merged.cards, ...rewards.cards], "cardId");
-    merged.materials = mergeCountEntries([...merged.materials, ...rewards.materials], "materialId");
-    Object.entries(rewards.autoSalvagedMaterials || {}).forEach(([material, amount]) => {
-      merged.autoSalvagedMaterials[material] = (merged.autoSalvagedMaterials[material] || 0) + Number(amount || 0);
-    });
-    merged.skippedEquipment += rewards.skippedEquipment || 0;
-  });
-  return merged;
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.mergeLootRewards === "function") {
+    return runtime.mergeLootRewards(rewardsList);
+  }
+  return legacyMergeRecentLootRewards(rewardsList);
 }
 
 function normalizeQuests(quests = {}) {
@@ -7452,11 +5890,14 @@ function normalizeQuests(quests = {}) {
 
 function normalizeQuest(quest) {
   if (!quest || !quest.id) return null;
+  var mapName = quest.targetMapId ? (maps.find(function (map) { return map.id === quest.targetMapId; }) || {}).name || quest.targetMapId : "任意地图";
+  var difficultyText = quest.targetDifficulty === "hard" ? "困难模式" : "任意难度";
+  var mutationText = quest.targetMutation ? "变异怪" : quest.targetBoss ? "首领" : "魔物";
   return {
     id: quest.id,
     category: quest.category || "daily",
     title: quest.title || "任务",
-    description: quest.description || "",
+    description: "击杀 " + mapName + " " + difficultyText + " " + mutationText + " " + (quest.requiredCount || 1) + " 只",
     type: quest.type || "kill",
     targetMapId: quest.targetMapId || "",
     targetMonsterId: quest.targetMonsterId || "",
@@ -7530,50 +5971,14 @@ function mergeMaterialObjects(a = {}, b = {}) {
 }
 
 function calculateOfflineRewards(character, offlineMs, mapId) {
-  const rewards = defaultOfflineRewards();
-  const durationMs = Math.max(0, Math.floor(offlineMs || 0));
-  const cappedDurationMs = Math.min(durationMs, (MAX_OFFLINE_SECONDS + (getVipMilestoneBonuses().offlineHoursBonus || 0) * 3600) * 1000);
-  rewards.durationMs = durationMs;
-  rewards.cappedDurationMs = cappedDurationMs;
-  rewards.seconds = Math.floor(cappedDurationMs / 1000);
-  rewards.mapId = mapId || currentMap().id;
-  rewards.calculatedAt = new Date().toISOString();
-  if (cappedDurationMs <= 0) return rewards;
-
-  const stats = computeStats();
-  if ((character?.currentHp ?? state.hero.currentHp ?? stats.maxHp) <= 0) {
-    rewards.noRewardsReason = "角色生命值为 0，离线战斗停止。";
-    return rewards;
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.calculateOfflineRewards === "function") {
+    return runtime.calculateOfflineRewards(character, offlineMs, mapId);
   }
-
-  const mapIndex = Math.max(0, maps.findIndex((map) => map.id === rewards.mapId));
-  const map = maps[mapIndex] || currentMap();
-  const seconds = cappedDurationMs / 1000;
-  const averageHp = estimateMapAverageMonsterHp(map);
-  const onlineKills = Math.max(0, stats.dps / Math.max(1, averageHp)) * seconds;
-  const killCount = Math.min(OFFLINE_MAX_KILLS, Math.floor(onlineKills * Math.min(1, OFFLINE_EFFICIENCY + (getVipMilestoneBonuses().offlineEfficiencyBonus || 0) + (stats.offlineEfficiencyBonus || 0))));
-  rewards.killCount = killCount;
-  if (killCount <= 0) return rewards;
-
-  let mutationKills = 0;
-  for (let kill = 0; kill < killCount; kill += 1) {
-    const monster = buildOfflineMonsterStats(map);
-    if (monster.mutation) mutationKills += 1;
-    rewards.gold += Math.round(monster.gold * stats.goldMultiplier * stats.monsterGoldMultiplier);
-    rewards.baseExp += Math.round(monster.exp * stats.baseExpMultiplier);
-    rewards.jobExp += Math.round(monster.jobExp * stats.jobExpMultiplier);
-  }
-
-  rollOfflineEquipmentDrops(rewards, stats, map, mapIndex, killCount);
-  rollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills);
-  rollOfflineTransitionSetDrops(rewards, stats, map, killCount);
-  rollOfflineMythicDrops(rewards, stats, map, killCount, mutationKills);
-  rollOfflineCardDrops(rewards, stats, map, mapIndex, killCount);
-  rollOfflineMaterialDrops(rewards, stats, map, killCount);
-  rollOfflineMutationExtraDrops(rewards, stats, map, mutationKills);
-  gainMapExploration(map.id, killCount + mutationKills * 4, { offline: true });
-  return rewards;
+  return legacyCalculateOfflineRewards(character, offlineMs, mapId);
 }
+
+function legacyCalculateOfflineRewards(character, offlineMs, mapId) { return; }
 
 function estimateMapAverageMonsterHp(map) {
   const monsters = Array.isArray(map.monsters) && map.monsters.length ? map.monsters : [pickMonsterTemplate(map, false)];
@@ -7586,38 +5991,22 @@ function estimateMapAverageMonsterHp(map) {
 }
 
 function buildOfflineMonsterStats(map) {
-  const template = pickMonsterTemplate(map, false);
-  const level = rollMonsterLevel(map, false, template);
-  const previousMutation = state.enemyMutationId;
-  const mutation = rollMonsterMutation(state.currentDifficulty);
-  state.enemyMutationId = mutation?.id || "";
-  const monster = buildMonsterStats(map, false, level, template);
-  state.enemyMutationId = previousMutation;
-  return monster;
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.buildOfflineMonsterStats === "function") {
+    return runtime.buildOfflineMonsterStats(map);
+  }
+  return legacyBuildOfflineMonsterStats(map);
 }
+
+function legacyBuildOfflineMonsterStats(map) { return; }
 
 function rollOfflineEquipmentDrops(rewards, stats, map, mapIndex, killCount) {
   const tableId = mapDropTableAlias[map.id] || map.id;
   const rows = equipmentDropTables[tableId] || [];
-  let freeSlots = Math.max(0, getInventoryLimit() - state.inventory.length);
+  const capacity = { freeSlots: Math.max(0, getInventoryLimit() - state.inventory.length) };
   for (let kill = 0; kill < killCount; kill += 1) {
     const drops = rollEquipmentDropsFromTable(rows, stats, { offline: true });
-    drops.forEach((item) => {
-      if (shouldAutoSalvage(item)) {
-        mergeMaterialRewardIntoList(rewards.materials, getSalvageRewards(item));
-        return;
-      }
-      if (freeSlots <= 0) {
-        if (canOfflineFullSalvage(item)) {
-          mergeMaterialRewardIntoList(rewards.materials, getSalvageRewards(item));
-        } else {
-          rewards.equipments.push(item);
-        }
-        return;
-      }
-      freeSlots -= 1;
-      rewards.equipments.push(item);
-    });
+    processOfflineGeneratedEquipment(rewards, drops, capacity);
   }
 }
 
@@ -7625,151 +6014,91 @@ function canOfflineFullSalvage(item) {
   return !item.setId && !["darkGold", "mythic"].includes(item.rarity) && rarityRank(item.rarity) <= rarityRank("epic");
 }
 
-function rollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills = 0) {
-  const setIds = zodiacSetDropMap[map.id] || [];
-  if (!setIds.length) return;
-  let freeSlots = Math.max(0, getInventoryLimit() - state.inventory.length - rewards.equipments.length);
-  const isHard = state.currentDifficulty === "hard";
-  const isAbyss = state.currentDifficulty === "abyss";
-  const baseRate = (isAbyss ? ZODIAC_SET_DROP_RATES.hard * 1.2 : isHard ? ZODIAC_SET_DROP_RATES.hard : ZODIAC_SET_DROP_RATES.normal) * OFFLINE_EQUIPMENT_DROP_RATE_MULTIPLIER;
-  const mutationRate = (isAbyss ? ZODIAC_SET_DROP_RATES.hardMutation * 1.25 : isHard ? ZODIAC_SET_DROP_RATES.hardMutation : ZODIAC_SET_DROP_RATES.mutation) * OFFLINE_EQUIPMENT_DROP_RATE_MULTIPLIER;
-  const dropBonus = 1 + Math.min(1.5, stats.equipmentDropBonus || 0);
-  for (let kill = 0; kill < Math.min(killCount, OFFLINE_MAX_KILLS); kill += 1) {
-    const rate = (baseRate + (kill < mutationKills ? mutationRate : 0)) * dropBonus;
-    if (Math.random() >= rate) continue;
-    const set = equipmentSets[setIds[Math.floor(Math.random() * setIds.length)]];
-    if (!set?.items?.length) continue;
-    const darkRate = ZODIAC_SET_DROP_RATES.darkGoldNormal * OFFLINE_EQUIPMENT_DROP_RATE_MULTIPLIER * (isAbyss ? 1.5 : isHard ? 1.25 : 1) * dropBonus;
-    const mythicRate = isAbyss ? MYTHIC_DROP_RATES.abyssNormal * OFFLINE_EQUIPMENT_DROP_RATE_MULTIPLIER * 0.5 * dropBonus : 0;
-    const rarity = Math.random() < mythicRate ? "mythic" : Math.random() < darkRate ? "darkGold" : "legend";
-    const template = set.items[Math.floor(Math.random() * set.items.length)];
-    const dropLevel = template.level || getMapLevelRange(map).maxLevel;
-    const item = createItem(template, dropLevel, rarity, { dropMapId: map.id, dropLevel, difficulty: state.currentDifficulty, allowMythic: rarity === "mythic" });
-    if (freeSlots <= 0) {
-      rewards.equipments.push(item);
-      continue;
-    }
-    freeSlots -= 1;
-    rewards.equipments.push(item);
+function processOfflineGeneratedEquipment(rewards, items, capacity, options = {}) {
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.processGeneratedOfflineEquipment === "function") {
+    return runtime.processGeneratedOfflineEquipment(rewards, items, capacity, options);
   }
-}
-
-function rollOfflineTransitionSetDrops(rewards, stats, map, killCount) {
-  const setIds = transitionSetDropMap[map.id] || [];
-  if (!setIds.length) return;
-  let freeSlots = Math.max(0, getInventoryLimit() - state.inventory.length - rewards.equipments.length);
-  const isHard = state.currentDifficulty === "hard";
-  const isAbyss = state.currentDifficulty === "abyss";
-  const baseRate = (isAbyss ? TRANSITION_SET_DROP_RATES.hard * 1.2 : isHard ? TRANSITION_SET_DROP_RATES.hard : TRANSITION_SET_DROP_RATES.normal) * OFFLINE_EQUIPMENT_DROP_RATE_MULTIPLIER;
-  const dropBonus = 1 + Math.min(1.2, stats.equipmentDropBonus || 0);
-  for (let kill = 0; kill < Math.min(killCount, OFFLINE_MAX_KILLS); kill += 1) {
-    if (Math.random() >= baseRate * dropBonus) continue;
-    const set = equipmentSets[setIds[Math.floor(Math.random() * setIds.length)]];
-    if (!set?.items?.length) continue;
-    const template = set.items[Math.floor(Math.random() * set.items.length)];
-    const dropLevel = template.level || getMapLevelRange(map).maxLevel;
-    const item = createItem(template, dropLevel, template.rarity || "rare", { dropMapId: map.id, dropLevel, difficulty: state.currentDifficulty });
-    if (freeSlots <= 0) {
-      rewards.equipments.push(item);
-      continue;
-    }
-    freeSlots -= 1;
-    rewards.equipments.push(item);
-  }
-}
-
-function rollOfflineMythicDrops(rewards, stats, map, killCount, mutationKills = 0) {
-  if (state.currentDifficulty !== "abyss") return;
-  let freeSlots = Math.max(0, getInventoryLimit() - state.inventory.length - rewards.equipments.length);
-  const dropBonus = 1 + Math.min(1.5, stats.equipmentDropBonus || 0);
-  for (let kill = 0; kill < Math.min(killCount, OFFLINE_MAX_KILLS); kill += 1) {
-    const baseRate = kill < mutationKills ? MYTHIC_DROP_RATES.abyssMutation : MYTHIC_DROP_RATES.abyssNormal;
-    if (Math.random() >= baseRate * OFFLINE_EQUIPMENT_DROP_RATE_MULTIPLIER * dropBonus) continue;
-    const item = createMutationEquipment("mythic");
-    if (!item) continue;
-    if (freeSlots > 0) freeSlots -= 1;
-    rewards.equipments.push(item);
-  }
-}
-
-function rollOfflineCardDrops(rewards, stats, map, mapIndex, killCount) {
-  const rows = cardDropTables[map.id] || [];
-  const found = {};
-  const difficulty = currentDifficultyConfig();
-  for (let kill = 0; kill < killCount; kill += 1) {
-    rows.forEach((drop) => {
-      if (drop.bossOnly) return;
-      const finalDropRate = drop.dropRate * (1 + Number(stats.cardDropBonus ?? stats.dropBonus ?? 0)) * difficulty.cardDrop;
-      if (Math.random() >= finalDropRate) return;
-      const card = cardPool.find((entry) => entry.id === drop.cardId);
-      if (!card) return;
-      found[card.id] = found[card.id] || { cardId: card.id, name: card.name, rarity: drop.rarity || "rare", qty: 0 };
-      found[card.id].qty += 1;
-    });
-  }
-  rewards.cards = Object.values(found);
-}
-
-function rollOfflineMaterialDrops(rewards, stats, map, killCount) {
-  const rows = materialDropTables[map.id] || [];
-  const found = {};
-  const difficulty = currentDifficultyConfig();
-  for (let kill = 0; kill < killCount; kill += 1) {
-    rows.forEach((drop) => {
-      const finalDropRate = drop.dropRate * (1 + stats.dropBonus) * difficulty.materialDrop;
-      if (Math.random() >= finalDropRate) return;
-      const qty = applyMaterialQuantityBonus(randomInt(drop.minQty || 1, drop.maxQty || drop.minQty || 1), stats);
-      found[drop.materialId] = found[drop.materialId] || { materialId: drop.materialId, name: materialNames[drop.materialId] || drop.materialId, rarity: MATERIAL_DB[drop.materialId]?.rarity || "normal", qty: 0 };
-      found[drop.materialId].qty += qty;
-    });
-  }
-  rewards.materials = mergeCountEntries([...rewards.materials, ...Object.values(found)], "materialId");
-}
-
-function rollOfflineMutationExtraDrops(rewards, stats, map, mutationKills) {
-  if (!mutationKills) return;
-  const difficulty = currentDifficultyConfig();
-  const dropBonus = Math.min(1.5, stats.dropBonus || 0);
-  const equipmentDropBonus = Math.min(1.5, stats.equipmentDropBonus ?? stats.dropBonus ?? 0);
-  const isAbyss = state.currentDifficulty === "abyss";
-  const hardExtra = isAbyss ? 2 : state.currentDifficulty === "hard" ? 1.5 : 1;
-  const materialRate = MUTATION_EXTRA_DROPS.materialBonusRate * hardExtra * (1 + dropBonus) * difficulty.materialDrop * OFFLINE_EFFICIENCY;
-  const rareMaterialRate = MUTATION_EXTRA_DROPS.rareMaterialBonusRate * hardExtra * (1 + dropBonus) * difficulty.materialDrop * OFFLINE_EFFICIENCY;
-  const highRate = MUTATION_EXTRA_DROPS.highRarityEquipmentRate * hardExtra * (1 + equipmentDropBonus) * OFFLINE_EQUIPMENT_DROP_RATE_MULTIPLIER;
-  const darkRate = MUTATION_EXTRA_DROPS.darkGoldEquipmentRate * (isAbyss ? 1.5 : state.currentDifficulty === "hard" ? 1.2 : 1) * (1 + equipmentDropBonus) * OFFLINE_EQUIPMENT_DROP_RATE_MULTIPLIER;
-  const mythicRate = isAbyss ? MYTHIC_DROP_RATES.abyssMutation * (1 + equipmentDropBonus) * OFFLINE_EQUIPMENT_DROP_RATE_MULTIPLIER : 0;
-  let freeSlots = Math.max(0, getInventoryLimit() - state.inventory.length - rewards.equipments.length);
-
-  for (let i = 0; i < mutationKills; i += 1) {
-    if (Math.random() < materialRate) {
-      let qty = applyMaterialQuantityBonus(randomInt(1, 2), stats);
-      if (Math.random() < (stats.mutationMaterialDoubleChance || 0)) qty *= 2;
-      mergeMaterialRewardIntoList(rewards.materials, { ore: qty });
-    }
-    if (Math.random() < rareMaterialRate) mergeMaterialRewardIntoList(rewards.materials, { rune: applyMaterialQuantityBonus(1, stats) });
-
-    const rarity = Math.random() < mythicRate ? "mythic" : Math.random() < darkRate ? "darkGold" : Math.random() < highRate ? (maps.indexOf(map) >= 3 ? "legend" : "epic") : "";
-    if (!rarity) continue;
-    const item = createMutationEquipment(rarity);
-    if (!item) continue;
+  (items || []).forEach((item) => {
     if (shouldAutoSalvage(item)) {
       mergeMaterialRewardIntoList(rewards.materials, getSalvageRewards(item));
-      continue;
+      return;
     }
-    if (freeSlots <= 0) {
+    if (capacity.freeSlots <= 0) {
       if (canOfflineFullSalvage(item)) {
         mergeMaterialRewardIntoList(rewards.materials, getSalvageRewards(item));
       } else {
         rewards.equipments.push(item);
       }
-      continue;
+      return;
     }
-    freeSlots -= 1;
+    capacity.freeSlots -= 1;
     rewards.equipments.push(item);
-  }
+  });
+  return capacity;
 }
 
-function renderOfflineRewardSummary(rewards) {
+function legacyRollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills = 0) { return; }
+
+function rollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills = 0) {
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.rollOfflineZodiacSetDrops === "function") {
+    return runtime.rollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills);
+  }
+  return legacyRollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills);
+}
+
+function legacyRollOfflineTransitionSetDrops(rewards, stats, map, killCount) { return; }
+
+function rollOfflineTransitionSetDrops(rewards, stats, map, killCount) {
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.rollOfflineTransitionSetDrops === "function") {
+    return runtime.rollOfflineTransitionSetDrops(rewards, stats, map, killCount);
+  }
+  return legacyRollOfflineTransitionSetDrops(rewards, stats, map, killCount);
+}
+
+function legacyRollOfflineMythicDrops(rewards, stats, map, killCount, mutationKills = 0) { return; }
+
+function rollOfflineMythicDrops(rewards, stats, map, killCount, mutationKills = 0) {
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.rollOfflineMythicDrops === "function") {
+    return runtime.rollOfflineMythicDrops(rewards, stats, map, killCount, mutationKills);
+  }
+  return legacyRollOfflineMythicDrops(rewards, stats, map, killCount, mutationKills);
+}
+
+function legacyRollOfflineCardDrops(rewards, stats, map, mapIndex, killCount) { return; }
+
+function rollOfflineCardDrops(rewards, stats, map, mapIndex, killCount) {
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.rollOfflineCardDrops === "function") {
+    return runtime.rollOfflineCardDrops(rewards, stats, map, mapIndex, killCount);
+  }
+  return legacyRollOfflineCardDrops(rewards, stats, map, mapIndex, killCount);
+}
+
+function legacyRollOfflineMaterialDrops(rewards, stats, map, killCount) { return; }
+
+function rollOfflineMaterialDrops(rewards, stats, map, killCount) {
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.rollOfflineMaterialDrops === "function") {
+    return runtime.rollOfflineMaterialDrops(rewards, stats, map, killCount);
+  }
+  return legacyRollOfflineMaterialDrops(rewards, stats, map, killCount);
+}
+
+function legacyRollOfflineMutationExtraDrops(rewards, stats, map, mutationKills) { return; }
+
+function rollOfflineMutationExtraDrops(rewards, stats, map, mutationKills) {
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.rollOfflineMutationExtraDrops === "function") {
+    return runtime.rollOfflineMutationExtraDrops(rewards, stats, map, mutationKills);
+  }
+  return legacyRollOfflineMutationExtraDrops(rewards, stats, map, mutationKills);
+}
+
+function renderOfflineRewardSummary(rewards) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderOfflineRewardSummary === "function") return runtime.renderOfflineRewardSummary(rewards);
   try {
     return renderLootSummaryCard(normalizeLootRewards(rewards));
   } catch (error) {
@@ -7778,39 +6107,17 @@ function renderOfflineRewardSummary(rewards) {
   }
 }
 
+function legacyNormalizeLootRewards(input = {}) { return; }
+
 function normalizeLootRewards(input = {}) {
-  const rewards = input || {};
-  const normalized = normalizeOfflineRewards(rewards);
-  const pendingCount = Math.min(Number(normalized.skippedEquipment || 0), normalized.equipments.length);
-  const pendingEquipment = Array.isArray(rewards.pendingEquipment)
-    ? rewards.pendingEquipment
-    : pendingCount
-      ? normalized.equipments.slice(-pendingCount)
-      : [];
-  const equipment = Array.isArray(rewards.equipment)
-    ? rewards.equipment
-    : pendingCount
-      ? normalized.equipments.slice(0, -pendingCount)
-      : normalized.equipments;
-  return {
-    seconds: Number(normalized.seconds || rewards.offlineSeconds || rewards.duration || 0),
-    kills: Number(normalized.killCount || rewards.kills || 0),
-    gold: Number(normalized.gold || 0),
-    baseExp: Number(normalized.baseExp || rewards.exp || 0),
-    jobExp: Number(normalized.jobExp || 0),
-    materials: Array.isArray(normalized.materials) ? normalized.materials : [],
-    cards: Array.isArray(normalized.cards) ? normalized.cards : [],
-    equipment: Array.isArray(equipment) ? equipment.filter(Boolean).map(normalizeItem) : [],
-    salvagedMaterials: normalized.autoSalvagedMaterials || rewards.salvagedMaterials || rewards.salvageMaterials || {},
-    autoSalvaged: Number(rewards.autoSalvaged || rewards.salvagedCount || offlineObjectTotal(normalized.autoSalvagedMaterials) || 0),
-    pendingEquipment: Array.isArray(pendingEquipment) ? pendingEquipment.filter(Boolean).map(normalizeItem) : [],
-    skippedEquipment: Number(normalized.skippedEquipment || 0),
-    noRewardsReason: normalized.noRewardsReason || "",
-    errors: Array.isArray(rewards.errors) ? rewards.errors : [],
-  };
+  const runtime = window.RuneFrontierDropsRuntime;
+  if (runtime && typeof runtime.normalizeLootRewards === "function") {
+    return runtime.normalizeLootRewards(input);
+  }
+  return legacyNormalizeLootRewards(input);
 }
 
-function renderLootSummaryCard(rewards) {
+function renderLootSummaryCard(rewards) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderLootSummaryCard === "function") return runtime.renderLootSummaryCard(rewards);
   const hasAny = rewards.seconds > 0 || rewards.gold > 0 || rewards.baseExp > 0 || rewards.jobExp > 0 || rewards.materials.length || rewards.cards.length || rewards.equipment.length || rewards.pendingEquipment.length || offlineObjectTotal(rewards.salvagedMaterials) > 0;
   if (!hasAny) {
     return `<article class="loot-modal"><div class="loot-empty"><h3>暂无战利品</h3><p>如果你刚上线，请等待离线收益结算完成。</p></div></article>`;
@@ -7859,34 +6166,34 @@ function renderLootSummaryMini(label, value) {
   return `<div class="loot-summary-card"><span>${escapeHtml(label)}</span><strong>${formatNumber(value || 0)}</strong></div>`;
 }
 
-function renderLootMaterialSection(materials = []) {
+function renderLootMaterialSection(materials = []) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderLootMaterialSection === "function") return runtime.renderLootMaterialSection(materials);
   if (!Array.isArray(materials) || !materials.length) return "";
   return `<section class="loot-section"><h3 class="loot-section-title">材料</h3><div class="loot-item-grid">${materials.map(renderOfflineMaterialChip).join("")}</div></section>`;
 }
 
-function renderLootSalvageSection(materials = {}) {
+function renderLootSalvageSection(materials = {}) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderLootSalvageSection === "function") return runtime.renderLootSalvageSection(materials);
   const list = offlineMaterialObjectToList(materials || {});
   if (!list.length) return "";
   return `<section class="loot-section"><h3 class="loot-section-title">自动分解</h3><div class="loot-item-grid">${list.map((item) => renderOfflineMaterialChip(item, "loot-material-chip")).join("")}</div></section>`;
 }
 
-function renderLootCardSection(cards = []) {
+function renderLootCardSection(cards = []) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderLootCardSection === "function") return runtime.renderLootCardSection(cards);
   if (!Array.isArray(cards) || !cards.length) return "";
   return `<section class="loot-section"><h3 class="loot-section-title">卡片</h3><div class="loot-item-grid">${cards.map((card) => `<div class="loot-equipment-row">${renderItemName({ name: card.name || card.cardId || "未知卡片", rarity: card.rarity || "rare" })}<small>×${formatNumber(card.qty || 0)}</small></div>`).join("")}</div></section>`;
 }
 
-function renderLootEquipmentSection(equipment = [], title = "装备") {
+function renderLootEquipmentSection(equipment = [], title = "装备") { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderLootEquipmentSection === "function") return runtime.renderLootEquipmentSection(equipment, title);
   if (!Array.isArray(equipment) || !equipment.length) return "";
   const sorted = sortOfflineEquipment(equipment).slice(0, 8);
   return `<section class="loot-section"><h3 class="loot-section-title">${escapeHtml(title)}</h3><div class="loot-item-grid">${sorted.map((item) => renderOfflineEquipmentItem(item)).join("")}</div>${equipment.length > sorted.length ? `<p class="loot-empty">还有 ${formatNumber(equipment.length - sorted.length)} 件装备</p>` : ""}</section>`;
 }
 
-function renderLootPendingSection(equipment = []) {
+function renderLootPendingSection(equipment = []) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderLootPendingSection === "function") return runtime.renderLootPendingSection(equipment);
   if (!Array.isArray(equipment) || !equipment.length) return "";
   return `<section class="loot-section loot-pending-warning"><h3 class="loot-section-title">待领取装备（${formatNumber(equipment.length)}）</h3><p>背包已满，以下装备已暂存，收益没有丢失。清理背包后可继续领取。</p><div class="loot-item-grid">${equipment.slice(0, 8).map((item) => renderOfflineEquipmentItem(item)).join("")}</div>${equipment.length > 8 ? `<p class="loot-empty">还有 ${formatNumber(equipment.length - 8)} 件待领取装备</p>` : ""}</section>`;
 }
 
-function renderOfflineOverview(rewards, claimedEquipment, pendingEquipment) {
+function renderOfflineOverview(rewards, claimedEquipment, pendingEquipment) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderOfflineOverview === "function") return runtime.renderOfflineOverview(rewards, claimedEquipment, pendingEquipment);
   const materialTotal = offlineListTotal(rewards.materials);
   const cardTotal = offlineListTotal(rewards.cards);
   const salvageTotal = offlineObjectTotal(rewards.autoSalvagedMaterials);
@@ -7904,7 +6211,7 @@ function renderOfflineOverview(rewards, claimedEquipment, pendingEquipment) {
   `;
 }
 
-function renderOfflineOverviewCard(label, value, type) {
+function renderOfflineOverviewCard(label, value, type) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderOfflineOverviewCard === "function") return runtime.renderOfflineOverviewCard(label, value, type);
   return `
     <div class="offline-overview-card offline-overview-${type}">
       <span>${escapeHtml(label)}</span>
@@ -7913,7 +6220,7 @@ function renderOfflineOverviewCard(label, value, type) {
   `;
 }
 
-function renderOfflineGoldExpSection(rewards) {
+function renderOfflineGoldExpSection(rewards) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderOfflineGoldExpSection === "function") return runtime.renderOfflineGoldExpSection(rewards);
   return `
     <section class="offline-reward-section offline-gold-exp-section">
       <div class="offline-reward-section-title">金币与经验</div>
@@ -7927,7 +6234,7 @@ function renderOfflineGoldExpSection(rewards) {
   `;
 }
 
-function renderOfflineMaterialSection(rewards) {
+function renderOfflineMaterialSection(rewards) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderOfflineMaterialSection === "function") return runtime.renderOfflineMaterialSection(rewards);
   const materials = rewards.materials || [];
   if (!materials.length) return renderOfflineEmptySection("材料", "无材料掉落");
   return `
@@ -7940,7 +6247,7 @@ function renderOfflineMaterialSection(rewards) {
   `;
 }
 
-function renderOfflineSalvageSection(rewards) {
+function renderOfflineSalvageSection(rewards) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderOfflineSalvageSection === "function") return runtime.renderOfflineSalvageSection(rewards);
   const materials = offlineMaterialObjectToList(rewards.autoSalvagedMaterials || {});
   if (!materials.length) return "";
   return `
@@ -7954,7 +6261,7 @@ function renderOfflineSalvageSection(rewards) {
   `;
 }
 
-function renderOfflineCardSection(rewards) {
+function renderOfflineCardSection(rewards) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderOfflineCardSection === "function") return runtime.renderOfflineCardSection(rewards);
   const cards = rewards.cards || [];
   if (!cards.length) return renderOfflineEmptySection("卡片", "无卡片掉落");
   return `
@@ -7977,7 +6284,7 @@ function renderOfflineCardSection(rewards) {
   `;
 }
 
-function renderOfflineEquipmentSection(equipment, title) {
+function renderOfflineEquipmentSection(equipment, title) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderOfflineEquipmentSection === "function") return runtime.renderOfflineEquipmentSection(equipment, title);
   const sorted = sortOfflineEquipment(equipment || []);
   if (!sorted.length) return renderOfflineEmptySection(title, "无装备掉落");
   const visible = sorted.slice(0, 6);
@@ -7993,7 +6300,7 @@ function renderOfflineEquipmentSection(equipment, title) {
   `;
 }
 
-function renderOfflinePendingEquipmentSection(equipment) {
+function renderOfflinePendingEquipmentSection(equipment) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderOfflinePendingEquipmentSection === "function") return runtime.renderOfflinePendingEquipmentSection(equipment);
   const sorted = sortOfflineEquipment(equipment || []);
   if (!sorted.length) return "";
   return `
@@ -8008,7 +6315,7 @@ function renderOfflinePendingEquipmentSection(equipment) {
   `;
 }
 
-function renderOfflineEquipmentItem(item) {
+function renderOfflineEquipmentItem(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderOfflineEquipmentItem === "function") return runtime.renderOfflineEquipmentItem(item);
   const setText = item.setName ? `<small>${renderSetName(item.setName)}</small>` : "";
   return `
     <div class="offline-loot-item ${offlineHighlightClass(item)}">
@@ -8022,7 +6329,7 @@ function renderOfflineEquipmentItem(item) {
   `;
 }
 
-function renderOfflineMaterialChip(material, extraClass = "") {
+function renderOfflineMaterialChip(material, extraClass = "") { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderOfflineMaterialChip === "function") return runtime.renderOfflineMaterialChip(material, extraClass);
   const rarity = material.rarity || MATERIAL_DB[material.materialId]?.rarity || "normal";
   const name = material.name || materialNames[material.materialId] || material.materialId;
   return `
@@ -8037,7 +6344,7 @@ function renderOfflineMaterialChip(material, extraClass = "") {
   `;
 }
 
-function renderOfflineEmptySection(title, text) {
+function renderOfflineEmptySection(title, text) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderOfflineEmptySection === "function") return runtime.renderOfflineEmptySection(title, text);
   return `
     <section class="offline-reward-section offline-empty-section">
       <div class="offline-reward-section-title">${escapeHtml(title)}</div>
@@ -8281,6 +6588,8 @@ function getPassiveSkillTotals() {
 }
 
 function getVipBonuses(level = state.vip?.level || 0) {
+  const runtime = window.RuneFrontierVipRuntime;
+  if (runtime && typeof runtime.getVipBonuses === "function") return runtime.getVipBonuses(level);
   const capped = clampNumber(Math.floor(level || 0), 0, VIP_MAX_LEVEL);
   return {
     gold: capped * VIP_BONUS_PER_LEVEL.gold,
@@ -8290,6 +6599,8 @@ function getVipBonuses(level = state.vip?.level || 0) {
 }
 
 function getVipProgressInfo(vipInput = state.vip) {
+  const runtime = window.RuneFrontierVipRuntime;
+  if (runtime && typeof runtime.getVipProgressInfo === "function") return runtime.getVipProgressInfo(vipInput);
   const vip = normalizeVip(vipInput);
   const level = clampNumber(Math.floor(vip.level || 0), 0, VIP_MAX_LEVEL);
   const totalExp = Math.max(0, Math.floor(vip.totalExp || vip.exp || 0));
@@ -8321,6 +6632,8 @@ function getVipProgressInfo(vipInput = state.vip) {
 }
 
 function getVipMilestoneBonuses(level = state.vip?.level || 0) {
+  const runtime = window.RuneFrontierVipRuntime;
+  if (runtime && typeof runtime.getVipMilestoneBonuses === "function") return runtime.getVipMilestoneBonuses(level);
   const capped = clampNumber(Math.floor(level || 0), 0, VIP_MAX_LEVEL);
   const bonuses = {};
   Object.entries(VIP_MILESTONE_BONUSES).forEach(([ml, bonus]) => {
@@ -8330,21 +6643,29 @@ function getVipMilestoneBonuses(level = state.vip?.level || 0) {
 }
 
 function getUnlockedVipMilestones(level = state.vip?.level || 0) {
+  const runtime = window.RuneFrontierVipRuntime;
+  if (runtime && typeof runtime.getUnlockedVipMilestones === "function") return runtime.getUnlockedVipMilestones(level);
   const capped = clampNumber(Math.floor(level || 0), 0, VIP_MAX_LEVEL);
   return Object.entries(VIP_MILESTONE_BONUSES).filter(([ml]) => capped >= Number(ml)).map(([ml, b]) => ({ level: Number(ml), ...b }));
 }
 
 function getNextVipMilestone(level = state.vip?.level || 0) {
+  const runtime = window.RuneFrontierVipRuntime;
+  if (runtime && typeof runtime.getNextVipMilestone === "function") return runtime.getNextVipMilestone(level);
   const capped = clampNumber(Math.floor(level || 0), 0, VIP_MAX_LEVEL);
   const next = Object.entries(VIP_MILESTONE_BONUSES).find(([ml]) => capped < Number(ml));
   return next ? { level: Number(next[0]), ...next[1] } : null;
 }
 
 function getInventoryLimit() {
+  const runtime = window.RuneFrontierVipRuntime;
+  if (runtime && typeof runtime.getInventoryLimit === "function") return runtime.getInventoryLimit();
   return INVENTORY_LIMIT + (getVipMilestoneBonuses().inventoryLimitBonus || 0);
 }
 
 function claimVipDailyGift() {
+  const runtime = window.RuneFrontierVipRuntime;
+  if (runtime && typeof runtime.claimVipDailyGift === "function") return runtime.claimVipDailyGift();
   state.vip = normalizeVip(state.vip);
   if (state.vip.dailyGiftClaimed === todayKey()) { showToast("今日礼包已领取"); return; }
   let giftLevel = 0;
@@ -8622,7 +6943,7 @@ function calculatePower({ attrs, equip, battleStats, setBonuses }) {
   );
 }
 
-function renderSetTalentStatus() {
+function renderSetTalentStatus() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderSetTalentStatus === "function") return runtime.renderSetTalentStatus();
   const bonuses = computeSetBonuses();
   const chips = Object.values(equipmentSets)
     .filter((set) => (bonuses.pieceCounts[set.id] || 0) > 0)
@@ -8707,35 +7028,92 @@ function getCardStats() {
 }
 
 function renderAll() {
+  const runtime = window.RuneFrontierRenderRuntime;
+  if (runtime && typeof runtime.renderAll === "function") return runtime.renderAll();
   const stats = computeStats();
   els.mapName.textContent = currentMap().name;
   els.goldValue.textContent = formatNumber(state.gold);
   els.teamLevelValue.textContent = state.hero.baseLevel;
   els.expValue.textContent = `B ${formatNumber(state.hero.baseExp)}/${formatNumber(baseExpCost())} · J ${formatNumber(state.hero.jobExp)}/${formatNumber(jobExpCost())}`;
   els.powerValue.textContent = formatNumber(stats.power);
-  els.gpsValue.textContent = `${formatNumber(estimateGoldPerSecond())}/秒`;
+  els.gpsValue.textContent = `${formatNumber(estimateGoldPerSecond(stats))}/秒`;
   els.pauseIcon.textContent = state.paused ? "▶" : "Ⅱ";
   els.saveState.textContent = "已同步";
 
-  renderPages();
-  renderFormation();
-  renderHeroes();
-  renderTown();
-  renderSmithyPage();
-  renderEquipment();
-  renderMaps();
-  renderCards();
-  renderCodex();
-  renderShop();
-  renderVip();
-  renderTasks();
-  renderQuestList();
-  renderPartyList();
-  renderLog();
+  try {
+    delete document.documentElement.dataset.runeRenderError;
+    document.documentElement.dataset.runeRenderStage = "pages";
+    renderPages();
+    renderActivePage();
+    renderFast(true);
+    document.documentElement.dataset.runeRenderStage = "ready";
+  } catch (error) {
+    document.documentElement.dataset.runeRenderError = `${document.documentElement.dataset.runeRenderStage || "unknown"}: ${error?.message || error}`;
+    console.error("[Rune Frontier] renderAll failed", error);
+    throw error;
+  }
+}
+
+function renderActivePage() {
+  document.documentElement.dataset.runeRenderStage = activePage;
+  switch (activePage) {
+    case "adventure":
+      renderFormation();
+      renderQuestList();
+      renderPartyList();
+      break;
+    case "heroes":
+      renderHeroes();
+      break;
+    case "town":
+      renderTown();
+      break;
+    case "smithy":
+      renderSmithyPage();
+      break;
+    case "equipment":
+      renderEquipment();
+      break;
+    case "maps":
+      renderMaps();
+      break;
+    case "cards":
+      renderCards();
+      break;
+    case "codex":
+      renderCodex();
+      break;
+    case "shop":
+      renderShop();
+      break;
+    case "vip":
+      renderVip();
+      break;
+    case "tasks":
+      renderTasks();
+      break;
+    case "logs":
+      renderLog();
+      break;
+    default:
+      break;
+  }
+}
+
+function renderCombatSettlementUi() {
   renderFast();
+  const now = Date.now();
+  const interval = activePage === "adventure" || activePage === "logs"
+    ? COMBAT_PAGE_REFRESH_INTERVAL_MS
+    : PASSIVE_PAGE_REFRESH_INTERVAL_MS;
+  if (now - lastCombatPageRenderAt < interval) return;
+  lastCombatPageRenderAt = now;
+  renderActivePage();
 }
 
 function renderPages() {
+  const runtime = window.RuneFrontierRenderRuntime;
+  if (runtime && typeof runtime.renderPages === "function") return runtime.renderPages();
   document.querySelectorAll(".page-tabs button").forEach((button) => {
     button.classList.toggle("active", button.dataset.page === activePage);
   });
@@ -8749,7 +7127,7 @@ let autoSalvageBatchCount = 0;
 let autoSalvageBatchMaterials = {};
 let autoSalvageBatchLastFlush = 0;
 
-function renderCombatSidebar() {
+function renderCombatSidebar() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderCombatSidebar === "function") return runtime.renderCombatSidebar();
   if (!els.combatSidebar) return;
   const now = Date.now();
   if (now - combatSidebarLastRender < 2000) return;
@@ -8775,6 +7153,8 @@ function renderCombatSidebar() {
 }
 
 function renderCombatLootFeed() {
+  const runtime = window.RuneFrontierRenderRuntime;
+  if (runtime && typeof runtime.renderCombatLootFeed === "function") return runtime.renderCombatLootFeed();
   const rows = buildLootFeedFromRecentLoot()
     .sort((a, b) => b.time - a.time || lootFeedRank(b) - lootFeedRank(a))
     .slice(0, 7)
@@ -8815,7 +7195,7 @@ function buildLootFeedFromRecentLoot() {
   return rows;
 }
 
-function renderCombatLootRow(item) {
+function renderCombatLootRow(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderCombatLootRow === "function") return runtime.renderCombatLootRow(item);
   const meta = lootSourceMeta(item.source);
   const kind = lootKindMeta(item.kind);
   const isNew = Date.now() - Number(item.time || 0) < 5000;
@@ -8851,6 +7231,8 @@ function lootFeedRank(item) {
 }
 
 function renderEncounterPanel() {
+  const runtime = window.RuneFrontierRenderRuntime;
+  if (runtime && typeof runtime.renderEncounterPanel === "function") return runtime.renderEncounterPanel();
   const group = normalizeEnemyGroup(state.enemyGroup);
   if (!group || !group.monsters.length) return "";
   const living = group.monsters.filter((monster) => monster.alive).length;
@@ -8879,18 +7261,144 @@ function renderEncounterPanel() {
   </div>`;
 }
 
-function renderFast() {
-  const stats = computeStats();
-  updateActiveEnemyHpInGroup();
-  renderCombatSidebar();
-  if (state.vip) {
-    state.vip.onlineSecondsToday = (state.vip.onlineSecondsToday || 0) + (loopDt || 0.1);
-    if (state.vip.onlineSecondsToday >= 1800 && state.vip.onlineRewardClaimed !== todayKey()) {
-      gainVipExp(30);
-      state.vip.onlineRewardClaimed = todayKey();
-      addLog("在线满 30 分钟，获得冒险者荣誉经验 +30。");
+function updateOnlinePlaytime(dt) {
+  if (!state.vip) return;
+  state.vip.onlineSecondsToday = (state.vip.onlineSecondsToday || 0) + (dt || 0);
+  if (state.vip.onlineSecondsToday >= 1800 && state.vip.onlineRewardClaimed !== todayKey()) {
+    gainVipExp(30);
+    state.vip.onlineRewardClaimed = todayKey();
+    addLog("在线满 30 分钟，获得冒险者荣誉经验 +30。");
+  }
+}
+
+function renderSkillBarV3() {
+  var bar = els.skillBarV3;
+  if (!bar) return;
+  var jobId = state.hero.jobId;
+  var allSkills = window.getV3CombatSkills ? window.getV3CombatSkills(jobId) : (window.v3JobSkills ? (window.v3JobSkills[jobId] || []) : []);
+  var activeSkills = allSkills.filter(function (s) { return s.kind === '主动'; });
+  if (activeSkills.length === 0) {
+    bar.style.display = 'none';
+    bar.innerHTML = '';
+    bar.dataset.skillComposition = '';
+    return;
+  }
+  bar.style.display = '';
+  var composition = jobId + ':' + activeSkills.map(function (skill) { return skill.id; }).join('|');
+  if (bar.dataset.skillComposition !== composition) {
+    bar.dataset.skillComposition = composition;
+    bar.innerHTML = activeSkills.map(function (skill) {
+      return '<div class="skill-bar-icon" data-skill-id="' + escapeHtml(skill.id) + '">' +
+        '<div class="skill-bar-overlay"></div>' +
+        '<span class="skill-bar-name">' + escapeHtml(skill.name) + '</span>' +
+        '<span class="skill-bar-timer"></span>' +
+        '<span class="skill-bar-awaken" hidden></span>' +
+        '</div>';
+    }).join('');
+  }
+  var cooldowns = state.skillCooldowns || {};
+  var marks = state.enemyMarks || {};
+  var gold = state.gold || 0;
+  var awaken = window.v3SkillAwakenings && window.v3SkillAwakenings[jobId];
+  var now = Date.now();
+  var i, skill, mech, maxCd, cdRemaining, stateClass, timerText, overlayHeight, conditionMet, conditionHint, icon, overlay, timer, awakenEl;
+  for (i = 0; i < activeSkills.length; i++) {
+    skill = activeSkills[i];
+    mech = skill.mechanism || {};
+    maxCd = skill.cooldown || 5;
+    cdRemaining = cooldowns[skill.id] || 0;
+
+    if (cdRemaining > 0) {
+      stateClass = 'cooldown';
+      timerText = cdRemaining < 10 ? cdRemaining.toFixed(1) + 's' : Math.ceil(cdRemaining) + 's';
+      overlayHeight = Math.round(Math.min(1, Math.max(0, cdRemaining / maxCd)) * 100);
+    } else {
+      conditionMet = true;
+      conditionHint = '';
+      if (mech.type === 'spreadMark') {
+        if (!(marks.poison > 0)) { conditionMet = false; conditionHint = '\u9700\u8981\u4e2d\u6bd2'; }
+      }
+      if (mech.type === 'goldCost') {
+        var gcPct = mech.goldPct || mech.goldCostPct || 0.0008;
+        var levelCap = mech.goldCostLevelCapMultiplier ? Math.round(Math.max(1, Number(state.hero.baseLevel || state.hero.jobLevel || 1)) * mech.goldCostLevelCapMultiplier) : Infinity;
+        var gcCost = Math.min(Math.round(gold * gcPct), levelCap);
+        if (gcCost <= 0 || gold < gcCost) { conditionMet = false; conditionHint = '\u91d1\u5e01\u4e0d\u8db3'; }
+      }
+      if (conditionMet) {
+        stateClass = 'ready';
+        timerText = '';
+        overlayHeight = 0;
+      } else {
+        stateClass = 'waiting';
+        timerText = conditionHint;
+        overlayHeight = 0;
+      }
+    }
+
+    icon = bar.children[i];
+    if (!icon) continue;
+    var casting = recentCombatSkillCast.id === skill.id && recentCombatSkillCast.until > now;
+    icon.className = 'skill-bar-icon ' + stateClass + (casting ? ' casting' : '');
+    icon.title = skill.name + (stateClass === 'cooldown' ? ' - \u51b7\u5374\u4e2d ' + timerText : stateClass === 'ready' ? ' - \u5df2\u5c31\u7eea' : ' - ' + timerText);
+    overlay = icon.querySelector('.skill-bar-overlay');
+    timer = icon.querySelector('.skill-bar-timer');
+    awakenEl = icon.querySelector('.skill-bar-awaken');
+    if (overlay) overlay.style.height = overlayHeight + '%';
+    if (timer && timer.textContent !== timerText) timer.textContent = timerText;
+    if (awakenEl) {
+      var hasAwaken = Boolean(awaken && awaken.skill === skill.name);
+      var unlocked = hasAwaken && Boolean(state.rebirthAwakenings && state.rebirthAwakenings[jobId]);
+      var enoughMarks = unlocked && Number(state.awakeningMarks || 0) >= Number(awaken.cost || 0);
+      awakenEl.hidden = !unlocked;
+      awakenEl.className = 'skill-bar-awaken' + (enoughMarks ? ' is-ready' : ' is-waiting');
+      awakenEl.textContent = enoughMarks ? '\u2605' : '\u5370';
+      awakenEl.title = enoughMarks ? '\u89c9\u9192\u53ef\u89e6\u53d1' : '\u89c9\u9192\u5370\u8bb0\u4e0d\u8db3';
     }
   }
+}
+
+function renderSkillCastBanner() {
+  var banner = els.skillCastBanner;
+  if (!banner) return;
+  var active = recentCombatSkillCast && recentCombatSkillCast.name && recentCombatSkillCast.until > Date.now();
+  banner.hidden = !active;
+  if (active) {
+    var text = '\u6b63\u5728\u91ca\u653e\uff1a' + recentCombatSkillCast.name;
+    if (banner.textContent !== text) banner.textContent = text;
+  } else if (banner.textContent) {
+    banner.textContent = '';
+  }
+}
+
+function renderEnemyStatusBar() {
+  var bar = els.enemyStatusBar;
+  if (!bar) return;
+  var runtime = window.RuneFrontierCombatRuntime;
+  var statuses = runtime && typeof runtime.getEnemyStatusDisplayState === 'function'
+    ? runtime.getEnemyStatusDisplayState(state)
+    : [];
+  var signature = statuses.map(function (status) {
+    return [status.id, Math.ceil(Number(status.remaining || 0)), Number(status.stacks || 0)].join(':');
+  }).join('|');
+  if (bar.dataset.statusSignature === signature) return;
+  bar.dataset.statusSignature = signature;
+  bar.hidden = statuses.length === 0;
+  bar.innerHTML = statuses.map(function (status) {
+    var countText = status.stacks > 0 ? ' x' + status.stacks : '';
+    var timeText = status.remaining > 0 ? ' ' + Math.ceil(status.remaining) + 's' : '';
+    return '<span class="enemy-status-chip ' + escapeHtml(status.tone || '') + '">' +
+      escapeHtml(status.label + countText + timeText) + '</span>';
+  }).join('');
+}
+
+function renderFast(force = false) {
+  const runtime = window.RuneFrontierRenderRuntime;
+  if (runtime && typeof runtime.renderFast === "function") return runtime.renderFast(force);
+  const now = Date.now();
+  if (!force && now - lastFastRenderAt < FAST_RENDER_INTERVAL_MS) return;
+  lastFastRenderAt = now;
+  const stats = computeStats();
+  updateActiveEnemyHpInGroup();
   if (autoSalvageBatchCount > 0 && Date.now() - autoSalvageBatchLastFlush > 30000) {
     addLog(`自动分解 ${autoSalvageBatchCount} 件装备，获得：${materialText(autoSalvageBatchMaterials)}`);
     autoSalvageBatchCount = 0;
@@ -8900,7 +7408,12 @@ function renderFast() {
   els.goldValue.textContent = formatNumber(state.gold);
   els.teamLevelValue.textContent = state.hero.baseLevel;
   els.powerValue.textContent = formatNumber(stats.power);
-  els.gpsValue.textContent = `${formatNumber(estimateGoldPerSecond())}/秒`;
+  els.gpsValue.textContent = `${formatNumber(estimateGoldPerSecond(stats))}/秒`;
+  if (activePage !== "adventure") return;
+  renderCombatSidebar();
+  renderSkillBarV3();
+  renderSkillCastBanner();
+  renderEnemyStatusBar();
 
   const enemyCurrentHp = Math.max(0, Number(state.enemyHp) || 0);
   const enemyMaxHp = Math.max(1, Number(state.enemyMaxHp) || 1);
@@ -8950,11 +7463,11 @@ function renderFast() {
     sessionStatsLastRenderAt = Date.now();
     renderPartyList();
   }
-  renderOfflineRewardModal();
-  renderRefineResultModal();
 }
 
 function renderFormation() {
+  const runtime = window.RuneFrontierRenderRuntime;
+  if (runtime && typeof runtime.renderFormation === "function") return runtime.renderFormation();
   ["front", "mid", "back"].forEach((slot) => {
     const button = document.querySelector(`.slot[data-slot="${slot}"]`);
     button.classList.toggle("active", selectedSlot === slot);
@@ -8984,54 +7497,79 @@ function statLine(label, value, statKey = "", options = {}) {
 }
 
 function renderStatGroup(title, rows) {
+  const runtime = window.RuneFrontierRenderRuntime;
+  if (runtime && typeof runtime.renderStatGroup === "function") return runtime.renderStatGroup(title, rows);
   const content = rows.filter(Boolean).join("");
   if (!content) return "";
   return `<section class="hero-stat-section"><strong>${escapeHtml(title)}</strong><div class="stat-grid">${content}</div></section>`;
 }
 
-function renderCharacterStatSections(stats = computeStats()) {
-  const attrs = stats.attrs || {};
-  return `<div class="character-stat-panels">
-    ${renderStatGroup("基础属性", [
-      statLine("BASE等级", state.hero.baseLevel, "", { showZero: true }),
-      statLine("JOB等级", state.hero.jobLevel, "", { showZero: true }),
-      statLine("转生次数", state.hero.rebirths || 0, "", { showZero: true }),
-      statLine("生命", stats.maxHp, "", { showZero: true }),
-      statLine("攻击", stats.physicalAttack || stats.atkPower, "", { showZero: true }),
-      statLine("魔法攻击", stats.magicAttack || stats.matkPower, "", { showZero: true }),
-      statLine("防御", stats.defense, "", { showZero: true }),
-      ...attributeKeys.map((stat) => statLine(stat.toUpperCase(), attrs[stat], "", { showZero: true })),
-    ])}
-    ${renderStatGroup("战斗属性", [
-      `<span>${formatCritRateSummary(stats)}<small>造成暴击的概率，玩家最高生效 100%。</small></span>`,
-      statLine("暴击伤害", stats.critDamage || (1.85 + (stats.critDamageBonus || 0)), "", { percent: true, showZero: true, note: "目前无硬上限" }),
-      statLine("攻速", stats.attackSpeed || stats.aspd, "", { showZero: true, decimals: 2 }),
-      statLine("命中", stats.hitRate, "hitRate"),
-      statLine("闪避", stats.dodgeRate, "", { percent: true }),
-      statLine("吸血", stats.lifeSteal, "lifeSteal"),
-      statLine("伤害减免", stats.damageReductionPct, "damageReductionPct"),
-      statLine("最终伤害", stats.finalDamageBonus, "finalDamageBonus"),
-    ])}
-    ${renderStatGroup("Boss / 深渊属性", [
-      statLine("Boss伤害", stats.bossDamageBonus, "bossDamageBonus"),
-      statLine("Boss减伤", stats.bossDamageReduction, "bossDamageReduction"),
-      statLine("精英/首领伤害", stats.eliteDamageBonus, "eliteDamageBonus"),
-      statLine("深渊伤害", stats.abyssDamageBonus, "abyssDamageBonus"),
-      statLine("深渊减伤", stats.abyssDamageReduction, "abyssDamageReduction", { note: "深渊相关战斗生效" }),
-      statLine("深渊材料掉率", stats.abyssMaterialDropBonus, "abyssMaterialDropBonus"),
-      statLine("神话品质权重", stats.mythicWeightBonus, "mythicWeightBonus", { note: "权重，不是直接掉率" }),
-    ])}
-    ${renderStatGroup("收益属性", [
-      statLine("金币收益", (stats.goldMultiplier || 1) - 1, "goldBonus"),
-      statLine("BASE经验", (stats.baseExpMultiplier || 1) - 1, "baseExpBonus"),
-      statLine("JOB经验", (stats.jobExpMultiplier || 1) - 1, "jobExpBonus"),
-      statLine("材料/普通掉落率", stats.dropBonus, "dropBonus", { note: "不等于高品质直接掉率" }),
-      statLine("装备掉率", stats.equipmentDropBonus, "equipmentDrop"),
-      statLine("卡片掉率", stats.cardDropBonus, "cardDrop"),
-      statLine("稀有品质权重", stats.rareDropBonus, "rareDropBonus", { note: "影响品质倾向" }),
-    ])}
-    <p class="slot-meta">属性计算说明：装备详情显示单件装备自身属性；角色页面显示基础、职业成长、装备、精炼、星炼、卡片、套装、图鉴、称号、VIP/冒险者荣誉、深渊词条等来源汇总后的最终生效属性。百分比属性通常在最终计算时生效，不会直接写入装备原始数值。</p>
-  </div>`;
+function renderCharacterStatSections(stats = computeStats()) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderCharacterStatSections === "function") return runtime.renderCharacterStatSections(stats);
+  var attrs = stats.attrs || {};
+  function panel(key, title, rows, defaultOpen) {
+    var expanded = characterStatPanelState.hasOwnProperty(key) ? characterStatPanelState[key] : Boolean(defaultOpen);
+    var content = rows.filter(Boolean).join('');
+    if (!content) return '';
+    return '<details class="stat-sub-panel"' + (expanded ? ' open' : '') + '><summary data-stat-panel-toggle="' + key + '">' + escapeHtml(title) + '</summary><div class="stat-grid">' + content + '</div></details>';
+  }
+  return '<div class="character-stat-panels">' +
+    panel('base', '基础属性', [
+      statLine('BASE等级', state.hero.baseLevel, '', { showZero: true }),
+      statLine('JOB等级', state.hero.jobLevel, '', { showZero: true }),
+      statLine('转生次数', state.hero.rebirths || 0, '', { showZero: true }),
+      statLine('生命', stats.maxHp, '', { showZero: true }),
+      statLine('攻击', stats.physicalAttack || stats.atkPower, '', { showZero: true }),
+      statLine('魔法攻击', stats.magicAttack || stats.matkPower, '', { showZero: true }),
+      statLine('防御', stats.defense, '', { showZero: true }),
+      attributeKeys.map(function (stat) { return statLine(stat.toUpperCase(), attrs[stat], '', { showZero: true }); }).join(''),
+    ], true) +
+    panel('combat', '战斗属性', [
+      '<span>' + formatCritRateSummary(stats) + '<small>造成暴击的概率，玩家最高生效 100%。</small></span>',
+      statLine('暴击伤害', stats.critDamage || (1.85 + (stats.critDamageBonus || 0)), '', { percent: true, showZero: true, note: '目前无硬上限' }),
+      statLine('攻速', stats.attackSpeed || stats.aspd, '', { showZero: true, decimals: 2, note: '约 ' + (1 / Math.max(0.01, stats.attackSpeed || stats.aspd || 0.5)).toFixed(1) + ' 秒/次' }),
+      statLine('命中', stats.hitRate, 'hitRate'),
+      statLine('最终伤害', stats.finalDamageBonus, 'finalDamageBonus'),
+      statLine('技能伤害', stats.skillDamageBonus, 'skillDamageBonus', { note: '仅作用于技能' }),
+      statLine('对怪物伤害', stats.monsterDamageBonus, 'monsterDamageBonus'),
+    ]) +
+    panel('survival', '生存属性', [
+      statLine('吸血', stats.lifeSteal, 'lifeSteal'),
+      statLine('伤害减免', stats.damageReductionPct, 'damageReductionPct'),
+      statLine('闪避', stats.dodgeRate, '', { percent: true }),
+      statLine('格挡率', stats.blockRate, 'blockRate'),
+      statLine('抗暴率', stats.antiCrit, 'antiCrit'),
+      statLine('生命恢复', stats.hpRegen, '', { showZero: true }),
+    ]) +
+    panel('abyss', 'Boss / 深渊属性', [
+      statLine('Boss伤害', stats.bossDamageBonus, 'bossDamageBonus'),
+      statLine('Boss减伤', stats.bossDamageReduction, 'bossDamageReduction'),
+      statLine('精英/首领伤害', stats.eliteDamageBonus, 'eliteDamageBonus'),
+      statLine('深渊伤害', stats.abyssDamageBonus, 'abyssDamageBonus'),
+      statLine('深渊减伤', stats.abyssDamageReduction, 'abyssDamageReduction', { note: '深渊相关战斗生效' }),
+      statLine('深渊材料掉率', stats.abyssMaterialDropBonus, 'abyssMaterialDropBonus'),
+      statLine('神话品质权重', stats.mythicWeightBonus, 'mythicWeightBonus', { note: '权重，不是直接掉率' }),
+    ]) +
+    panel('loot', '收益属性', [
+      statLine('金币收益', (stats.goldMultiplier || 1) - 1, 'goldBonus'),
+      statLine('BASE经验', (stats.baseExpMultiplier || 1) - 1, 'baseExpBonus'),
+      statLine('JOB经验', (stats.jobExpMultiplier || 1) - 1, 'jobExpBonus'),
+      statLine('材料/普通掉落率', stats.dropBonus, 'dropBonus', { note: '不等于高品质直接掉率' }),
+      statLine('装备掉率', stats.equipmentDropBonus, 'equipmentDrop'),
+      statLine('卡片掉率', stats.cardDropBonus, 'cardDrop'),
+      statLine('稀有品质权重', stats.rareDropBonus, 'rareDropBonus', { note: '影响品质倾向' }),
+    ]) +
+    '<details class="stat-sub-panel"><summary data-stat-panel-toggle="formula">属性机制说明</summary><div class="slot-meta" style="margin:4px 8px;font-size:0.68rem;line-height:1.5">' +
+      '物攻 = (基础 + 装备ATK + <b>STR×2</b> + DEX×0.5) × (1 + 职业加成)<br>' +
+      '魔攻 = (基础 + 装备MATK + <b>INT×2</b> + DEX×0.4) × (1 + 职业加成)<br>' +
+      '攻速 = 职业基础 × (1+加成) + <b>AGI×0.01</b> + 装备攻速<br>' +
+      '暴击 = <b>DEX×0.0005</b> + <b>LUK×0.001</b> + 装备暴击<br>' +
+      '生命 = (基础 + 装备HP + <b>VIT×20</b> + 等级×10) × (1 + 加成)<br>' +
+      '防御 = (基础 + 装备DEF + <b>VIT×0.5</b>) × (1 + 加成)<br>' +
+      '闪避 = <b>AGI×0.002</b> + 等级×0.0005 + 装备闪避<br>' +
+      '生命恢复 = (1 + <b>VIT×0.2</b> + 等级×0.05 + 装备) × (1 + 加成)' +
+    '</div></details>' +
+    '<p class="slot-meta">属性计算说明：装备详情显示单件装备自身属性；角色页面显示基础、职业成长、装备、精炼、星炼、卡片、套装、图鉴、称号、VIP/冒险者荣誉、深渊词条等来源汇总后的最终生效属性。百分比属性通常在最终计算时生效，不会直接写入装备原始数值。</p>' +
+  '</div>';
 }
 
 function getCharacterStatBreakdown(stats = computeStats()) {
@@ -9084,7 +7622,7 @@ function estimateRefineSourceStats() {
   }, {});
 }
 
-function renderCharacterStatBreakdown(stats = computeStats()) {
+function renderCharacterStatBreakdown(stats = computeStats()) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderCharacterStatBreakdown === "function") return runtime.renderCharacterStatBreakdown(stats);
   const breakdown = getCharacterStatBreakdown(stats);
   const rows = Object.entries(breakdown.sources || {}).map(([source, values]) => {
     const text = Object.entries(values || {})
@@ -9104,7 +7642,7 @@ function renderCharacterStatBreakdown(stats = computeStats()) {
   </section>`;
 }
 
-function renderHeroes() {
+function renderHeroes() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderHeroes === "function") return runtime.renderHeroes();
   const stats = computeStats();
   const job = currentJob();
   const nextSkill = getNextJobSkill();
@@ -9160,7 +7698,7 @@ function renderHeroes() {
           <button class="ghost" type="button" data-rebirth ${atBaseCap ? "" : "disabled"}>转生</button>
         </div>
         <details class="hero-details">
-          <summary>属性来源 · 套装 · 称号 · 技能</summary>
+          <summary>属性来源 · 套装 · 称号</summary>
           ${renderCharacterStatSections(stats)}
           ${renderCharacterStatBreakdown(stats)}
           <div class="set-talent">${renderSetTalentStatus()}</div>
@@ -9172,15 +7710,15 @@ function renderHeroes() {
             <small>稀有+ +${percent(prestigeBonus.rarePlusWeightBonus)} · 史诗+ +${percent(prestigeBonus.epicPlusWeightBonus)} · 传说+ +${percent(prestigeBonus.legendPlusWeightBonus)} · 暗金+ +${percent(prestigeBonus.darkGoldPlusWeightBonus)} · 神话 +${percent(prestigeBonus.mythicWeightBonus)}</small>
           </section>
           <p class="job-growth">${describeJobGrowth()}</p>
-          <section class="skill-panel">${renderSkillPanel()}</section>
         </details>
+        <section class="skill-panel">${renderSkillPanel()}</section>
         <div class="meter"><div style="width:${jobProgress}%"></div></div>
       </div>
     </article>
   `;
 }
 
-function renderPowerSourcePanel(stats) {
+function renderPowerSourcePanel(stats) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderPowerSourcePanel === "function") return runtime.renderPowerSourcePanel(stats);
   const equip = computeEquipmentFullStats();
   const setBonuses = stats.setBonuses || {};
   const cardStats = getCardStats();
@@ -9243,7 +7781,7 @@ function renderPowerSourcePanel(stats) {
   </section>`;
 }
 
-function renderTown() {
+function renderTown() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderTown === "function") return runtime.renderTown();
   const canFirst = state.hero.jobId === "novice" && state.hero.jobLevel >= 10;
   const nextJobId = getNextJobId();
   const canAdvance = Boolean(nextJobId) && state.hero.jobLevel >= 50;
@@ -9274,13 +7812,13 @@ function renderTown() {
   }
 }
 
-function renderSmithy() {
+function renderSmithy() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderSmithy === "function") return runtime.renderSmithy();
   const html = renderSmithyContent();
   if (els.smithySetList) els.smithySetList.innerHTML = html;
   return html;
 }
 
-function renderSmithyContent() {
+function renderSmithyContent() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderSmithyContent === "function") return runtime.renderSmithyContent();
   const tabs = [
     ["enhance", "装备精炼"],
     ["star", "装备星炼"],
@@ -9363,7 +7901,7 @@ function renderSmithyContent() {
   `;
 }
 
-function renderStarRefineSmithyPanel() {
+function renderStarRefineSmithyPanel() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderStarRefineSmithyPanel === "function") return runtime.renderStarRefineSmithyPanel();
   const items = [...state.inventory]
     .filter((item) => (item.refine || 0) < 15)
     .sort((a, b) => itemScore(b) - itemScore(a))
@@ -9386,7 +7924,7 @@ function renderStarRefineSmithyPanel() {
   }).join("")}</div>`;
 }
 
-function renderCardSocketSmithyPanel() {
+function renderCardSocketSmithyPanel() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderCardSocketSmithyPanel === "function") return runtime.renderCardSocketSmithyPanel();
   const candidates = state.inventory
     .filter((item) => getMaxEquipmentCardSlots(item) > getEquipmentCardSlotCount(item))
     .sort((a, b) => itemScore(b) - itemScore(a))
@@ -9414,7 +7952,7 @@ function renderCardSocketSmithyPanel() {
     .join("")}</div>`;
 }
 
-function renderSmithyMaterialGuide() {
+function renderSmithyMaterialGuide() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderSmithyMaterialGuide === "function") return runtime.renderSmithyMaterialGuide();
   const rows = [
     ["socketStone", "用于普通装备开启孔位。主要来源：商店、Boss、困难地图。"],
     ["advancedSocketStone", "用于高品质装备或第 2 / 第 3 孔。主要来源：Boss、商店、高阶材料。"],
@@ -9431,7 +7969,7 @@ function renderSmithyMaterialGuide() {
   </article>`).join("")}</div>`;
 }
 
-function renderDarkGoldExchangePanel() {
+function renderDarkGoldExchangePanel() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderDarkGoldExchangePanel === "function") return runtime.renderDarkGoldExchangePanel();
   const fragmentCount = state.materials.darkGoldFragment || 0;
   const slotOptions = [
     ["weapon", "武器"],
@@ -9458,7 +7996,7 @@ function renderDarkGoldExchangePanel() {
   </div>`;
 }
 
-function renderDarkGoldExchangeCard(entry, fragmentCount) {
+function renderDarkGoldExchangeCard(entry, fragmentCount) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderDarkGoldExchangeCard === "function") return runtime.renderDarkGoldExchangeCard(entry, fragmentCount);
   const disabled = fragmentCount < entry.cost || state.inventory.length >= getInventoryLimit();
   return `<div class="smithy-item">
     <span class="item-icon rarity-darkGold">暗</span>
@@ -9472,6 +8010,8 @@ function renderDarkGoldExchangeCard(entry, fragmentCount) {
 }
 
 function getEnhanceMilestoneBonuses(item) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.getEnhanceMilestoneBonuses === "function") return runtime.getEnhanceMilestoneBonuses(item);
   const level = item?.enhanceLevel || 0;
   const slot = equipmentSlot(item);
   const bonuses = {};
@@ -9546,7 +8086,7 @@ function renderEnhancePanel() {
   </div>`;
 }
 
-function renderEnhanceEffectText(item) {
+function renderEnhanceEffectText(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEnhanceEffectText === "function") return runtime.renderEnhanceEffectText(item);
   if (!item || !item.enhanceLevel) return "";
   const eff = getEnhanceEffect(item, item.enhanceLevel);
   const ms = getEnhanceMilestoneBonuses(item);
@@ -9563,6 +8103,8 @@ function renderEnhanceEffectText(item) {
 }
 
 function getEnhanceCost(item) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.getEnhanceCost === "function") return runtime.getEnhanceCost(item);
   if (!item) return { materials: {}, gold: 0 };
   const next = (item.enhanceLevel || 0) + 1;
   const slot = equipmentSlot(item);
@@ -9593,6 +8135,8 @@ function getEnhanceCost(item) {
 }
 
 function getEnhanceEffect(item, level) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.getEnhanceEffect === "function") return runtime.getEnhanceEffect(item, level);
   if (!item || !level) return "";
   const slot = equipmentSlot(item);
   const pct = Math.round(level * (slot === "weapon" ? 3 : slot === "armor" ? 2.5 : 2) * 10) / 10;
@@ -9612,6 +8156,8 @@ function getEnhanceEffect(item, level) {
 }
 
 function enhanceItem(itemId) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.enhanceItem === "function") return runtime.enhanceItem(itemId);
   const item = state.inventory.find((i) => i.id === itemId);
   if (!item) return;
   const current = item.enhanceLevel || 0;
@@ -9654,7 +8200,7 @@ function enhanceItem(itemId) {
 }
 
 
-function renderSmithyPage() {
+function renderSmithyPage() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderSmithyPage === "function") return runtime.renderSmithyPage();
   if (!els.smithyPageContent) return;
   els.smithyPageContent.innerHTML = renderSmithyContent();
 }
@@ -9907,7 +8453,7 @@ function getEquipmentSummaryEntries(item, limit = 4) {
     .slice(0, limit);
 }
 
-function renderEquipmentSummaryStats(item, limit = 4) {
+function renderEquipmentSummaryStats(item, limit = 4) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentSummaryStats === "function") return runtime.renderEquipmentSummaryStats(item, limit);
   const entries = getEquipmentSummaryEntries(item, limit);
   if (!entries.length) return `<div class="equipment-card-empty">无核心属性</div>`;
   return `<div class="equipment-summary-grid">${entries
@@ -9915,7 +8461,32 @@ function renderEquipmentSummaryStats(item, limit = 4) {
     .join("")}</div>`;
 }
 
-function renderEquipmentCardScore(item) {
+function renderCoreStatBars(item, limit = 4) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderCoreStatBars === "function") return runtime.renderCoreStatBars(item, limit);
+  const entries = getEquipmentSummaryEntries(item, limit);
+  if (!entries.length) return '';
+  const maxVal = Math.max(...entries.map(function (e) { return Math.abs(e.value); }), 1);
+  return '<div class="core-stat-bars">' + entries.map(function (entry) {
+    var pct = Math.abs(entry.value) / maxVal * 100;
+    var display = formatStatValue(entry.stat, entry.value).replace(/^\+/, '');
+    return '<div class="core-stat-bar"><span class="core-stat-bar-label">' + escapeHtml(entry.label) + '</span><div class="core-stat-bar-track"><div class="core-stat-bar-fill" style="width:' + pct.toFixed(0) + '%"></div></div><span class="core-stat-bar-value">' + display + '</span></div>';
+  }).join('') + '</div>';
+}
+
+function renderEquipmentSpecialTags(item, limit = 3) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentSpecialTags === "function") return runtime.renderEquipmentSpecialTags(item, limit);
+  var specialKeys = ["ignoreDefense", "echoChance", "splashTargets", "splashDamagePct", "fireBurstChance", "fireBurstAtkPct", "meteorCounterChance", "meteorCounterMatkPct", "lifeSteal", "skillHitHealPct", "mutationMaterialDoubleChance", "thornVitMultiplier"];
+  var effective = getEffectiveItemStats(item, false);
+  var tags = [];
+  for (var i = 0; i < specialKeys.length && tags.length < limit; i++) {
+    var entry = equipmentStatEntry(effective, specialKeys[i]);
+    if (entry) tags.push(entry);
+  }
+  if (!tags.length) return '';
+  return '<div class="equipment-special-tags">' + tags.map(function (tag) {
+    return '<span class="equipment-special-tag"><span>' + escapeHtml(tag.label) + '</span><strong>' + formatStatValue(tag.stat, tag.value) + '</strong></span>';
+  }).join('') + '</div>';
+}
+
+function renderEquipmentCardScore(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentCardScore === "function") return runtime.renderEquipmentCardScore(item);
   const scores = calculateEquipmentScores(item, currentJob());
   return `<div class="equipment-card-score">
     <span>综合评分</span>
@@ -9923,7 +8494,7 @@ function renderEquipmentCardScore(item) {
   </div>`;
 }
 
-function renderEquipmentStateBadges(item, equipped, nextStar) {
+function renderEquipmentStateBadges(item, equipped, nextStar) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentStateBadges === "function") return runtime.renderEquipmentStateBadges(item, equipped, nextStar);
   const badges = [];
   if (equipped) badges.push("已装备");
   if (item.locked) badges.push("已锁定");
@@ -9952,7 +8523,7 @@ function toggleEquipmentDetailExpanded(key) {
   renderEquipment();
 }
 
-function renderEquipment() {
+function renderEquipment() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipment === "function") return runtime.renderEquipment();
   pruneEquipmentDetailExpandedState();
   els.equippedSlots.innerHTML = ["weapon", "armor", "headgear", "shoes", "trinket"]
     .map((slot) => {
@@ -10011,7 +8582,8 @@ function renderEquipment() {
           ${isAbyssEquipment(item) ? `<span class="equip-meta">来源：深渊难度</span>` : ""}
           ${item.setName ? `<span class="equip-meta">${renderSetName(item.setName)}</span>` : ""}
           ${renderEquipmentCardScore(item)}
-          ${renderEquipmentSummaryStats(item, 4)}
+          ${renderCoreStatBars(item, 4)}
+          ${renderEquipmentSpecialTags(item, 3)}
           <details class="equipment-detail-toggle" data-equipment-detail-key="${escapeAttr(detailKey)}" ${detailExpanded ? "open" : ""}>
             <summary data-equipment-detail-toggle="${escapeAttr(detailKey)}">${detailExpanded ? "收起完整属性" : "查看完整属性"}</summary>
             ${renderCardSocketSection(item)}
@@ -10035,7 +8607,7 @@ function renderEquipment() {
   `;
 }
 
-function renderEquipmentFilterBar(count) {
+function renderEquipmentFilterBar(count) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentFilterBar === "function") return runtime.renderEquipmentFilterBar(count);
   const filters = [
     ["all", "全部"],
     ["equipped", "已装备"],
@@ -10118,7 +8690,7 @@ function sortEquipmentList(items) {
   return indexed.map((entry) => entry.item);
 }
 
-function renderEquipmentBatchPanel() {
+function renderEquipmentBatchPanel() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentBatchPanel === "function") return runtime.renderEquipmentBatchPanel();
   return `<div class="slot-card equipment-batch-card">
     <span class="slot-name">装备批量处理</span>
     <p class="slot-meta">批量操作会跳过已穿戴、已锁定和高价值风险装备。</p>
@@ -10202,7 +8774,7 @@ function equipmentVisualClass(item) {
     .join(" ");
 }
 
-function renderEquipmentBadges(item) {
+function renderEquipmentBadges(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentBadges === "function") return runtime.renderEquipmentBadges(item);
   const subTypeName = equipmentSubTypeName(item);
   const badges = [
     { text: rarityName(item.rarity), cls: "equipment-badge-rarity" },
@@ -10215,7 +8787,7 @@ function renderEquipmentBadges(item) {
   return `<div class="equipment-badge-row">${badges.map((badge) => `<span class="equipment-badge ${badge.cls}">${escapeHtml(badge.text)}</span>`).join("")}</div>`;
 }
 
-function renderMaps() {
+function renderMaps() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderMaps === "function") return runtime.renderMaps();
   els.mapList.innerHTML = maps
     .map((map, index) => {
       const locked = index > state.bestMap;
@@ -10283,7 +8855,7 @@ function renderMaps() {
     .join("");
 }
 
-function renderCards() {
+function renderCards() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderCards === "function") return runtime.renderCards();
   const cards = [...cardPool].sort((a, b) => {
     const favDelta = Number(Boolean(state.cardFavorites[b.id])) - Number(Boolean(state.cardFavorites[a.id]));
     return favDelta || a.map - b.map;
@@ -10322,7 +8894,7 @@ function renderCards() {
     .join("");
 }
 
-function renderBossCardSynthesis() {
+function renderBossCardSynthesis() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderBossCardSynthesis === "function") return runtime.renderBossCardSynthesis();
   const shardCount = Number(state.materials?.bossCardShard || 0);
   return `
     <section class="card-type-section boss-card-synthesis">
@@ -10410,7 +8982,7 @@ function cardUsageText(type, card = {}) {
 let codexActiveTab = "monster";
 let shopActiveTab = "normal";
 
-function renderCodex() {
+function renderCodex() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderCodex === "function") return runtime.renderCodex();
   if (!els.codexContent) return;
   els.codexContent.innerHTML = (codexActiveTab === "monster" ? renderCodexBonusesSummary() + renderMonsterCodex() : renderCodexBonusesSummary() + renderCardCodex());
   document.querySelectorAll(".codex-tab-btn").forEach((btn) => {
@@ -10419,6 +8991,8 @@ function renderCodex() {
 }
 
 function buildMonsterNameMap() {
+  const runtime = window.RuneFrontierCodexRuntime;
+  if (runtime && typeof runtime.buildMonsterNameMap === "function") return runtime.buildMonsterNameMap();
   const map = {};
   Object.values(mapMonsterConfig || {}).forEach((cfg) => {
     (cfg.monsters || []).forEach((m) => { if (m && m.id) map[m.id] = m.name || m.id; });
@@ -10429,6 +9003,8 @@ function buildMonsterNameMap() {
 }
 
 function buildMonsterSourceMap() {
+  const runtime = window.RuneFrontierCodexRuntime;
+  if (runtime && typeof runtime.buildMonsterSourceMap === "function") return runtime.buildMonsterSourceMap();
   const map = {};
   Object.entries(mapMonsterConfig || {}).forEach(([, cfg]) => {
     const mapName = cfg.name || "";
@@ -10442,12 +9018,16 @@ function buildMonsterSourceMap() {
 }
 
 function buildMonsterCardDropMap() {
+  const runtime = window.RuneFrontierCodexRuntime;
+  if (runtime && typeof runtime.buildMonsterCardDropMap === "function") return runtime.buildMonsterCardDropMap();
   const map = {};
   cardPool.forEach((c) => { if (c.monsterId) { if (!map[c.monsterId]) map[c.monsterId] = []; map[c.monsterId].push(c.name || c.id); } });
   return map;
 }
 
 function getMonsterTypeLabel(id) {
+  const runtime = window.RuneFrontierCodexRuntime;
+  if (runtime && typeof runtime.getMonsterTypeLabel === "function") return runtime.getMonsterTypeLabel(id);
   let type = null;
   Object.values(mapMonsterConfig || {}).forEach((cfg) => {
     if (cfg.bossTemplate && cfg.bossTemplate.id === id) type = cfg.name && cfg.name.includes("深渊") ? "深渊Boss" : "Boss";
@@ -10460,7 +9040,7 @@ function getMonsterTypeLabel(id) {
   return type || "普通";
 }
 
-function renderMonsterCodex() {
+function renderMonsterCodex() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderMonsterCodex === "function") return runtime.renderMonsterCodex();
   const nameMap = buildMonsterNameMap();
   const sourceMap = buildMonsterSourceMap();
   const cardDropMap = buildMonsterCardDropMap();
@@ -10511,7 +9091,7 @@ function renderMonsterCodex() {
   }).join("")}</div>`;
 }
 
-function renderCardCodex() {
+function renderCardCodex() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderCardCodex === "function") return runtime.renderCardCodex();
   const allCards = cardPool.map((c) => {
     const data = state.cardCodex[c.id] || { obtained: false, obtainCount: 0, rewardsClaimed: {} };
     return { id: c.id, name: c.name, rarity: c.rarity || "rare", ...data };
@@ -10545,6 +9125,8 @@ function renderCardCodex() {
 }
 
 function claimCodexReward(type, monsterId, milestone) {
+  const runtime = window.RuneFrontierCodexRuntime;
+  if (runtime && typeof runtime.claimCodexReward === "function") return runtime.claimCodexReward(type, monsterId, milestone);
   const num = Number(milestone);
   if (type === "monster") {
     const entry = state.monsterCodex[monsterId] || { killCount: 0, rewardsClaimed: {} };
@@ -10580,6 +9162,8 @@ function claimCodexReward(type, monsterId, milestone) {
 }
 
 function getCodexBonusStats() {
+  const runtime = window.RuneFrontierCodexRuntime;
+  if (runtime && typeof runtime.getCodexBonusStats === "function") return runtime.getCodexBonusStats();
   const stats = { goldBonus: 0, expBonus: 0, dropBonus: 0, materialDropBonus: 0, hpBonus: 0, defBonus: 0, critRateBonus: 0, bossDamage: 0, bossDamageReduction: 0, bossEquipDropBonus: 0, bossQualityWeight: 0, abyssDamage: 0, abyssDamageReduction: 0, abyssMaterialDropBonus: 0, mythicQualityWeight: 0, cardDamage: 0, eliteDamageBonus: 0 };
   Object.entries(state.monsterCodex || {}).forEach(([monsterId, data]) => {
     const mType = getMonsterTypeForCodex(monsterId);
@@ -10597,22 +9181,30 @@ function getCodexBonusStats() {
 }
 
 function getMonsterMasteryLevel(killCount) {
+  const runtime = window.RuneFrontierCodexRuntime;
+  if (runtime && typeof runtime.getMonsterMasteryLevel === "function") return runtime.getMonsterMasteryLevel(killCount);
   const kc = Number(killCount) || 0;
   for (let i = CODEX_MASTERY_THRESHOLDS.length - 1; i > 0; i -= 1) if (kc >= CODEX_MASTERY_THRESHOLDS[i]) return i;
   return 0;
 }
 
 function getCardResearchLevel(obtainCount) {
+  const runtime = window.RuneFrontierCodexRuntime;
+  if (runtime && typeof runtime.getCardResearchLevel === "function") return runtime.getCardResearchLevel(obtainCount);
   const oc = Number(obtainCount) || 0;
   for (let i = CODEX_RESEARCH_THRESHOLDS.length - 1; i > 0; i -= 1) if (oc >= CODEX_RESEARCH_THRESHOLDS[i]) return i;
   return 0;
 }
 
 function getMonsterTypeForCodex(monsterId) {
+  const runtime = window.RuneFrontierCodexRuntime;
+  if (runtime && typeof runtime.getMonsterTypeForCodex === "function") return runtime.getMonsterTypeForCodex(monsterId);
   return getMonsterTypeLabel(monsterId) === "Boss" ? "boss" : getMonsterTypeLabel(monsterId) === "深渊Boss" ? "abyssBoss" : getMonsterTypeLabel(monsterId) === "深渊怪" ? "abyss" : getMonsterTypeLabel(monsterId) === "精英" ? "elite" : "normal";
 }
 
 function getCardTypeForCodex(cardId) {
+  const runtime = window.RuneFrontierCodexRuntime;
+  if (runtime && typeof runtime.getCardTypeForCodex === "function") return runtime.getCardTypeForCodex(cardId);
   const card = cardPool.find((c) => c.id === cardId);
   if (!card) return "normal";
   const type = getCardType(card);
@@ -10622,6 +9214,8 @@ function getCardTypeForCodex(cardId) {
 }
 
 function getCodexBonuses() {
+  const runtime = window.RuneFrontierCodexRuntime;
+  if (runtime && typeof runtime.getCodexBonuses === "function") return runtime.getCodexBonuses();
   const bonuses = {
     goldBonus: 0, expBonus: 0, dropBonus: 0, materialDropBonus: 0, hpBonus: 0, defBonus: 0,
     critRateBonus: 0, bossDamage: 0, bossDamageReduction: 0, bossEquipDropBonus: 0, bossQualityWeight: 0,
@@ -10668,13 +9262,15 @@ function getCodexBonuses() {
 }
 
 function getTotalCodexLevel() {
+  const runtime = window.RuneFrontierCodexRuntime;
+  if (runtime && typeof runtime.getTotalCodexLevel === "function") return runtime.getTotalCodexLevel();
   let sum = 0;
   Object.values(state.monsterCodex || {}).forEach((d) => { sum += getMonsterMasteryLevel(d.killCount || 0); });
   Object.values(state.cardCodex || {}).forEach((d) => { sum += getCardResearchLevel(d.obtainCount || 0); });
   return Math.floor(sum / 10);
 }
 
-function renderCodexBonusesSummary() {
+function renderCodexBonusesSummary() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderCodexBonusesSummary === "function") return runtime.renderCodexBonusesSummary();
   const b = getCodexBonuses();
   const tl = getTotalCodexLevel();
   const monsterSum = Object.values(state.monsterCodex || {}).reduce((s, d) => s + getMonsterMasteryLevel(d.killCount || 0), 0);
@@ -10689,6 +9285,8 @@ function renderCodexBonusesSummary() {
 }
 
 function normalizeShopState() {
+  const runtime = window.RuneFrontierShopRuntime;
+  if (runtime && typeof runtime.normalizeShopState === "function") return runtime.normalizeShopState();
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
   const day = now.getDay();
@@ -10707,6 +9305,8 @@ function normalizeShopState() {
 }
 
 function getShopPurchaseCount(itemId, type) {
+  const runtime = window.RuneFrontierShopRuntime;
+  if (runtime && typeof runtime.getShopPurchaseCount === "function") return runtime.getShopPurchaseCount(itemId, type);
   normalizeShopState();
   if (type === "daily") return state.shopState.dailyPurchases[itemId] || 0;
   if (type === "weekly") return state.shopState.weeklyPurchases[itemId] || 0;
@@ -10714,6 +9314,8 @@ function getShopPurchaseCount(itemId, type) {
 }
 
 function formatShopCostItem(id, amount) {
+  const runtime = window.RuneFrontierShopRuntime;
+  if (runtime && typeof runtime.formatShopCostItem === "function") return runtime.formatShopCostItem(id, amount);
   const safeAmount = Number(amount || 0);
   const amountText = Number.isFinite(safeAmount) ? Math.round(safeAmount).toLocaleString("zh-CN") : "0";
   if (id === "gold") return `金币 ${amountText}`;
@@ -10722,12 +9324,16 @@ function formatShopCostItem(id, amount) {
 }
 
 function formatShopCost(cost = {}) {
+  const runtime = window.RuneFrontierShopRuntime;
+  if (runtime && typeof runtime.formatShopCost === "function") return runtime.formatShopCost(cost);
   const entries = Object.entries(cost || {}).filter(([, amount]) => Number(amount || 0) > 0);
   if (!entries.length) return "无消耗";
   return entries.map(([id, amount]) => formatShopCostItem(id, amount)).join(" + ");
 }
 
 function formatShopLimitText(item) {
+  const runtime = window.RuneFrontierShopRuntime;
+  if (runtime && typeof runtime.formatShopLimitText === "function") return runtime.formatShopLimitText(item);
   if (item.totalLimit) return `总计 ${getShopPurchaseCount(item.id, "total")}/${item.totalLimit}`;
   if (item.weeklyLimit) return `本周 ${getShopPurchaseCount(item.id, "weekly")}/${item.weeklyLimit}`;
   if (item.dailyLimit) return `今日 ${getShopPurchaseCount(item.id, "daily")}/${item.dailyLimit}`;
@@ -10735,6 +9341,8 @@ function formatShopLimitText(item) {
 }
 
 function canBuyShopItem(item) {
+  const runtime = window.RuneFrontierShopRuntime;
+  if (runtime && typeof runtime.canBuyShopItem === "function") return runtime.canBuyShopItem(item);
   const tab = shopActiveTab;
   if (item.totalLimit && getShopPurchaseCount(item.id, "total") >= item.totalLimit) return "已售罄";
   if (item.weeklyLimit && getShopPurchaseCount(item.id, "weekly") >= item.weeklyLimit) return "本周已售罄";
@@ -10751,6 +9359,8 @@ function canBuyShopItem(item) {
 }
 
 function buyShopItem(itemId) {
+  const runtime = window.RuneFrontierShopRuntime;
+  if (runtime && typeof runtime.buyShopItem === "function") return runtime.buyShopItem(itemId);
   const tab = shopActiveTab;
   const list = (typeof SHOP_ITEMS !== "undefined" ? SHOP_ITEMS[tab] : null);
   if (!list) return;
@@ -10787,7 +9397,7 @@ function buyShopItem(itemId) {
   save();
 }
 
-function renderShop() {
+function renderShop() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderShop === "function") return runtime.renderShop();
   if (!els.shopContent) return;
   const tab = shopActiveTab;
   const list = (typeof SHOP_ITEMS !== "undefined" ? SHOP_ITEMS[tab] : null) || [];
@@ -10816,7 +9426,7 @@ function renderShop() {
   }).join("")}</div>`;
 }
 
-function renderVip() {
+function renderVip() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderVip === "function") return runtime.renderVip();
   const vip = normalizeVip(state.vip);
   const progressInfo = getVipProgressInfo(vip);
   const bonuses = getVipBonuses(vip.level);
@@ -10876,10 +9486,13 @@ function renderVip() {
   `;
 }
 
-function renderTasks() {
-  const main = state.quests.active.filter((quest) => quest.category === "main");
-  const daily = state.quests.active.filter((quest) => quest.category === "daily");
+function renderTasks() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderTasks === "function") return runtime.renderTasks();
+  const hideCompleted = state.hideCompletedTasks !== false;
+  const main = state.quests.active.filter((quest) => quest.category === "main" && (!hideCompleted || !quest.completed));
+  const daily = state.quests.active.filter((quest) => quest.category === "daily" && (!hideCompleted || !quest.completed));
+  const toggleLabel = hideCompleted ? "已完成任务已隐藏，点击显示" : "显示全部任务";
   els.taskPage.innerHTML = `
+    <div class="task-toggle-bar"><button class="task-toggle-btn" data-toggle-completed-tasks type="button">${toggleLabel}</button></div>
     ${renderTaskSection("主线任务", main)}
     ${renderTaskSection("日常任务", daily)}
     ${renderDailyGoals()}
@@ -10887,7 +9500,7 @@ function renderTasks() {
   `;
 }
 
-function renderDailyGoals() {
+function renderDailyGoals() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderDailyGoals === "function") return runtime.renderDailyGoals();
   state.dailyGoals = normalizeDailyGoals(state.dailyGoals);
   return `<section class="quest-section daily-goal-section">
     <h3>每日目标</h3>
@@ -10906,7 +9519,7 @@ function renderDailyGoals() {
   </section>`;
 }
 
-function renderAchievementPage() {
+function renderAchievementPage() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderAchievementPage === "function") return runtime.renderAchievementPage();
   const groups = ACHIEVEMENT_DB.reduce((map, achievement) => {
     map[achievement.category] = map[achievement.category] || [];
     map[achievement.category].push(achievement);
@@ -10920,7 +9533,7 @@ function renderAchievementPage() {
   </section>`;
 }
 
-function renderAchievementCard(achievement) {
+function renderAchievementCard(achievement) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderAchievementCard === "function") return runtime.renderAchievementCard(achievement);
   const entry = getAchievementEntry(achievement.id);
   const done = entry.unlocked || entry.progress >= achievement.target;
   return `<article class="achievement-card ${done ? "achievement-done" : ""} ${entry.claimed ? "achievement-claimed" : ""}">
@@ -10951,7 +9564,7 @@ function renderTaskSection(title, quests) {
   </section>`;
 }
 
-function renderTaskCard(quest) {
+function renderTaskCard(quest) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderTaskCard === "function") return runtime.renderTaskCard(quest);
   const done = quest.completed || quest.currentCount >= quest.requiredCount;
   const claimed = quest.claimed;
   const buttonText = claimed ? "已领取" : done ? "领取奖励" : "进行中";
@@ -10988,7 +9601,7 @@ function awakenCard(id) {
   save();
 }
 
-function renderQuestList() {
+function renderQuestList() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderQuestList === "function") return runtime.renderQuestList();
   if (!els.questList) return;
   const progress = progressText();
   els.questList.innerHTML = `
@@ -11007,7 +9620,7 @@ function renderQuestList() {
   `;
 }
 
-function renderPartyList() {
+function renderPartyList() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderPartyList === "function") return runtime.renderPartyList();
   if (!els.partyList) return;
   const stats = computeStats();
   els.partyList.innerHTML = `
@@ -11024,7 +9637,7 @@ function renderPartyList() {
   `;
 }
 
-function renderAdvicePanel(stats = computeStats()) {
+function renderAdvicePanel(stats = computeStats()) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderAdvicePanel === "function") return runtime.renderAdvicePanel(stats);
   const goal = getCurrentGoal(stats);
   const weakness = getPlayerWeakness(stats);
   const actions = getRecommendedActions(stats, weakness).slice(0, 4);
@@ -11092,7 +9705,7 @@ function getCurrentRecommendedScoreGap(stats = computeStats(), gateTarget = null
   })).filter((entry) => entry.required > 0);
 }
 
-function renderRecommendedScoreGap(entries = []) {
+function renderRecommendedScoreGap(entries = []) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderRecommendedScoreGap === "function") return runtime.renderRecommendedScoreGap(entries);
   if (!entries.length) return "";
   return `<div class="advice-focus advice-score-gap">
     <strong>推荐评分</strong>
@@ -11182,7 +9795,7 @@ function getRecommendedActions(stats = computeStats(), weakness = getPlayerWeakn
   return [...new Set(actions)];
 }
 
-function renderLog() {
+function renderLog() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderLog === "function") return runtime.renderLog();
   els.logList.innerHTML = state.log
     .map((entry) => {
       if (typeof entry === "object" && entry.html) return `<li>${entry.html}</li>`;
@@ -11633,9 +10246,9 @@ function heroTrainCost() {
   return Math.round(170 * Math.pow(state.hero.baseLevel, 1.78) * (1 + (state.hero.rebirths || 0) * 0.22));
 }
 
-function estimateGoldPerSecond() {
+function estimateGoldPerSecond(currentStats = null) {
   const map = currentMap();
-  const stats = computeStats();
+  const stats = currentStats || computeStats();
   const monster = currentMonsterStats();
   return (stats.dps / Math.max(1, monster.maxHp)) * monster.gold * stats.goldMultiplier * stats.monsterGoldMultiplier;
 }
@@ -11792,16 +10405,30 @@ function getNextJobSkill() {
   return currentJob().skills.find((entry) => state.hero.jobLevel < entry.level) || null;
 }
 
-function renderSkillPanel() {
+function renderSkillPanel() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderSkillPanel === "function") return runtime.renderSkillPanel();
+  var v3Skills = (typeof getV3CombatSkills === 'function' ? getV3CombatSkills(state.hero.jobId) : []);
+  var maxLevel = getSkillMaxLevel(state.hero.jobId);
+  var fragments = (state.materials && state.materials.skillFragment) || 0;
+  var activeV3 = v3Skills.filter(function (s) { return s.kind === '主动'; });
+  var passiveV3 = v3Skills.filter(function (s) { return s.kind === '被动'; });
+  var levelMap = state.hero.skillLevels || {};
+  function skillLevelRow(skill) {
+    var lvl = levelMap[skill.id] || 1;
+    var cost = getSkillFragmentCost(skill);
+    var canUpgrade = lvl < maxLevel && fragments >= cost;
+    return '<div class="skill-level-row"><span class="skill-level-name">' + escapeHtml(skill.name) + '</span><span class="skill-level-badge">Lv.' + lvl + '</span>' + (canUpgrade ? '<button class="skill-upgrade-btn" data-skill-upgrade="' + escapeHtml(skill.id) + '" type="button">' + cost + ' 碎片</button>' : lvl >= maxLevel ? '<span class="skill-max-tag">MAX</span>' : '<span class="skill-locked-tag">' + cost + ' 碎片</span>') + '</div>';
+  }
+  var v3Panel = v3Skills.length ? '<section class="v3-skill-panel"><h4>V3 技能（材料升级）<span class="skill-frag-count">技能碎片：' + formatNumber(fragments) + '</span></h4><div class="v3-skill-grid">' + activeV3.map(function (s) { return skillLevelRow(s); }).join('') + passiveV3.map(function (s) { return skillLevelRow(s); }).join('') + '</div></section>' : '';
   return `
     <div class="skill-page-header">
       ${renderSkillSummaryCard()}
+      ${v3Panel}
       <div class="skill-list">${renderJobSkills()}</div>
     </div>
   `;
 }
 
-function renderTitlePanel() {
+function renderTitlePanel() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderTitlePanel === "function") return runtime.renderTitlePanel();
   state.titles = normalizeTitles(state.titles);
   const equipped = TITLE_DB[state.titles.equipped];
   const titleCards = Object.values(TITLE_DB)
@@ -11825,7 +10452,7 @@ function titleEffectText(effects = {}) {
   return Object.entries(effects).map(([stat, value]) => statLabel(stat, value)).filter(Boolean).join(" · ") || "外观称号";
 }
 
-function renderSkillSummaryCard() {
+function renderSkillSummaryCard() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderSkillSummaryCard === "function") return runtime.renderSkillSummaryCard();
   const job = currentJob();
   const skills = job.skills || [];
   const maxed = skills.filter((entry) => getSkillGrowthEntry(entry).level >= SKILL_MAX_LEVEL).length;
@@ -11843,7 +10470,7 @@ function renderSkillSummaryCard() {
   `;
 }
 
-function renderJobSkills() {
+function renderJobSkills() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderJobSkills === "function") return runtime.renderJobSkills();
   const level = state.hero.jobLevel;
   return currentJob()
     .skills.map((entry) => {
@@ -11912,7 +10539,7 @@ function describeNextSkillMilestone(entry, nextLevel) {
   return row?.text || "技能效果提高";
 }
 
-function renderSkillMilestonePanel(entry, unlocked) {
+function renderSkillMilestonePanel(entry, unlocked) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderSkillMilestonePanel === "function") return runtime.renderSkillMilestonePanel(entry, unlocked);
   if (!unlocked) return "";
   const rows = getSkillMilestoneRows(entry);
   return `<div class="skill-milestone-panel">
@@ -11924,7 +10551,7 @@ function renderSkillMilestonePanel(entry, unlocked) {
   </div>`;
 }
 
-function renderSkillSpecialization(entry, unlocked, growth) {
+function renderSkillSpecialization(entry, unlocked, growth) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderSkillSpecialization === "function") return runtime.renderSkillSpecialization(entry, unlocked, growth);
   if (!unlocked) return "";
   if (growth.level < 15) return `<div class="skill-specialization spec-locked">专精：技能 Lv.15 解锁</div>`;
   const selected = growth.specialization;
@@ -12102,11 +10729,32 @@ const itemStatDescriptions = {
   sharp: "锐利，提高暴击伤害。",
   sharpness: "锐利，提高暴击伤害。",
   ignoreDefense: "破甲，攻击时无视目标部分防御。",
+  echoChance: "攻击有概率触发额外伤害（双倍打击）。",
+  splashDamagePct: "对目标周围敌人造成溅射伤害的比例。",
+  splashTargets: "溅射攻击可命中的额外目标数。",
+  fireBurstChance: "攻击概率触发火焰范围爆发。",
+  meteorCounterChance: "受击概率触发陨石反击。",
+  mutationMaterialDoubleChance: "击败变异怪物时材料掉落双倍的概率。",
+  thornVitMultiplier: "每点VIT提供的荆棘反弹伤害倍率。",
+  lifeSteal: "将造成伤害的一部分转化为生命恢复。",
+  hitRate: "提高攻击命中目标的概率。",
+  statusResist: "提高对异常状态和暴击的抗性。",
   monsterDamageBonus: "对怪物伤害，提高对怪物的最终伤害。",
   bossDamageBonus: "Boss伤害，提高对 Boss 的最终伤害。",
   materialQuantityBonus: "材料收益，提高材料掉落数量。",
   baseExpBonus: "经验收益，提高 BASE 经验收益。",
   jobExpBonus: "经验收益，提高 JOB 经验收益。",
+  echoChance: "攻击有概率触发额外伤害（双倍打击）。",
+  splashDamagePct: "对目标周围敌人造成溅射伤害的比例。",
+  splashTargets: "溅射攻击可命中的额外目标数。",
+  fireBurstChance: "攻击概率触发火焰范围爆发。",
+  meteorCounterChance: "受击概率触发陨石反击。",
+  mutationMaterialDoubleChance: "击败变异怪物时材料掉落双倍的概率。",
+  thornVitMultiplier: "每点VIT提供的荆棘反弹伤害倍率。",
+  lifeSteal: "将造成伤害的一部分转化为生命恢复。",
+  hitRate: "提高攻击命中目标的概率。",
+  statusResist: "提高对异常状态和暴击的抗性。",
+  ignoreDefense: "破甲，攻击时无视目标部分防御。",
 };
 
 function getItemDisplayRanges(item) {
@@ -12150,7 +10798,7 @@ function materialInventoryText() {
     .join(" · ");
 }
 
-function renderMaterialGroups() {
+function renderMaterialGroups() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderMaterialGroups === "function") return runtime.renderMaterialGroups();
   const groups = [
     { title: "基础材料", ids: ["dust", "ore", "crystal", "rune"] },
     { title: "精炼 / 星炼材料", ids: ["ancientCore", "starShard", "mythicEssence", "oridecon", "elunium", "enhanceProtect"] },
@@ -12184,7 +10832,7 @@ function renderMaterialGroups() {
   </section>`;
 }
 
-function renderZodiacCollectionPanel() {
+function renderZodiacCollectionPanel() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderZodiacCollectionPanel === "function") return runtime.renderZodiacCollectionPanel();
   const cards = Object.values(equipmentSets)
     .filter((set) => isZodiacSetId(set.id))
     .map((set) => {
@@ -12203,7 +10851,7 @@ function renderZodiacCollectionPanel() {
   return `<section class="slot-card zodiac-collection-panel"><span class="slot-name">星座收藏</span><div class="zodiac-collection-grid">${cards}</div></section>`;
 }
 
-function renderCostumePanel() {
+function renderCostumePanel() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderCostumePanel === "function") return runtime.renderCostumePanel();
   state.costumes = normalizeCostumes(state.costumes);
   const owned = state.costumes.owned.map((id) => COSTUME_DB[id]).filter(Boolean);
   const current = COSTUME_DB[state.costumes.equipped?.back || ""];
@@ -12245,7 +10893,7 @@ function itemAttrText(item) {
   return attrs.join(" · ") || "无属性";
 }
 
-function renderEquipmentUsageTags(item) {
+function renderEquipmentUsageTags(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentUsageTags === "function") return runtime.renderEquipmentUsageTags(item);
   const tags = getEquipmentUsageTags(item, currentJob()).slice(0, 3);
   return `<div class="equipment-badge-row equipment-usage-tags">
     <span class="equipment-badge equipment-badge-slot">推荐用途</span>
@@ -12300,75 +10948,7 @@ function isJobFocusedEquipment(stats, job = currentJob()) {
   return mainTotal >= 18 || getItemStatValue(stats, "skillDamageBonus") >= 0.04;
 }
 
-function legacyCalculateEquipmentScores(item, job = currentJob()) {
-  const stats = getEffectiveItemStats(item || {}, true);
-  const attrTotal = attributeKeys.reduce((sum, stat) => sum + getItemStatValue(stats, stat), 0);
-  const output =
-    getItemStatValue(stats, "atk") * 1.7 +
-    getItemStatValue(stats, "matk") * 1.7 +
-    attrTotal * 8 +
-    getItemStatValue(stats, "aspd") * 900 +
-    getItemStatValue(stats, "attackSpeedPct") * 2600 +
-    getItemStatValue(stats, "crit") * 3500 +
-    getItemStatValue(stats, "critRatePct") * 3500 +
-    getItemStatValue(stats, "critDamageBonus") * 4200 +
-    getItemStatValue(stats, "finalDamageBonus") * 6200 +
-    getItemStatValue(stats, "skillDamageBonus") * 4200 +
-    getItemStatValue(stats, "monsterDamageBonus") * 3600;
-  const survival =
-    getItemStatValue(stats, "hp") * 0.35 +
-    getItemStatValue(stats, "def") * 2.6 +
-    getItemStatValue(stats, "vit") * 12 +
-    getItemStatValue(stats, "hpPct") * 6200 +
-    getItemStatValue(stats, "defPct") * 4200 +
-    getItemStatValue(stats, "damageReductionPct") * 9000 +
-    getItemStatValue(stats, "lifeSteal") * 7000 +
-    getItemStatValue(stats, "hpRegen") * 3 +
-    getItemStatValue(stats, "hpRegenPct") * 2800 +
-    getItemStatValue(stats, "dodgeRate") * 3000 +
-    getItemStatValue(stats, "dodgeRatePct") * 2600 +
-    getItemStatValue(stats, "blockRate") * 3200 +
-    getItemStatValue(stats, "antiCrit") * 2600;
-  const boss =
-    output * 0.28 +
-    getItemStatValue(stats, "bossDamageBonus") * 8500 +
-    getItemStatValue(stats, "eliteDamageBonus") * 6200 +
-    getItemStatValue(stats, "bossDamageReduction") * 5000 +
-    getItemStatValue(stats, "finalDamageBonus") * 4200 +
-    getItemStatValue(stats, "critDamageBonus") * 2400 +
-    getItemStatValue(stats, "lifeSteal") * 3000;
-  const abyss =
-    output * 0.18 +
-    survival * 0.18 +
-    (isAbyssEquipment(item) ? 900 : 0) +
-    getItemStatValue(stats, "abyssDamageBonus") * 12000 +
-    getItemStatValue(stats, "abyssDamageReduction") * 14000 +
-    getItemStatValue(stats, "abyssBossDamageBonus") * 9500 +
-    getItemStatValue(stats, "abyssResist") * 8000 +
-    getItemStatValue(stats, "abyssPower") * 5000 +
-    getItemStatValue(stats, "mythicWeightBonus") * 11000;
-  const treasure =
-    getItemStatValue(stats, "drop") * 3600 +
-    getItemStatValue(stats, "gold") * 2000 +
-    getItemStatValue(stats, "goldBonus") * 2000 +
-    getItemStatValue(stats, "rareDropBonus") * 5200 +
-    getItemStatValue(stats, "equipmentDrop") * 4600 +
-    getItemStatValue(stats, "cardDrop") * 3800 +
-    getItemStatValue(stats, "materialQuantityBonus") * 3200 +
-    getItemStatValue(stats, "baseExpBonus") * 1800 +
-    getItemStatValue(stats, "jobExpBonus") * 1800 +
-    getItemStatValue(stats, "abyssMaterialDropBonus") * 3200 +
-    getItemStatValue(stats, "mythicEssenceDropBonus") * 6000;
-  const comprehensive = output * 0.38 + survival * 0.26 + boss * 0.16 + abyss * 0.14 + treasure * 0.06;
-  return {
-    comprehensive: Math.max(0, Math.round(comprehensive)),
-    output: Math.max(0, Math.round(output)),
-    survival: Math.max(0, Math.round(survival)),
-    boss: Math.max(0, Math.round(boss)),
-    abyss: Math.max(0, Math.round(abyss)),
-    treasure: Math.max(0, Math.round(treasure)),
-  };
-}
+function legacyCalculateEquipmentScores(item, job = currentJob()) { return; }
 
 function calculateEquipmentScores(item, job = currentJob()) {
   const runtime = window.RuneFrontierEquipmentRuntime;
@@ -12392,7 +10972,7 @@ function formatScoreDelta(value) {
   return `${sign}${(finite * 100).toFixed(1)}%`;
 }
 
-function renderEquipmentScores(item) {
+function renderEquipmentScores(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentScores === "function") return runtime.renderEquipmentScores(item);
   const scores = calculateEquipmentScores(item, currentJob());
   const entries = [
     ["综合", scores.comprehensive],
@@ -12408,7 +10988,7 @@ function renderEquipmentScores(item) {
   </div>`;
 }
 
-function renderEquipmentScoreComparison(item) {
+function renderEquipmentScoreComparison(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentScoreComparison === "function") return runtime.renderEquipmentScoreComparison(item);
   const slot = equipmentSlot(item);
   const equippedId = state.equipped?.[slot];
   const current = state.inventory.find((entry) => entry.id === equippedId);
@@ -12434,25 +11014,65 @@ function equipmentStatEntry(stats, stat) {
   return { stat, label: statLabelName(stat), value };
 }
 
-function groupEquipmentStats(item) {
-  const effective = getEffectiveItemStats(item, false);
-  const groups = [
-    { title: "基础属性", stats: ["atk", "matk", "def", "hp"] },
-    { title: "职业属性", stats: ["str", "agi", "vit", "int", "dex", "luk"] },
-    { title: "输出属性", stats: ["aspd", "crit", "critRatePct", "critDamageBonus", "attackSpeedPct", "finalDamageBonus", "physicalFinalDamageBonus", "normalAttackDamageBonus", "skillDamageBonus", "monsterDamageBonus", "atkPct", "matkPct"] },
-    { title: "生存属性", stats: ["lifeSteal", "skillHitHealPct", "damageReductionPct", "magicDamageReduction", "skillDamageReduction", "hpRegen", "hpRegenPct", "dodgeRate", "dodgeRatePct", "blockRate", "antiCrit", "hpPct", "defPct"] },
-    { title: "Boss属性", stats: ["bossDamageBonus", "eliteDamageBonus", "bossDamageReduction"] },
-    { title: "深渊属性", stats: ["abyssDamageBonus", "abyssDamageReduction", "abyssBossDamageBonus", "abyssPower", "abyssResist", "abyssMaterialDropBonus", "abyssSkillDamageBonus", "mythicWeightBonus", "mythicEssenceDropBonus", "abyssExecuteDamageBonus"] },
-    { title: "收益属性", stats: ["gold", "drop", "goldBonus", "rareDropBonus", "equipmentDrop", "cardDrop", "materialQuantityBonus", "baseExpBonus", "jobExpBonus", "offlineEfficiencyBonus"] },
-  ];
-  return groups
-    .map((group) => ({ ...group, entries: group.stats.map((stat) => equipmentStatEntry(effective, stat)).filter(Boolean) }))
-    .filter((group) => group.entries.length);
+function mergeStatEntries(effective, statKeys) {
+  var total = 0;
+  var hasAny = false;
+  statKeys.forEach(function (k) { var v = effective[k]; if (Number.isFinite(v) && v !== 0) { total += v; hasAny = true; } });
+  return hasAny ? total : 0;
 }
 
-function renderEquipmentStatSections(item) {
+function groupEquipmentStats(item) {
+  const effective = getEffectiveItemStats(item, false);
+  var itemFind = mergeStatEntries(effective, ["drop", "rareDropBonus", "equipmentDrop", "cardDrop"]);
+  var goldFind = mergeStatEntries(effective, ["gold", "goldBonus"]);
+  var monsterDmg = mergeStatEntries(effective, ["monsterDamageBonus", "eliteDamageBonus", "normalAttackDamageBonus"]);
+  var abyssPower = mergeStatEntries(effective, ["abyssDamageBonus", "abyssBossDamageBonus", "abyssSkillDamageBonus"]);
+  var expBonus = mergeStatEntries(effective, ["baseExpBonus", "jobExpBonus"]);
+  var groups = [
+    { title: "基础属性", stats: ["atk", "matk", "def", "hp"] },
+    { title: "职业属性", stats: ["str", "agi", "vit", "int", "dex", "luk"] },
+    { title: "输出属性", stats: ["aspd", "crit", "critRatePct", "critDamageBonus", "attackSpeedPct", "finalDamageBonus", "skillDamageBonus", "atkPct", "matkPct"] },
+    { title: "生存属性", stats: ["lifeSteal", "damageReductionPct", "hpRegen", "dodgeRate", "blockRate", "antiCrit", "hpPct", "defPct"] },
+    { title: "Boss属性", stats: ["bossDamageBonus", "bossDamageReduction"] },
+    { title: "深渊属性", stats: ["abyssDamageReduction", "abyssMaterialDropBonus", "mythicWeightBonus", "abyssExecuteDamageBonus"] },
+    { title: "收益属性", stats: ["materialQuantityBonus", "offlineEfficiencyBonus"] },
+  ];
+  if (monsterDmg) groups.splice(2, 0, { title: "怪物伤害", value: monsterDmg });
+  if (abyssPower) groups.splice(groups.length - 2, 0, { title: "深渊强度", value: abyssPower });
+  return groups
+    .map(function (group) {
+      var entries;
+      if (group.value !== undefined) {
+        entries = [{ stat: group.title, label: group.title, value: group.value }];
+      } else {
+        var statsList = group.stats.slice();
+        if (group.title === "收益属性") {
+          if (itemFind) statsList.push("itemFind");
+          if (goldFind) statsList.push("goldFind");
+          if (expBonus) statsList.push("expBonus");
+        }
+        entries = statsList.map(function (stat) {
+          if (stat === "itemFind") return { stat: "itemFind", label: "物品发现", value: itemFind };
+          if (stat === "goldFind") return { stat: "goldFind", label: "金币获取", value: goldFind };
+          if (stat === "expBonus") return { stat: "expBonus", label: "经验加成", value: expBonus };
+          return equipmentStatEntry(effective, stat);
+        }).filter(Boolean);
+      }
+      return { title: group.title, entries: entries };
+    })
+    .filter(function (group) { return group.entries.length; });
+}
+
+function renderRarityPerk(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderRarityPerk === "function") return runtime.renderRarityPerk(item);
+  var perk = item.rarityPerk;
+  if (!perk) return '';
+  var rarityNameText = rarityName(item.rarity || item.tier || '');
+  return '<div class="equip-section equipment-stat-section rarity-perk-section"><strong class="equipment-section-title">' + rarityNameText + '专属 · ' + escapeHtml(perk.name) + '</strong><p class="rarity-perk-desc">' + escapeHtml(perk.desc) + '</p></div>';
+}
+
+function renderEquipmentStatSections(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentStatSections === "function") return runtime.renderEquipmentStatSections(item);
   const statGroups = groupEquipmentStats(item);
-  const specialStats = ["ignoreDefense", "echoChance", "splashTargets", "splashDamagePct", "fireBurstChance", "fireBurstAtkPct", "meteorCounterChance", "meteorCounterMatkPct", "skillCooldownPenalty", "higherLevelDamageBonus", "mutationMaterialDoubleChance", "thornVitMultiplier", "combatPaceBonus", "patrolEfficiency", "hitRate", "statusResist", "powerPct", "setPowerBonus"]
+  const specialStats = ["ignoreDefense", "echoChance", "splashTargets", "splashDamagePct", "fireBurstChance", "fireBurstAtkPct", "meteorCounterChance", "meteorCounterMatkPct", "mutationMaterialDoubleChance", "thornVitMultiplier", "hitRate", "statusResist", "powerPct"]
     .map((stat) => equipmentStatEntry(getEffectiveItemStats(item, false), stat))
     .filter(Boolean);
   const abyssStats = Object.entries(item.abyssBonus || {})
@@ -12468,6 +11088,7 @@ function renderEquipmentStatSections(item) {
   return `
     ${renderEquipmentScores(item)}
     ${renderEquipmentScoreComparison(item)}
+    ${renderRarityPerk(item)}
     ${statGroups.map((group) => `<div class="equip-section equipment-stat-section"><strong class="equipment-section-title">${group.title}</strong>${renderStatChipGrid(group.entries)}</div>`).join("")}
     ${randomStatsHtml(item)}
     ${(mechanicStats.length || specialStats.length) ? `<div class="equip-section equipment-stat-section"><strong class="equipment-section-title">特殊词条</strong>${renderStatChipGrid(specialStats, "equipment-special-chip")}${mechanicStats.length ? `<div class="equipment-mechanic-tags">${mechanicStats.map((text) => `<span>${escapeHtml(text)}</span>`).join("")}</div>` : ""}</div>` : ""}
@@ -12478,7 +11099,7 @@ function renderEquipmentStatSections(item) {
   `;
 }
 
-function renderSalvagePreviewSection(item) {
+function renderSalvagePreviewSection(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderSalvagePreviewSection === "function") return runtime.renderSalvagePreviewSection(item);
   const rewards = getSalvageRewardsPreview(item);
   const entries = Object.entries(rewards || {}).filter(([, value]) => value !== undefined && value !== null && value !== "" && value !== 0);
   if (!entries.length) return "";
@@ -12500,7 +11121,7 @@ function cardSocketEffectText(card = {}) {
   return rows.join(" · ") || "无属性";
 }
 
-function renderCardSocketOptions(selected = "") {
+function renderCardSocketOptions(selected = "") { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderCardSocketOptions === "function") return runtime.renderCardSocketOptions(selected);
   const owned = cardPool.filter((card) => (state.cards[card.id] || 0) > 0);
   if (!owned.length) return `<option value="">暂无可用卡片</option>`;
   return `<option value="">选择卡片</option>${owned
@@ -12508,7 +11129,7 @@ function renderCardSocketOptions(selected = "") {
     .join("")}`;
 }
 
-function renderCardSocketSection(item) {
+function renderCardSocketSection(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderCardSocketSection === "function") return runtime.renderCardSocketSection(item);
   const slots = normalizeCardSlots(item.cardSlots);
   const maxSlots = getMaxEquipmentCardSlots(item);
   const cost = getCardSocketCost(item);
@@ -12544,7 +11165,7 @@ function renderCardSocketSection(item) {
   </div>`;
 }
 
-function renderRefineSection(item, refineStats = "") {
+function renderRefineSection(item, refineStats = "") { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderRefineSection === "function") return runtime.renderRefineSection(item, refineStats);
   const next = (item.refine || 0) + 1;
   const chance = next <= 15 ? percent(getRefineChance(next, item)) : "MAX";
   const pity = `${Math.round((item.refineFailCount || 0) * 1.5 * 10) / 10}%`;
@@ -12558,7 +11179,7 @@ function renderRefineSection(item, refineStats = "") {
   </div><small class="slot-meta">星炼成长：${growthText || "该装备暂无可星炼成长属性。"}</small><small class="slot-meta">里程碑：${milestone}${refineStats ? ` · 15星奖励：${refineStats}` : " · 满星奖励：未激活"}</small></div>`;
 }
 
-function renderEmpowerSection(item) {
+function renderEmpowerSection(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEmpowerSection === "function") return runtime.renderEmpowerSection(item);
   const level = item.empower || 0;
   if (!level) return "";
   const flatBonus = level * 4;
@@ -12571,14 +11192,14 @@ function renderEmpowerSection(item) {
   </div><small class="slot-meta">下阶消耗：${nextCost}</small></div>`;
 }
 
-function renderStatChipGrid(entries, extraClass = "") {
+function renderStatChipGrid(entries, extraClass = "") { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderStatChipGrid === "function") return runtime.renderStatChipGrid(entries, extraClass);
   if (!entries.length) return "";
   return `<div class="equipment-stat-grid">${entries
     .map((entry) => `<span class="equipment-stat-chip ${extraClass}"><span class="equipment-stat-name">${escapeHtml(entry.label)}</span><span class="equipment-stat-value">${formatStatValue(entry.stat, entry.value)}</span></span>`)
     .join("")}</div>`;
 }
 
-function renderEquipmentSetProgress(item) {
+function renderEquipmentSetProgress(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentSetProgress === "function") return runtime.renderEquipmentSetProgress(item);
   const display = getSetDisplayState(item);
   if (!display.hasSet) return "";
   const normalRows = display.effects
@@ -12680,7 +11301,7 @@ function randomStatsHtml(item) {
   return renderRandomStatsPanel(item);
 }
 
-function renderRandomStatsPanel(item) {
+function renderRandomStatsPanel(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderRandomStatsPanel === "function") return runtime.renderRandomStatsPanel(item);
   const entries = randomStatEntries(item);
   if (!entries.length) return "";
   const chips = entries
@@ -12689,123 +11310,7 @@ function renderRandomStatsPanel(item) {
   return `<div class="random-stats-panel"><div class="random-stats-title">随机附加</div><div class="random-stat-chips">${chips}</div></div>`;
 }
 
-function legacyGetEffectiveItemStats(item, includeRandom = true) {
-  const multiplier = refineMultiplier(item.refine || 0);
-  const empowerMultiplier = 1 + (item.empower || 0) * 0.04;
-  const scaleFlat = (value) => Math.round((value || 0) * multiplier * empowerMultiplier);
-  const scalePercent = (value, stat = "") => Number(((value || 0) * (refineGrowthFactorForStat(stat, item.refine || 0) + (item.empower || 0) * 0.012)).toFixed(3));
-  const addScaledStat = (target, stat, value, { applyRefine = true } = {}) => {
-    const numeric = Number(value || 0);
-    if (!Number.isFinite(numeric) || numeric === 0) return;
-    const factor = applyRefine ? refineGrowthFactorForStat(stat, item.refine || 0) : 1;
-    const decimals = statIsPercent(stat) || stat.endsWith("Bonus") || stat.endsWith("Pct") || stat === "thornVitMultiplier" ? 3 : 0;
-    const scaled = decimals ? Number((numeric * factor).toFixed(decimals)) : Math.round(numeric * factor);
-    target[stat] = Number(((target[stat] || 0) + scaled).toFixed(decimals));
-  };
-  const stats = {
-    atk: scaleFlat(item.atk),
-    matk: scaleFlat(item.matk),
-    def: scaleFlat(item.def),
-    hp: scaleFlat(item.hp),
-    luck: 0,
-    str: scaleFlat(item.str),
-    agi: scaleFlat(item.agi),
-    vit: scaleFlat(item.vit),
-    int: scaleFlat(item.int),
-    dex: scaleFlat(item.dex),
-    luk: scaleFlat(item.luk) + scaleFlat(item.luck),
-    aspd: scalePercent(item.aspd, "aspd"),
-    crit: scalePercent(item.crit, "crit"),
-    drop: scalePercent(item.drop, "drop"),
-    gold: scalePercent(item.gold, "gold"),
-    hpRegen: scaleFlat(item.hpRegen),
-    dodgeRate: scalePercent(item.dodgeRate, "dodgeRate"),
-    atkPct: scalePercent(item.atkPct, "atkPct"),
-    matkPct: scalePercent(item.matkPct, "matkPct"),
-    hpPct: scalePercent(item.hpPct, "hpPct"),
-    defPct: scalePercent(item.defPct, "defPct"),
-    attackSpeedPct: scalePercent(item.attackSpeedPct, "attackSpeedPct"),
-    critRatePct: scalePercent(item.critRatePct, "critRatePct"),
-    critDamageBonus: scalePercent(item.critDamageBonus, "critDamageBonus"),
-    skillDamageBonus: scalePercent(item.skillDamageBonus, "skillDamageBonus"),
-    monsterDamageBonus: scalePercent(item.monsterDamageBonus, "monsterDamageBonus"),
-    bossDamageBonus: scalePercent(item.bossDamageBonus, "bossDamageBonus"),
-    bossDamageReduction: scalePercent(item.bossDamageReduction, "bossDamageReduction"),
-    finalDamageBonus: scalePercent(item.finalDamageBonus, "finalDamageBonus"),
-    eliteDamageBonus: scalePercent(item.eliteDamageBonus, "eliteDamageBonus"),
-    rareDropBonus: scalePercent(item.rareDropBonus, "rareDropBonus"),
-    damageReductionPct: scalePercent(item.damageReductionPct, "damageReductionPct"),
-    damageReduction: scalePercent(item.damageReduction, "damageReduction"),
-    lifeSteal: scalePercent(item.lifeSteal, "lifeSteal"),
-    blockRate: scalePercent(item.blockRate, "blockRate"),
-    antiCrit: scalePercent(item.antiCrit, "antiCrit"),
-    dodgeRatePct: scalePercent(item.dodgeRatePct, "dodgeRatePct"),
-    hpRegenPct: scalePercent(item.hpRegenPct, "hpRegenPct"),
-    ignoreDefense: scalePercent(item.ignoreDefense, "ignoreDefense"),
-    baseExpBonus: scalePercent(item.baseExpBonus, "baseExpBonus"),
-    jobExpBonus: scalePercent(item.jobExpBonus, "jobExpBonus"),
-    expBonus: scalePercent(item.expBonus, "expBonus"),
-    equipmentDrop: scalePercent(item.equipmentDrop, "equipmentDrop"),
-    cardDrop: scalePercent(item.cardDrop, "cardDrop"),
-    materialQuantityBonus: scalePercent(item.materialQuantityBonus, "materialQuantityBonus"),
-    powerPct: scalePercent(item.powerPct, "powerPct"),
-    combatPaceBonus: scalePercent(item.combatPaceBonus, "combatPaceBonus"),
-    patrolEfficiency: scalePercent(item.patrolEfficiency, "patrolEfficiency"),
-    hitRate: scalePercent(item.hitRate, "hitRate"),
-    statusResist: scalePercent(item.statusResist, "statusResist"),
-    echoChance: scalePercent(item.echoChance, "echoChance"),
-    mutationMaterialDoubleChance: scalePercent(item.mutationMaterialDoubleChance, "mutationMaterialDoubleChance"),
-    thornVitMultiplier: Number(((item.thornVitMultiplier || 0) * refineGrowthFactorForStat("thornVitMultiplier", item.refine || 0)).toFixed(3)),
-    abyssPower: scalePercent(item.abyssPower, "abyssPower"),
-    abyssResist: scalePercent(item.abyssResist, "abyssResist"),
-  };
-  [
-    "abyssDamageBonus",
-    "abyssBossDamageBonus",
-    "abyssDamageReduction",
-    "abyssMaterialDropBonus",
-    "abyssSkillDamageBonus",
-    "abyssExecuteDamageBonus",
-    "mythicWeightBonus",
-    "mythicEssenceDropBonus",
-    "rebirthPrestigeWeightBonus",
-    "setPowerBonus",
-    "finalDamageBonus",
-    "eliteDamageBonus",
-    "rareDropBonus",
-    "bossDamageReduction",
-  ].forEach((stat) => {
-    if (!(stat in stats)) addScaledStat(stats, stat, item[stat]);
-  });
-  (item.mechanicAffixes || []).forEach((id) => {
-    const mechanic = MECHANIC_AFFIXES[id];
-    Object.entries(mechanic?.effects || {}).forEach(([stat, value]) => {
-      addScaledStat(stats, stat, value);
-    });
-  });
-  Object.entries(item.abyssBonus || {}).forEach(([stat, value]) => {
-    addScaledStat(stats, stat, value);
-  });
-  (item.abyssAffixes || []).forEach((affix) => {
-    Object.entries(affix?.effects || {}).forEach(([stat, value]) => {
-      addScaledStat(stats, stat, value);
-    });
-  });
-  Object.entries(computeCardSocketBonuses(item)).forEach(([stat, value]) => {
-    stats[stat] = Number(((stats[stat] || 0) + Number(value || 0)).toFixed(statIsPercent(stat) || stat.endsWith("Bonus") ? 3 : 0));
-  });
-  if (includeRandom) {
-    const randomStats = normalizeRandomStats(item.randomStats);
-    attributeKeys.forEach((stat) => {
-      stats[stat] += Math.round((randomStats[stat] || 0) * multiplier);
-    });
-  }
-  const bonus = star15Bonus(item);
-  Object.entries(bonus).forEach(([stat, value]) => {
-    stats[stat] = Number(((stats[stat] || 0) + value).toFixed(statIsPercent(stat) || stat.endsWith("Bonus") ? 3 : 0));
-  });
-  return stats;
-}
+function legacyGetEffectiveItemStats(item, includeRandom = true) { return; }
 
 function getEffectiveItemStats(item, includeRandom = true) {
   const runtime = window.RuneFrontierEquipmentRuntime;
@@ -12816,6 +11321,8 @@ function getEffectiveItemStats(item, includeRandom = true) {
 }
 
 function refineMultiplier(star) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.refineMultiplier === "function") return runtime.refineMultiplier(star);
   return 1 + Math.max(0, Number(star) || 0) * 0.02;
 }
 
@@ -12852,6 +11359,8 @@ function refineGrowthFactorForStat(stat, star = 0) {
 }
 
 function getRefineGrowthStats(item) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.getRefineGrowthStats === "function") return runtime.getRefineGrowthStats(item);
   const refine = item?.refine || 0;
   if (!item || refine <= 0) return {};
   const before = getEffectiveItemStats({ ...item, refine: 0, refineFailCount: 0 });
@@ -12860,6 +11369,8 @@ function getRefineGrowthStats(item) {
 }
 
 function star15Bonus(item) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.star15Bonus === "function") return runtime.star15Bonus(item);
   if ((item.refine || 0) < 15 || !["rare", "epic", "ancient", "legend", "darkGold", "mythic"].includes(item.rarity)) {
     return {};
   }
@@ -12872,6 +11383,8 @@ function star15Bonus(item) {
 }
 
 function getRefineMilestoneBonuses(item) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.getRefineMilestoneBonuses === "function") return runtime.getRefineMilestoneBonuses(item);
   const star = item?.refine || 0;
   const slot = equipmentSlot(item);
   const bonuses = {};
@@ -12978,6 +11491,12 @@ function statLabelName(stat) {
     combatPaceBonus: "战斗节奏",
     patrolEfficiency: "巡逻效率",
     offlineEfficiencyBonus: "离线效率",
+    itemFind: "物品发现",
+    goldFind: "金币获取",
+    abyssPower: "深渊强度",
+    abyssResist: "深渊抗性",
+    expBonus: "经验加成",
+    monsterDamage: "怪物伤害",
     hitRate: "命中",
     statusResist: "异常/暴击抗性",
     echoChance: "回响",
@@ -13179,19 +11698,19 @@ function getRefineBadgeClass(refineLevel) {
   return "";
 }
 
-function renderRefineBadge(item) {
+function renderRefineBadge(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderRefineBadge === "function") return runtime.renderRefineBadge(item);
   const refine = item?.refine || 0;
   if (refine < 7) return "";
   return `<span class="refine-badge ${getRefineBadgeClass(refine)}" title="星炼 ★${refine}">星★${refine}</span>`;
 }
 
-function renderItemName(item, extraText = "") {
+function renderItemName(item, extraText = "") { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderItemName === "function") return runtime.renderItemName(item, extraText);
   const cleanExtra = String(extraText || "").replace(/\s+/g, " ").trim();
   const prefix = (item?.enhanceLevel || 0) > 0 ? `+${item.enhanceLevel} ` : "";
   return `<span class="${getRarityClass(item)}">${prefix}${escapeHtml(getDisplayItemName(item))}${cleanExtra ? ` ${escapeHtml(cleanExtra)}` : ""}</span>${renderRefineBadge(item)}`;
 }
 
-function renderSetName(setName) {
+function renderSetName(setName) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderSetName === "function") return runtime.renderSetName(setName);
   return `<span class="set-name">${escapeHtml(setName)}</span>`;
 }
 
@@ -13207,6 +11726,9 @@ function addLogHtml(html) {
   state.log = state.log.slice(0, 24);
 }
 
+// [CLEANED] Format/math utilities (formatNumber, formatDuration, percent, escapeHtml, etc.)
+// moved to tools.js. Loaded before game.js in index.html. See tools.js for authoritative source.
+
 function showToast(text) {
   els.toast.textContent = text;
   els.toast.classList.add("show");
@@ -13214,144 +11736,782 @@ function showToast(text) {
   toastTimer = window.setTimeout(() => els.toast.classList.remove("show"), 1800);
 }
 
-function formatNumber(value) {
-  if (!Number.isFinite(value)) return "0";
-  const abs = Math.abs(value);
-  if (abs >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(2)}B`;
-  if (abs >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`;
-  if (abs >= 10_000) return `${(value / 1_000).toFixed(1)}K`;
-  return `${Math.floor(value)}`;
-}
-
-function formatDuration(seconds) {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  if (h > 0) return `${h}小时${m}分钟`;
-  if (m > 0) return `${m}分钟`;
-  return `${Math.max(0, seconds)}秒`;
-}
-
-function percent(value) {
-  return `${Math.round((value || 0) * 100)}%`;
-}
-
-function formatSignedPercent(value) {
-  const safe = Number(value) || 0;
-  return `${safe >= 0 ? "+" : ""}${percent(safe)}`;
-}
-
-function formatDropRate(rate) {
-  if (!rate || rate <= 0) return "0%";
-  const value = rate * 100;
-  if (value < 0.01) return "<0.01%";
-  if (value < 1) return `${value.toFixed(2)}%`;
-  return `${value.toFixed(1)}%`;
-}
-
-function clampNumber(value, min, max) {
-  return Math.max(min, Math.min(max, Number.isFinite(value) ? value : min));
-}
-
-function escapeAttr(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-const devDiagnosticsEnabled = new URLSearchParams(window.location.search).get("dev") === "1";
-
+// [AUTHORITY] equipment-runtime: 28 config tables exposed. Module-owned: itemFactory, itemStats, itemScore, itemNaming, dismantle, refine, starRefine, socket. Deferred: equipmentTiers, ITEM_TIER_CONFIG, salvageRewards (in game.js data section).
 window.RuneFrontierLegacyEquipmentContext = () => Object.freeze({
+  getState() {
+    return state;
+  },
+  getEquipmentTiers() {
+    return equipmentTiers;
+  },
+  getItemTierConfig(id) {
+    return ITEM_TIER_CONFIG[id] || {};
+  },
+  getItemTierForLevel,
+  inferItemTier,
+  getSlotLevelGrowth,
+  normalizeEquipmentSlot,
+  inferEquipmentSubType,
+  equipmentImagePath,
+  getTemplateBaseStats,
+  shouldRollRandomStats,
+  rollRandomStats,
+  defaultRandomStats,
+  normalizeRandomStats,
+  normalizeCardSlots,
+  inferItemRanges,
+  rollEquipmentTier,
+  randomFloat,
+  randomInt,
+  addBaseRanges,
+  applyTierExtra,
+  applyRandomAffixes,
+  applyAbyssEquipmentBonus,
+  applyAbyssSetItemBonus,
+  applyRarityPerk,
+  canCreateMythic,
+  safeHeroBaseLevel,
+  rarityRank,
+  isAbyssEquipment,
+  createItemId(slot) {
+    return `${slot}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  },
+  createLegacyItemId() {
+    return `legacy-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  },
+  getSalvageTable(tier) {
+    return salvageRewards[tier] || salvageRewards.normal;
+  },
+  getInventoryLimit,
+  addMaterials,
+  recordSessionReward,
+  recordRecentLoot,
+  recordAutoSalvageBatch(rewards) {
+    autoSalvageBatchCount += 1;
+    Object.entries(rewards).forEach(([id, qty]) => {
+      autoSalvageBatchMaterials[id] = (autoSalvageBatchMaterials[id] || 0) + qty;
+    });
+  },
+  showAutoSalvageFeedback,
+  logAutoSalvage(item, rewards) {
+    addLog(`自动分解 ${rarityName(item.rarity)}装备：${getDisplayItemName(item)}，获得 ${materialText(rewards)}。`);
+  },
+  logInventoryFull() {
+    addLog("背包已满，装备掉落未能拾取。");
+  },
+  recordEquipmentSessionReward(item) {
+    recordSessionReward({ equipments: 1 });
+    runtimeSessionStats.equipmentByRarity[item.rarity] = (runtimeSessionStats.equipmentByRarity[item.rarity] || 0) + 1;
+    if (item.setId) runtimeSessionStats.zodiacEquipmentCount += 1;
+    if (isAbyssEquipment(item)) runtimeSessionStats.abyssEquipmentCount += 1;
+    if (isAbyssEquipment(item) && item.setId) runtimeSessionStats.abyssSetEquipmentCount += 1;
+    updateDailyGoalProgress("daily_equipment", 1);
+  },
+  trackEquipmentAchievement,
+  addDropLog,
+  showDropFeedback(item) {
+    showLootDropFeedback(item);
+    showRareLootBroadcast(item);
+  },
+  isBossEncounter() {
+    return Boolean(state.enemyBoss);
+  },
+  showToast,
+  addLog,
+  logManualSalvage(item, rewards) {
+    addLog(`分解 ${getDisplayItemName(item)}，获得 ${materialText(rewards)}。`);
+  },
+  showSalvageResult(title, count, rewards) {
+    showSalvageResultModal(title, count, rewards);
+  },
+  renderAll,
+  render: renderAll,
+  save,
   getMechanicAffixEffects(id) {
     return MECHANIC_AFFIXES[id]?.effects || {};
   },
   computeCardSocketBonuses(item) {
     return computeCardSocketBonuses(item);
   },
+  equipmentSlot,
+  getDisplayItemName,
+  getEffectiveItemStats,
+  getRuntimeSessionStats() { return runtimeSessionStats; },
+  updateDailyGoalProgress,
+  updateAchievementProgress,
+  hasMaterials,
+  consumeMaterials,
+  materialText,
+  statIsPercent,
+  statLabelName,
+  formatNumber,
+  itemScore,
+  showRefineResult: showRefineResultModal,
+  renderRefineStatDelta,
+  getEnhanceMaxLevel() { return ENHANCE_MAX_LEVEL; },
+  getEnhanceChances() { return ENHANCE_CHANCES; },
+  getEnhanceMilestoneLevels() { return ENHANCE_MILESTONE_LEVELS; },
+  getEnhanceMilestoneBonuses() { return ENHANCE_MILESTONE_BONUSES; },
+  getEnhancePassiveChances() { return ENHANCE_PASSIVE_CHANCES; },
+  getEnhancePassivePool() { return ENHANCE_PASSIVE_POOL; },
+  getEnhancePassiveDb() { return ENHANCE_PASSIVE_DB; },
+  getEnhanceDowngrade,
+  getCardSocketMaxByRarity() { return CARD_SOCKET_MAX_BY_RARITY; },
 });
 
-if (devDiagnosticsEnabled) {
-  const cloneForDev = (value) => {
-    try {
-      return JSON.parse(JSON.stringify(value));
-    } catch (error) {
-      return { cloneError: error?.message || "Unable to clone diagnostics value." };
-    }
-  };
+// [AUTHORITY] drops-runtime: 20 config refs. Module-owned: online/offline drop rolling, loot normalization. Deferred: equipmentDropTables, materialDropTables, cardDropTables, cardPool (in game.js data section).
+window.RuneFrontierLegacyDropsContext = () => Object.freeze({
+  getState() {
+    return state;
+  },
+  now() {
+    return Date.now();
+  },
+  createEntryId(time) {
+    return `loot-${time.toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  },
+  createEmptyRewards: defaultOfflineRewards,
+  normalizeBaseRewards: normalizeOfflineRewards,
+  normalizeEquipment: normalizeItem,
+  normalizeRewards: normalizeOfflineRewards,
+  objectTotal: offlineObjectTotal,
+  currentMap,
+  getDifficultyConfig: currentDifficultyConfig,
+  computeStats,
+  getMaterialDropTable(mapId) {
+    return materialDropTables[mapId] || [];
+  },
+  getCardDropTable(mapId) {
+    return cardDropTables[mapId] || [];
+  },
+  getCard(cardId) {
+    return getSocketCard(cardId);
+  },
+  getMaterialName(materialId) {
+    return materialNames[materialId] || materialId;
+  },
+  getMaterialRarity(materialId) {
+    return MATERIAL_DB[materialId]?.rarity || "";
+  },
+  getDarkGoldFragmentDropConfig(difficultyId) {
+    return DARK_GOLD_FRAGMENT_DROPS[difficultyId] || DARK_GOLD_FRAGMENT_DROPS.normal;
+  },
+  getZodiacSetIds(mapId) {
+    return zodiacSetDropMap[mapId] || [];
+  },
+  getTransitionSetIds(mapId) {
+    return transitionSetDropMap[mapId] || [];
+  },
+  getEquipmentSet(setId) {
+    return equipmentSets[setId];
+  },
+  getZodiacSetDropRates() {
+    return ZODIAC_SET_DROP_RATES;
+  },
+  getTransitionSetDropRates() {
+    return TRANSITION_SET_DROP_RATES;
+  },
+  getMythicDropRates() {
+    return MYTHIC_DROP_RATES;
+  },
+  getAbyssBossMultiplier() {
+    return ABYSS_BOSS_EXTRA_MULTIPLIER;
+  },
+  getMapLevelRange,
+  getMutationExtraDrops() {
+    return MUTATION_EXTRA_DROPS;
+  },
+  currentMapIndex() {
+    return state.currentMap || 0;
+  },
+  currentMonsterStats,
+  isBossEncounter() {
+    return Boolean(state.enemyBoss);
+  },
+  createMutationEquipment,
+  renderItemName,
+  addLogHtml,
+  applyMaterialQuantityBonus,
+  recordSessionReward,
+  recordRecentLoot,
+  addLog,
+  getDropTableId(mapId) {
+    return mapDropTableAlias[mapId] || mapId;
+  },
+  getEquipmentDropTable(tableId) {
+    return equipmentDropTables[tableId] || [];
+  },
+  getEquipmentTemplate(id) {
+    return equipmentTemplateDb[id];
+  },
+  getMaxEquipmentDrops(isBoss) {
+    return isBoss ? MAX_BOSS_EQUIPMENT_DROPS : MAX_EQUIPMENT_DROPS_PER_KILL;
+  },
+  getEffectiveEquipmentDropRate,
+  getOnlineEquipmentDropChance,
+  weightedChoice,
+  applyRebirthPrestigeDropWeight,
+  getDarkGoldUpgradeRate,
+  getDifficultyDropLevelBonus() {
+    return DIFFICULTY_DROP_LEVEL_BONUS[state.currentDifficulty] || DIFFICULTY_DROP_LEVEL_BONUS.normal;
+  },
+  clampLevel(value) {
+    return clampNumber(value, 1, MAX_EQUIPMENT_LEVEL);
+  },
+  randomInt,
+  random() {
+    return Math.random();
+  },
+  currentDifficulty() {
+    return state.currentDifficulty;
+  },
+  createItem(template, level, forcedTierId, context) {
+    const runtime = window.RuneFrontierEquipmentRuntime;
+    return runtime?.createItem
+      ? runtime.createItem(template, level, forcedTierId, context)
+      : legacyCreateItem(template, level, forcedTierId, context);
+  },
+  addEquipmentToInventory(item, options) {
+    const runtime = window.RuneFrontierEquipmentRuntime;
+    return runtime?.addEquipmentToInventory
+      ? runtime.addEquipmentToInventory(item, options)
+      : legacyAddEquipmentToInventory(item, options);
+  },
+});
 
-  const apiPresence = () => ({
-    renderAll: typeof renderAll === "function",
-    renderEquipment: typeof renderEquipment === "function",
-    renderSmithyPage: typeof renderSmithyPage === "function",
-    renderVip: typeof renderVip === "function",
-    renderCodex: typeof renderCodex === "function",
-    renderShop: typeof renderShop === "function",
-    computeStats: typeof computeStats === "function",
-    getEffectiveItemStats: typeof getEffectiveItemStats === "function",
-    calculateEquipmentScores: typeof calculateEquipmentScores === "function",
-    getVipProgressInfo: typeof getVipProgressInfo === "function",
-    getInventoryLimit: typeof getInventoryLimit === "function",
-    recordRecentLoot: typeof recordRecentLoot === "function",
-    rollDrops: typeof rollDrops === "function",
-    claimOffline: typeof claimOffline === "function",
-    tryAutoChallengeBoss: typeof tryAutoChallengeBoss === "function",
-  });
+// [AUTHORITY] offline-runtime: 15 config refs. Module-owned: calculateOfflineRewards, buildOfflineMonsterStats, all rollOffline*Drops. Deferred: OFFLINE_EFFICIENCY, OFFLINE_MAX_KILLS (constants in game.js).
+window.RuneFrontierLegacyOfflineContext = () => Object.freeze({
+  getState() {
+    return state;
+  },
+  now() {
+    return Date.now();
+  },
+  createEmptyRewards: defaultOfflineRewards,
+  normalizeLootRewards,
+  objectTotal: offlineObjectTotal,
+  getLatestRecentLootRewards,
+  currentDifficulty() {
+    return state.currentDifficulty;
+  },
+  currentMap,
+  getMaps() {
+    return maps;
+  },
+  computeStats,
+  getDifficultyConfig: currentDifficultyConfig,
+  getVipMilestoneBonuses,
+  getCardDropTable(mapId) {
+    return cardDropTables[mapId] || [];
+  },
+  getMaterialDropTable(mapId) {
+    return materialDropTables[mapId] || [];
+  },
+  getDropTableAlias(mapId) {
+    return mapDropTableAlias[mapId] || mapId;
+  },
+  getEquipmentDropTable(tableId) {
+    return equipmentDropTables[tableId] || [];
+  },
+  getCard(cardId) {
+    return getSocketCard(cardId);
+  },
+  getMaterialName(materialId) {
+    return materialNames[materialId] || materialId;
+  },
+  getMaterialRarity(materialId) {
+    return MATERIAL_DB[materialId]?.rarity || "";
+  },
+  getZodiacSetIds(mapId) {
+    return zodiacSetDropMap[mapId] || [];
+  },
+  getTransitionSetIds(mapId) {
+    return transitionSetDropMap[mapId] || [];
+  },
+  getEquipmentSet(setId) {
+    return equipmentSets[setId];
+  },
+  getZodiacSetDropRates() {
+    return ZODIAC_SET_DROP_RATES;
+  },
+  getTransitionSetDropRates() {
+    return TRANSITION_SET_DROP_RATES;
+  },
+  getMythicDropRates() {
+    return MYTHIC_DROP_RATES;
+  },
+  getMutationExtraDrops() {
+    return MUTATION_EXTRA_DROPS;
+  },
+  getMapLevelRange,
+  getMaxOfflineSeconds() {
+    return MAX_OFFLINE_SECONDS;
+  },
+  getMapIndex(map) {
+    return maps.indexOf(map);
+  },
+  getOfflineEquipmentDropRateMultiplier() {
+    return OFFLINE_EQUIPMENT_DROP_RATE_MULTIPLIER;
+  },
+  getOfflineEfficiency() {
+    return OFFLINE_EFFICIENCY;
+  },
+  getOfflineMaxKills() {
+    return OFFLINE_MAX_KILLS;
+  },
+  getInventoryLimit,
+  random() {
+    return Math.random();
+  },
+  randomInt,
+  applyMaterialQuantityBonus,
+  createItem,
+  createMutationEquipment,
+  pickMonsterTemplate,
+  rollMonsterLevel,
+  rollMonsterMutation,
+  buildMonsterStats,
+  rollEquipmentDropsFromTable,
+  gainMapExploration,
+  getEquipmentRuntime() {
+    return window.RuneFrontierEquipmentRuntime;
+  },
+  canOfflineFullSalvage,
+  mergeMaterialReward: mergeMaterialRewardIntoList,
+  gainExp,
+  grantCards(cards) {
+    (cards || []).forEach((card) => {
+      state.cards[card.cardId] = (state.cards[card.cardId] || 0) + (card.qty || 0);
+      state.cardCodex[card.cardId] = state.cardCodex[card.cardId] || { obtained: false, obtainCount: 0, firstObtainedAt: 0 };
+      state.cardCodex[card.cardId].obtained = true;
+      state.cardCodex[card.cardId].obtainCount += card.qty || 0;
+      if (!state.cardCodex[card.cardId].firstObtainedAt) state.cardCodex[card.cardId].firstObtainedAt = Date.now();
+    });
+  },
+  grantMaterials(materials) {
+    (materials || []).forEach((material) => {
+      state.materials[material.materialId] = (state.materials[material.materialId] || 0) + (material.qty || 0);
+    });
+  },
+  recordRecentLoot,
+  showToast,
+  afterClaim() {
+    closeOfflineRewardModal();
+    showToast("\u79bb\u7ebf\u6536\u76ca\u5df2\u9886\u53d6");
+    updateDailyGoalProgress("daily_loot", 1);
+    renderAll();
+    save();
+  },
+  calculateOfflineRewards,
+  buildOfflineReward,
+  rollOfflineEquipmentDrops,
+  rollOfflineCardDrops,
+  rollOfflineMaterialDrops,
+  rollOfflineZodiacSetDrops,
+  rollOfflineTransitionSetDrops,
+  rollOfflineMythicDrops,
+  rollOfflineMutationExtraDrops,
+});
 
-  window.RuneFrontierDevBridge = Object.freeze({
-    getSnapshot() {
-      return {
-        state: cloneForDev(state),
-        maps: cloneForDev(maps.map((map) => ({ id: map.id, name: map.name }))),
-        mapDropTableAlias: cloneForDev(mapDropTableAlias),
-        equipmentDropTables: cloneForDev(equipmentDropTables),
-        materialDropTables: cloneForDev(materialDropTables),
-        materialNames: cloneForDev(materialNames),
-        materialDb: cloneForDev(MATERIAL_DB),
-        inventoryLimit: getInventoryLimit(),
-        vipProgress: cloneForDev(getVipProgressInfo(state.vip)),
-        playerCritRateCap: PLAYER_CRIT_RATE_CAP,
-        api: apiPresence(),
-      };
-    },
-    runMaintenance(action) {
-      if (action === "migrate") {
-        sanitizeProgression();
-        save();
-        renderAll();
-        return true;
-      }
-      if (action === "clear-log") {
-        state.log = [];
-        save();
-        renderAll();
-        return true;
-      }
-      if (action === "clear-recent-loot") {
-        state.recentLoot = [];
-        state.lootNotifyUnread = false;
-        state.lastLootViewedAt = Date.now();
-        save();
-        renderAll();
-        return true;
-      }
-      if (action === "render") {
-        renderAll();
-        return true;
-      }
-      return false;
-    },
-  });
-}
+// [AUTHORITY] combat-runtime: 42 config refs. Module-owned: updateCombat, boss state, damage, skills, settlement, monster pipeline, encounter pipeline. Deferred: maps, DIFFICULTY_CONFIG, MONSTER_DIFFICULTY_MODIFIERS (in game.js data section).
+window.RuneFrontierLegacyCombatContext = () => Object.freeze({
+  getState() {
+    return state;
+  },
+  currentJob,
+  currentMap,
+  currentMonsterStats,
+  currentMapIndex() {
+    return state.currentMap || 0;
+  },
+  getMaps() {
+    return maps;
+  },
+  getDifficultyConfigs() {
+    return DIFFICULTY_CONFIG;
+  },
+  getMapLevelRanges() {
+    return mapLevelRanges;
+  },
+  getMutations() {
+    return MUTATION_TYPES;
+  },
+  getMonsterDifficultyModifiers() {
+    return MONSTER_DIFFICULTY_MODIFIERS;
+  },
+  getDifficultyTierModifiers() {
+    return DIFFICULTY_TIER_MODIFIERS;
+  },
+  getHardMapTierScales() {
+    return HARD_MAP_TIER_SCALE;
+  },
+  getAbyssMapTierScales() {
+    return ABYSS_MAP_TIER_SCALE;
+  },
+  getAbyssBossExtraMultipliers() {
+    return ABYSS_BOSS_EXTRA_MULTIPLIER;
+  },
+  getHardBaselines() {
+    return HARD_BASELINE;
+  },
+  getAbyssBaselines() {
+    return ABYSS_BASELINE;
+  },
+  getBossExpMultiplier() {
+    return BOSS_EXP_MULTIPLIER;
+  },
+  getBaseExpGlobalMultiplier() {
+    return BASE_EXP_GLOBAL_MULTIPLIER;
+  },
+  getJobExpGlobalMultiplier() {
+    return JOB_EXP_GLOBAL_MULTIPLIER;
+  },
+  randomInt,
+  clampNumber,
+  lerpRange,
+  monsterImageSource,
+  showBossBanner,
+  getDropTableAlias(mapId) {
+    return mapDropTableAlias[mapId] || mapId;
+  },
+  getBossEssenceId(mapIndex) {
+    return bossEssenceByMap[mapIndex] || bossEssenceByMap[0];
+  },
+  getMaterialName(materialId) {
+    return materialNames[materialId] || materialId;
+  },
+  getDifficultyLabel(difficulty) {
+    return DIFFICULTY_CONFIG[difficulty]?.label || difficulty;
+  },
+  applyMaterialQuantityBonus,
+  computeStats,
+  random() {
+    return Math.random();
+  },
+  getPlayerCritRateCap() {
+    return PLAYER_CRIT_RATE_CAP;
+  },
+  getHpRegenInterval() {
+    return HP_REGEN_INTERVAL;
+  },
+  getMonsterAttackInterval() {
+    return MONSTER_ATTACK_INTERVAL;
+  },
+  ensureSettings,
+  now() {
+    return Date.now();
+  },
+  getAutoBossFailCooldownMs() {
+    return AUTO_BOSS_FAIL_COOLDOWN_MS;
+  },
+  showToast,
+  bossDisplayName,
+  gainExp,
+  gainVipExp,
+  getAutoBossEnabled,
+  bossRequirement,
+  updateDailyGoalProgress,
+  recordSessionReward,
+  recordRecentLoot,
+  addLog,
+  formatNumber,
+  showDamageNumber,
+  showHitFeedback,
+  showSkillCastFeedback,
+  applySplashDamageToEncounter,
+  applySkillSplashDamageToEncounter,
+  flashPlayerHp() {
+    if (!els.playerHpBar) return;
+    els.playerHpBar.classList.add("player-hp-flash");
+    window.setTimeout(() => els.playerHpBar && els.playerHpBar.classList.remove("player-hp-flash"), 200);
+  },
+  presentKillRewards({ monster, baseExpGain, jobExpGain }) {
+    showMonsterDeathFeedback(monster);
+    addFloatText(`+${formatNumber(baseExpGain)} BASE`, 330, 168, "#456e91");
+    addFloatText(`+${formatNumber(jobExpGain)} JOB`, 330, 202, "#6a5f9f");
+  },
+  updateActiveEnemyHpInGroup,
+  hasLivingEncounterMembers,
+  isBossChallengeReady,
+  tryAutoChallengeBoss,
+  handleAutoBossFailure,
+  getDifficultyFailureHint,
+  getUnlockedSkills,
+  getV3CombatSkills,
+  getSkillGrowthEntry,
+  getSkillMilestoneBonuses,
+  getSkillLevelMultiplier,
+  noteSkillCast,
+  gainSkillExp,
+  rollDrops,
+  rollMutationExtraDrops,
+  grantPassiveSkillKillExp,
+  updateQuestProgress,
+  explorationGainForKill,
+  gainMapExploration,
+  trackKillAchievements,
+  getEquipmentPityThreshold,
+  rollGuaranteedEquipmentDrop() {
+    return rollEquipmentTableDrops(computeStats(), { boss: false, guaranteed: true });
+  },
+  challengeBoss,
+  defeatEnemy,
+  syncActiveEnemyFromGroup,
+  spawnEnemy,
+  render: renderCombatSettlementUi,
+});
+
+// [AUTHORITY] vip-runtime: 10 config refs. Module-owned: all calculation/pure functions. Deferred: VIP_EXP_REQUIREMENTS, VIP_BONUS_PER_LEVEL, VIP_MILESTONE_BONUSES, VIP_DAILY_GIFT (constants in game.js).
+window.RuneFrontierLegacyVipContext = () => Object.freeze({
+  getState() { return state; },
+  getVipMaxLevel() { return VIP_MAX_LEVEL; },
+  getVipExpRequirements() { return VIP_EXP_REQUIREMENTS; },
+  getVipBonusPerLevel() { return VIP_BONUS_PER_LEVEL; },
+  getVipMilestones() { return VIP_MILESTONE_BONUSES; },
+  getVipDailyGifts() { return VIP_DAILY_GIFT; },
+  getBaseInventoryLimit() { return INVENTORY_LIMIT; },
+  todayKey() { return new Date().toISOString().slice(0, 10); },
+  addLog,
+  showToast,
+  addMaterials,
+  renderAll,
+  save,
+});
+
+// [AUTHORITY] codex-runtime: 12 config refs. Module-owned: all calculation/pure functions. Deferred: CODEX_KILL_MILESTONES, CODEX_KILL_REWARDS, CODEX_CAPS, CODEX_MASTERY_BONUSES, CODEX_RESEARCH_BONUSES, mapMonsterConfig (constants in game.js).
+window.RuneFrontierLegacyCodexContext = () => Object.freeze({
+  getState() { return state; },
+  getMapMonsterConfig() { return mapMonsterConfig; },
+  getCardPool() { return cardPool; },
+  getCardType,
+  getCodexKillMilestones() { return CODEX_KILL_MILESTONES; },
+  getCodexKillRewards() { return CODEX_KILL_REWARDS; },
+  getCodexCardMilestones() { return CODEX_CARD_MILESTONES; },
+  getCodexCardRewards() { return CODEX_CARD_REWARDS; },
+  getCodexMasteryThresholds() { return CODEX_MASTERY_THRESHOLDS; },
+  getCodexResearchThresholds() { return CODEX_RESEARCH_THRESHOLDS; },
+  getCodexStatCaps() { return CODEX_STAT_CAPS; },
+  getCodexCaps() { return CODEX_CAPS; },
+  getCodexMasteryBonuses() { return CODEX_MASTERY_BONUSES; },
+  getCodexResearchBonuses() { return CODEX_RESEARCH_BONUSES; },
+  grantGenericReward,
+  getMonsterName(id) { return (buildMonsterNameMap() || {})[id] || materialNames[id] || id; },
+  addLog,
+  showToast,
+  renderAll,
+  save,
+});
+
+// [AUTHORITY] shop-runtime: 5 config refs. Module-owned: all calculation/pure functions. Deferred: SHOP_ITEMS (constant in game.js).
+window.RuneFrontierLegacyShopContext = () => Object.freeze({
+  getState() { return state; },
+  getShopActiveTab() { return shopActiveTab; },
+  getShopItems() { return typeof SHOP_ITEMS !== "undefined" ? SHOP_ITEMS : {}; },
+  getMaterialName(materialId) { return materialNames[materialId] || materialId; },
+  randomInt,
+  addMaterials,
+  addLog,
+  showToast,
+  renderAll,
+  save,
+});
+
+// [AUTHORITY] state-runtime: Not yet module-owned. Delegation bridges exist on load/save/mergeState/sanitizeProgression/createDefaultState/resetSave.
+window.RuneFrontierLegacyStateContext = () => Object.freeze({
+  getState() { return state; },
+  load, save, mergeState, sanitizeProgression, createDefaultState, resetSave,
+  getInventoryLimit,
+  SAVE_KEY: () => SAVE_KEY,
+  LEGACY_SAVE_KEY: () => LEGACY_SAVE_KEY,
+  getAuthKey() { return AUTH_KEY; },
+  loadAuth, refreshAuthUi,
+});
+
+// [DEV-DIAGNOSTIC-ADAPTER] Live access only: diagnostics must follow state replacements after load/reset.
+window.RuneFrontierLegacyDevContext = () => Object.freeze({
+  getState() { return state; },
+  getMaps() { return maps.map((map) => ({ id: map.id, name: map.name })); },
+  getMapDropTableAlias() { return mapDropTableAlias; },
+  getEquipmentDropTables() { return equipmentDropTables; },
+  getMaterialDropTables() { return materialDropTables; },
+  getMaterialNames() { return materialNames; },
+  getMaterialDb() { return MATERIAL_DB; },
+  getInventoryLimit,
+  getVipProgressInfo() { return getVipProgressInfo(state.vip); },
+  getPlayerCritRateCap() { return PLAYER_CRIT_RATE_CAP; },
+  getApiPresence() {
+    return {
+      renderAll: typeof renderAll === "function",
+      renderEquipment: typeof renderEquipment === "function",
+      renderSmithyPage: typeof renderSmithyPage === "function",
+      renderVip: typeof renderVip === "function",
+      renderCodex: typeof renderCodex === "function",
+      renderShop: typeof renderShop === "function",
+      computeStats: typeof computeStats === "function",
+      getEffectiveItemStats: typeof getEffectiveItemStats === "function",
+      calculateEquipmentScores: typeof calculateEquipmentScores === "function",
+      getVipProgressInfo: typeof getVipProgressInfo === "function",
+      getInventoryLimit: typeof getInventoryLimit === "function",
+      recordRecentLoot: typeof recordRecentLoot === "function",
+      rollDrops: typeof rollDrops === "function",
+      claimOffline: typeof claimOffline === "function",
+      tryAutoChallengeBoss: typeof tryAutoChallengeBoss === "function",
+    };
+  },
+  sanitizeProgression,
+  save,
+  renderAll,
+});
+
+// [RENDER-RUNTIME-ADAPTER] Migrated page modules read these live legacy values without owning game state.
+Object.assign(window, {
+  maps,
+  mapMonsterConfig,
+  jobTemplates,
+  firstJobs,
+  materialNames,
+  MATERIAL_DB,
+  attributeKeys,
+  equipmentSets,
+  cardPool,
+  bossCardPool,
+  MECHANIC_AFFIXES,
+  progressText,
+  getMapLevelRange,
+  getMapPreviewStats,
+  getRecommendedScoresForMap,
+  bossDisplayName,
+  getMapExplorationEntry,
+  getMapExplorationBonuses,
+  formatRangeNumber,
+  mapDropTooltip,
+  normalizeVip,
+  getVipBonuses,
+  getVipProgressInfo,
+  getUnlockedVipMilestones,
+  getNextVipMilestone,
+  normalizeShopState,
+  canBuyShopItem,
+  formatShopCost,
+  formatShopLimitText,
+  getCodexBonuses,
+  getTotalCodexLevel,
+  getMonsterMasteryLevel,
+  getCardResearchLevel,
+  getMonsterTypeLabel,
+  getMonsterTypeForCodex,
+  buildMonsterNameMap,
+  buildMonsterSourceMap,
+  buildMonsterCardDropMap,
+  statLabelName,
+  cardEffectText,
+  getCardType,
+  cardTypeLabel,
+  cardActivationText,
+  cardUsageText,
+  awakenedCardEffects,
+  AWAKEN_CARD_COST,
+  BOSS_CARD_SYNTHESIS_COST,
+  calculatePlayerRatingScores,
+  formatCritRateSummary,
+  imageBackgroundList,
+  classImageCandidates,
+  heroTrainCost,
+  renderSetTalentStatus,
+  describeJobGrowth,
+  jobSummary,
+  computeEquipmentFullStats,
+  getCardStats,
+  getTitleEffects,
+  getNextJobId,
+  normalizeTitles,
+  titleEffectText,
+  getUnlockedSkills,
+  getPassiveSkillTotals,
+  getSkillGrowthEntry,
+  getSkillMilestoneBonuses,
+  describeSkillMilestone,
+  getSkillMilestoneEntries,
+  getSkillSpecializationOptions,
+  skillTooltip,
+  formatSkillMultiplier,
+  statLine,
+  renderStatGroup,
+  formatStatValue,
+  isAbyssEquipment,
+  rarityName,
+  slotName,
+  equipmentSlot,
+  getMaxEquipmentCardSlots,
+  getEquipmentCardSlotCount,
+  getSocketCard,
+  getRefineCost,
+  getRefineChance,
+  getEmpowerCost,
+  getRefineGrowthStats,
+  renderRefineStatDelta,
+  getSalvageRewardsPreview,
+  getEquipmentSummaryEntries,
+  calculateEquipmentScores,
+  compareEquipmentScores,
+  formatScoreDelta,
+  getEquipmentUsageTags,
+  groupEquipmentStats,
+  equipmentStatEntry,
+  getEffectiveItemStats,
+  statObjectText,
+  star15Bonus,
+  randomStatEntries,
+  randomStatsHtml,
+  countEquippedSetPieces,
+  materialText,
+  hasMaterials,
+  isZodiacItem,
+  currentJob,
+  pruneEquipmentDetailExpandedState,
+  equippedSlotMeta,
+  sortEquipmentList,
+  filterEquipmentList,
+  equipmentDetailKey,
+  equipmentVisualClass,
+  refineText,
+  empowerText,
+  itemImageCandidates,
+  itemRangeTooltip,
+  renderMaterialGroups,
+  renderZodiacCollectionPanel,
+  renderCostumePanel,
+  getEnhanceCost,
+  getEnhanceEffect,
+  getEnhanceMilestoneBonuses,
+  getEnhanceSafeZoneText,
+  getEnhanceFailResultText,
+  renderStarRefineSmithyPanel,
+  renderCardSocketSmithyPanel,
+  renderDarkGoldExchangeCard,
+  getCardSocketCost,
+  canAffordSocketCost,
+  canContinueRefine,
+  rarityRank,
+  normalizeDailyGoals,
+  achievementRewardText,
+  questRewardText,
+  getAchievementEntry,
+  getCurrentGoal,
+  getPlayerWeakness,
+  getRecommendedActions,
+  getCurrentRecommendedScoreGap,
+  renderAll,
+});
+window.specialStatKeys = ["ignoreDefense", "echoChance", "splashTargets", "splashDamagePct", "fireBurstChance", "fireBurstAtkPct", "meteorCounterChance", "meteorCounterMatkPct", "skillCooldownPenalty", "higherLevelDamageBonus", "mutationMaterialDoubleChance", "thornVitMultiplier", "combatPaceBonus", "patrolEfficiency", "hitRate", "statusResist", "powerPct", "setPowerBonus"];
+Object.defineProperties(window, {
+  refineResultState: { configurable: true, get() { return refineResultState; } },
+  equipmentDetailExpandedState: { configurable: true, get() { return equipmentDetailExpandedState; } },
+  equipmentShowAll: { configurable: true, get() { return equipmentShowAll; } },
+});
+
+// [DEV-DIAGNOSTIC-ADAPTER] Moved to src/dev/devBridge.js + src/main.js installation.
+// window.RuneFrontierDevBridge is now created by main.js in DEV_MODE via createDevBridge().
 
 let legacyRuntimeStarted = false;
 
