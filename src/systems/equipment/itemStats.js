@@ -10,9 +10,9 @@ const PERCENT_STATS = new Set([
   'setPowerBonus', 'abyssSkillChanceBonus', 'abyssDefenseReduction', 'abyssAttackSpeedPct', 'abyssCritRatePct',
   'abyssMagicDamageBonus', 'abyssAttrPct', 'abyssPowerPct', 'abyssCritDamageBonus', 'abyssEliteDamageBonus',
   'abyssDexPct', 'abyssIgnoreDefense', 'abyssBossDamageReduction', 'goldBonus', 'expBonus', 'damageReduction',
-  'lifeSteal', 'blockRate', 'antiCrit', 'ignoreDefense', 'damageReductionPct', 'dodgeRatePct', 'hpRegenPct',
-  'baseExpBonus', 'jobExpBonus', 'equipmentDrop', 'cardDrop', 'materialQuantityBonus', 'powerPct',
-  'combatPaceBonus', 'patrolEfficiency', 'offlineEfficiencyBonus', 'hitRate', 'statusResist', 'echoChance',
+  'lifeSteal', 'blockRate', 'ignoreDefense', 'damageReductionPct', 'dodgeRatePct', 'hpRegenPct',
+  'baseExpBonus', 'jobExpBonus', 'equipmentDrop', 'cardDrop', 'materialQuantityBonus',
+  'combatPaceBonus', 'offlineEfficiencyBonus', 'statusResist', 'echoChance',
   'magicDamageReduction', 'skillDamageReduction', 'skillCooldownPenalty', 'skillHitHealPct', 'splashDamagePct',
   'fireBurstChance', 'fireBurstAtkPct', 'meteorCounterChance', 'meteorCounterMatkPct',
   'mutationMaterialDoubleChance', 'strPct', 'agiPct', 'vitPct', 'intPct', 'dexPct', 'lukPct', 'dps',
@@ -132,7 +132,6 @@ export function getEffectiveItemStats(item = {}, includeRandom = true, context =
     damageReduction: scalePercent(item.damageReduction, 'damageReduction'),
     lifeSteal: scalePercent(item.lifeSteal, 'lifeSteal'),
     blockRate: scalePercent(item.blockRate, 'blockRate'),
-    antiCrit: scalePercent(item.antiCrit, 'antiCrit'),
     dodgeRatePct: scalePercent(item.dodgeRatePct, 'dodgeRatePct'),
     hpRegenPct: scalePercent(item.hpRegenPct, 'hpRegenPct'),
     ignoreDefense: scalePercent(item.ignoreDefense, 'ignoreDefense'),
@@ -142,10 +141,7 @@ export function getEffectiveItemStats(item = {}, includeRandom = true, context =
     equipmentDrop: scalePercent(item.equipmentDrop, 'equipmentDrop'),
     cardDrop: scalePercent(item.cardDrop, 'cardDrop'),
     materialQuantityBonus: scalePercent(item.materialQuantityBonus, 'materialQuantityBonus'),
-    powerPct: scalePercent(item.powerPct, 'powerPct'),
-    combatPaceBonus: scalePercent(item.combatPaceBonus, 'combatPaceBonus'),
-    patrolEfficiency: scalePercent(item.patrolEfficiency, 'patrolEfficiency'),
-    hitRate: scalePercent(item.hitRate, 'hitRate'),
+    combatPaceBonus: scalePercent(number(item.combatPaceBonus) + number(item.patrolEfficiency) + number(item.powerPct), 'combatPaceBonus'),
     statusResist: scalePercent(item.statusResist, 'statusResist'),
     echoChance: scalePercent(item.echoChance, 'echoChance'),
     mutationMaterialDoubleChance: scalePercent(item.mutationMaterialDoubleChance, 'mutationMaterialDoubleChance'),
@@ -180,6 +176,13 @@ export function getEffectiveItemStats(item = {}, includeRandom = true, context =
   Object.entries(star15Bonus(item)).forEach(([stat, value]) => {
     stats[stat] = Number((number(stats[stat]) + number(value)).toFixed(statIsPercent(stat) || stat.endsWith('Bonus') ? 3 : 0));
   });
+  const legacyPace = number(stats.patrolEfficiency) + number(stats.powerPct);
+  if (legacyPace) stats.combatPaceBonus = Number((number(stats.combatPaceBonus) + legacyPace).toFixed(3));
+  delete stats.patrolEfficiency;
+  delete stats.powerPct;
+  delete stats.hitRate;
+  delete stats.higherLevelDamageBonus;
+  delete stats.antiCrit;
   return stats;
 }
 

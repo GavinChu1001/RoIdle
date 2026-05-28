@@ -44,8 +44,7 @@ export function calculateEquipmentScores(item, job) {
     statValue(stats, 'hpRegenPct') * 2800 +
     statValue(stats, 'dodgeRate') * 3000 +
     statValue(stats, 'dodgeRatePct') * 2600 +
-    statValue(stats, 'blockRate') * 3200 +
-    statValue(stats, 'antiCrit') * 2600;
+    statValue(stats, 'blockRate') * 3200;
   const boss =
     output * 0.28 +
     statValue(stats, 'bossDamageBonus') * 8500 +

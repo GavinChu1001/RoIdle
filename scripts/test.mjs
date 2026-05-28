@@ -142,6 +142,14 @@ assert.match(main, /installOnboardingRuntime\(\)/, 'Onboarding runtime must be i
 assert.match(game, /onboarding:\s*defaultOnboardingState\(\)/, 'Default state must include onboarding.');
 assert.match(game, /onboarding:\s*normalizeOnboarding\(saved\.onboarding\s*\|\|\s*base\.onboarding\)/, 'Saved state merge must normalize onboarding.');
 assert.match(game, /state\.onboarding\s*=\s*normalizeOnboarding\(state\.onboarding\)/, 'Sanitize pass must keep onboarding normalized.');
+assert.match(game, /const EQUIPMENT_STAT_VERSION\s*=\s*2/, 'Equipment V2 must define a stat-version gate.');
+assert.match(game, /equipmentStatVersion:\s*EQUIPMENT_STAT_VERSION/, 'Default state must mark fresh saves as Equipment V2.');
+assert.match(game, /equipmentReforgeTicket/, 'Equipment V2 migration must grant reforge tickets.');
+assert.doesNotMatch(game, /antiCrit:\s*"抗暴"/, 'Equipment V2 UI labels must not expose antiCrit.');
+assert.match(game, /reforgeEquipmentV2/, 'Equipment V2 must expose a reforge-ticket action.');
+assert.match(game, /blockRate:\s*\{\s*label:\s*"格挡"/, 'Equipment V2 random affixes must include real blockRate.');
+assert.doesNotMatch(game, /percent:\s*\[[^\]]*"powerPct"/s, 'Equipment V2 random pools must not roll powerPct as a separate equipment stat.');
+assert.doesNotMatch(game, /percent:\s*\[[^\]]*"patrolEfficiency"/s, 'Equipment V2 random pools must not roll patrolEfficiency as a separate equipment stat.');
 assert.match(onboardingGuideSource, /renderOnboardingTaskSection/, 'Onboarding UI must expose a task-page section renderer.');
 assert.match(main, /installOnboardingGuideRuntime\(onboardingGuideContext\)/, 'Onboarding guide render runtime must be installed before startup.');
 assert.match(taskPageSource, /renderOnboardingTaskSection/, 'Task page must render the beginner goal section.');
@@ -323,6 +331,8 @@ assert.equal(itemNaming.getEquipmentDisplayName(itemFixture), '\u6df1\u6e0a Test
 assert.equal(itemNaming.getEquipmentDisplayName({ name: '\u6df1\u6e0a Blade', abyssForged: true }), '\u6df1\u6e0a Blade', 'Abyss prefix must not duplicate.');
 assert.equal(itemNaming.getEquipmentDisplayName(null), '\u672a\u77e5\u88c5\u5907', 'Missing items must display safely.');
 assert.ok(Object.values(itemStats.getEffectiveItemStats(null)).every(Number.isFinite), 'Missing item stats must be finite.');
+assert.equal(itemStats.getEffectiveItemStats({ antiCrit: 0.5 }).antiCrit || 0, 0, 'Equipment V2 must not preserve antiCrit as an effective stat.');
+assert.ok(itemStats.getEffectiveItemStats({ blockRate: 0.12 }).blockRate > 0, 'Equipment V2 must preserve blockRate as an effective stat.');
 
 const scoreStandaloneSource = itemScoreSource
   .replace("import { getEffectiveItemStats } from './itemStats.js';", 'const getEffectiveItemStats = (item) => item;')
@@ -338,6 +348,10 @@ const scores = itemScore.calculateEquipmentScores({
 });
 assert.ok(scores.output > 0 && scores.survival > 0 && scores.boss > 0 && scores.abyss > 0, 'Equipment score outputs must remain finite and positive.');
 assert.ok(Object.values(scores).every(Number.isFinite), 'Equipment scores must not contain invalid numbers.');
+const emptyScore = itemScore.calculateEquipmentScores({});
+const antiCritOnlyScore = itemScore.calculateEquipmentScores({ antiCrit: 0.5 });
+assert.equal(antiCritOnlyScore.survival, emptyScore.survival, 'Equipment V2 scoring must not reward antiCrit.');
+assert.ok(itemScore.calculateEquipmentScores({ blockRate: 0.12 }).survival > emptyScore.survival, 'Equipment V2 scoring must reward real blockRate.');
 
 const itemFactory = await importSource(itemFactorySource);
 const factoryContext = {
@@ -360,6 +374,31 @@ const generated = itemFactory.createItem({ name: 'Blade', slot: 'weapon', atk: 1
 assert.equal(generated.id, 'generated-item', 'Module-owned item creation did not run.');
 assert.equal(generated.atk, 10, 'Module-owned item creation changed base equipment output.');
 assert.deepEqual(generated.cardSlots, [], 'New equipment must retain the existing empty socket behavior.');
+const rerolledV2 = itemFactory.resetItemForStatV2({
+  id: 'legacy-gear',
+  templateId: 'blade',
+  slot: 'weapon',
+  rarity: 'legend',
+  level: 42,
+  refine: 12,
+  empower: 4,
+  locked: true,
+  antiCrit: 0.5,
+  cardSlots: [{ cardId: 'card-a' }],
+}, {
+  ...factoryContext,
+  getEquipmentTemplate: () => ({ id: 'blade', name: 'Blade', slot: 'weapon', atk: 10, source: 'monster_drop' }),
+  createItemId: () => 'new-id',
+  randomFloat: (min) => min,
+});
+assert.equal(rerolledV2.id, 'legacy-gear', 'V2 reroll must preserve technical item id so equipped slots stay valid.');
+assert.equal(rerolledV2.rarity, 'legend', 'V2 reroll must preserve rarity.');
+assert.equal(rerolledV2.level, 42, 'V2 reroll must preserve level.');
+assert.equal(rerolledV2.refine, 0, 'V2 reroll must reset star refine.');
+assert.equal(rerolledV2.empower, 0, 'V2 reroll must reset empower.');
+assert.deepEqual(rerolledV2.cardSlots, [], 'V2 reroll must clear socketed cards.');
+assert.equal(rerolledV2.locked, false, 'V2 reroll must clear lock state.');
+assert.equal(rerolledV2.antiCrit || 0, 0, 'V2 reroll must remove antiCrit.');
 
 const dismantle = await importSource(dismantleSource);
 const mutationState = {
@@ -1012,6 +1051,9 @@ assert.equal(criticalHit.finalDamage, 176, 'Player critical-hit formula changed.
 const normalMonsterHit = damage.calculateMonsterHit({ stats: { defense: 20 }, monster: { attack: 100 }, hpRatio: 1, livingCount: 1, isCrit: false });
 const criticalMonsterHit = damage.calculateMonsterHit({ stats: { defense: 20 }, monster: { attack: 100, critDamage: 1 }, hpRatio: 1, livingCount: 1, isCrit: true });
 assert.ok(criticalMonsterHit.damage > normalMonsterHit.damage, 'Monster critical threat must remain stronger than a normal hit.');
+const blockedMonsterHit = damage.calculateMonsterHit({ stats: { defense: 20, blockRate: 0.2 }, monster: { attack: 100 }, hpRatio: 1, livingCount: 1, isCrit: false, isBlocked: true });
+assert.ok(blockedMonsterHit.damage < normalMonsterHit.damage, 'Blocked monster hits must deal less damage.');
+assert.equal(blockedMonsterHit.isBlocked, true, 'Blocked monster hit metadata must be returned.');
 
 const skillsStandaloneSource = skillsSource.replace(
   "import { getTargetDamageBonus, normalizeDamage } from './damage.js';",
@@ -1367,7 +1409,7 @@ globalThis.window = priorSkillWindow;
 const normalStandaloneSource = normalCombatSource
   .replace(
     "import { calculateMonsterHit, calculatePlayerBasicHit, getTargetDamageBonus, normalizeDamage } from './damage.js';",
-    "const getTargetDamageBonus = () => 0; const normalizeDamage = (value) => Math.max(1, Math.floor(value)); const calculatePlayerBasicHit = () => ({ finalDamage: 10 }); const calculateMonsterHit = () => ({ damage: 5 });",
+    "const getTargetDamageBonus = () => 0; const normalizeDamage = (value) => Math.max(1, Math.floor(value)); const calculatePlayerBasicHit = () => ({ finalDamage: 10 }); const calculateMonsterHit = ({ isBlocked } = {}) => ({ damage: isBlocked ? 3 : 5 });",
   )
   .replace("import { resolveActiveSkillCast } from './skills.js';", 'const resolveActiveSkillCast = () => ({ cast: false });');
 const normalCombat = await importSource(normalStandaloneSource);
@@ -1386,6 +1428,20 @@ normalCombat.configureNormalCombatContext({
 normalCombat.updateCombat(1);
 assert.equal(roundState.enemyHp, 0, 'Online combat round must apply the active-target hit once.');
 assert.equal(settledRounds, 1, 'Online combat round must settle a defeated target once.');
+
+const bossSplashState = { enemyHp: 100, enemyMaxHp: 100, enemyBoss: true, hero: { currentHp: 100 }, playerAttackTimer: 0, enemyAttackTimer: 0, currentMap: 0 };
+normalCombat.configureNormalCombatContext({
+  getState: () => bossSplashState,
+  computeStats: () => ({ attackSpeed: 1, crit: 0, dps: 1, maxHp: 100, splashTargets: 1, splashDamagePct: 0.5 }),
+  currentMonsterStats: () => ({ damageReduction: 0 }),
+  getPlayerCritRateCap: () => 1,
+  random: () => 0.9,
+  tryAutoChallengeBoss: () => false,
+  applySplashDamageToEncounter: () => {},
+  defeatEnemy: () => {},
+});
+normalCombat.updateCombat(1);
+assert.ok(bossSplashState.enemyHp < 90, 'Splash equipment must convert to extra single-target damage in Boss fights.');
 
 const snaredEnemyState = {
   enemyHp: 10,
@@ -1406,6 +1462,26 @@ normalCombat.configureNormalCombatContext({
 normalCombat.updateMonsterAttack(1, { maxHp: 100, dodgeRate: 1, statusResist: 0 });
 assert.equal(snaredEnemyState.hero.currentHp, 100, 'Snaring an enemy must not prevent the player from dodging its attack.');
 assert.equal(snaredAttackFeedback, 'miss', 'Player dodge feedback must remain visible while the enemy is snared.');
+
+const blockedEnemyState = {
+  enemyHp: 10,
+  enemyMaxHp: 10,
+  hero: { currentHp: 100 },
+  enemyAttackTimer: 9,
+  currentMap: 0,
+  enemyMarks: {},
+};
+let blockedAttackFeedback = '';
+normalCombat.configureNormalCombatContext({
+  getState: () => blockedEnemyState,
+  getMonsterAttackInterval: () => 1,
+  currentMonsterStats: () => ({ attack: 100, critChance: 0 }),
+  random: () => 0,
+  showDamageNumber: (_target, _amount, kind) => { blockedAttackFeedback = kind; },
+});
+normalCombat.updateMonsterAttack(1, { maxHp: 100, dodgeRate: 0, blockRate: 0.5, statusResist: 0 });
+assert.equal(blockedEnemyState.hero.currentHp, 97, 'Blocked monster attacks must use the reduced blocked damage.');
+assert.equal(blockedAttackFeedback, 'block', 'Blocked monster attacks must show block feedback.');
 
 const angelGuardState = { enemyHp: 100, enemyMaxHp: 100, hero: { currentHp: 30 }, playerAttackTimer: 0, enemyAttackTimer: 0, shieldHp: 0 };
 const angelGuardWindow = globalThis.window;

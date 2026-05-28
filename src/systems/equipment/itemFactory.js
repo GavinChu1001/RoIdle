@@ -5,6 +5,15 @@ const number = (value, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const DEPRECATED_EQUIPMENT_STATS = ['antiCrit'];
+
+function clearDeprecatedEquipmentStats(item = {}) {
+  DEPRECATED_EQUIPMENT_STATS.forEach((stat) => {
+    delete item[stat];
+  });
+  return item;
+}
+
 export function configureItemFactoryContext(context = {}) {
   runtimeContext = context || {};
 }
@@ -108,6 +117,7 @@ export function createItem(template = {}, level, forcedTierId = null, context = 
     rareDropBonus: number(template.rareDropBonus),
     damageReductionPct: number(template.damageReductionPct),
     lifeSteal: number(template.lifeSteal),
+    blockRate: number(template.blockRate),
     dodgeRatePct: number(template.dodgeRatePct),
     hpRegenPct: number(template.hpRegenPct),
     ignoreDefense: number(template.ignoreDefense),
@@ -116,10 +126,7 @@ export function createItem(template = {}, level, forcedTierId = null, context = 
     equipmentDrop: number(template.equipmentDrop),
     cardDrop: number(template.cardDrop),
     materialQuantityBonus: number(template.materialQuantityBonus),
-    powerPct: number(template.powerPct),
-    combatPaceBonus: number(template.combatPaceBonus),
-    patrolEfficiency: number(template.patrolEfficiency),
-    hitRate: number(template.hitRate),
+    combatPaceBonus: number(template.combatPaceBonus) + number(template.patrolEfficiency) + number(template.powerPct),
     statusResist: number(template.statusResist),
     abyssDamageBonus: number(template.abyssDamageBonus),
     abyssBossDamageBonus: number(template.abyssBossDamageBonus),
@@ -219,6 +226,8 @@ export function normalizeItem(item = {}, runtime = runtimeContext) {
     eliteDamageBonus: item.eliteDamageBonus ?? 0,
     rareDropBonus: item.rareDropBonus ?? 0,
     damageReductionPct: item.damageReductionPct ?? 0,
+    lifeSteal: item.lifeSteal ?? 0,
+    blockRate: item.blockRate ?? 0,
     dodgeRatePct: item.dodgeRatePct ?? 0,
     hpRegenPct: item.hpRegenPct ?? 0,
     ignoreDefense: item.ignoreDefense ?? 0,
@@ -227,10 +236,7 @@ export function normalizeItem(item = {}, runtime = runtimeContext) {
     equipmentDrop: item.equipmentDrop ?? 0,
     cardDrop: item.cardDrop ?? 0,
     materialQuantityBonus: item.materialQuantityBonus ?? 0,
-    powerPct: item.powerPct ?? 0,
-    combatPaceBonus: item.combatPaceBonus ?? 0,
-    patrolEfficiency: item.patrolEfficiency ?? 0,
-    hitRate: item.hitRate ?? 0,
+    combatPaceBonus: number(item.combatPaceBonus) + number(item.patrolEfficiency) + number(item.powerPct),
     statusResist: item.statusResist ?? 0,
     echoChance: item.echoChance ?? 0,
     mutationMaterialDoubleChance: item.mutationMaterialDoubleChance ?? 0,
@@ -241,7 +247,50 @@ export function normalizeItem(item = {}, runtime = runtimeContext) {
   };
   runtime.applyAbyssEquipmentBonus?.(normalized);
   runtime.applyAbyssSetItemBonus?.(normalized);
-  return normalized;
+  return clearDeprecatedEquipmentStats(normalized);
+}
+
+export function resetItemForStatV2(item = {}, runtime = runtimeContext) {
+  item = item && typeof item === 'object' ? item : {};
+  const level = Math.max(1, Math.round(number(item.dropLevel || item.level || 1, 1)));
+  const rarity = item.rarity || item.tier || 'normal';
+  const template =
+    runtime.getEquipmentTemplate?.(item.templateId || '') ||
+    runtime.getEquipmentTemplate?.(item.id || '') ||
+    runtime.getEquipmentTemplate?.(item.name || '') ||
+    {
+      id: item.templateId || '',
+      name: item.name || '\u65e7\u5f0f\u88c5\u5907',
+      slot: item.slot || item.equipSlot || 'trinket',
+      equipSlot: item.equipSlot || item.slot || 'trinket',
+      weaponType: item.weaponType || '',
+      armorType: item.armorType || '',
+      subType: item.subType || '',
+      source: item.source || 'monster_drop',
+      rarity,
+      atk: item.atk || 0,
+      matk: item.matk || 0,
+      def: item.def || 0,
+      hp: item.hp || 0,
+    };
+  const rerolled = createItem(template, level, rarity, {
+    dropMapId: item.dropMapId || '',
+    dropLevel: level,
+    difficulty: item.abyssForged || item.sourceDifficulty === '\u6df1\u6e0a' || item.sourceDifficulty === 'abyss' ? 'abyss' : item.sourceDifficulty || '',
+    itemTier: item.itemTier || undefined,
+  }, runtime);
+  rerolled.id = item.id || rerolled.id;
+  rerolled.instanceId = rerolled.id;
+  rerolled.level = level;
+  rerolled.dropLevel = level;
+  rerolled.rarity = rarity;
+  rerolled.tier = rarity;
+  rerolled.refine = 0;
+  rerolled.refineFailCount = 0;
+  rerolled.empower = 0;
+  rerolled.locked = false;
+  rerolled.cardSlots = [];
+  return clearDeprecatedEquipmentStats(normalizeItem(rerolled, runtime));
 }
 
 export function equipmentSlot(item, runtime = runtimeContext) {

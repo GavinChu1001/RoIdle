@@ -246,7 +246,6 @@ export function renderCharacterStatSections(stats, ctx = charCtx) {
       statLineFn('\u751f\u547d\u6062\u590d', stats.hpRegen || 0, 'hpRegen'),
       statLineFn('\u95ea\u907f\u7387', stats.dodgeRate || 0, 'dodgeRate', { note: '\u6700\u9ad8 80%' }),
       statLineFn('\u683c\u6321\u7387', stats.blockRate || 0, 'blockRate'),
-      statLineFn('\u6297\u66b4\u7387', stats.antiCrit || 0, 'antiCrit'),
     ]) +
     panel('abyss', 'Boss / \u6df1\u6e0a\u5c5e\u6027', [
       statLineFn('Boss\u4f24\u5bb3', stats.bossDamageBonus || 0, 'bossDamageBonus'),

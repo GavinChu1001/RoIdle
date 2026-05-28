@@ -309,11 +309,15 @@ const SLOT_LEVEL_GROWTH = {
   trinket: 0.035,
 };
 
+const EQUIPMENT_STAT_VERSION = 2;
+const EQUIPMENT_V2_REFORGE_TICKET_ID = "equipmentReforgeTicket";
+const EQUIPMENT_V2_REFORGE_TICKET_GRANT = 5;
+
 const SLOT_ROLE_DESCRIPTIONS = {
   weapon: "武器定位：ATK / MATK / ASPD，容易出现暴击、破甲、技能伤害、对怪物伤害。",
   armor: "防具定位：DEF / HP / HP%，容易出现减伤、闪避、生命恢复和抗性。",
-  headgear: "头饰定位：DEF / 六维属性，容易出现经验收益、战力百分比和小幅技能伤害。",
-  shoes: "鞋子定位：DEF / 闪避 / 生命恢复，容易出现攻速、巡逻效率和恢复强化。",
+  headgear: "头饰定位：DEF / 六维属性，容易出现经验收益、稀有发现和小幅技能伤害。",
+  shoes: "鞋子定位：DEF / 闪避 / 生命恢复，容易出现攻速、巡猎效率、格挡和恢复强化。",
   trinket: "饰品定位：六维、暴击伤害、金币、掉率、卡片和材料收益。",
 };
 
@@ -352,25 +356,28 @@ const AFFIX_TIERS = {
     bossDamageBonus: { label: "讨伐", range: [0.02, 0.065], cap: 0.22 },
     ignoreDefense: { label: "破甲", range: [0.015, 0.045], cap: 0.18 },
     damageReductionPct: { label: "守护", range: [0.015, 0.045], cap: 0.16 },
+    blockRate: { label: "格挡", range: [0.015, 0.04], cap: 0.18 },
     dodgeRatePct: { label: "轻身", range: [0.012, 0.035], cap: 0.12 },
+    lifeSteal: { label: "汲取", range: [0.01, 0.028], cap: 0.1 },
     hpRegenPct: { label: "回春", range: [0.04, 0.12], cap: 0.35 },
     baseExpBonus: { label: "研习", range: [0.025, 0.07], cap: 0.22 },
     jobExpBonus: { label: "历练", range: [0.025, 0.07], cap: 0.22 },
-    powerPct: { label: "斗志", range: [0.015, 0.04], cap: 0.12 },
     materialQuantityBonus: { label: "采集", range: [0.025, 0.075], cap: 0.25 },
+    rareDropBonus: { label: "珍品", range: [0.006, 0.02], cap: 0.08 },
     equipmentDrop: { label: "鉴宝", range: [0.01, 0.03], cap: 0.12 },
     cardDrop: { label: "占星", range: [0.008, 0.025], cap: 0.1 },
     gold: { label: "富足", range: [0.02, 0.06], cap: 0.18 },
     drop: { label: "寻宝", range: [0.015, 0.045], cap: 0.16 },
     combatPaceBonus: { label: "巡猎", range: [0.01, 0.035], cap: 0.1 },
-    patrolEfficiency: { label: "巡逻", range: [0.015, 0.045], cap: 0.15 },
   },
 };
 
 const MECHANIC_AFFIXES = {
-  echo: { label: "回响", description: "主动技能释放时有 5% 概率额外释放一次。", effects: { echoChance: 0.05 }, slots: ["weapon", "headgear", "trinket"] },
-  greed: { label: "贪婪", description: "击杀变异怪时有 3% 概率使普通材料数量翻倍。", effects: { mutationMaterialDoubleChance: 0.03 }, slots: ["trinket", "shoes"] },
-  thorn: { label: "荆棘", description: "受到怪物攻击时，将 VIT 的 150% 转化为反击伤害。", effects: { thornVitMultiplier: 1.5 }, slots: ["armor"] },
+  echo: { label: "回响", description: "技能命中后有 5% 概率追加一次较低倍率伤害。", effects: { echoChance: 0.05 }, slots: ["weapon", "headgear", "trinket"] },
+  splash: { label: "溅射", description: "攻击溅射 1 个目标；单体 Boss 战转化为追加伤害。", effects: { splashTargets: 1, splashDamagePct: 0.22 }, slots: ["weapon", "trinket"] },
+  pursuit: { label: "追击", description: "普攻后有 5% 概率追加一次火焰追击。", effects: { fireBurstChance: 0.05, fireBurstAtkPct: 0.65 }, slots: ["weapon", "shoes"] },
+  greed: { label: "贪婪", description: "击杀获得材料时有 3% 概率使数量翻倍。", effects: { mutationMaterialDoubleChance: 0.03 }, slots: ["trinket", "shoes"] },
+  thorn: { label: "格挡反击", description: "提高格挡率，格挡时按 VIT 造成反击伤害。", effects: { blockRate: 0.04, thornVitMultiplier: 1.2 }, slots: ["armor"] },
   breaker: { label: "破军", description: "攻击时无视怪物 8% 防御。", effects: { ignoreDefense: 0.08 }, slots: ["weapon", "trinket"] },
   starlight: { label: "星辉", description: "BASE / JOB 经验收益 +8%。", effects: { baseExpBonus: 0.08, jobExpBonus: 0.08 }, slots: ["headgear", "trinket"] },
   recovery: { label: "复苏", description: "生命恢复效果 +15%。", effects: { hpRegenPct: 0.15 }, slots: ["armor", "shoes"] },
@@ -380,27 +387,27 @@ const SLOT_AFFIX_POOLS = {
   weapon: {
     flat: ["atk", "matk", "aspd", "crit", "str", "int", "dex"],
     percent: ["atkPct", "matkPct", "attackSpeedPct", "critRatePct", "critDamageBonus", "ignoreDefense", "skillDamageBonus", "monsterDamageBonus", "bossDamageBonus"],
-    mechanic: ["echo", "breaker"],
+    mechanic: ["echo", "splash", "pursuit", "breaker"],
   },
   armor: {
     flat: ["def", "hp", "hpRegen", "vit", "dodgeRate"],
-    percent: ["hpPct", "defPct", "damageReductionPct", "dodgeRatePct", "hpRegenPct"],
+    percent: ["hpPct", "defPct", "damageReductionPct", "blockRate", "dodgeRatePct", "hpRegenPct"],
     mechanic: ["thorn", "recovery"],
   },
   headgear: {
     flat: ["def", "str", "agi", "vit", "int", "dex", "luk"],
-    percent: ["baseExpBonus", "jobExpBonus", "powerPct", "skillDamageBonus", "matkPct", "critRatePct"],
-    mechanic: ["echo", "starlight"],
+    percent: ["baseExpBonus", "jobExpBonus", "rareDropBonus", "skillDamageBonus", "matkPct", "critRatePct"],
+    mechanic: ["echo", "starlight", "greed"],
   },
   shoes: {
     flat: ["def", "hpRegen", "dodgeRate", "agi", "vit"],
-    percent: ["attackSpeedPct", "patrolEfficiency", "combatPaceBonus", "hpRegenPct", "dodgeRatePct", "hpPct"],
-    mechanic: ["greed", "recovery"],
+    percent: ["attackSpeedPct", "combatPaceBonus", "hpRegenPct", "dodgeRatePct", "blockRate", "hpPct"],
+    mechanic: ["greed", "pursuit", "recovery"],
   },
   trinket: {
     flat: ["str", "agi", "vit", "int", "dex", "luk", "critDamageBonus", "gold", "drop"],
-    percent: ["critDamageBonus", "gold", "drop", "equipmentDrop", "cardDrop", "materialQuantityBonus", "monsterDamageBonus", "baseExpBonus", "jobExpBonus"],
-    mechanic: ["echo", "greed", "breaker", "starlight"],
+    percent: ["critDamageBonus", "gold", "drop", "rareDropBonus", "equipmentDrop", "cardDrop", "materialQuantityBonus", "monsterDamageBonus", "blockRate", "baseExpBonus", "jobExpBonus"],
+    mechanic: ["echo", "splash", "greed", "breaker", "starlight"],
   },
 };
 
@@ -452,6 +459,7 @@ const materialNames = {
   enhanceProtect: "强化保护卷",
   enhanceAsh: "强化灰烬",
   skillFragment: "技能碎片",
+  equipmentReforgeTicket: "装备重铸券",
 };
 
 const MATERIAL_DB = Object.fromEntries(
@@ -579,9 +587,9 @@ const battleStatConfig = {
   aspdPerAgi: 0.01,
   dodgePerAgi: 0.002,
   dodgePerLevel: 0.0005,
-  critPerDex: 0.0005,
-  critPerLuk: 0.001,
-  dropPerLuk: 0.0005,
+  critPerDex: 0.001,
+  critPerLuk: 0.0015,
+  dropPerLuk: 0.005,
   maxCrit: PLAYER_CRIT_RATE_CAP,
   maxDodge: 0.6,
   minAspd: 0.16,
@@ -1399,10 +1407,10 @@ const bossCardPool = [
   { id: "baphomet", name: "巴风特卡片", map: 9, cardType: "boss", rarity: "mythic", bossOnly: true, uniqueSocket: true, skillDamageBonus: 0.08, bossDamageBonus: 0.06, splashTargets: 2, splashDamagePct: 0.45, monsterId: "sky_boss_archon", description: "攻击溅射附近敌人；Boss 单体战时获得额外技能与 Boss 伤害。" },
   { id: "dracula", name: "德古拉卡片", map: 7, cardType: "boss", rarity: "darkGold", bossOnly: true, uniqueSocket: true, lifeSteal: 0.08, skillHitHealPct: 0.01, hpPct: 0.04, monsterId: "glast_boss_dark_lord", description: "提供吸血，并在主动技能命中时少量恢复生命。" },
   { id: "doppelganger", name: "多佩雷根卡片", map: 6, cardType: "boss", rarity: "legend", bossOnly: true, attackSpeedPct: 0.12, normalAttackDamageBonus: 0.08, crit: 0.03, monsterId: "clock_boss_keeper", description: "高速攻击型 Boss 卡，强化普攻节奏与暴击。" },
-  { id: "phreeoni", name: "皮里恩卡片", map: 3, cardType: "boss", rarity: "legend", bossOnly: true, hitRate: 0.2, dex: 10, higherLevelDamageBonus: 0.05, monsterId: "desert_boss_scorpion_king", description: "大幅提高命中，并提升挑战高等级怪物时的稳定性。" },
+  { id: "phreeoni", name: "皮里恩卡片", map: 3, cardType: "boss", rarity: "legend", bossOnly: true, dex: 14, critRatePct: 0.03, echoChance: 0.03, monsterId: "desert_boss_scorpion_king", description: "提高灵巧、暴击与机制触发稳定性。" },
   { id: "orc_hero", name: "兽人英雄卡片", map: 4, cardType: "boss", rarity: "legend", bossOnly: true, vit: 15, hpPct: 0.1, statusResist: 0.5, monsterId: "orc_boss_hero", description: "高生存 Boss 卡，提高体质、生命，并降低怪物暴击威胁。" },
-  { id: "moonlight_flower", name: "月夜猫卡片", map: 1, cardType: "boss", rarity: "legend", bossOnly: true, attackSpeedPct: 0.06, patrolEfficiency: 0.1, offlineEfficiencyBonus: 0.05, bossDamageBonus: -0.03, monsterId: "forest_boss_guardian", description: "挂机与巡逻效率卡，牺牲少量 Boss 输出换取长期收益。" },
-  { id: "drake", name: "海盗之王卡片", map: 2, cardType: "boss", rarity: "legend", bossOnly: true, bossDamageBonus: 0.15, eliteDamageBonus: 0.1, hitRate: 0.08, monsterId: "sewer_boss_golden_bug", description: "稳定的 Boss 战输出卡，适合首领挑战。" },
+  { id: "moonlight_flower", name: "月夜猫卡片", map: 1, cardType: "boss", rarity: "legend", bossOnly: true, attackSpeedPct: 0.06, combatPaceBonus: 0.1, offlineEfficiencyBonus: 0.05, bossDamageBonus: -0.03, monsterId: "forest_boss_guardian", description: "挂机与巡猎效率卡，牺牲少量 Boss 输出换取长期收益。" },
+  { id: "drake", name: "海盗之王卡片", map: 2, cardType: "boss", rarity: "legend", bossOnly: true, bossDamageBonus: 0.15, eliteDamageBonus: 0.1, critDamageBonus: 0.08, monsterId: "sewer_boss_golden_bug", description: "稳定的 Boss 战输出卡，适合首领挑战。" },
   { id: "turtle_general", name: "龟将军卡片", map: 5, cardType: "boss", rarity: "darkGold", bossOnly: true, finalDamageBonus: 0.1, physicalFinalDamageBonus: 0.1, fireBurstChance: 0.06, fireBurstAtkPct: 0.8, monsterId: "mine_boss_crystal", description: "提高最终物理伤害，并有概率触发火焰爆发。" },
   { id: "dark_lord", name: "黑暗领主卡片", map: 7, cardType: "boss", rarity: "darkGold", bossOnly: true, matkPct: 0.12, skillDamageBonus: 0.08, meteorCounterChance: 0.08, meteorCounterMatkPct: 1.2, monsterId: "glast_boss_dark_lord", description: "魔法型 Boss 卡，受击时有概率以陨石反击。" },
   { id: "golden_thief_bug", name: "黄金盗虫卡片", map: 2, cardType: "boss", rarity: "mythic", bossOnly: true, uniqueSocket: true, magicDamageReduction: 0.25, skillDamageReduction: 0.25, abyssDamageReduction: 0.05, skillCooldownPenalty: 0.1, monsterId: "sewer_boss_golden_bug", description: "强力插卡防御卡，降低技能、魔法与深渊伤害，但会降低主动技能触发节奏。" },
@@ -1954,6 +1962,7 @@ function createDefaultState() {
     areaKills: 0,
     totalKills: 0,
     equipmentPityKills: 0,
+    equipmentStatVersion: EQUIPMENT_STAT_VERSION,
     mapDifficultyProgress: { grass: { normal: { unlocked: true, cleared: false }, hard: { unlocked: false, cleared: false }, abyss: { unlocked: false, cleared: false } } },
     paused: false,
     enemyHp: 0,
@@ -2334,6 +2343,11 @@ function bindEvents() {
     const salvageButton = event.target.closest("button[data-salvage-item]");
     if (salvageButton) {
       salvageItem(salvageButton.dataset.salvageItem);
+      return;
+    }
+    const reforgeButton = event.target.closest("button[data-reforge-v2-item]");
+    if (reforgeButton) {
+      reforgeEquipmentV2(reforgeButton.dataset.reforgeV2Item);
       return;
     }
     const refineButton = event.target.closest("button[data-refine-item]");
@@ -2788,6 +2802,16 @@ function mergeState(base, saved) {
     jobExp: 0,
   };
   const inventory = Array.isArray(saved.inventory) && saved.inventory.length ? saved.inventory : base.inventory;
+  const needsEquipmentV2Migration = saved.equipmentStatVersion !== EQUIPMENT_STAT_VERSION;
+  const normalizedInventory = needsEquipmentV2Migration ? inventory.map(migrateEquipmentItemToV2) : inventory.map(normalizeItem);
+  const mergedMaterials = { ...base.materials, ...(saved.materials || {}) };
+  if (needsEquipmentV2Migration) {
+    mergedMaterials[EQUIPMENT_V2_REFORGE_TICKET_ID] = (mergedMaterials[EQUIPMENT_V2_REFORGE_TICKET_ID] || 0) + EQUIPMENT_V2_REFORGE_TICKET_GRANT;
+  }
+  const mergedLog = Array.isArray(saved.log) && saved.log.length ? saved.log.slice(0, 24) : base.log;
+  if (needsEquipmentV2Migration) {
+    mergedLog.unshift(`装备属性 V2 已启用：旧装备已重算，并获得 ${EQUIPMENT_V2_REFORGE_TICKET_GRANT} 张装备重铸券。`);
+  }
 
   return {
     ...base,
@@ -2812,7 +2836,7 @@ function mergeState(base, saved) {
     cardFavorites: { ...base.cardFavorites, ...(saved.cardFavorites || {}) },
     cardResearch: { ...base.cardResearch, ...(saved.cardResearch || {}) },
     craftedSetItems: { ...base.craftedSetItems, ...(saved.craftedSetItems || {}) },
-    materials: { ...base.materials, ...(saved.materials || {}) },
+    materials: mergedMaterials,
     monsterCodex: saved.monsterCodex || base.monsterCodex || {},
     cardCodex: saved.cardCodex || base.cardCodex || {},
     codexRewardsClaimed: { monster: { ...(base.codexRewardsClaimed?.monster || {}), ...(saved.codexRewardsClaimed?.monster || {}) }, card: { ...(base.codexRewardsClaimed?.card || {}), ...(saved.codexRewardsClaimed?.card || {}) } },
@@ -2840,8 +2864,9 @@ function mergeState(base, saved) {
     offlineRewards: normalizeOfflineRewards(saved.offlineRewards || saved.offlinePending || base.offlineRewards),
     floatTexts: [],
     skillLog: Array.isArray(saved.skillLog) ? saved.skillLog.slice(0, 8) : [],
-    inventory: inventory.map(normalizeItem),
-    log: Array.isArray(saved.log) && saved.log.length ? saved.log.slice(0, 24) : base.log,
+    equipmentStatVersion: EQUIPMENT_STAT_VERSION,
+    inventory: normalizedInventory,
+    log: mergedLog.slice(0, 24),
     mapDifficultyProgress: normalizeMapDifficultyProgress(saved.mapDifficultyProgress, saved.bestMap, saved.currentDifficulty),
     shopState: saved.shopState || base.shopState || { dailyPurchases: {}, weeklyPurchases: {}, totalPurchases: {}, lastDailyRefresh: "", lastWeeklyRefresh: "" },
   };
@@ -3588,23 +3613,61 @@ function addFloatText(text, x, y, color) {
   state.floatTexts = state.floatTexts.slice(0, 12);
 }
 
+function combatSkillTone(skill) {
+  const name = String(typeof skill === "string" ? skill : skill?.name || "");
+  if (/火|炎|爆|陨石|龙息|burn/i.test(name)) return "fire";
+  if (/冰|雪|冻|霜|freeze/i.test(name)) return "ice";
+  if (/毒|暗|影|死神|黑暗|poison|shadow/i.test(name)) return "shadow";
+  if (/圣|天使|治|光|heal|holy/i.test(name)) return "holy";
+  if (/雷|风暴|星|storm|wind/i.test(name)) return "storm";
+  if (/盾|守护|护|buff|guard/i.test(name)) return "support";
+  return "physical";
+}
+
+function trimCombatLabel(label, max = 5) {
+  const text = String(label || "").trim();
+  if (!text) return "";
+  return text.length > max ? `${text.slice(0, max)}…` : text;
+}
+
+function combatDamageText(value, type, options = {}) {
+  if (type === "miss") return "MISS";
+  if (type === "heal") return `+${formatNumber(value)}`;
+  if (type === "skill") return `${trimCombatLabel(options.skillName) || "技能"} -${formatNumber(value)}`;
+  if (type === "crit") return `暴击 -${formatNumber(value)}`;
+  return `-${formatNumber(value)}`;
+}
+
+function spawnCombatImpact(wrap, target, type = "normal", tone = "physical") {
+  if (!wrap || type === "heal" || type === "miss") return;
+  const impacts = wrap.querySelectorAll(".combat-impact");
+  if (impacts.length > 12) impacts[0].remove();
+  const el = document.createElement("span");
+  const impactType = target === "monster"
+    ? type === "crit"
+      ? "crit"
+      : type === "skill"
+        ? "skill"
+        : "strike"
+    : "player-hit";
+  el.className = `combat-impact combat-impact-${impactType} combat-impact-tone-${tone}`;
+  const baseLeft = target === "monster" ? (type === "skill" ? 70 : 73) : 23;
+  const baseTop = target === "monster" ? (type === "skill" ? 43 : 50) : 49;
+  el.style.left = `${baseLeft + randomFloat(-3, 3)}%`;
+  el.style.top = `${baseTop + randomFloat(-5, 5)}%`;
+  wrap.appendChild(el);
+  window.setTimeout(() => el.remove(), type === "skill" ? 760 : type === "crit" ? 560 : 420);
+}
+
 function showDamageNumber(target, amount, type = "player", options = {}) {
   const wrap = document.querySelector(".scene-wrap");
   if (type !== "miss" && (!Number.isFinite(Number(amount)) || Number(amount) <= 0)) return;
   const value = type === "heal" ? normalizeDamage(amount, { allowZero: true }) : normalizeDamage(amount, { allowZero: type === "miss" });
   if (type === "heal" && value <= 0) return;
-  const text =
-    type === "miss"
-      ? "MISS"
-      : type === "heal"
-        ? `+${formatNumber(value)}`
-        : type === "skill"
-          ? `${options.skillName ? `${options.skillName}！` : ""}-${formatNumber(value)}`
-        : type === "crit"
-          ? `暴击！-${formatNumber(value)}`
-          : `-${formatNumber(value)}`;
+  const text = combatDamageText(value, type, options);
+  const tone = type === "skill" ? combatSkillTone(options.skillName) : "physical";
   if (target === "monster") {
-    addFloatText(text, 680, 260, type === "crit" ? "#ff7a3d" : type === "skill" ? "#6d5dfc" : "#f5efe2");
+    addFloatText(text, 680, 260, type === "crit" ? "#ff7a3d" : type === "skill" ? "#ffe38a" : "#f5efe2");
   } else {
     addFloatText(text, 190, 260, type === "heal" ? "#2f9e55" : type === "miss" ? "#7b8a9a" : "#b74236");
   }
@@ -3612,13 +3675,14 @@ function showDamageNumber(target, amount, type = "player", options = {}) {
   const floats = wrap.querySelectorAll(".damage-float");
   if (floats.length > 18) floats[0].remove();
   const el = document.createElement("span");
-  el.className = `damage-float damage-number damage-${type === "crit" ? "crit" : type === "skill" ? "skill" : type === "miss" ? "miss" : type === "heal" ? "heal" : target === "monster" ? (state.enemyBoss ? "boss" : "normal") : "player"}`;
+  el.className = `damage-float damage-number damage-${type === "crit" ? "crit" : type === "skill" ? "skill" : type === "miss" ? "miss" : type === "heal" ? "heal" : target === "monster" ? (state.enemyBoss ? "boss" : "normal") : "player"} damage-tone-${tone}`;
   el.textContent = text;
-  const baseLeft = target === "monster" ? 74 : 22;
-  const baseTop = target === "monster" ? 45 : 50;
-  el.style.left = `${baseLeft + randomFloat(-4, 4)}%`;
-  el.style.top = `${baseTop + randomFloat(-4, 4)}%`;
+  const baseLeft = target === "monster" ? (type === "skill" ? 68 : type === "crit" ? 72 : 75) : 22;
+  const baseTop = target === "monster" ? (type === "crit" ? 34 : type === "skill" ? 54 : 47) : 50;
+  el.style.left = `${baseLeft + randomFloat(-3, 3)}%`;
+  el.style.top = `${baseTop + randomFloat(-2, 2)}%`;
   wrap.appendChild(el);
+  spawnCombatImpact(wrap, target, type, tone);
   window.setTimeout(() => el.remove(), 900);
 }
 
@@ -3652,9 +3716,10 @@ function showSkillCastFeedback(skill) {
   void wrap.offsetWidth;
   wrap.classList.add("skill-cast-active");
   const el = document.createElement("span");
-  el.className = "skill-cast-feedback";
+  el.className = `skill-cast-feedback skill-cast-feedback-${combatSkillTone(skill)}`;
   el.textContent = `${name}！`;
   wrap.appendChild(el);
+  spawnCombatImpact(wrap, "monster", "skill", combatSkillTone(skill));
   skillFeedbackTimer = window.setTimeout(() => {
     el.remove();
     wrap.classList.remove("skill-cast-active");
@@ -4602,6 +4667,7 @@ function legacyCreateItem(template, level, forcedTierId = null, context = {}) {
     rareDropBonus: template.rareDropBonus || 0,
     damageReductionPct: template.damageReductionPct || 0,
     lifeSteal: template.lifeSteal || 0,
+    blockRate: template.blockRate || 0,
     dodgeRatePct: template.dodgeRatePct || 0,
     hpRegenPct: template.hpRegenPct || 0,
     ignoreDefense: template.ignoreDefense || 0,
@@ -4610,10 +4676,7 @@ function legacyCreateItem(template, level, forcedTierId = null, context = {}) {
     equipmentDrop: template.equipmentDrop || 0,
     cardDrop: template.cardDrop || 0,
     materialQuantityBonus: template.materialQuantityBonus || 0,
-    powerPct: template.powerPct || 0,
-    combatPaceBonus: template.combatPaceBonus || 0,
-    patrolEfficiency: template.patrolEfficiency || 0,
-    hitRate: template.hitRate || 0,
+    combatPaceBonus: (template.combatPaceBonus || 0) + (template.patrolEfficiency || 0) + (template.powerPct || 0),
     statusResist: template.statusResist || 0,
     abyssDamageBonus: template.abyssDamageBonus || 0,
     abyssBossDamageBonus: template.abyssBossDamageBonus || 0,
@@ -4785,13 +4848,13 @@ function getSocketCardEffects(card = {}) {
     "atkPct", "matkPct", "hpPct", "defPct", "attackSpeedPct", "critRatePct",
     "critDamageBonus", "skillDamageBonus", "monsterDamageBonus", "bossDamageBonus",
     "abyssDamageBonus", "abyssBossDamageBonus", "abyssDamageReduction", "damageReductionPct",
-    "finalDamageBonus", "physicalFinalDamageBonus", "eliteDamageBonus", "rareDropBonus", "lifeSteal", "hitRate",
+    "finalDamageBonus", "physicalFinalDamageBonus", "eliteDamageBonus", "rareDropBonus", "lifeSteal", "combatPaceBonus",
     "dodgeRatePct", "baseExpBonus", "jobExpBonus", "equipmentDrop", "cardDrop",
     "materialQuantityBonus", "mythicWeightBonus", "mythicEssenceDropBonus", "drop", "gold",
-    "crit", "aspd", "aspdPct", "normalAttackDamageBonus", "higherLevelDamageBonus",
+    "crit", "aspd", "aspdPct", "normalAttackDamageBonus",
     "offlineEfficiencyBonus", "magicDamageReduction", "skillDamageReduction", "skillCooldownPenalty",
     "skillHitHealPct", "splashTargets", "splashDamagePct", "fireBurstChance", "fireBurstAtkPct",
-    "meteorCounterChance", "meteorCounterMatkPct", "statusResist", "patrolEfficiency",
+    "meteorCounterChance", "meteorCounterMatkPct", "statusResist",
   ];
   directStats.forEach((stat) => {
     if (Number(card[stat] || 0)) effects[stat] = (effects[stat] || 0) + Number(card[stat] || 0);
@@ -4965,6 +5028,59 @@ function normalizeItem(item) {
     return runtime.normalizeItem(item);
   }
   return legacyNormalizeItem(item);
+}
+
+function equipmentTemplateForV2Migration(item = {}) {
+  return equipmentTemplateDb[item.templateId] ||
+    equipmentTemplateDb[item.id] ||
+    equipmentTemplateDb[item.name] ||
+    allEquipmentTemplates.find((template) => normalizeEquipmentSlot(template.slot) === normalizeEquipmentSlot(item.equipSlot || item.slot)) ||
+    itemPool[0];
+}
+
+function migrateEquipmentItemToV2(item = {}) {
+  const source = item && typeof item === "object" ? item : {};
+  const level = Math.max(1, Math.round(Number(source.dropLevel || source.level || 1)));
+  const rarity = source.rarity || source.tier || "normal";
+  const template = equipmentTemplateForV2Migration(source);
+  const rerolled = createItem(template, level, rarity, {
+    dropMapId: source.dropMapId || "",
+    dropLevel: level,
+    difficulty: source.abyssForged || source.sourceDifficulty === "abyss" ? "abyss" : source.sourceDifficulty || "",
+    itemTier: source.itemTier || undefined,
+  });
+  rerolled.id = source.id || rerolled.id;
+  rerolled.instanceId = rerolled.id;
+  rerolled.level = level;
+  rerolled.dropLevel = level;
+  rerolled.rarity = rarity;
+  rerolled.tier = rarity;
+  rerolled.refine = 0;
+  rerolled.refineFailCount = 0;
+  rerolled.empower = 0;
+  rerolled.locked = false;
+  rerolled.cardSlots = [];
+  delete rerolled.antiCrit;
+  return normalizeItem(rerolled);
+}
+
+function reforgeEquipmentV2(itemId) {
+  const item = state.inventory.find((entry) => entry.id === itemId);
+  if (!item) return showToast("装备不存在。");
+  const tickets = state.materials[EQUIPMENT_V2_REFORGE_TICKET_ID] || 0;
+  if (tickets <= 0) return showToast("装备重铸券不足。");
+  const slot = equipmentSlot(item);
+  const rerolled = migrateEquipmentItemToV2(item);
+  state.materials[EQUIPMENT_V2_REFORGE_TICKET_ID] = Math.max(0, tickets - 1);
+  const index = state.inventory.findIndex((entry) => entry.id === itemId);
+  if (index >= 0) state.inventory[index] = rerolled;
+  if (state.equipped?.[slot] === itemId) state.equipped[slot] = rerolled.id;
+  addLog(`使用装备重铸券重铸 ${getDisplayItemName(rerolled)}。`);
+  save();
+  renderEquipment();
+  renderCharacter();
+  showToast("装备已重铸。");
+  return rerolled;
 }
 
 function defaultRandomStats() {
@@ -6476,7 +6592,6 @@ function computeStats() {
   if (isAbyss && setBonuses.abyssAttackSpeedPct) equip.attackSpeedPct = (equip.attackSpeedPct || 0) + setBonuses.abyssAttackSpeedPct;
   if (isAbyss && setBonuses.abyssCritRatePct) equip.critRatePct = (equip.critRatePct || 0) + setBonuses.abyssCritRatePct;
   if (isAbyss && setBonuses.abyssMagicDamageBonus) equip.matkPct = (equip.matkPct || 0) + setBonuses.abyssMagicDamageBonus;
-  if (equip.patrolEfficiency) equip.combatPaceBonus = (equip.combatPaceBonus || 0) + equip.patrolEfficiency * 0.5;
   const battleStats = calculateBattleStats({ attrs, equip, passive, cardStats, job, level, jobLevel, setBonuses });
   syncHeroHp({ maxHp: battleStats.maxHp }, false);
   const dps = battleStats.dps;
@@ -6529,7 +6644,8 @@ function computeStats() {
     jobExpMultiplier: 1 + setBonuses.jobExpPct + (equip.jobExpBonus || 0) + (passive.jobExpBonus || 0) + explorationBonuses.expBonus + (isAbyss ? setBonuses.abyssJobExpPct || 0 : 0),
     materialQuantityBonus: setBonuses.materialQuantityPct + (equip.materialQuantityBonus || 0) + (passive.materialQuantityBonus || 0),
     damageReductionPct: damageReductionTotal,
-    echoChance: Math.min(0.25, (equip.echoChance || 0) + (passive.echoChance || 0)),
+    blockRate: Math.min(0.45, (equip.blockRate || 0) + attrs.str * 0.0002),
+    echoChance: Math.min(0.25, (equip.echoChance || 0) + (passive.echoChance || 0) + attrs.dex * 0.00015),
     skillHitHealPct: Math.min(0.05, equip.skillHitHealPct || 0),
     magicDamageReduction: Math.min(0.6, equip.magicDamageReduction || 0),
     skillDamageReduction: Math.min(0.6, equip.skillDamageReduction || 0),
@@ -6537,13 +6653,13 @@ function computeStats() {
     offlineEfficiencyBonus: Math.min(0.2, equip.offlineEfficiencyBonus || 0),
     mutationMaterialDoubleChance: Math.min(0.25, equip.mutationMaterialDoubleChance || 0),
     thornVitMultiplier: Math.min(5, equip.thornVitMultiplier || 0),
-    combatPaceBonus: Math.min(0.25, (equip.combatPaceBonus || 0) + (passive.combatPaceBonus || 0) + (equip.patrolEfficiency || 0) * 0.5),
+    combatPaceBonus: Math.min(0.25, (equip.combatPaceBonus || 0) + (passive.combatPaceBonus || 0)),
     hitRate: equip.hitRate || 0,
     statusResist: equip.statusResist || 0,
     higherLevelDamageBonus: equip.higherLevelDamageBonus || 0,
     splashTargets: equip.splashTargets || 0,
     splashDamagePct: equip.splashDamagePct || 0,
-    fireBurstChance: Math.min(0.25, equip.fireBurstChance || 0),
+    fireBurstChance: Math.min(0.25, (equip.fireBurstChance || 0) + attrs.dex * 0.0001),
     fireBurstAtkPct: equip.fireBurstAtkPct || 0,
     meteorCounterChance: Math.min(0.25, equip.meteorCounterChance || 0),
     meteorCounterMatkPct: equip.meteorCounterMatkPct || 0,
@@ -6554,7 +6670,7 @@ function computeStats() {
     mythicWeightBonus: mythicWeightBonusTotal,
     bossQualityWeight: codexS.bossQualityWeight || 0,
     mythicEssenceDropBonus: (equip.mythicEssenceDropBonus || 0) + (vipMs.mythicEssenceDropBonus || 0),
-    rareDropBonus: (equip.rareDropBonus || 0) + (passive.rareDropBonus || 0) + (vipMs.rareQualityWeightBonus || 0),
+    rareDropBonus: (equip.rareDropBonus || 0) + (passive.rareDropBonus || 0) + (vipMs.rareQualityWeightBonus || 0) + attrs.luk * 0.001,
     abyssExecuteDamageBonus: (equip.abyssExecuteDamageBonus || 0) + (passive.abyssExecuteDamageBonus || 0),
     rawCritRate: battleStats.rawCritRate,
     crit: battleStats.critRate,
@@ -7569,7 +7685,6 @@ function renderCharacterStatSections(stats = computeStats()) { const runtime = w
       '<span>' + formatCritRateSummary(stats) + '<small>造成暴击的概率，玩家最高生效 100%。</small></span>',
       statLine('暴击伤害', stats.critDamage || (1.85 + (stats.critDamageBonus || 0)), '', { percent: true, showZero: true, note: '目前无硬上限' }),
       statLine('攻速', stats.attackSpeed || stats.aspd, '', { showZero: true, decimals: 2, note: '约 ' + (1 / Math.max(0.01, stats.attackSpeed || stats.aspd || 0.5)).toFixed(1) + ' 秒/次' }),
-      statLine('命中', stats.hitRate, 'hitRate'),
       statLine('最终伤害', stats.finalDamageBonus, 'finalDamageBonus'),
       statLine('技能伤害', stats.skillDamageBonus, 'skillDamageBonus', { note: '仅作用于技能' }),
       statLine('对怪物伤害', stats.monsterDamageBonus, 'monsterDamageBonus'),
@@ -7579,7 +7694,6 @@ function renderCharacterStatSections(stats = computeStats()) { const runtime = w
       statLine('伤害减免', stats.damageReductionPct, 'damageReductionPct'),
       statLine('闪避', stats.dodgeRate, '', { percent: true }),
       statLine('格挡率', stats.blockRate, 'blockRate'),
-      statLine('抗暴率', stats.antiCrit, 'antiCrit'),
       statLine('生命恢复', stats.hpRegen, '', { showZero: true }),
     ]) +
     panel('abyss', 'Boss / 深渊属性', [
@@ -8515,7 +8629,7 @@ function renderCoreStatBars(item, limit = 4) { const runtime = window.RuneFronti
 }
 
 function renderEquipmentSpecialTags(item, limit = 3) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentSpecialTags === "function") return runtime.renderEquipmentSpecialTags(item, limit);
-  var specialKeys = ["ignoreDefense", "echoChance", "splashTargets", "splashDamagePct", "fireBurstChance", "fireBurstAtkPct", "meteorCounterChance", "meteorCounterMatkPct", "lifeSteal", "skillHitHealPct", "mutationMaterialDoubleChance", "thornVitMultiplier"];
+  var specialKeys = ["ignoreDefense", "echoChance", "splashTargets", "splashDamagePct", "fireBurstChance", "fireBurstAtkPct", "meteorCounterChance", "meteorCounterMatkPct", "lifeSteal", "skillHitHealPct", "mutationMaterialDoubleChance", "thornVitMultiplier", "combatPaceBonus"];
   var effective = getEffectiveItemStats(item, false);
   var tags = [];
   for (var i = 0; i < specialKeys.length && tags.length < limit; i++) {
@@ -8607,6 +8721,7 @@ function renderEquipment() { const runtime = window.RuneFrontierRenderRuntime; i
       const empowerCost = getEmpowerCost(item);
       const nextStar = (item.refine || 0) + 1;
       const nextEmpower = (item.empower || 0) + 1;
+      const reforgeTickets = state.materials[EQUIPMENT_V2_REFORGE_TICKET_ID] || 0;
       const detailKey = equipmentDetailKey(item);
       const detailExpanded = Boolean(equipmentDetailExpandedState[detailKey]);
       return `
@@ -8638,6 +8753,7 @@ function renderEquipment() { const runtime = window.RuneFrontierRenderRuntime; i
             <button type="button" data-equip-item="${item.id}">${equipped ? "已装备" : "装备"}</button>
             <button type="button" data-refine-item="${item.id}" ${nextStar > 15 || !hasMaterials(refineCost) ? "disabled" : ""}>星炼</button>
             <button type="button" data-empower-item="${item.id}" ${nextEmpower > 10 || !hasMaterials(empowerCost) ? "disabled" : ""}>赋能</button>
+            <button type="button" data-reforge-v2-item="${item.id}" ${reforgeTickets <= 0 ? "disabled" : ""}>重铸</button>
             <button class="ghost" type="button" data-lock-item="${item.id}">${item.locked ? "解锁" : "锁定"}</button>
             ${isZodiacItem(item) ? `<button class="ghost" type="button" data-collect-zodiac="${item.id}">收藏</button><button class="ghost" type="button" data-zodiac-salvage="${item.id}" ${equipped || item.locked ? "disabled" : ""}>星座分解</button>` : ""}
             <button class="ghost" type="button" data-salvage-item="${item.id}" ${equipped || item.locked || isZodiacItem(item) ? "disabled" : ""}>分解</button>
@@ -9846,43 +9962,206 @@ function renderLog() { const runtime = window.RuneFrontierRenderRuntime; if (run
     .join("");
 }
 
+const battleSceneThemes = {
+  grass: { sky: ["#9fd7ef", "#dff1d3", "#f1d694"], far: "#8ec777", hill: "#68a65f", ground: "#6fae64", groundDark: "#3d7341", accent: "#f3cf73" },
+  forest: { sky: ["#9bc9b3", "#c8dfb8", "#caa96a"], far: "#4f7d50", hill: "#2f5d3d", ground: "#4d7f4a", groundDark: "#263f2d", accent: "#d5b45f" },
+  sewer: { sky: ["#899990", "#758077", "#5d655f"], far: "#68726d", hill: "#48534f", ground: "#4d5a52", groundDark: "#27342f", accent: "#b7c77d" },
+  desert: { sky: ["#f0c982", "#f3d99f", "#d7a45a"], far: "#c79552", hill: "#a66f3b", ground: "#c88f4d", groundDark: "#754629", accent: "#f5df91" },
+  orc_village: { sky: ["#bfcf8f", "#d5d19a", "#a98955"], far: "#7c8d4f", hill: "#566a3c", ground: "#667a42", groundDark: "#324029", accent: "#d1a654" },
+  mine: { sky: ["#526d84", "#6f8fa0", "#465a70"], far: "#425f78", hill: "#2f4458", ground: "#394d5c", groundDark: "#1f2b36", accent: "#8fd7ff" },
+  clock: { sky: ["#c7b798", "#d6c09a", "#9c7657"], far: "#9c744e", hill: "#6d503e", ground: "#785a42", groundDark: "#3c2c24", accent: "#e1bd68" },
+  glast_heim: { sky: ["#8f8797", "#b9adba", "#725f72"], far: "#6d6072", hill: "#4c4050", ground: "#514654", groundDark: "#29242d", accent: "#bda6d8" },
+  abyss_lake: { sky: ["#79b6d2", "#9fc8d9", "#537b99"], far: "#4d7895", hill: "#315f79", ground: "#356f84", groundDark: "#173848", accent: "#99e0ff" },
+  sky: { sky: ["#a8d7f2", "#d8edf7", "#b9b0de"], far: "#9eb9df", hill: "#776aa4", ground: "#8fa7cf", groundDark: "#5c5a8b", accent: "#fff0a6" },
+};
+
+function battleSceneTheme(map, colors = []) {
+  const fallback = {
+    sky: [colors[0] || "#bfe4d2", "#f3e6c8", "#d7b77a"],
+    far: colors[2] || "#52785a",
+    hill: colors[2] || "#52785a",
+    ground: colors[1] || "#7dbb87",
+    groundDark: "#315441",
+    accent: "#f3cf73",
+  };
+  return { ...fallback, ...(battleSceneThemes[map?.id] || {}) };
+}
+
+function drawBattleBackdrop(ctx, width, height, map, time) {
+  const theme = battleSceneTheme(map, map?.palette || []);
+  const horizon = 340;
+  const sky = ctx.createLinearGradient(0, 0, 0, height);
+  sky.addColorStop(0, theme.sky[0]);
+  sky.addColorStop(0.62, theme.sky[1]);
+  sky.addColorStop(1, theme.sky[2]);
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, width, height);
+
+  drawMapSkyDetails(ctx, map?.id, width, theme, time);
+
+  ctx.fillStyle = theme.far;
+  drawHill(ctx, -90, 318, 330, 130);
+  drawHill(ctx, 220, 330, 340, 150);
+  drawHill(ctx, 560, 320, 410, 145);
+
+  drawMapBackLandmarks(ctx, map?.id, width, theme, time);
+
+  ctx.fillStyle = theme.ground;
+  ctx.fillRect(0, horizon, width, height - horizon);
+  drawBattleGroundTexture(ctx, width, height, theme, time);
+  drawMapFrontLandmarks(ctx, map?.id, width, theme, time);
+}
+
+function drawMapSkyDetails(ctx, mapId, width, theme, time) {
+  if (mapId === "mine" || mapId === "sewer" || mapId === "glast_heim") {
+    ctx.fillStyle = "rgba(255, 245, 196, 0.12)";
+    for (let i = 0; i < 9; i += 1) {
+      const x = 80 + i * 92 + Math.sin(time * 0.6 + i) * 6;
+      ctx.fillRect(x, 42 + (i % 3) * 22, 3, 3);
+    }
+    return;
+  }
+  if (mapId === "sky") {
+    drawCloud(ctx, 150 + Math.sin(time * 0.2) * 22, 82, 1.25);
+    drawCloud(ctx, 620 + Math.cos(time * 0.16) * 26, 118, 1.05);
+    drawCloud(ctx, 770 + Math.sin(time * 0.13) * 18, 60, 0.72);
+    return;
+  }
+  if (mapId === "desert") {
+    ctx.fillStyle = "rgba(255, 238, 167, 0.72)";
+    ctx.beginPath();
+    ctx.arc(width - 150, 92, 34, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+  drawCloud(ctx, 110 + Math.sin(time * 0.2) * 16, 80, 1.1);
+  drawCloud(ctx, 670 + Math.cos(time * 0.17) * 22, 95, 0.85);
+}
+
+function drawBattleGroundTexture(ctx, width, height, theme, time) {
+  ctx.fillStyle = "rgba(255, 250, 226, 0.22)";
+  for (let i = 0; i < 15; i += 1) {
+    const x = (i * 74 + time * 18) % (width + 80) - 40;
+    ctx.fillRect(x, 392 + Math.sin(i) * 18, 42, 3);
+  }
+  ctx.fillStyle = theme.groundDark;
+  ctx.globalAlpha = 0.14;
+  for (let i = 0; i < 18; i += 1) {
+    const x = (i * 61 - time * 12) % (width + 70) - 30;
+    ctx.fillRect(x, 455 + (i % 4) * 12, 34, 4);
+  }
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "rgba(49, 84, 65, 0.24)";
+  ctx.fillRect(0, height - 34, width, 34);
+}
+
+function drawMapBackLandmarks(ctx, mapId, width, theme, time) {
+  switch (mapId) {
+    case "forest":
+      drawTree(ctx, 90, 305, 1.45, "#31543a", "#497b47");
+      drawTree(ctx, 790, 312, 1.25, "#2d4f36", "#3f6f43");
+      break;
+    case "sewer":
+      drawStoneWall(ctx, 0, 210, width, 135, "#59645e", "#343f3a");
+      drawPipe(ctx, 92, 250, 110, 42, "#6f7d77", theme.accent);
+      drawPipe(ctx, 710, 262, 94, 34, "#5d6963", theme.accent);
+      break;
+    case "desert":
+      drawDune(ctx, -60, 330, 360, 84, "#d3a25a");
+      drawDune(ctx, 410, 318, 420, 102, "#b98245");
+      drawRuinedPillar(ctx, 150, 292, 1.05, "#9c6a3b");
+      break;
+    case "orc_village":
+      drawPalisade(ctx, 0, 262, width, "#61412b");
+      drawOrcHut(ctx, 104, 296, 1, "#7d4b2a");
+      drawOrcHut(ctx, 716, 302, 0.9, "#6b4227");
+      break;
+    case "mine":
+      drawCaveOpening(ctx, 54, 202, 246, 142, "#1f2b36");
+      drawCrystal(ctx, 720, 312, 1.1, theme.accent);
+      drawCrystal(ctx, 778, 326, 0.72, "#d7f7ff");
+      break;
+    case "clock":
+      drawClockTower(ctx, 96, 282, 1, theme.accent);
+      drawGear(ctx, 722, 272, 42, "#bd8f52", time * 0.25);
+      drawGear(ctx, 790, 306, 30, "#8d633f", -time * 0.35);
+      break;
+    case "glast_heim":
+      drawCastleWall(ctx, 30, 250, 290, 95, "#4b4050");
+      drawCastleArch(ctx, 690, 265, 135, 82, "#5c5060");
+      break;
+    case "abyss_lake":
+      drawLakeBand(ctx, 0, 288, width, 68, "#4fa0bf");
+      drawDragonRib(ctx, 646, 292, 1.05, "#d7e9ef");
+      break;
+    case "sky":
+      drawFloatingIsland(ctx, 92, 292, 210, 72, "#7d91bd");
+      drawFloatingIsland(ctx, 650, 292, 190, 62, "#7989b6");
+      drawTemplePillar(ctx, 720, 250, 1, "#eee1b8");
+      break;
+    default:
+      drawTree(ctx, 90, 310, 1, "#5b7d45", "#77ab62");
+      drawFence(ctx, 690, 326, 145, "#8b5f38");
+      break;
+  }
+}
+
+function drawMapFrontLandmarks(ctx, mapId, width, theme, time) {
+  switch (mapId) {
+    case "grass":
+      drawFence(ctx, 86, 382, 160, "#8b5f38");
+      drawTree(ctx, 790, 355, 0.88, "#5b7d45", "#77ab62");
+      break;
+    case "forest":
+      drawMushroom(ctx, 710, 384, 1, "#d65c5c");
+      drawMushroom(ctx, 760, 398, 0.75, "#f0c36b");
+      break;
+    case "sewer":
+      ctx.fillStyle = "rgba(138, 166, 128, 0.42)";
+      ctx.fillRect(0, 418, width, 32);
+      break;
+    case "desert":
+      drawCactus(ctx, 760, 370, 1, "#587944");
+      drawCactus(ctx, 96, 392, 0.72, "#5f8248");
+      break;
+    case "orc_village":
+      drawBannerPole(ctx, 790, 356, "#d2a44d");
+      break;
+    case "mine":
+      drawCrystal(ctx, 136, 382, 0.82, theme.accent);
+      drawCrystal(ctx, 188, 398, 0.54, "#d7f7ff");
+      break;
+    case "clock":
+      drawGear(ctx, 124, 382, 22, "#d1aa66", time * 0.7);
+      break;
+    case "glast_heim":
+      drawRuinedPillar(ctx, 790, 372, 0.82, "#756579");
+      break;
+    case "abyss_lake":
+      ctx.fillStyle = "rgba(190, 238, 255, 0.28)";
+      ctx.fillRect(0, 358, width, 20);
+      break;
+    case "sky":
+      drawCloud(ctx, 82, 390, 0.62);
+      drawCloud(ctx, 772, 372, 0.58);
+      break;
+    default:
+      break;
+  }
+}
+
 function drawScene(time) {
   const canvas = els.sceneCanvas;
   const ctx = canvas.getContext("2d");
   const { width, height } = canvas;
   const map = currentMap();
-  const colors = map.palette;
 
   ctx.clearRect(0, 0, width, height);
-  const sky = ctx.createLinearGradient(0, 0, 0, height);
-  sky.addColorStop(0, colors[0]);
-  sky.addColorStop(0.68, "#f3e6c8");
-  sky.addColorStop(1, "#d7b77a");
-  ctx.fillStyle = sky;
-  ctx.fillRect(0, 0, width, height);
-
-  drawCloud(ctx, 100 + Math.sin(time * 0.2) * 16, 80, 1.2);
-  drawCloud(ctx, 670 + Math.cos(time * 0.17) * 22, 95, 0.9);
-
-  ctx.fillStyle = colors[2];
-  drawHill(ctx, -80, 330, 330, 150);
-  drawHill(ctx, 190, 340, 360, 170);
-  drawHill(ctx, 520, 330, 420, 160);
-
-  ctx.fillStyle = colors[1];
-  ctx.fillRect(0, 340, width, 180);
-  ctx.fillStyle = "rgba(255, 250, 240, 0.28)";
-  for (let i = 0; i < 16; i += 1) {
-    const x = (i * 72 + time * 24) % (width + 80) - 40;
-    ctx.fillRect(x, 394 + Math.sin(i) * 18, 40, 3);
-  }
+  drawBattleBackdrop(ctx, width, height, map, time);
 
   drawHero(ctx, 190, 344 + Math.sin(time * 3.1) * 4, currentJob().color, currentJob().id, time);
   drawEnemy(ctx, 680, 340 + Math.sin(time * 2) * 7, state.enemyBoss ? 1.55 : 1, time);
   drawFloatTexts(ctx);
-
-  ctx.fillStyle = "rgba(49, 84, 65, 0.24)";
-  ctx.fillRect(0, height - 34, width, 34);
 }
 
 function drawFloatTexts(ctx) {
@@ -9919,6 +10198,279 @@ function drawHill(ctx, x, y, w, h) {
   ctx.beginPath();
   ctx.moveTo(x, y + h);
   ctx.quadraticCurveTo(x + w * 0.5, y - h, x + w, y + h);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawTree(ctx, x, y, scale, trunk, leaves) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.fillStyle = trunk;
+  ctx.fillRect(-8, -54, 16, 58);
+  ctx.fillStyle = leaves;
+  ctx.beginPath();
+  ctx.arc(-26, -62, 31, 0, Math.PI * 2);
+  ctx.arc(4, -84, 36, 0, Math.PI * 2);
+  ctx.arc(31, -58, 30, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawFence(ctx, x, y, width, color) {
+  ctx.fillStyle = color;
+  for (let i = 0; i <= width; i += 28) ctx.fillRect(x + i, y - 34, 9, 40);
+  ctx.fillRect(x - 8, y - 25, width + 24, 8);
+  ctx.fillRect(x - 8, y - 9, width + 24, 7);
+}
+
+function drawStoneWall(ctx, x, y, width, height, color, line) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, width, height);
+  ctx.strokeStyle = line;
+  ctx.lineWidth = 3;
+  for (let row = 0; row < height; row += 26) {
+    ctx.beginPath();
+    ctx.moveTo(x, y + row);
+    ctx.lineTo(x + width, y + row);
+    ctx.stroke();
+    for (let col = row % 52 ? 0 : 34; col < width; col += 68) {
+      ctx.beginPath();
+      ctx.moveTo(x + col, y + row);
+      ctx.lineTo(x + col, y + row + 26);
+      ctx.stroke();
+    }
+  }
+}
+
+function drawPipe(ctx, x, y, w, h, color, glow) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = "rgba(33, 45, 39, 0.42)";
+  ctx.fillRect(x + 12, y + h - 10, w - 24, 10);
+  ctx.fillStyle = glow;
+  ctx.globalAlpha = 0.22;
+  ctx.fillRect(x + 8, y + h, w - 16, 18);
+  ctx.globalAlpha = 1;
+}
+
+function drawDune(ctx, x, y, w, h, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x, y + h);
+  ctx.quadraticCurveTo(x + w * 0.42, y - h * 0.35, x + w, y + h);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawRuinedPillar(ctx, x, y, scale, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.fillStyle = color;
+  ctx.fillRect(-13, -72, 26, 72);
+  ctx.fillRect(-22, -82, 44, 12);
+  ctx.fillStyle = "rgba(255, 238, 185, 0.16)";
+  ctx.fillRect(-8, -64, 7, 56);
+  ctx.restore();
+}
+
+function drawPalisade(ctx, x, y, width, color) {
+  ctx.fillStyle = color;
+  for (let i = -10; i < width + 20; i += 24) {
+    ctx.beginPath();
+    ctx.moveTo(x + i, y);
+    ctx.lineTo(x + i + 10, y - 38);
+    ctx.lineTo(x + i + 20, y);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+function drawOrcHut(ctx, x, y, scale, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.fillStyle = color;
+  ctx.fillRect(-42, -48, 84, 48);
+  ctx.fillStyle = "#5c3321";
+  ctx.beginPath();
+  ctx.moveTo(-55, -46);
+  ctx.lineTo(0, -86);
+  ctx.lineTo(55, -46);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawCaveOpening(ctx, x, y, w, h, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.ellipse(x + w * 0.5, y + h * 0.92, w * 0.5, h * 0.9, 0, Math.PI, Math.PI * 2);
+  ctx.lineTo(x + w, y + h);
+  ctx.lineTo(x, y + h);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawCrystal(ctx, x, y, scale, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(0, -58);
+  ctx.lineTo(25, -18);
+  ctx.lineTo(13, 0);
+  ctx.lineTo(-16, 0);
+  ctx.lineTo(-27, -18);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
+  ctx.fillRect(-4, -42, 7, 31);
+  ctx.restore();
+}
+
+function drawClockTower(ctx, x, y, scale, accent) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.fillStyle = "#6d503e";
+  ctx.fillRect(-38, -104, 76, 104);
+  ctx.fillStyle = "#3c2c24";
+  ctx.fillRect(-48, -118, 96, 18);
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  ctx.arc(0, -74, 24, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#4a2f1c";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(0, -74);
+  ctx.lineTo(0, -91);
+  ctx.moveTo(0, -74);
+  ctx.lineTo(14, -66);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawGear(ctx, x, y, radius, color, rotation) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rotation);
+  ctx.fillStyle = color;
+  for (let i = 0; i < 12; i += 1) {
+    ctx.rotate(Math.PI / 6);
+    ctx.fillRect(-5, -radius - 10, 10, 18);
+  }
+  ctx.beginPath();
+  ctx.arc(0, 0, radius, 0, Math.PI * 2);
+  ctx.arc(0, 0, radius * 0.42, 0, Math.PI * 2, true);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawCastleWall(ctx, x, y, w, h, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, w, h);
+  for (let i = 0; i < w; i += 44) ctx.fillRect(x + i, y - 22, 27, 24);
+  ctx.fillStyle = "rgba(20, 16, 22, 0.26)";
+  ctx.fillRect(x + 42, y + 34, 52, 61);
+}
+
+function drawCastleArch(ctx, x, y, w, h, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = "rgba(24, 18, 28, 0.42)";
+  ctx.beginPath();
+  ctx.arc(x + w * 0.5, y + h, w * 0.28, Math.PI, Math.PI * 2);
+  ctx.fillRect(x + w * 0.22, y + h * 0.58, w * 0.56, h * 0.42);
+  ctx.fill();
+}
+
+function drawLakeBand(ctx, x, y, width, height, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, width, height);
+  ctx.fillStyle = "rgba(225, 250, 255, 0.35)";
+  for (let i = 0; i < 10; i += 1) ctx.fillRect(x + i * 96, y + 12 + (i % 3) * 14, 58, 4);
+}
+
+function drawDragonRib(ctx, x, y, scale, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.arc(0, 22, 76, Math.PI * 1.08, Math.PI * 1.86);
+  ctx.stroke();
+  for (let i = -3; i <= 3; i += 1) {
+    ctx.beginPath();
+    ctx.moveTo(i * 18, -30 + Math.abs(i) * 6);
+    ctx.lineTo(i * 22, 22);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawFloatingIsland(ctx, x, y, w, h, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.ellipse(x + w / 2, y, w / 2, h * 0.35, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "rgba(70, 56, 92, 0.48)";
+  ctx.beginPath();
+  ctx.moveTo(x + 30, y + 12);
+  ctx.lineTo(x + w * 0.5, y + h);
+  ctx.lineTo(x + w - 30, y + 12);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawTemplePillar(ctx, x, y, scale, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.fillStyle = color;
+  ctx.fillRect(-16, -88, 32, 88);
+  ctx.fillRect(-30, -100, 60, 14);
+  ctx.fillRect(-24, 0, 48, 12);
+  ctx.restore();
+}
+
+function drawMushroom(ctx, x, y, scale, cap) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.fillStyle = "#f3d6a3";
+  ctx.fillRect(-8, -27, 16, 28);
+  ctx.fillStyle = cap;
+  ctx.beginPath();
+  ctx.arc(0, -30, 25, Math.PI, Math.PI * 2);
+  ctx.fillRect(-25, -30, 50, 14);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawCactus(ctx, x, y, scale, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.fillStyle = color;
+  ctx.fillRect(-8, -62, 16, 64);
+  ctx.fillRect(-30, -39, 24, 12);
+  ctx.fillRect(6, -30, 28, 12);
+  ctx.restore();
+}
+
+function drawBannerPole(ctx, x, y, color) {
+  ctx.fillStyle = "#4b2f1d";
+  ctx.fillRect(x, y - 86, 8, 88);
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x + 8, y - 82);
+  ctx.lineTo(x + 62, y - 70);
+  ctx.lineTo(x + 8, y - 52);
   ctx.closePath();
   ctx.fill();
 }
@@ -10308,7 +10860,7 @@ function computeEquipmentFullStats() {
         sum.gold += effective.gold || 0;
         sum.crit += effective.crit || 0;
         sum.drop += effective.drop || 0;
-        ["atkPct", "matkPct", "hpPct", "defPct", "attackSpeedPct", "critRatePct", "critDamageBonus", "skillDamageBonus", "monsterDamageBonus", "bossDamageBonus", "bossDamageReduction", "damageReductionPct", "damageReduction", "lifeSteal", "blockRate", "antiCrit", "dodgeRatePct", "hpRegenPct", "ignoreDefense", "baseExpBonus", "jobExpBonus", "equipmentDrop", "cardDrop", "materialQuantityBonus", "powerPct", "combatPaceBonus", "patrolEfficiency", "hitRate", "statusResist", "echoChance", "mutationMaterialDoubleChance", "thornVitMultiplier", "abyssDamageBonus", "abyssBossDamageBonus", "abyssDamageReduction", "abyssPower", "abyssResist", "abyssMaterialDropBonus", "abyssSkillDamageBonus", "mythicWeightBonus", "mythicEssenceDropBonus", "rebirthPrestigeWeightBonus", "abyssExecuteDamageBonus", "setPowerBonus", "finalDamageBonus", "physicalFinalDamageBonus", "eliteDamageBonus", "rareDropBonus", "normalAttackDamageBonus", "higherLevelDamageBonus", "offlineEfficiencyBonus", "magicDamageReduction", "skillDamageReduction", "skillCooldownPenalty", "skillHitHealPct", "splashTargets", "splashDamagePct", "fireBurstChance", "fireBurstAtkPct", "meteorCounterChance", "meteorCounterMatkPct"].forEach((stat) => {
+        ["atkPct", "matkPct", "hpPct", "defPct", "attackSpeedPct", "critRatePct", "critDamageBonus", "skillDamageBonus", "monsterDamageBonus", "bossDamageBonus", "bossDamageReduction", "damageReductionPct", "damageReduction", "lifeSteal", "blockRate", "dodgeRatePct", "hpRegenPct", "ignoreDefense", "baseExpBonus", "jobExpBonus", "equipmentDrop", "cardDrop", "materialQuantityBonus", "powerPct", "combatPaceBonus", "patrolEfficiency", "hitRate", "statusResist", "echoChance", "mutationMaterialDoubleChance", "thornVitMultiplier", "abyssDamageBonus", "abyssBossDamageBonus", "abyssDamageReduction", "abyssPower", "abyssResist", "abyssMaterialDropBonus", "abyssSkillDamageBonus", "mythicWeightBonus", "mythicEssenceDropBonus", "rebirthPrestigeWeightBonus", "abyssExecuteDamageBonus", "setPowerBonus", "finalDamageBonus", "physicalFinalDamageBonus", "eliteDamageBonus", "rareDropBonus", "normalAttackDamageBonus", "higherLevelDamageBonus", "offlineEfficiencyBonus", "magicDamageReduction", "skillDamageReduction", "skillCooldownPenalty", "skillHitHealPct", "splashTargets", "splashDamagePct", "fireBurstChance", "fireBurstAtkPct", "meteorCounterChance", "meteorCounterMatkPct"].forEach((stat) => {
           sum[stat] += effective[stat] || 0;
         });
         return sum;
@@ -10344,7 +10896,6 @@ function computeEquipmentFullStats() {
         damageReduction: 0,
         lifeSteal: 0,
         blockRate: 0,
-        antiCrit: 0,
         dodgeRatePct: 0,
         hpRegenPct: 0,
         ignoreDefense: 0,
@@ -10420,7 +10971,7 @@ function itemScore(item) {
     (effective.abyssDamageReduction || 0) * 260 +
     (effective.magicDamageReduction || 0) * 220 +
     (effective.skillDamageReduction || 0) * 220 +
-    (effective.hitRate || 0) * 160 +
+    (effective.blockRate || 0) * 260 +
     (effective.statusResist || 0) * 90 +
     (item.refine || 0) * 18 +
     (item.empower || 0) * 22
@@ -11069,7 +11620,7 @@ function groupEquipmentStats(item) {
     { title: "基础属性", stats: ["atk", "matk", "def", "hp"] },
     { title: "职业属性", stats: ["str", "agi", "vit", "int", "dex", "luk"] },
     { title: "输出属性", stats: ["aspd", "crit", "critRatePct", "critDamageBonus", "attackSpeedPct", "finalDamageBonus", "skillDamageBonus", "atkPct", "matkPct"] },
-    { title: "生存属性", stats: ["lifeSteal", "damageReductionPct", "hpRegen", "dodgeRate", "blockRate", "antiCrit", "hpPct", "defPct"] },
+    { title: "生存属性", stats: ["lifeSteal", "damageReductionPct", "hpRegen", "dodgeRate", "blockRate", "hpPct", "defPct"] },
     { title: "Boss属性", stats: ["bossDamageBonus", "bossDamageReduction"] },
     { title: "深渊属性", stats: ["abyssDamageReduction", "abyssMaterialDropBonus", "mythicWeightBonus", "abyssExecuteDamageBonus"] },
     { title: "收益属性", stats: ["materialQuantityBonus", "offlineEfficiencyBonus"] },
@@ -11109,7 +11660,7 @@ function renderRarityPerk(item) { const runtime = window.RuneFrontierRenderRunti
 
 function renderEquipmentStatSections(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentStatSections === "function") return runtime.renderEquipmentStatSections(item);
   const statGroups = groupEquipmentStats(item);
-  const specialStats = ["ignoreDefense", "echoChance", "splashTargets", "splashDamagePct", "fireBurstChance", "fireBurstAtkPct", "meteorCounterChance", "meteorCounterMatkPct", "mutationMaterialDoubleChance", "thornVitMultiplier", "hitRate", "statusResist", "powerPct"]
+  const specialStats = ["ignoreDefense", "echoChance", "splashTargets", "splashDamagePct", "fireBurstChance", "fireBurstAtkPct", "meteorCounterChance", "meteorCounterMatkPct", "mutationMaterialDoubleChance", "thornVitMultiplier", "combatPaceBonus", "statusResist"]
     .map((stat) => equipmentStatEntry(getEffectiveItemStats(item, false), stat))
     .filter(Boolean);
   const abyssStats = Object.entries(item.abyssBonus || {})
@@ -11515,7 +12066,6 @@ function statLabelName(stat) {
     damageReductionPct: "伤害减免",
     lifeSteal: "吸血",
     blockRate: "格挡",
-    antiCrit: "抗暴",
     dodgeRatePct: "闪避率",
     hpRegenPct: "生命恢复",
     ignoreDefense: "破甲",
@@ -11644,7 +12194,6 @@ function statIsPercent(stat) {
     "damageReduction",
     "lifeSteal",
     "blockRate",
-    "antiCrit",
     "ignoreDefense",
     "damageReductionPct",
     "dodgeRatePct",
@@ -12566,7 +13115,7 @@ Object.assign(window, {
   getCurrentRecommendedScoreGap,
   renderAll,
 });
-window.specialStatKeys = ["ignoreDefense", "echoChance", "splashTargets", "splashDamagePct", "fireBurstChance", "fireBurstAtkPct", "meteorCounterChance", "meteorCounterMatkPct", "skillCooldownPenalty", "higherLevelDamageBonus", "mutationMaterialDoubleChance", "thornVitMultiplier", "combatPaceBonus", "patrolEfficiency", "hitRate", "statusResist", "powerPct", "setPowerBonus"];
+window.specialStatKeys = ["ignoreDefense", "echoChance", "splashTargets", "splashDamagePct", "fireBurstChance", "fireBurstAtkPct", "meteorCounterChance", "meteorCounterMatkPct", "skillCooldownPenalty", "mutationMaterialDoubleChance", "thornVitMultiplier", "combatPaceBonus", "statusResist", "setPowerBonus"];
 Object.defineProperties(window, {
   refineResultState: { configurable: true, get() { return refineResultState; } },
   equipmentDetailExpandedState: { configurable: true, get() { return equipmentDetailExpandedState; } },

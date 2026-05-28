@@ -124,6 +124,14 @@ export function updateCombat(dt, context = runtimeContext) {
       context.showDamageNumber?.('monster', adjustedDamage, isCrit ? 'crit' : 'player');
       context.showHitFeedback?.(isCrit ? 'crit' : 'normal');
       context.applySplashDamageToEncounter?.(adjustedDamage, stats);
+      const splashRatio = finite(stats.splashDamagePct);
+      const hasSplash = finite(stats.splashTargets) > 0 && splashRatio > 0;
+      const livingAdds = (state.enemyGroup?.monsters || []).filter((entry, index) => index !== state.enemyGroup?.activeIndex && entry.alive).length;
+      if (hasSplash && state.enemyHp > 0 && (state.enemyBoss || livingAdds <= 0)) {
+        const convertedSplash = normalizeDamage(adjustedDamage * Math.min(0.35, splashRatio * 0.45));
+        state.enemyHp -= convertedSplash;
+        context.showDamageNumber?.('monster', convertedSplash, 'skill', { skillName: '溅射转化' });
+      }
       if (stats.fireBurstChance && context.random?.() < stats.fireBurstChance && state.enemyHp > 0) {
         const burstDamage = normalizeDamage(finite(stats.physicalAttack) * finite(stats.fireBurstAtkPct || 0.8) * (1 + targetBonus) * (1 - monsterGuard));
         state.enemyHp -= burstDamage;
@@ -196,9 +204,10 @@ export function updateMonsterAttack(dt, stats = {}, context = runtimeContext, v3
   }
   const effectiveCritChance = finite(monster.critChance) * (1 - Math.min(0.75, finite(stats.statusResist) * 0.5));
   const isCrit = context.random?.() < effectiveCritChance;
+  const isBlocked = !isCrit && context.random?.() < Math.min(0.45, finite(stats.blockRate));
   const hpRatio = finite(state.hero?.currentHp || stats.maxHp) / Math.max(1, finite(stats.maxHp));
   const livingCount = Math.max(1, (state.enemyGroup?.monsters || []).filter((entry) => entry.alive).length || 1);
-  const { damage } = calculateMonsterHit({ stats, monster, hpRatio, livingCount, isCrit });
+  const { damage } = calculateMonsterHit({ stats, monster, hpRatio, livingCount, isCrit, isBlocked });
   let finalDamage = damage;
   // V3 被动：减伤
   if (v3Passive.damageReductionPct) finalDamage = Math.round(finalDamage * (1 - v3Passive.damageReductionPct));
@@ -207,7 +216,7 @@ export function updateMonsterAttack(dt, stats = {}, context = runtimeContext, v3
     finalDamage = window.RuneFrontierCombatRuntime.applyShieldReduction(finalDamage, state);
   }
   state.hero.currentHp = Math.max(0, finite(state.hero?.currentHp || stats.maxHp) - finalDamage);
-  context.showDamageNumber?.('hero', damage, isCrit ? 'crit' : 'monster');
+  context.showDamageNumber?.('hero', finalDamage, isCrit ? 'crit' : isBlocked ? 'block' : 'monster');
   context.flashPlayerHp?.();
   if (state.enemyHp > 0 && finite(stats.thornVitMultiplier) > 0) {
     const thornDamage = normalizeDamage(finite(stats.attrs?.vit) * finite(stats.thornVitMultiplier));

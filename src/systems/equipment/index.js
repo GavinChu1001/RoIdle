@@ -1,7 +1,7 @@
 import { configureItemStatsContext, getEffectiveItemStats } from './itemStats.js';
 import { calculateEquipmentScores } from './itemScore.js';
 import { getEquipmentDisplayName } from './itemNaming.js';
-import { configureItemFactoryContext, createItem, normalizeItem } from './itemFactory.js';
+import { configureItemFactoryContext, createItem, normalizeItem, resetItemForStatV2 } from './itemFactory.js';
 import { configureEquipmentMutationContext, getSalvageRewards, shouldAutoSalvage, addEquipmentToInventory, salvageItem, salvageAllUnequipped, equipBest } from './dismantle.js';
 import { configureRefineContext, enhanceItem, getEnhanceCost, getEnhanceMilestoneBonuses, getEnhanceEffect } from './refine.js';
 import { configureStarRefineContext, refineItem, getRefineChance, getRefineCost, snapshotRefineStats, diffRefineStats, star15Bonus, refineMultiplier, refineGrowthFactorForStat, getRefineMilestoneBonuses, getRefineGrowthStats } from './starRefine.js';
@@ -31,6 +31,7 @@ export function installEquipmentRuntime(context = {}) {
     calculateEquipmentScores,
     createItem,
     normalizeItem,
+    resetItemForStatV2,
     getSalvageRewards,
     shouldAutoSalvage,
     addEquipmentToInventory,
