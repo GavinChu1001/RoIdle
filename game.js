@@ -9989,6 +9989,7 @@ function battleSceneTheme(map, colors = []) {
 }
 
 function drawBattleBackdrop(ctx, width, height, map, time) {
+  if (drawBattleBackgroundImage(ctx, width, height, map)) return;
   const theme = battleSceneTheme(map, map?.palette || []);
   const horizon = 340;
   const sky = ctx.createLinearGradient(0, 0, 0, height);
@@ -10011,6 +10012,40 @@ function drawBattleBackdrop(ctx, width, height, map, time) {
   ctx.fillRect(0, horizon, width, height - horizon);
   drawBattleGroundTexture(ctx, width, height, theme, time);
   drawMapFrontLandmarks(ctx, map?.id, width, theme, time);
+}
+
+function battleBackgroundSource(mapId) {
+  const safe = String(mapId || "grass").replace(/[^A-Za-z0-9_-]/g, "_");
+  return `assets/images/battle-backgrounds/${safe}.png`;
+}
+
+function getBattleBackgroundImage(mapId) {
+  const source = battleBackgroundSource(mapId);
+  let entry = battleBackgroundCache[source];
+  if (!entry) {
+    const image = new Image();
+    image.src = source;
+    image.onerror = () => {
+      image.failed = true;
+    };
+    entry = battleBackgroundCache[source] = image;
+  }
+  return entry.failed ? null : entry;
+}
+
+function drawBattleBackgroundImage(ctx, width, height, map) {
+  const image = getBattleBackgroundImage(map?.id);
+  if (!image || !image.complete || !image.naturalWidth) return false;
+  const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
+  const drawWidth = Math.ceil(image.naturalWidth * scale);
+  const drawHeight = Math.ceil(image.naturalHeight * scale);
+  const x = Math.floor((width - drawWidth) / 2);
+  const y = Math.floor((height - drawHeight) / 2);
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(image, x, y, drawWidth, drawHeight);
+  ctx.restore();
+  return true;
 }
 
 function drawMapSkyDetails(ctx, mapId, width, theme, time) {

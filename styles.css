@@ -10202,3 +10202,29 @@ details > summary::marker {
     animation-duration: 1ms !important;
   }
 }
+
+/* Static battle backgrounds need the canvas to keep its artwork ratio. */
+.ro-stage-card .scene-wrap {
+  aspect-ratio: 900 / 520;
+}
+
+.ro-stage-card .scene-wrap canvas {
+  width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 900 / 520;
+}
+
+@media (min-width: 821px) and (max-height: 760px) {
+  .ro-stage-card .scene-wrap,
+  .ro-stage-card .battle-scene,
+  .ro-stage-card .combat-stage {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+  }
+
+  .ro-stage-card canvas {
+    height: auto !important;
+    max-height: none !important;
+  }
+}
