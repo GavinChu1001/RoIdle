@@ -27,7 +27,7 @@ import {
 } from './damage.js';
 import { configureNormalCombatContext, updateCombat, updateMonsterAttack, updateRecovery } from './normalCombat.js';
 import { configureSkillsContext, resolveActiveSkillCast, rollActiveSkill, skillAttributeMultiplier } from './skills.js';
-import { configureSkillMechanicsContext, tickSkillSystem, getPassiveMechanismEffects, getSkillBuffMultipliers, applyShieldReduction } from './skillMechanics.js';
+import { configureSkillMechanicsContext, tickSkillSystem, getPassiveMechanismEffects, getSkillBuffMultipliers, applyShieldReduction, resetEnemySkillStatuses, getEnemyStatusDisplayState } from './skillMechanics.js';
 import {
   canHeroFight,
   challengeBoss,
@@ -40,7 +40,8 @@ import {
   tryAutoChallengeBoss,
 } from './bossCombat.js';
 import { configureMonsterContext, buildMonsterStats, pickMonsterTemplate, rollMonsterLevel, rollMonsterMutation, getMonsterTemplate, getMapLevelRange, getMutationById, bossDisplayName, currentDifficultyConfig, getMonsterDifficultyType } from './monster.js';
-import { configureEncounterContext, spawnEnemy, createEnemyGroup, createEncounterMonster, getEncounterSize, getEncounterLabel, currentMonsterStats, normalizeEnemyGroup, syncActiveEnemyFromGroup, updateActiveEnemyHpInGroup, hasLivingEncounterMembers } from './encounter.js';
+import { applySkillSplashDamageToEncounter, applySplashDamageToEncounter, configureEncounterContext, spawnEnemy, createEnemyGroup, createEncounterMonster, getEncounterSize, getEncounterLabel, currentMonsterStats, normalizeEnemyGroup, syncActiveEnemyFromGroup, updateActiveEnemyHpInGroup, hasLivingEncounterMembers } from './encounter.js';
+import { configureFailureReasonContext, getDifficultyFailureHint } from './failureReason.js';
 
 export function installCombatRuntime(context = {}) {
   configureCombatSettlementContext(context);
@@ -51,6 +52,7 @@ export function installCombatRuntime(context = {}) {
   configureMonsterContext(context);
   configureEncounterContext(context);
   configureSkillMechanicsContext(context);
+  configureFailureReasonContext(context);
   const runtime = Object.freeze({
     grantBossEssence,
     settleBossVictory,
@@ -94,10 +96,15 @@ export function installCombatRuntime(context = {}) {
     getPassiveMechanismEffects,
     getSkillBuffMultipliers,
     applyShieldReduction,
+    resetEnemySkillStatuses,
+    getEnemyStatusDisplayState,
     normalizeEnemyGroup,
     syncActiveEnemyFromGroup,
     updateActiveEnemyHpInGroup,
     hasLivingEncounterMembers,
+    applySplashDamageToEncounter,
+    applySkillSplashDamageToEncounter,
+    getDifficultyFailureHint,
   });
   window.RuneFrontierCombatRuntime = runtime;
   return runtime;

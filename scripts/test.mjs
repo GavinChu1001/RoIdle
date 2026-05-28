@@ -10,6 +10,7 @@ const game = read('game.js');
 const data = read('data.js');
 const tools = read('tools.js');
 const html = read('index.html');
+const styles = read('styles.css');
 const main = read('src/main.js');
 const stateSurface = read('src/state/index.js');
 const itemStatsSource = read('src/systems/equipment/itemStats.js');
@@ -33,6 +34,7 @@ const damageSource = read('src/systems/combat/damage.js');
 const skillsSource = read('src/systems/combat/skills.js');
 const skillMechanicsSource = read('src/systems/combat/skillMechanics.js');
 const normalCombatSource = read('src/systems/combat/normalCombat.js');
+const encounterSource = read('src/systems/combat/encounter.js');
 const taskPageSource = read('src/ui/taskPage.js');
 const cardPageSource = read('src/ui/cardPage.js');
 
@@ -40,17 +42,16 @@ const classicDataContext = { console };
 createContext(classicDataContext);
 runInContext(tools, classicDataContext, { filename: 'tools.js' });
 assert.doesNotThrow(() => runInContext(data, classicDataContext, { filename: 'data.js' }), 'Classic data script must initialize before game.js loads.');
-assert.ok(true, 'Job templates moved back to game.js (P4 fix — skill() dependency).');
-assert.ok(true, 'Second job templates moved back to game.js (P4 fix — skill() dependency).');
-assert.ok(true, 'Skill factory output unchanged in game.js.');
-assert.equal((data.match(/var v3SkillAwakenings\s*=\s*\{\}/g) || []).length, 1, 'V3 skill awakening placeholder must be present in data.js.');
-assert.match(data, /var v3JobSkills\s*=\s*\{\}/, 'V3 skill placeholder must be present in data.js.');
-assert.ok(true, 'V4 skills temporarily replaced with empty placeholders (data recovery pending).');
-assert.ok(true, 'V4 active-skill count check skipped (placeholder).');
-assert.ok(true, 'V4 passive-skill count check skipped (placeholder).');
-assert.ok(true, 'V4 awakening count check skipped (placeholder).');
-assert.ok(true, 'V3 combat skills aggregator (getV3CombatSkills) temporarily unavailable (data recovery pending).');
-assert.ok(true, 'Rune Knight route check skipped (V4 data placeholder).');
+assert.ok(classicDataContext.v3JobSkills && typeof classicDataContext.v3JobSkills === 'object', 'V4 skill table must initialize from data.js.');
+assert.equal(Object.keys(classicDataContext.v3SkillAwakenings || {}).length, 6, 'Six V4 awakening configurations must remain available.');
+assert.equal(classicDataContext.getV3CombatSkills('runeKnight').length, 9, 'Rune Knight must inherit Swordman and Knight V4 skills.');
+assert.ok(classicDataContext.getV3CombatSkills('mechanic').some((entry) => entry.name === '大地之击'), 'Mechanic must inherit Blacksmith passive mechanics.');
+const rangerSkills = classicDataContext.getV3CombatSkills('ranger');
+assert.equal(rangerSkills.find((entry) => entry.name === '狼突袭').mechanism.baseMultiplier, 2.4, 'Wolf Assault must retain its unmarked base multiplier.');
+const assassinSkills = classicDataContext.getV3CombatSkills('assassin');
+assert.equal(assassinSkills.find((entry) => entry.name === '毒性扩散').mechanism.poisonStackAdd, 1, 'Poison Spread must add poison stacks.');
+assert.equal(classicDataContext.getV3CombatSkills('priest').find((entry) => entry.name === '信仰守护').mechanism.extra.cleanseDebuff, undefined, 'Faith Guard must not advertise an unimplemented cleanse.');
+assert.equal(classicDataContext.getV3CombatSkills('blacksmith').find((entry) => entry.name === '武器精炼').mechanism.goldCost, undefined, 'Weapon Refinement must not invent an unspecified gold cost.');
 
 const requiredLegacyFunctions = [
   'createDefaultState',
@@ -69,6 +70,51 @@ for (const name of requiredLegacyFunctions) {
 assert.match(main, /window\.RuneFrontierDevBridge\s*=/, 'Developer diagnostics bridge must remain available (now installed via main.js).');
 assert.doesNotMatch(main, /state:\s*window\.state\s*\|\|\s*\{\}/, 'Developer diagnostics must not capture an unrelated window.state snapshot.');
 assert.match(main, /RuneFrontierLegacyDevContext/, 'Developer diagnostics must obtain its live legacy context.');
+assert.match(html, /id="enemyStatusBar"/, 'Adventure battle UI must expose the enemy status strip.');
+assert.match(html, /id="skillCastBanner"/, 'Adventure battle UI must expose a visible skill cast banner.');
+assert.match(html, /class="page-tabs[^"]*ro-main-tabs/, 'main tabs should opt into RO navigation styling');
+assert.match(html, /class="adventure-grid[^"]*ro-adventure-workspace/, 'Adventure workspace class should exist');
+assert.match(html, /class="stage-panel[^"]*ro-surface-card[^"]*ro-stage-card/, 'stage panel should use RO surface styling');
+assert.match(html, /id="bossButton"[^>]*class="[^"]*ro-wood-button/, 'Boss action should use the wooden primary button');
+assert.match(html, /class="summary-panel[^"]*ro-command-sidebar/, 'sidebar should use compact command styling');
+for (const id of [
+  "pauseButton", "sceneCanvas", "playerHpBar", "enemyHpBar", "enemyStatusBar",
+  "skillCastBanner", "skillBarV3", "autoBossToggle", "claimButton",
+  "offlineViewButton", "combatSidebar", "questList", "townTips"
+]) {
+  assert.match(html, new RegExp(`id="${id}"`), `${id} must remain available to the active runtime`);
+}
+assert.match(game, /bar\.dataset\.skillComposition/, 'The RO skill bar must update existing nodes instead of rebuilding on every fast render.');
+assert.match(game, /renderSkillCastBanner\(\)/, 'Skill casts must update their visible combat banner.');
+assert.match(styles, /\.skill-bar-icon\.cooldown\.casting/, 'Casting feedback must remain visible when a skill immediately enters cooldown.');
+assert.match(styles, /\.scene-wrap\.skill-cast-active::after/, 'Skill casts must create a visible battle-scene impact pulse.');
+assert.match(styles, /--ro-parchment:/, 'RO parchment token should exist');
+assert.match(styles, /--ro-wood-top:/, 'RO wood button token should exist');
+assert.match(styles, /\.ro-surface-card\s*\{/, 'RO surface card primitive should exist');
+assert.match(styles, /\.ro-wood-button\s*\{/, 'RO wood action button primitive should exist');
+assert.match(styles, /\.ro-light-control\s*\{/, 'RO light control primitive should exist');
+assert.match(styles, /\.ro-main-tabs\s*\{/, 'RO main tab styling should exist');
+assert.match(styles, /\.ro-adventure-workspace\s*\{/, 'RO Adventure workspace layout should exist');
+assert.match(styles, /\.ro-stage-card\s*\{/, 'RO stage card styling should exist');
+assert.match(styles, /\.ro-command-sidebar\s*\{/, 'RO sidebar styling should exist');
+assert.match(styles, /\.ro-boss-action\s*\{/, 'Boss action hierarchy should exist');
+assert.match(
+  styles,
+  /@media\s*\(max-width:\s*820px\)[\s\S]*\.ro-main-tabs/,
+  'mobile RO tabs should be adjusted under the existing small-screen breakpoint'
+);
+assert.match(
+  styles,
+  /@media\s*\(max-width:\s*820px\)[\s\S]*\.ro-command-sidebar/,
+  'mobile command sidebar should be stacked safely'
+);
+assert.match(
+  styles,
+  /@media\s*\(max-width:\s*820px\)[\s\S]*\.ro-boss-action/,
+  'mobile Boss action should fit the control row'
+);
+assert.match(encounterSource, /resetEnemySkillStatuses\(state,\s*'spawn'\)/, 'Fresh encounters must clear target-bound skill statuses.');
+assert.match(encounterSource, /resetEnemySkillStatuses\(state,\s*'target-change'\)/, 'Encounter member changes must clear target-bound skill statuses.');
 assert.match(main, /window\.RuneFrontierDevBridge\s*=\s*createDevBridge\(devContext\)[\s\S]*return import\('\.\/ui\/debugPanel\.js'\)/, 'Debug panel must mount after the live bridge is installed.');
 assert.match(html, /src="\.\/src\/main\.js(?:\?[^"]*)?"/, 'Module compatibility entry must remain loaded.');
 assert.match(html, /src="game\.js[^"]*"/, 'Classic runtime must remain loaded in this migration batch.');
@@ -84,6 +130,9 @@ assert.match(main, /bridged:\s*\[[^\]]*'offline-time-and-exp-calculation'[^\]]*'
 assert.match(main, /installDropsRuntime\(dropsContext\)/, 'Drops runtime must be installed before startup.');
 assert.match(main, /installOfflineRuntime\(offlineContext\)/, 'Offline runtime must be installed before startup.');
 assert.match(main, /installCombatRuntime\(combatContext\)/, 'Combat settlement runtime must be installed before startup.');
+assert.match(game, /function\s+applySkillSplashDamageToEncounter\s*\(/, 'Encounter skill splash bridge must be defined.');
+assert.match(game, /applySkillSplashDamageToEncounter,/, 'Encounter skill splash bridge must be injected into combat runtime.');
+assert.match(game, /getV3CombatSkills,/, 'Combat runtime must receive the inherited V4 skill route resolver.');
 assert.match(main, /installVipRuntime\(vipContext\)/, 'VIP runtime must be installed before startup.');
 assert.match(main, /installCodexRuntime\(codexContext\)/, 'Codex runtime must be installed before startup.');
 assert.match(main, /installShopRuntime\(shopContext\)/, 'Shop runtime must be installed before startup.');
@@ -963,6 +1012,12 @@ assert.equal(mageSkillState.enemyHp, 765, 'Mage single-hit spell must deal its V
 assert.equal(mageSkillState.skillCooldowns.mage_fire_bolt, 5, 'Mage spell must enter cooldown after casting.');
 assert.equal(mageSkillState.enemyMarks.burn, 5, 'Fire Bolt must apply its burn mark.');
 assert.equal(mageSkillFeedback, '火箭术', 'Mage single-hit spells must show cast feedback.');
+mageSkillState.skillCooldowns.mage_fire_bolt = 999;
+for (let i = 0; i < 32; i += 1) {
+  skillMechanics.tickSkillSystem(0.16, { matkPower: 100, atkPower: 10, crit: 0, maxHp: 100 });
+}
+assert.equal(mageSkillState.enemyHp, 705, 'A five-second burn must tick exactly five times under uneven frame slices.');
+assert.equal(mageSkillState.enemyMarks.burn, undefined, 'Expired burn statuses must clear their runtime state.');
 
 const poisonSkill = {
   id: 'thief_poison',
@@ -985,6 +1040,29 @@ skillMechanics.tickSkillSystem(0, { atkPower: 100, matkPower: 0, crit: 0, maxHp:
 poisonState.skillCooldowns.thief_poison = 0;
 skillMechanics.tickSkillSystem(0, { atkPower: 100, matkPower: 0, crit: 0, maxHp: 100 });
 assert.equal(poisonState.enemyMarks._poisonStacks, 2, 'Poison must gain real stacks and remain bounded by the V4 stack rule.');
+
+const layeredStatusState = {
+  hero: { currentHp: 100 },
+  enemyHp: 1000,
+  enemyMaxHp: 1000,
+  skillCooldowns: {},
+  activeZones: [],
+  activeBuffs: [],
+  enemyMarks: { '\u7834\u7532': 3, '\u4f24\u53e3': 4 },
+};
+globalThis.window = { ...(priorSkillWindow || {}), v3JobSkills: { none: [] } };
+skillMechanics.configureSkillMechanicsContext({
+  getState: () => layeredStatusState,
+  currentJob: () => ({ id: 'none' }),
+  getUnlockedSkills: () => [],
+  currentMonsterStats: () => ({ damageReduction: 0 }),
+});
+skillMechanics.tickSkillSystem(0.6, { atkPower: 100, matkPower: 0, crit: 0, maxHp: 100 });
+assert.equal(layeredStatusState.enemyMarks['\u7834\u7532'], 3, 'Armor-break stacks must not decay as a duration timer.');
+assert.equal(layeredStatusState.enemyMarks['\u4f24\u53e3'], 4, 'Wound stacks must remain on the current target until consumed or reset.');
+assert.equal(skillMechanics.getEnemyStatusDisplayState(layeredStatusState).length, 2, 'Target stack statuses must be available to the battle status display.');
+skillMechanics.resetEnemySkillStatuses(layeredStatusState, 'test-target-change');
+assert.deepEqual(layeredStatusState.enemyMarks, {}, 'Target changes must clear target-bound skill statuses.');
 
 const finisherSkill = {
   id: 'rune_burst',
@@ -1095,7 +1173,7 @@ skillMechanics.configureSkillMechanicsContext({
   getState: () => earthState,
   currentJob: () => ({ id: 'mechanic' }),
   getV3CombatSkills: () => [cartSkill, earthPassive],
-  getUnlockedSkills: () => [cartSkill, earthPassive],
+  getUnlockedSkills: () => [],
   currentMonsterStats: () => ({ damageReduction: 0 }),
   normalizeDamage: (value) => Math.round(value),
   random: () => 0.5,
@@ -1124,6 +1202,44 @@ skillMechanics.configureSkillMechanicsContext({
 skillMechanics.tickSkillSystem(0, { atkPower: 100, matkPower: 0, crit: 0, maxHp: 100 });
 assert.equal(splashState.enemyHp, 715, 'Monster Smash must not apply encounter splash to its active target.');
 assert.equal(encounterSplash, 60, 'Monster Smash must route its 0.6x damage to secondary encounter targets.');
+
+const wolfSkill = { id: 'wolf_assault', name: '狼突袭', kind: '主动', cooldown: 9, mechanism: { type: 'statusExploit', mark: 'any', baseMultiplier: 2.4, markedMultiplier: 3.4, stat: 'atk' } };
+const wolfState = { hero: { currentHp: 100 }, enemyHp: 1000, enemyMaxHp: 1000, skillCooldowns: {}, activeZones: [], activeBuffs: [], enemyMarks: {} };
+globalThis.window = { ...(priorSkillWindow || {}), v3JobSkills: { ranger: [wolfSkill] } };
+skillMechanics.configureSkillMechanicsContext({
+  getState: () => wolfState,
+  currentJob: () => ({ id: 'ranger' }),
+  currentMonsterStats: () => ({ damageReduction: 0 }),
+  normalizeDamage: (value) => Math.round(value),
+  random: () => 0.5,
+});
+skillMechanics.tickSkillSystem(0, { atkPower: 100, matkPower: 0, crit: 0, maxHp: 100 });
+assert.equal(wolfState.enemyHp, 760, 'Wolf Assault must use 2.4x damage without a status mark.');
+wolfState.enemyMarks.mark = 3;
+wolfState.skillCooldowns.wolf_assault = 0;
+skillMechanics.tickSkillSystem(0, { atkPower: 100, matkPower: 0, crit: 0, maxHp: 100 });
+assert.equal(wolfState.enemyHp, 420, 'Wolf Assault must use 3.4x damage after a status mark is present.');
+
+const awakenedArrowStorm = { id: 'awakened_arrow_storm', name: '箭矢风暴', kind: '主动', cooldown: 12, mechanism: { type: 'multihit', hits: 1, multiplierPerHit: 1, stat: 'atk' } };
+const awakeningState = { hero: { currentHp: 100 }, enemyHp: 1000, enemyMaxHp: 1000, skillCooldowns: {}, activeZones: [], activeBuffs: [], enemyMarks: { mark: 3 }, rebirthAwakenings: { ranger: true }, awakeningMarks: 12 };
+globalThis.window = {
+  ...(priorSkillWindow || {}),
+  v3JobSkills: { ranger: [awakenedArrowStorm] },
+  v3SkillAwakenings: { ranger: { skill: '箭矢风暴', cost: 12, effect: { type: 'extraHits', hits: 2, perHit: 0.55, condition: 'enemyMarked' } } },
+};
+skillMechanics.configureSkillMechanicsContext({
+  getState: () => awakeningState,
+  currentJob: () => ({ id: 'ranger' }),
+  currentMonsterStats: () => ({ damageReduction: 0 }),
+  normalizeDamage: (value) => Math.round(value),
+  random: () => 0.5,
+});
+skillMechanics.tickSkillSystem(0, { atkPower: 100, matkPower: 0, crit: 0, maxHp: 100 });
+assert.equal(awakeningState.enemyHp, 790, 'Awakened Arrow Storm must apply its paid extra hits.');
+assert.equal(awakeningState.awakeningMarks, 0, 'An awakened active skill must consume its awakening marks on use.');
+awakeningState.skillCooldowns.awakened_arrow_storm = 0;
+skillMechanics.tickSkillSystem(0, { atkPower: 100, matkPower: 0, crit: 0, maxHp: 100 });
+assert.equal(awakeningState.enemyHp, 690, 'Awakening effects must not trigger again without enough marks.');
 
 const judgementSkill = { id: 'judgement', name: '审判', kind: '主动', cooldown: 12, mechanism: { type: 'selfDamage', hpCostPct: 0.08, multiplier: 3.8, bonusVs: { dark: 5.8, undead: 5.8 }, stat: 'matk' } };
 const darkState = { hero: { currentHp: 100 }, enemyHp: 1000, enemyMaxHp: 1000, skillCooldowns: {}, activeZones: [], activeBuffs: [], enemyMarks: {} };
@@ -1209,6 +1325,26 @@ normalCombat.updateCombat(1);
 assert.equal(roundState.enemyHp, 0, 'Online combat round must apply the active-target hit once.');
 assert.equal(settledRounds, 1, 'Online combat round must settle a defeated target once.');
 
+const snaredEnemyState = {
+  enemyHp: 10,
+  enemyMaxHp: 10,
+  hero: { currentHp: 100 },
+  enemyAttackTimer: 9,
+  currentMap: 0,
+  enemyMarks: { snare: 3 },
+};
+let snaredAttackFeedback = '';
+normalCombat.configureNormalCombatContext({
+  getState: () => snaredEnemyState,
+  getMonsterAttackInterval: () => 1,
+  currentMonsterStats: () => ({ attack: 100, critChance: 1 }),
+  random: () => 0,
+  showDamageNumber: (_target, _amount, kind) => { snaredAttackFeedback = kind; },
+});
+normalCombat.updateMonsterAttack(1, { maxHp: 100, dodgeRate: 1, statusResist: 0 });
+assert.equal(snaredEnemyState.hero.currentHp, 100, 'Snaring an enemy must not prevent the player from dodging its attack.');
+assert.equal(snaredAttackFeedback, 'miss', 'Player dodge feedback must remain visible while the enemy is snared.');
+
 const angelGuardState = { enemyHp: 100, enemyMaxHp: 100, hero: { currentHp: 30 }, playerAttackTimer: 0, enemyAttackTimer: 0, shieldHp: 0 };
 const angelGuardWindow = globalThis.window;
 globalThis.window = {
@@ -1241,6 +1377,40 @@ const guardedAfterHealing = globalThis.window.RuneFrontierCombatRuntime.getPassi
 assert.equal(guardedAfterHealing.damageReductionPct, 0.3, 'Angel Guard reduction must remain active for its duration after healing above the trigger threshold.');
 normalCombat.updateCombat(0);
 assert.equal(angelGuardState.shieldHp, 10, 'Angel Guard must not stack repeated shields while on cooldown.');
+globalThis.window = angelGuardWindow;
+
+const reviveAwakeningState = {
+  enemyHp: 100,
+  enemyMaxHp: 100,
+  hero: { currentHp: 0 },
+  playerAttackTimer: 0,
+  enemyAttackTimer: 0,
+  shieldHp: 0,
+  awakeningMarks: 15,
+};
+globalThis.window = {
+  ...(angelGuardWindow || {}),
+  RuneFrontierCombatRuntime: {
+    getPassiveMechanismEffects: () => ({
+      reviveReady: true,
+      reviveAwakening: { healPct: 0.3, shieldPct: 0.2, cost: 15 },
+    }),
+    getSkillBuffMultipliers: () => ({}),
+  },
+};
+normalCombat.configureNormalCombatContext({
+  getState: () => reviveAwakeningState,
+  computeStats: () => ({ attackSpeed: 1, crit: 0, maxHp: 100 }),
+  currentMonsterStats: () => ({ damageReduction: 0 }),
+  getPlayerCritRateCap: () => 1,
+  random: () => 0.9,
+  tryAutoChallengeBoss: () => false,
+  currentJob: () => ({ id: 'archbishop' }),
+});
+normalCombat.updateCombat(0);
+assert.equal(reviveAwakeningState.hero.currentHp, 70, 'Awakened revive must apply its additional healing once.');
+assert.equal(reviveAwakeningState.shieldHp, 20, 'Awakened revive must apply its shield once.');
+assert.equal(reviveAwakeningState.awakeningMarks, 0, 'Awakened revive must consume awakening marks on activation.');
 globalThis.window = angelGuardWindow;
 
 // VIP module tests

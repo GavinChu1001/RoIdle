@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>符文边境</title>
-    <link rel="stylesheet" href="styles.css?v=20260526-pagination-fix7" />
-    <link rel="stylesheet" href="unified-equipment-ui.css?v=20260526-pagination-fix7" />
+    <link rel="stylesheet" href="styles.css?v=20260527-skill-feedback-fix2" />
+    <link rel="stylesheet" href="unified-equipment-ui.css?v=20260527-skill-feedback-fix2" />
   </head>
   <body>
     <div class="app-shell">
@@ -50,7 +50,7 @@
         </div>
       </section>
 
-      <nav class="page-tabs" aria-label="功能分页">
+      <nav class="page-tabs ro-main-tabs" aria-label="功能分页">
         <button class="active" data-page="adventure" type="button">冒险</button>
         <button data-page="town" type="button">职业</button>
         <button data-page="smithy" type="button">铁匠铺</button>
@@ -68,8 +68,8 @@
 
       <main class="page-stack">
         <section class="page-view active" data-view="adventure">
-          <div class="adventure-grid">
-            <section class="stage-panel">
+          <div class="adventure-grid ro-adventure-workspace">
+            <section class="stage-panel ro-surface-card ro-stage-card">
               <div class="panel-heading">
                 <div>
                   <p class="eyebrow">冒险进度</p>
@@ -105,10 +105,12 @@
                     <div class="combat-hp-panel">
                       <div class="hp-track combat-hp-bar monster-hp-bar"><div id="enemyHpBar" class="monster-hp-fill"></div></div>
                     </div>
+                    <div id="enemyStatusBar" class="enemy-status-bar" aria-label="Enemy status effects" hidden></div>
                   </div>
                 </article>
               </div>
 
+              <div id="skillCastBanner" class="skill-cast-banner" hidden></div>
               <div class="skill-bar-v3" id="skillBarV3" aria-label="主动技能栏"></div>
 
               <div class="formation" aria-label="队伍站位">
@@ -127,9 +129,9 @@
               </div>
 
               <div class="action-row">
-                <button id="bossButton" type="button">挑战 BOSS</button>
+                <button id="bossButton" class="ro-wood-button ro-boss-action" type="button">挑战 BOSS</button>
                 <label class="toggle-line"><input id="autoBossToggle" type="checkbox" /> 自动挑战 BOSS</label>
-                <button id="claimButton" type="button">查看离线收益</button>
+                <button id="claimButton" class="ro-light-control ro-reward-action" type="button">查看离线收益</button>
                 <button id="resetButton" class="ghost" type="button">重置存档</button>
               </div>
 
@@ -138,11 +140,11 @@
                   <strong id="offlineEntryTitle">离线收益待领取</strong>
                   <p id="offlineEntryMeta">离线战利品已结算，点击查看清点。</p>
                 </div>
-                <button id="offlineViewButton" type="button">查看战利品</button>
+                <button id="offlineViewButton" class="ro-light-control ro-reward-action" type="button">查看战利品</button>
               </div>
             </section>
 
-            <aside class="summary-panel">
+            <aside class="summary-panel ro-command-sidebar">
               <div class="combat-sidebar" id="combatSidebar"></div>
               <section>
                 <div class="panel-heading compact">
@@ -925,9 +927,9 @@
     </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script src="tools.js?v=20260526-pagination-fix7"></script>
-<script src="data.js?v=20260526-pagination-fix7"></script>
-<script src="game.js?v=20260526-pagination-fix7"></script>
-<script type="module" src="./src/main.js?v=20260526-pagination-fix7" onerror="document.documentElement.dataset.runeModuleStatus='failed'"></script>
+<script src="tools.js?v=20260527-skill-feedback-fix2"></script>
+<script src="data.js?v=20260527-skill-feedback-fix2"></script>
+<script src="game.js?v=20260527-skill-feedback-fix2"></script>
+<script type="module" src="./src/main.js?v=20260527-skill-feedback-fix2" onerror="document.documentElement.dataset.runeModuleStatus='failed'"></script>
   </body>
 </html>

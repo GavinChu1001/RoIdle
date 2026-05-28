@@ -1,6 +1,9 @@
 import { buildMonsterStats, configureMonsterContext, currentDifficultyConfig, getMonsterTemplate, getMapLevelRange, pickMonsterTemplate, rollMonsterLevel, rollMonsterMutation } from './monster.js';
+import { normalizeDamage } from './damage.js';
+import { resetEnemySkillStatuses } from './skillMechanics.js';
 
 let encounterContext = {};
+let activeSkillStatusTargetKey = '';
 
 function getGlobal(name) {
   return typeof window !== 'undefined' ? window[name] : undefined;
@@ -133,6 +136,8 @@ export function spawnEnemy(isBoss = false, context = encounterContext) {
   const showBossFn = context.showBossBanner;
   if (!state || !currentMapFn) return;
   const map = currentMapFn();
+  resetEnemySkillStatuses(state, 'spawn');
+  activeSkillStatusTargetKey = '';
 
   const rebirthMode = Boolean(state.rebirthMode && (state.hero?.rebirths || 0) > 0);
 
@@ -177,12 +182,19 @@ export function syncActiveEnemyFromGroup(context = encounterContext) {
   state.enemyGroup = group;
   const active = group?.monsters?.find((monster) => monster.alive);
   if (!active) {
+    if (activeSkillStatusTargetKey) resetEnemySkillStatuses(state, 'target-lost');
+    activeSkillStatusTargetKey = '';
     state.enemy = null;
     state.enemyHp = 0;
     state.enemyMaxHp = 0;
     return null;
   }
   group.activeIndex = group.monsters.indexOf(active);
+  const nextTargetKey = `${state.enemyBoss ? 'boss' : 'mob'}:${group.activeIndex}:${active.templateId || active.id || active.name || ''}`;
+  if (activeSkillStatusTargetKey && activeSkillStatusTargetKey !== nextTargetKey) {
+    resetEnemySkillStatuses(state, 'target-change');
+  }
+  activeSkillStatusTargetKey = nextTargetKey;
   state.enemy = { ...active };
   state.enemyTemplateId = active.templateId || active.id || '';
   state.enemyMutationId = active.mutationId || '';
@@ -208,4 +220,41 @@ export function hasLivingEncounterMembers(context = encounterContext) {
   if (!state) return false;
   updateActiveEnemyHpInGroup(context);
   return Boolean((state.enemyGroup?.monsters || []).some((monster) => monster.alive));
+}
+
+export function applySplashDamageToEncounter(baseDamage, stats = {}) {
+  const state = encounterContext.getState?.() || {};
+  if (state.enemyBoss) return;
+  const targets = Math.max(0, Math.floor(stats.splashTargets || 0));
+  const ratio = Math.max(0, Number(stats.splashDamagePct || 0));
+  if (!targets || ratio <= 0) return;
+  updateActiveEnemyHpInGroup(encounterContext);
+  const group = state.enemyGroup;
+  if (!group?.monsters?.length) return;
+  const splashDamage = normalizeDamage(baseDamage * ratio);
+  if (splashDamage <= 0) return;
+  group.monsters
+    .map((monster, index) => ({ monster, index }))
+    .filter((entry) => entry.index !== group.activeIndex && entry.monster.alive)
+    .slice(0, targets)
+    .forEach(({ monster }) => {
+      monster.currentHp = Math.max(1, Number(monster.currentHp || monster.maxHp || 1) - splashDamage);
+      monster.alive = monster.currentHp > 0;
+    });
+  encounterContext.showDamageNumber?.('monster', splashDamage, 'skill', { skillName: '溅射' });
+}
+
+export function applySkillSplashDamageToEncounter(splashDamage, skillName = '技能溅射') {
+  const state = encounterContext.getState?.() || {};
+  if (state.enemyBoss || Number(splashDamage || 0) <= 0) return;
+  updateActiveEnemyHpInGroup(encounterContext);
+  const group = state.enemyGroup;
+  if (!group?.monsters?.length) return;
+  group.monsters
+    .filter((monster, index) => index !== group.activeIndex && monster.alive)
+    .forEach((monster) => {
+      monster.currentHp = Math.max(1, Number(monster.currentHp || monster.maxHp || 1) - Number(splashDamage || 0));
+      monster.alive = monster.currentHp > 0;
+    });
+  encounterContext.showDamageNumber?.('monster', splashDamage, 'skill', { skillName });
 }

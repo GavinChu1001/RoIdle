@@ -56,6 +56,54 @@ function getMarks(state) {
   return state.enemyMarks;
 }
 
+const TIMED_ENEMY_STATUS_KEYS = ['burn', 'poison', 'freeze', 'snare', 'mark'];
+
+function clearTimedStatus(marks, key) {
+  delete marks[key];
+  if (key === 'burn') {
+    delete marks._burnTickTimer;
+    delete marks._burnStat;
+    delete marks._burnRampPerSecond;
+    delete marks._burnRampMax;
+    delete marks._burnTicks;
+  }
+  if (key === 'poison') {
+    delete marks._poisonTickTimer;
+    delete marks._poisonStacks;
+  }
+}
+
+export function resetEnemySkillStatuses(state = stateFrom(), reason = '') {
+  if (!state) return reason;
+  state.enemyMarks = {};
+  return reason;
+}
+
+export function getEnemyStatusDisplayState(state = stateFrom()) {
+  const marks = getMarks(state || {});
+  const statuses = [];
+  [
+    ['burn', '\u707c\u70e7', 'burn'],
+    ['poison', '\u4e2d\u6bd2', 'poison'],
+    ['freeze', '\u51b0\u51bb', 'freeze'],
+    ['snare', '\u7981\u9522', 'snare'],
+    ['mark', '\u6807\u8bb0', 'mark'],
+  ].forEach(([id, label, tone]) => {
+    const remaining = finite(marks[id]);
+    if (remaining <= 0) return;
+    const stacks = id === 'poison' ? Math.max(1, Math.min(5, Math.floor(finite(marks._poisonStacks) || 1))) : 0;
+    statuses.push({ id, label, tone, remaining, stacks });
+  });
+  [
+    ['\u7834\u7532', '\u7834\u7532', 'armor-break'],
+    ['\u4f24\u53e3', '\u4f24\u53e3', 'wound'],
+  ].forEach(([id, label, tone]) => {
+    const stacks = Math.max(0, Math.floor(finite(marks[id])));
+    if (stacks > 0) statuses.push({ id, label, tone, remaining: 0, stacks });
+  });
+  return statuses;
+}
+
 function getBuffs(state) {
   state.activeBuffs = state.activeBuffs || [];
   return state.activeBuffs;
@@ -69,6 +117,7 @@ function hasMark(state, markType) {
 
 function applyMark(state, markType, duration, data = {}) {
   const marks = getMarks(state);
+  const wasActive = finite(marks[markType]) > 0;
   // 元素主宰：标记时长翻倍
   const passive = getPassiveMechanismEffects(state, {}, mechContext);
   if (passive.markDurationMult && passive.markDurationMult[markType]) {
@@ -76,21 +125,32 @@ function applyMark(state, markType, duration, data = {}) {
   }
   // 元素主宰：allowBoth — burn和freeze可共存
   if (!passive.allowBothMarks && markType === 'burn' && finite(marks.freeze) > 0) {
-    marks.freeze = 0;
+    clearTimedStatus(marks, 'freeze');
   }
   if (!passive.allowBothMarks && markType === 'freeze' && finite(marks.burn) > 0) {
-    marks.burn = 0;
+    clearTimedStatus(marks, 'burn');
   }
   marks[markType] = Math.max(finite(marks[markType]), finite(duration));
   if (markType === 'burn') {
+    if (!wasActive) {
+      marks._burnTickTimer = 0;
+      marks._burnTicks = 0;
+    }
     marks._burnStat = data.stat === 'matk' ? 'matk' : 'atk';
     if (data.burnRamp) {
       marks._burnRampPerSecond = finite(data.rampPerSecond);
       marks._burnRampMax = finite(data.rampMax);
       marks._burnTicks = Math.max(0, finite(marks._burnTicks));
+    } else {
+      marks._burnRampPerSecond = 0;
+      marks._burnRampMax = 0;
     }
   }
   if (markType === 'poison') {
+    if (!wasActive) {
+      marks._poisonTickTimer = 0;
+      marks._poisonStacks = 0;
+    }
     const stackAdd = Math.max(0, finite(data.stackAdd || data.stackCount || 1));
     const maxStacks = Math.max(1, finite(data.maxStacks || 5));
     marks._poisonStacks = Math.min(maxStacks, Math.max(1, finite(marks._poisonStacks) + stackAdd));
@@ -103,19 +163,22 @@ function applyMark(state, markType, duration, data = {}) {
 function tickMarks(state, dt, stats, ctx = mechContext) {
   const marks = getMarks(state);
   const monster = ctx.currentMonsterStats?.() || {};
-  Object.keys(marks).forEach((key) => {
-    if (key.startsWith('_')) return;
-    if (typeof marks[key] !== 'number' || marks[key] <= 0) return;
-    marks[key] = Math.max(0, marks[key] - dt);
-    // 标记持续效果
+  const elapsed = Math.max(0, finite(dt));
+  TIMED_ENEMY_STATUS_KEYS.forEach((key) => {
+    const remaining = finite(marks[key]);
+    if (remaining <= 0) return;
+    const activeElapsed = Math.min(remaining, elapsed);
     if (key === 'burn' || key === 'poison') {
-      const tickDmg = key === 'burn' ? 0.12 : 0.16; // V4: 灼烧12%，中毒16%
-      if (Math.abs(marks[key] % 1) < dt || marks[key] <= dt) {
+      const timerKey = key === 'burn' ? '_burnTickTimer' : '_poisonTickTimer';
+      marks[timerKey] = finite(marks[timerKey]) + activeElapsed;
+      while (marks[timerKey] + 1e-9 >= 1) {
+        marks[timerKey] = Math.max(0, marks[timerKey] - 1);
+        const tickPct = key === 'burn' ? 0.12 : 0.16;
         const source = key === 'burn' && marks._burnStat === 'matk' ? finite(stats.matkPower) : finite(stats.atkPower);
         const monsterGuard = Math.min(0.65, finite(monster.damageReduction) || 0);
         const poisonStacks = key === 'poison' ? Math.max(1, Math.min(5, finite(marks._poisonStacks))) : 1;
         const burnRamp = key === 'burn' ? 1 + Math.min(finite(marks._burnRampMax), finite(marks._burnTicks) * finite(marks._burnRampPerSecond)) : 1;
-        const dmg = Math.max(0, Math.round(source * tickDmg * poisonStacks * burnRamp * (1 - monsterGuard)));
+        const dmg = Math.max(0, Math.round(source * tickPct * poisonStacks * burnRamp * (1 - monsterGuard)));
         if (dmg > 0) {
           state.enemyHp -= dmg;
           ctx.showDamageNumber?.('monster', dmg, 'skill', { skillName: key === 'burn' ? '灼烧' : '中毒' });
@@ -123,12 +186,8 @@ function tickMarks(state, dt, stats, ctx = mechContext) {
         if (key === 'burn' && finite(marks._burnRampPerSecond) > 0) marks._burnTicks = finite(marks._burnTicks) + 1;
       }
     }
-    // 中毒叠层上限
-    if (key === 'poison') {
-      const stackKey = '_poisonStacks';
-      marks[stackKey] = Math.min(5, Math.max(1, finite(marks[stackKey]) || 1));
-      if (marks[key] <= 0) marks[stackKey] = 0;
-    }
+    marks[key] = Math.max(0, remaining - activeElapsed);
+    if (marks[key] <= 0) clearTimedStatus(marks, key);
   });
 }
 
@@ -142,7 +201,8 @@ function tickZones(state, dt, stats, ctx = mechContext) {
       const dmg = calcSkillDamage(source, zone.perTick, stats, ctx.currentMonsterStats?.() || {}, ctx);
       applyDamage(dmg, state, ctx);
       ctx.showSkillCastFeedback?.({ name: zone.name });
-      if (zone.mark) applyMark(state, zone.mark, zone.markDuration || 3, {
+      const defaultMarkDuration = zone.mark === 'burn' ? 5 : zone.mark === 'poison' ? 6 : 3;
+      if (zone.mark) applyMark(state, zone.mark, zone.markDuration || defaultMarkDuration, {
         stat: zone.stat,
         burnRamp: zone.burnRamp,
         rampPerSecond: zone.rampPerSecond,
@@ -220,6 +280,18 @@ function hasMonsterTrait(monster, trait, ctx = mechContext) {
   return false;
 }
 
+function hasAwakeningCharge(state, awakening) {
+  return Boolean(awakening)
+    && finite(state.awakeningMarks) >= Math.max(0, finite(awakening.cost));
+}
+
+function spendAwakeningCharge(state, awakening, ctx = mechContext) {
+  if (!hasAwakeningCharge(state, awakening)) return false;
+  state.awakeningMarks = Math.max(0, finite(state.awakeningMarks) - finite(awakening.cost));
+  ctx.addLog?.(`觉醒·${awakening.skill}：消耗 ${awakening.cost} 觉醒印记。`);
+  return true;
+}
+
 // ── 机制执行函数 ──
 
 function executeMultihit(mechanism, skill, state, stats, monster, ctx) {
@@ -254,6 +326,7 @@ function executeMultihit(mechanism, skill, state, stats, monster, ctx) {
       ctx.addLog?.('大地之击：手推车强击伤害 ×1.4。');
     }
   }
+  ctx.showSkillCastFeedback?.(skill);
   const source = getSkillSource(mechanism, stats, state);
 
   for (let i = 0; i < totalHits; i++) {
@@ -632,12 +705,8 @@ export function getPassiveMechanismEffects(state, stats, ctx = mechContext) {
   const job = ctx.currentJob?.() || {};
   const v3Skills = (typeof window !== 'undefined' ? window.v3JobSkills : undefined) || {};
   const jobSkills = ctx.getV3CombatSkills?.(job.id) || v3Skills[job.id] || [];
-  const unlockedSkills = ctx.getUnlockedSkills?.() || [];
-
   jobSkills.forEach((skill) => {
     if (skill.kind !== '被动') return;
-    const unlocked = unlockedSkills.find((s) => s.name === skill.name);
-    if (!unlocked) return;
 
     const mech = skill.mechanism;
     if (!mech) return;
@@ -714,11 +783,14 @@ export function getPassiveMechanismEffects(state, stats, ctx = mechContext) {
       }
       case 'revive': {
         effects.reviveReady = true;
-        if (state.rebirthAwakenings?.archbishop) {
-          const awakening = (typeof window !== 'undefined' ? window.v3SkillAwakenings?.archbishop : null)?.effect || {};
+        const awakeningConfig = typeof window !== 'undefined' ? window.v3SkillAwakenings?.archbishop : null;
+        if (state.rebirthAwakenings?.archbishop && hasAwakeningCharge(state, awakeningConfig)) {
+          const awakening = awakeningConfig.effect || {};
           effects.reviveAwakening = {
             healPct: awakening.healPct || 0.30,
             shieldPct: awakening.shieldPct || 0.20,
+            cost: awakeningConfig.cost || 0,
+            skill: awakeningConfig.skill || '圣者降临',
           };
         }
         break;
@@ -805,14 +877,11 @@ export function tickSkillSystem(dt, stats, ctx = mechContext) {
   const v3Skills = (typeof window !== 'undefined' ? window.v3JobSkills : undefined);
   if (!v3Skills) { console.warn('[V3 Skill] window.v3JobSkills not available, skill system disabled'); return; }
   const jobSkills = ctx.getV3CombatSkills?.(job.id) || v3Skills[job.id] || [];
-  const unlockedSkills = ctx.getUnlockedSkills?.() || [];
   const monster = ctx.currentMonsterStats?.() || {};
   const cds = getCooldowns(state);
 
   for (const skill of jobSkills) {
     if (skill.kind !== '主动') continue;
-    const unlocked = unlockedSkills.find((s) => s.name === skill.name);
-    if (!unlocked) continue;
 
     const cdRemaining = cds[skill.id] || 0;
     if (cdRemaining > 0) continue;
@@ -820,12 +889,17 @@ export function tickSkillSystem(dt, stats, ctx = mechContext) {
     const mech = skill.mechanism;
     if (!mech) continue;
 
+    var skillLevel = (state.hero && state.hero.skillLevels && state.hero.skillLevels[skill.id]) || 1;
+    var levelScaling = skill.levelScaling || {};
+    var cdMult = Math.pow(levelScaling.cooldownPerLevel || 0.94, skillLevel - 1);
+    var dmgMult = Math.pow(levelScaling.multiplierPerLevel || 1.12, skillLevel - 1);
+
     // 觉醒效果：检查是否有觉醒并修改机制
     let awakenedMech = null;
     const awakenings = (typeof window !== 'undefined' ? window.v3SkillAwakenings : undefined) || {};
     const jobForAwaken = ctx.currentJob?.() || {};
     const awakenConfig = awakenings[jobForAwaken.id];
-    if (awakenConfig && awakenConfig.skill === skill.name && state.rebirthAwakenings?.[jobForAwaken.id]) {
+    if (awakenConfig && awakenConfig.skill === skill.name && state.rebirthAwakenings?.[jobForAwaken.id] && hasAwakeningCharge(state, awakenConfig)) {
       awakenedMech = awakenConfig.effect;
     }
 
@@ -840,6 +914,12 @@ export function tickSkillSystem(dt, stats, ctx = mechContext) {
       activeMech = { ...activeMech, multiplier: finite(activeMech.multiplier) * (1 + finite(passiveEffects.enhanceSelfDestruct.nextBonus || 0.35)) };
       state.selfDestructBonusReady = false;
     }
+    activeMech = { ...activeMech, _skillLevel: skillLevel, _dmgMult: dmgMult, _cdMult: cdMult };
+    if (activeMech.multiplier) activeMech.multiplier = finite(activeMech.multiplier) * dmgMult;
+    if (activeMech.perHit) activeMech.perHit = finite(activeMech.perHit) * dmgMult;
+    if (activeMech.perSecond) activeMech.perSecond = finite(activeMech.perSecond) * dmgMult;
+    if (activeMech.baseMultiplier) activeMech.baseMultiplier = finite(activeMech.baseMultiplier) * dmgMult;
+    if (activeMech.finisherMultiplier) activeMech.finisherMultiplier = finite(activeMech.finisherMultiplier) * dmgMult;
     switch (mech.type) {
       case 'multihit': fired = executeMultihit(activeMech, skill, state, stats, monster, ctx); break;
       case 'singleHit': fired = executeSingleHit(activeMech, skill, state, stats, monster, ctx); break;
@@ -859,7 +939,8 @@ export function tickSkillSystem(dt, stats, ctx = mechContext) {
     }
 
     if (fired) {
-      let cd = skill.cooldown || 5;
+      if (awakenedMech) spendAwakeningCharge(state, awakenConfig, ctx);
+      let cd = Math.round((skill.cooldown || 5) * cdMult);
       // 魔力增幅
       if (reduceThisSkillCooldown && passiveEffects.cooldownReduce) {
         cd = Math.max(1, Math.round(cd * (1 - passiveEffects.cooldownReduce)));

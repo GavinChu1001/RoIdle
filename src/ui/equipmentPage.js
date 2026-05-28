@@ -18,7 +18,8 @@ export function installEquipmentRenderRuntime(context = {}) {
     'renderEquipmentScoreComparison','renderEquipmentStatSections','renderEquipmentSetProgress',
     'renderCardSocketSection','renderRefineSection','renderSalvagePreviewSection',
     'renderStatChipGrid','renderRandomStatsPanel','renderEmpowerSection',
-    'renderCardSocketOptions','renderRefineBadge','renderItemName','renderSetName'];
+    'renderCardSocketOptions','renderRefineBadge','renderItemName','renderSetName',
+    'renderCoreStatBars','renderEquipmentSpecialTags'];
   var bridge = {};
   fnNames.forEach(function(name) {
     bridge[name] = function() { return callGameJsBody.apply(null, [name].concat(Array.prototype.slice.call(arguments))); };

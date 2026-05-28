@@ -12,6 +12,23 @@
   --blue: #456e91;
   --violet: #6a5f9f;
   --shadow: 0 18px 45px rgba(67, 52, 30, 0.16);
+  --ro-parchment: #f5ecdc;
+  --ro-surface: #fff7e9;
+  --ro-surface-soft: #f1e2c8;
+  --ro-surface-deep: #e3c898;
+  --ro-line: #cdb181;
+  --ro-line-strong: #a98753;
+  --ro-ink: #322417;
+  --ro-muted: #725b40;
+  --ro-wood-top: #aa7140;
+  --ro-wood-bottom: #724522;
+  --ro-wood-border: #54341e;
+  --ro-wood-highlight: #dcac69;
+  --ro-wood-text: #fff0ce;
+  --ro-green: #315e4b;
+  --ro-gold: #b78328;
+  --ro-radius-panel: 9px;
+  --ro-radius-control: 7px;
 }
 
 * {
@@ -64,6 +81,68 @@ button:disabled {
   filter: grayscale(0.5);
   opacity: 0.55;
   transform: none;
+}
+
+.ro-surface-card {
+  border: 1px solid var(--ro-line);
+  border-radius: var(--ro-radius-panel);
+  background: linear-gradient(180deg, var(--ro-surface) 0%, #fbefdc 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .72), 0 1px 2px rgba(67, 43, 20, .08);
+}
+
+.ro-light-control {
+  min-height: 34px;
+  border: 1px solid var(--ro-line);
+  border-radius: var(--ro-radius-control);
+  background: #f7ead2;
+  color: var(--ro-ink);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.ro-light-control:hover:not(:disabled) {
+  border-color: var(--ro-line-strong);
+  background: #f1ddbb;
+}
+
+.ro-wood-button {
+  position: relative;
+  min-height: 36px;
+  padding: 6px 14px;
+  overflow: hidden;
+  border: 1px solid var(--ro-wood-border);
+  border-radius: var(--ro-radius-control);
+  background: linear-gradient(180deg, var(--ro-wood-top) 0%, var(--ro-wood-bottom) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 228, 174, .34), 0 2px 0 rgba(60, 34, 16, .16);
+  color: var(--ro-wood-text);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.ro-wood-button::before {
+  position: absolute;
+  inset: 3px;
+  border: 1px solid rgba(236, 188, 110, .26);
+  border-radius: 4px;
+  content: "";
+  pointer-events: none;
+}
+
+.ro-wood-button:hover:not(:disabled) {
+  border-color: #462a17;
+  background: linear-gradient(180deg, #b97d45 0%, #80502a 100%);
+  transform: translateY(-1px);
+}
+
+.ro-wood-button:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 4px rgba(45, 23, 10, .18);
+}
+
+.ro-wood-button:disabled {
+  opacity: .56;
+  cursor: not-allowed;
+  filter: saturate(.5);
 }
 
 .app-shell {
@@ -265,6 +344,138 @@ h2 {
   box-shadow: none;
 }
 
+.ro-main-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--ro-line);
+  border-radius: var(--ro-radius-panel);
+  background: var(--ro-surface-soft);
+}
+
+.ro-main-tabs button {
+  flex: 0 1 auto;
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--ro-radius-control);
+  background: transparent;
+  color: var(--ro-muted);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.ro-main-tabs button.active {
+  border-color: var(--ro-wood-border);
+  background: linear-gradient(180deg, var(--ro-wood-top), var(--ro-wood-bottom));
+  color: var(--ro-wood-text);
+}
+
+.ro-adventure-workspace {
+  align-items: start;
+  gap: 12px;
+}
+
+.ro-stage-card {
+  min-width: 0;
+  padding: 10px;
+}
+
+.ro-stage-card .panel-heading {
+  margin-bottom: 8px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid rgba(169, 135, 83, .38);
+}
+
+.ro-stage-card .scene-wrap {
+  border: 1px solid var(--ro-line-strong);
+  border-radius: var(--ro-radius-panel);
+  background: #dde9ce;
+  box-shadow: inset 0 0 0 1px rgba(255, 250, 229, .52);
+}
+
+@media (min-width: 821px) {
+  .ro-stage-card .scene-wrap canvas {
+    width: 100% !important;
+    height: 100% !important;
+  }
+}
+
+@media (min-width: 821px) and (max-height: 760px) {
+  .ro-stage-card {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ro-stage-card .panel-heading { order: 0; }
+  .ro-stage-card .action-row {
+    order: 1;
+    margin-top: 0;
+    margin-bottom: 8px;
+  }
+  .ro-stage-card .skill-cast-banner { order: 2; }
+  .ro-stage-card .skill-bar-v3 {
+    order: 3;
+    margin-bottom: 8px;
+  }
+  .ro-stage-card .scene-wrap { order: 4; }
+  .ro-stage-card .combat-layout { order: 5; }
+  .ro-stage-card .formation { order: 6; }
+  .ro-stage-card .offline-entry { order: 7; }
+}
+
+.ro-boss-action {
+  min-width: 128px;
+  color: var(--ro-wood-text);
+}
+
+.ro-command-sidebar {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.ro-command-sidebar > section,
+.ro-command-sidebar .combat-sidebar-section {
+  border: 1px solid var(--ro-line);
+  border-radius: var(--ro-radius-panel);
+  background: var(--ro-surface);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7);
+}
+
+.ro-stage-card .combat-card {
+  border-color: var(--ro-line);
+  background: rgba(255, 248, 234, .92);
+}
+
+.ro-stage-card .enemy-status-chip {
+  border-color: #ba9560;
+  background: #f3ddb6;
+  color: #52361b;
+}
+
+.ro-stage-card .skill-bar-v3 {
+  padding: 6px;
+  border: 1px solid var(--ro-line);
+  border-radius: var(--ro-radius-control);
+  background: rgba(238, 218, 181, .48);
+}
+
+.ro-stage-card .skill-bar-icon {
+  border-color: var(--ro-line-strong);
+  background: #f9edd7;
+}
+
+.ro-stage-card .skill-bar-icon.ready {
+  border-color: var(--ro-green);
+}
+
+.ro-stage-card .skill-bar-icon.cooldown {
+  border-color: #78634c;
+}
+
 .panel-heading {
   display: flex;
   align-items: center;
@@ -448,11 +659,26 @@ canvas {
   animation: bossHitShake 190ms ease-out;
 }
 
+.scene-wrap.skill-cast-active::after {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  content: "";
+  border: 1px solid rgba(125, 102, 255, 0.5);
+  background: radial-gradient(circle at 67% 48%, rgba(153, 133, 255, 0.2), transparent 24%);
+  animation: skillScenePulse 300ms ease-out forwards;
+}
+
 .skill-cast-feedback {
   position: absolute;
   z-index: 5;
   top: 29%;
   left: 50%;
+  padding: 5px 14px;
+  border: 1px solid rgba(255, 225, 143, 0.55);
+  border-radius: 999px;
+  background: rgba(31, 28, 48, 0.64);
   pointer-events: none;
   color: #fff1b8;
   font-size: clamp(1rem, 3vw, 1.45rem);
@@ -460,6 +686,11 @@ canvas {
   text-shadow: 0 2px 0 rgba(55, 38, 22, 0.7), 0 0 8px rgba(125, 102, 255, 0.32);
   transform: translate(-50%, -50%);
   animation: skillCastPop 720ms ease-out forwards;
+}
+
+@keyframes skillScenePulse {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 .death-pop {
@@ -930,6 +1161,16 @@ canvas {
   background: var(--blue);
 }
 
+.ro-stage-card .ro-boss-action {
+  background: linear-gradient(180deg, var(--ro-wood-top) 0%, var(--ro-wood-bottom) 100%) !important;
+  color: var(--ro-wood-text) !important;
+}
+
+.ro-stage-card .ro-reward-action {
+  background: #f7ead2 !important;
+  color: var(--ro-ink) !important;
+}
+
 button.ghost {
   color: var(--ink);
   background: #e5d8c0;
@@ -965,6 +1206,24 @@ button.ghost {
 
 .vip-card,
 .vip-table,
+.task-toggle-bar {
+  margin-bottom: 6px;
+}
+
+.task-toggle-btn {
+  font-size: 0.72rem;
+  padding: 2px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(110, 93, 61, 0.2);
+  background: rgba(255, 255, 255, 0.6);
+  color: #6a5936;
+  cursor: pointer;
+}
+
+.task-toggle-btn:hover {
+  background: rgba(110, 93, 61, 0.08);
+}
+
 .quest-section,
 .quest-card {
   border: 1px solid rgba(110, 93, 61, 0.2);
@@ -2107,6 +2366,143 @@ button.ghost {
   line-height: 1.15;
   white-space: nowrap;
 }
+
+/* ── Plan D: 装备卡片核心属性进度条 ── */
+.core-stat-bars {
+  display: grid;
+  gap: 3px;
+  margin: 2px 0;
+}
+
+.core-stat-bar {
+  display: grid;
+  grid-template-columns: 46px 1fr 42px;
+  gap: 5px;
+  align-items: center;
+  min-height: 16px;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.core-stat-bar-label {
+  color: #6a5936;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.66rem;
+}
+
+.core-stat-bar-track {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(92, 70, 35, 0.1);
+  overflow: hidden;
+}
+
+.core-stat-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #8aa87a, #b8c87a);
+  transition: width 0.25s ease;
+}
+
+.core-stat-bar-value {
+  text-align: right;
+  color: #2f2818;
+  white-space: nowrap;
+  font-size: 0.66rem;
+}
+
+/* ── Plan D: 装备卡片特殊属性标签 ── */
+.equipment-special-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 2px 0;
+}
+
+.equipment-special-tag {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(83, 71, 150, 0.16);
+  background: rgba(239, 234, 255, 0.5);
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
+.equipment-special-tag span {
+  color: #5b4a7a;
+}
+
+.equipment-special-tag strong {
+  color: #3d2d6a;
+}
+
+/* ── Plan B: 角色面板折叠子面板 ── */
+.stat-sub-panel {
+  margin-top: 5px;
+  border: 1px solid rgba(110, 93, 61, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.35);
+  overflow: hidden;
+}
+
+.stat-sub-panel summary {
+  cursor: pointer;
+  padding: 5px 8px;
+  font-size: 0.76rem;
+  font-weight: 900;
+  color: var(--green-dark);
+  user-select: none;
+}
+
+.stat-sub-panel[open] summary {
+  border-bottom: 1px solid rgba(110, 93, 61, 0.08);
+}
+
+.stat-sub-panel > .stat-grid {
+  margin: 4px 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.stat-sub-panel .slot-meta {
+  margin: 0 8px 6px;
+  font-size: 0.68rem;
+}
+
+/* ── Plan E: 稀有度专属机制标签 ── */
+.rarity-perk-section {
+  border-left: 3px solid #d6b768;
+  padding-left: 8px;
+  margin: 4px 0;
+}
+
+.rarity-perk-section .equipment-section-title {
+  color: #8a6d20;
+  font-size: 0.78rem;
+}
+
+.rarity-perk-desc {
+  margin: 0;
+  font-size: 0.7rem;
+  color: #6a5936;
+  font-weight: 600;
+}
+
+/* ── 技能升级面板 ── */
+.v3-skill-panel { margin-top: 8px; }
+.v3-skill-panel h4 { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; margin: 0 0 4px; }
+.skill-frag-count { font-size: 0.7rem; color: #8a6d20; font-weight: 700; }
+.v3-skill-grid { display: grid; gap: 3px; }
+.skill-level-row { display: grid; grid-template-columns: 1fr 40px 72px; gap: 6px; align-items: center; padding: 3px 6px; border-radius: 4px; background: rgba(255,255,255,0.4); font-size: 0.74rem; }
+.skill-level-name { font-weight: 700; }
+.skill-level-badge { text-align: center; font-weight: 800; color: #8a6d20; }
+.skill-upgrade-btn { padding: 2px 6px; border-radius: 4px; border: 1px solid #8a6d20; background: #faf5e8; color: #624820; font-size: 0.68rem; cursor: pointer; font-weight: 700; }
+.skill-max-tag { text-align: center; color: #4a8a5a; font-weight: 800; font-size: 0.68rem; }
+.skill-locked-tag { text-align: center; color: #999; font-size: 0.65rem; }
 
 .hero-actions {
   display: grid;
@@ -3294,6 +3690,83 @@ button.ghost {
   .hero-card button {
     grid-column: 1 / -1;
     width: 100%;
+  }
+
+  .topbar { min-height: 48px; padding: 8px 12px; }
+  .topbar h1 { font-size: 1rem; }
+  .resource-strip { padding: 6px 10px; gap: 6px; }
+  .resource-strip strong { font-size: 0.8rem; }
+
+  .ro-main-tabs {
+    gap: 4px;
+    padding: 4px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ro-main-tabs button {
+    flex: 0 0 auto;
+    min-width: 54px;
+    min-height: 32px;
+    padding: 4px 8px;
+    font-size: 0.72rem;
+  }
+
+  .ro-main-tabs::after {
+    content: "";
+    flex: 0 0 1px;
+  }
+
+  .ro-adventure-workspace {
+    display: block;
+  }
+
+  .ro-stage-card {
+    display: flex;
+    flex-direction: column;
+    padding: 8px;
+  }
+
+  .ro-command-sidebar {
+    margin-top: 10px;
+  }
+
+  .ro-stage-card .action-row {
+    order: 1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    margin: 0 0 8px;
+  }
+
+  .ro-stage-card .panel-heading { order: 0; }
+  .ro-stage-card .skill-cast-banner { order: 2; }
+  .ro-stage-card .skill-bar-v3 {
+    order: 3;
+    margin-bottom: 8px;
+  }
+  .ro-stage-card .scene-wrap { order: 4; }
+  .ro-stage-card .combat-layout { order: 5; }
+  .ro-stage-card .formation { order: 6; }
+  .ro-stage-card .offline-entry { order: 7; }
+
+  .ro-stage-card .action-row > * {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .ro-stage-card .ro-boss-action,
+  .ro-stage-card .ro-reward-action {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .ro-stage-card .toggle-line {
+    justify-content: center;
+    min-height: 36px;
+    padding: 5px 7px;
+    font-size: 0.74rem;
   }
 }
 
@@ -4662,7 +5135,61 @@ button.ghost {
   padding: 8px 0;
   justify-content: center;
   flex-wrap: wrap;
+  pointer-events: none;
 }
+
+.skill-cast-banner {
+  width: fit-content;
+  min-height: 26px;
+  margin: 8px auto 0;
+  padding: 4px 14px;
+  border: 1px solid #c4ad78;
+  border-radius: 999px;
+  background: #f3ead6;
+  color: #624820;
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-align: center;
+  animation: skillBannerIn 150ms ease-out;
+}
+
+.skill-cast-banner[hidden] {
+  display: none;
+}
+
+.enemy-status-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 20px;
+  padding-top: 5px;
+}
+
+.enemy-status-bar[hidden] {
+  display: none;
+}
+
+.enemy-status-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 18px;
+  padding: 1px 6px;
+  border: 1px solid #c5baa8;
+  border-radius: 10px;
+  background: #f6f0e7;
+  color: #554a40;
+  font-size: 0.62rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.enemy-status-chip.burn { border-color: #cf8460; color: #9c432a; background: #f8e8df; }
+.enemy-status-chip.poison { border-color: #8770a0; color: #5e427a; background: #efe9f6; }
+.enemy-status-chip.freeze { border-color: #6da0bb; color: #35647f; background: #e4f1f7; }
+.enemy-status-chip.snare,
+.enemy-status-chip.mark { border-color: #b09254; color: #745722; background: #f4eddd; }
+.enemy-status-chip.armor-break,
+.enemy-status-chip.wound { border-color: #be6660; color: #7d312e; background: #f6e6e4; }
 
 .skill-bar-icon {
   position: relative;
@@ -4680,13 +5207,29 @@ button.ghost {
   transition: border-color 0.3s, box-shadow 0.3s;
 }
 
+.skill-bar-icon.casting {
+  border-color: #d6b768;
+  animation: skillBarCastPulse 0.42s ease-out;
+}
+
 .skill-bar-icon.ready {
   border-color: #4a8a5a;
   box-shadow: 0 0 10px rgba(74, 138, 90, 0.4);
 }
 
 .skill-bar-icon.cooldown {
-  border-color: #5a4a3a;
+  border-color: #6b7180;
+  box-shadow: inset 0 0 0 1px rgba(221, 226, 235, 0.08);
+}
+
+.skill-bar-icon.waiting {
+  border-color: #8a7a4a;
+  box-shadow: 0 0 6px rgba(180, 160, 60, 0.25);
+}
+
+.skill-bar-icon.waiting .skill-bar-timer {
+  color: #c8a844;
+  font-size: 0.55rem;
 }
 
 .skill-bar-icon .skill-bar-name {
@@ -4705,17 +5248,37 @@ button.ghost {
   z-index: 1;
 }
 
+.skill-bar-icon.cooldown .skill-bar-name {
+  color: #f0f2f6;
+}
+
+.skill-bar-icon.cooldown .skill-bar-timer {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(7, 10, 17, 0.42);
+  color: #ffffff;
+  font-size: 0.72rem;
+}
+
+.skill-bar-icon.cooldown .skill-bar-timer::before {
+  content: "CD ";
+  color: #aeb7c8;
+  font-size: 0.58rem;
+}
+
 .skill-bar-icon.ready .skill-bar-timer {
   color: #6fcf8a;
 }
 
 .skill-bar-icon .skill-bar-overlay {
   position: absolute;
-  bottom: 0;
+  top: 0;
   left: 0;
   right: 0;
-  background: rgba(0, 0, 0, 0.55);
-  transition: height 0.5s linear;
+  bottom: 0;
+  height: 0;
+  background: rgba(5, 8, 16, 0.7);
+  transition: height 0.12s linear;
   z-index: 0;
 }
 
@@ -4726,6 +5289,39 @@ button.ghost {
   font-size: 0.55rem;
   color: #f0c040;
   z-index: 2;
+}
+
+.skill-bar-icon .skill-bar-awaken.is-waiting {
+  color: #a89770;
+}
+
+.skill-bar-icon.cooldown.casting,
+.skill-bar-icon.ready.casting,
+.skill-bar-icon.waiting.casting {
+  border-color: #d6b768;
+  box-shadow: 0 0 12px rgba(214, 183, 104, 0.52);
+}
+
+@keyframes skillBannerIn {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes skillBarCastPulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 rgba(214, 183, 104, 0); }
+  38% { transform: scale(1.06); box-shadow: 0 0 10px rgba(214, 183, 104, 0.4); }
+  100% { transform: scale(1); box-shadow: 0 0 0 rgba(214, 183, 104, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skill-bar-icon.casting {
+    animation-duration: 1ms !important;
+  }
+
+  .skill-cast-banner,
+  .scene-wrap.skill-cast-active::after {
+    animation-duration: 1ms !important;
+  }
 }
 
 .skill-v3-section .stat-grid {

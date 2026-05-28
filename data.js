@@ -3,8 +3,152 @@ var LEGACY_SAVE_KEY = "rune-frontier-idle-save-v1";
 var AUTH_KEY = "rune-frontier-auth-v1";
 var API_BASE = "";
 var MAX_OFFLINE_SECONDS = 12 * 60 * 60;
-var v3JobSkills = {};
-var v3SkillAwakenings = {};
+function v3SkillId(name) { return `v3_skill_${String(name).replace(/\s+/g, "_")}`; }
+function mech(type, params) { return { type: type || '', ...(params || {}) }; }
+function v3Skill(name, kind, cooldown, mechanism, description) {
+  var skill = { id: v3SkillId(name), name, kind, cooldown: cooldown || 0, mechanism: mechanism || null, description };
+  if (kind === '主动') {
+    skill.levelScaling = { cooldownPerLevel: 0.94, multiplierPerLevel: 1.12 };
+  } else if (kind === '被动') {
+    skill.levelScaling = { cooldownPerLevel: 0.96, multiplierPerLevel: 1.50 };
+  }
+  return skill;
+}
+var v3JobSkills = {
+  novice: [
+    v3Skill("投掷石头", "主动", 8, mech("singleHit", { multiplier: 1.25 }), "丢出石块造成物理伤害 1.25x。"),
+    v3Skill("基础修炼", "被动", 0, mech("hpThreshold", { high: { hpPct: 0.5, bonus: { damagePct: 0.05 } } }), "生命高于 50% 时伤害 +5%。"),
+  ],
+  swordman: [
+    v3Skill("狂击", "主动", 6, mech("multihit", { hits: 3, perHit: 0.8 }), "3段 ×0.8 = 2.4x 物理伤害。"),
+    v3Skill("怒爆", "主动", 12, mech("selfDamage", { hpCostPct: 0.12, multiplier: 3.8 }), "消耗 12% 生命，造成 3.8x 物理伤害。"),
+    v3Skill("霸体", "被动", 35, mech("deathDefy"), "受到致命伤害时锁定 1 点生命，冷却 35s。"),
+  ],
+  knight: [
+    v3Skill("骑乘攻击", "主动", 7, mech("multihit", { hits: 5, perHit: 0.62, selfBuff: { aspdPct: 0.12, duration: 4 } }), "5段 ×0.62 = 3.1x 物理伤害，命中后攻速 +12% 持续 4s。"),
+    v3Skill("怪物互击", "主动", 10, mech("multihit", { hits: 3, perHit: 0.95, splashMultiplier: 0.6 }), "3段 ×0.95 = 2.85x + 溅射 0.6x 物理伤害。"),
+    v3Skill("钢铁意志", "被动", 0, mech("hpThreshold", { high: { hpPct: 0.6, bonus: { damagePct: 0.15 } }, low: { hpPct: 0.3, bonus: { damageReductionPct: 0.25 } } }), "HP>60% 伤害 +15%，HP<30% 减伤 +25%。"),
+  ],
+  runeKnight: [
+    v3Skill("龙息", "主动", 14, mech("zone", { duration: 5, perSecond: 1.15, mark: "burn" }), "5s ×1.15/s = 5.75x 物理伤害，附加灼烧。"),
+    v3Skill("符文爆发", "主动", 20, mech("finisher", { hpThreshold: 0.25, multiplier: 5.0, finisherMultiplier: 7.5, killRefundPct: 0.5 }), "HP<25% 7.5x 物理伤害，击杀返还 50% 冷却。"),
+    v3Skill("龙族血统", "被动", 0, mech("enhanceSkill", { baseSkill: "霸体", extra: { invincible: 3, nextCrit: { guaranteed: true, multiplier: 1.5 } } }), "霸体触发后 3s 无敌，下次技能必暴且暴伤 ×1.5。"),
+  ],
+  mage: [
+    v3Skill("火箭术", "主动", 5, mech("singleHit", { stat: "matk", multiplier: 2.35, mark: { type: "burn", duration: 5 } }), "2.35x 魔法伤害，附加灼烧 5s。"),
+    v3Skill("冰箭术", "主动", 7, mech("singleHit", { stat: "matk", multiplier: 2.05, mark: { type: "freeze", duration: 3, effect: { aspdReduction: 0.3, hitReduction: 0.1 } } }), "2.05x 魔法伤害，附加冰冻 3s（敌攻速 -30%，命中 -10%）。"),
+    v3Skill("元素共鸣", "被动", 0, mech("elementalResonance", { pairs: [{ on: "burn", with: "冰箭术", multiplier: 1.8 }, { on: "freeze", with: "火箭术", multiplier: 1.8 }] }), "灼烧×冰箭=1.8x，冰冻×火箭=1.8x。"),
+  ],
+  wizard: [
+    v3Skill("陨石术", "主动", 12, mech("zone", { duration: 4, perSecond: 1.35, mark: "burn", stat: "matk" }), "4s ×1.35/s = 5.4x 魔法伤害，附加灼烧。"),
+    v3Skill("暴风雪", "主动", 10, mech("zone", { duration: 5, perSecond: 1.05, mark: "freeze", stat: "matk" }), "5s ×1.05/s = 5.25x 魔法伤害，附加冰冻。"),
+    v3Skill("魔力增幅", "被动", 0, mech("cooldownReduce", { trigger: "元素共鸣", reduction: 0.35 }), "触发元素共鸣后，下一技能冷却 -35%。"),
+  ],
+  warlock: [
+    v3Skill("连锁闪电", "主动", 8, mech("multihit", { hits: 4, perHit: 0.75, bounce: 2, bounceMultiplier: 0.45, stat: "matk" }), "4段 ×0.75 = 3.0x + 弹射 2段 ×0.45 魔法伤害。"),
+    v3Skill("元素风暴", "主动", 18, mech("statusExploitAll", { multiplier: 4.5, perStatus: 1.0, maxMultiplier: 7.5 }), "对所有异常敌人 4.5x + 每种状态 +1.0x（上限 7.5x）魔法伤害。"),
+    v3Skill("元素主宰", "被动", 0, mech("markDuration", { burn: 1.75, freeze: 1.75, allowBoth: true }), "灼烧/冰冻时长 ×1.75，可共存。"),
+  ],
+  archer: [
+    v3Skill("二连矢", "主动", 4, mech("multihit", { hits: 2, perHit: 1.05 }), "2段 ×1.05 = 2.1x 物理伤害。"),
+    v3Skill("箭雨", "主动", 10, mech("zone", { duration: 5, perSecond: 0.8, mark: "mark" }), "5s ×0.8/s = 4.0x 物理伤害，附加标记。"),
+    v3Skill("鹰眼", "被动", 0, mech("ignoreDefIfMarked", { ratio: 0.25 }), "目标有标记时忽视 25% 防御。"),
+  ],
+  hunter: [
+    v3Skill("陷阱", "主动", 8, mech("zone", { duration: 6, perSecond: 0.55, mark: "snare", markDuration: 3 }), "6s ×0.55/s = 3.3x 物理伤害，附加禁锢 3s。"),
+    v3Skill("锐利射击", "主动", 7, mech("finisher", { hpThreshold: 0.35, multiplier: 2.6, finisherMultiplier: 3.8, statusExploit: { mark: "snare", multiplier: 5.0 } }), "HP<35% 3.8x，禁锢目标 5.0x 物理伤害。"),
+    v3Skill("猎犬直觉", "被动", 0, mech("enhanceSkill", { baseSkill: "二连矢", mutate: { hits: 3, total: 3.15, condition: "enemyMarked" } }), "敌有标记时二连矢变 3段 ×1.05 = 3.15x。"),
+  ],
+  ranger: [
+    v3Skill("箭矢风暴", "主动", 12, mech("multihit", { hits: 6, perHit: 0.6, markedBonus: 0.25, markedTotal: 4.5 }), "6段 ×0.6 = 3.6x，标记目标 4.5x 物理伤害。"),
+    v3Skill("狼突袭", "主动", 9, mech("statusExploit", { mark: "any", baseMultiplier: 2.4, markedMultiplier: 3.4 }), "2.4x 物理伤害，有标记时提升至 3.4x。"),
+    v3Skill("森林之王", "被动", 0, mech("markedVulnerable", { damagePct: 0.18 }), "标记期间全伤 +18%。"),
+  ],
+  acolyte: [
+    v3Skill("治愈术", "主动", 8, mech("heal", { hpPct: 0.18 }), "回复最大生命 18%。"),
+    v3Skill("神圣之光", "主动", 6, mech("lifestealDamage", { multiplier: 1.9, healRatio: 0.35, stat: "matk" }), "1.9x 魔法伤害，35% 转治疗。"),
+    v3Skill("天使之护", "被动", 60, mech("hpThreshold", { low: { hpPct: 0.4, bonus: { damageReductionPct: 0.3 }, duration: 6 } }), "HP<40% 获得 6s 减伤 30%，冷却 60s。"),
+  ],
+  priest: [
+    v3Skill("群体治愈", "主动", 10, mech("heal", { hpPct: 0.3, overflow: "shield", shieldRatio: 0.5, shieldDuration: 10 }), "回复最大生命 30%，溢出 50% 转护盾 10s。"),
+    v3Skill("审判", "主动", 12, mech("selfDamage", { hpCostPct: 0.08, multiplier: 3.8, bonusVs: { dark: 5.8, undead: 5.8 }, stat: "matk" }), "消耗 8% 生命，3.8x 魔法伤害（不死/暗 5.8x）。"),
+    v3Skill("信仰守护", "被动", 0, mech("enhanceSkill", { baseSkill: "天使之护", extra: { shieldPct: 0.1 } }), "天使之护触发时获得 10% HP 护盾。"),
+  ],
+  archbishop: [
+    v3Skill("圣堂庇护", "主动", 15, mech("shield", { duration: 8, perHitReduction: 0.35 }), "8s 内受伤 -35%。"),
+    v3Skill("天罚", "主动", 14, mech("finisher", { hpThreshold: 0.2, multiplier: 5.5, instantKill: true, bossMultiplier: 5.5, stat: "matk" }), "HP<20% 即死（精英 10.0x，Boss 5.5x）魔法伤害。"),
+    v3Skill("圣者降临", "被动", 100, mech("revive", { hpPct: 0.4 }), "死亡时以 40% 生命复活，冷却 100s。"),
+  ],
+  merchant: [
+    v3Skill("手推车攻击", "主动", 6, mech("multihit", { hits: 2, perHit: 1.1 }), "2段 ×1.1 = 2.2x 物理伤害。"),
+    v3Skill("金钱攻击", "主动", 10, mech("goldCost", { goldPct: 0.0008, multiplier: 3.8 }), "消耗 0.08% 金币，造成 3.8x 伤害。"),
+    v3Skill("议价", "被动", 0, mech("goldBonus", { kill: 0.15, boss: 0.3 }), "击杀金币 +15%，Boss 双倍。"),
+  ],
+  blacksmith: [
+    v3Skill("手推车强击", "主动", 7, mech("multihit", { hits: 3, perHit: 0.8, stack: { name: "破甲", perHit: 1, max: 3 } }), "3段 ×0.8 = 2.4x + 每段 1 层破甲（上限 3）。"),
+    v3Skill("武器精炼", "主动", 12, mech("selfBuff", { duration: 8, atkPct: 0.25 }), "物攻 +25% 持续 8s。"),
+    v3Skill("大地之击", "被动", 0, mech("stackTrigger", { stack: "破甲", threshold: 3, effect: { skill: "手推车强击", crit: { guaranteed: true, multiplier: 1.4 } } }), "破甲 3 层时手推车必暴，暴伤 ×1.4。"),
+  ],
+  mechanic: [
+    v3Skill("自爆装置", "主动", 16, mech("delayedBurst", { delay: 6, multiplier: 5.8, aoe: true, killRefundPct: 0.5 }), "6s 后爆炸 5.8x 全敌伤害，击杀返还 50% 冷却。"),
+    v3Skill("金币风暴", "主动", 10, mech("goldGenerate", { multiplier: 2.6, goldPerDamage: 0.25 }), "2.6x 伤害，25% 转金币。"),
+    v3Skill("机械大师", "被动", 0, mech("enhanceSkill", { baseSkill: "自爆装置", extra: { resetOnKill: true, nextBonus: 0.35 } }), "自爆击杀重置冷却，下次伤害 +35%。"),
+  ],
+  thief: [
+    v3Skill("二刀连击", "主动", 3, mech("multihit", { hits: 2, perHit: 0.9, chainCrit: true }), "2段 ×0.9 = 1.8x，首段暴击则次段必暴。"),
+    v3Skill("施毒", "主动", 8, mech("singleHit", { multiplier: 1.7, mark: { type: "poison", duration: 6 } }), "1.7x 物理伤害，附加中毒 6s。"),
+    v3Skill("隐匿", "被动", 5, mech("stealth", { idleTime: 5, nextHit: { crit: { guaranteed: true, multiplier: 1.35 } } }), "脱战 5s 后下次技能必暴，暴伤 ×1.35。"),
+  ],
+  assassin: [
+    v3Skill("音速投掷", "主动", 5, mech("multihit", { hits: 8, perHit: 0.36, critScaling: true, bonusPerCritHit: 0.03 }), "8段 ×0.36 = 2.88x，每段暴击额外 +3%。"),
+    v3Skill("毒性扩散", "主动", 10, mech("spreadMark", { mark: "poison", refreshPoison: true, poisonDuration: 6, poisonStackAdd: 1, maxPoisonStacks: 5 }), "刷新中毒持续时间，层数 +1（上限 5 层）。"),
+    v3Skill("致命涂毒", "被动", 0, mech("markedCritBonus", { mark: "poison", critDamageBonus: 0.35 }), "中毒时暴伤 +35%。"),
+  ],
+  guillotineCross: [
+    v3Skill("十字斩", "主动", 7, mech("multihit", { hits: 4, perHit: 0.9, stack: { name: "伤口", perCrit: 1, damagePct: 0.04, max: 10 } }), "4段 ×0.9 = 3.6x，每段暴击叠 1 层伤口，每层 +4%（上限 10 层）。"),
+    v3Skill("暗杀", "主动", 14, mech("finisher", { hpThreshold: 0.3, multiplier: 3.8, finisherMultiplier: 5.8, enterStealth: true }), "HP<30% 5.8x，击杀隐匿。"),
+    v3Skill("死神之镰", "被动", 0, mech("stackTrigger", { stack: "伤口", threshold: 5, effect: { ignoreDefPct: 0.4 }, instantKillStacks: 10, bossMultiplier: 8.0 }), "伤口 5 层忽视 40% 防，10 层即死（精英 10x，Boss 8x）。"),
+  ],
+};
+var v3SkillAwakenings = {
+  runeKnight: { skill: "龙息", cost: 15, effect: mech("zone", { burnRamp: true, rampMax: 0.60, rampPerSecond: 0.15 }), desc: "灼烧每秒 +15% 伤害，最高 +60%。" },
+  warlock: { skill: "元素风暴", cost: 15, effect: mech("extraTrigger", { skill: "连锁闪电", multiplier: 0.7 }), desc: "释放后额外触发 70% 系数连锁闪电。" },
+  ranger: { skill: "箭矢风暴", cost: 12, effect: mech("extraHits", { hits: 2, perHit: 0.55, condition: "enemyMarked" }), desc: "命中标记目标追加 2 段 ×0.55。" },
+  archbishop: { skill: "圣者降临", cost: 15, effect: mech("reviveAndHeal", { healPct: 0.35, shieldPct: 0.2 }), desc: "复活时触发群体治愈 + 20% HP 护盾。" },
+  mechanic: { skill: "自爆装置", cost: 12, effect: mech("earlyDetonate", { minDelay: 3, multiplier: 4.5, guaranteedCrit: true }), desc: "3s 提前引爆，4.5x 必暴。" },
+  guillotineCross: { skill: "十字斩", cost: 15, effect: mech("stackBonus", { stack: "伤口", perCrit: 2 }), desc: "伤口叠速翻倍（每暴击 +2 层）。" },
+};
+var V3_SKILL_ROUTE_BY_JOB = {
+  novice: ["novice"],
+  swordman: ["swordman"],
+  knight: ["swordman", "knight"],
+  lordKnight: ["swordman", "knight"],
+  runeKnight: ["swordman", "knight", "runeKnight"],
+  mage: ["mage"],
+  wizard: ["mage", "wizard"],
+  highWizard: ["mage", "wizard"],
+  warlock: ["mage", "wizard", "warlock"],
+  archer: ["archer"],
+  hunter: ["archer", "hunter"],
+  sniper: ["archer", "hunter"],
+  ranger: ["archer", "hunter", "ranger"],
+  acolyte: ["acolyte"],
+  priest: ["acolyte", "priest"],
+  highPriest: ["acolyte", "priest"],
+  archbishop: ["acolyte", "priest", "archbishop"],
+  merchant: ["merchant"],
+  blacksmith: ["merchant", "blacksmith"],
+  whiteSmith: ["merchant", "blacksmith"],
+  mechanic: ["merchant", "blacksmith", "mechanic"],
+  thief: ["thief"],
+  assassin: ["thief", "assassin"],
+  assassinCross: ["thief", "assassin"],
+  guillotineCross: ["thief", "assassin", "guillotineCross"],
+};
+function getV3CombatSkills(jobId) {
+  return (V3_SKILL_ROUTE_BY_JOB[jobId] || [jobId])
+    .flatMap((routeJobId) => v3JobSkills[routeJobId] || []);
+}
 var COMBAT_PACE = 0.4;
 var HP_REGEN_INTERVAL = 5;
 var MONSTER_ATTACK_INTERVAL = 1.35;

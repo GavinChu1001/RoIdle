@@ -37,10 +37,11 @@ export function updateCombat(dt, context = runtimeContext) {
       state.reviveCooldown = 100;
       state.reviveUsedThisLife = true;
       if (v3PassivePre.reviveAwakening) {
+        state.awakeningMarks = Math.max(0, finite(state.awakeningMarks) - finite(v3PassivePre.reviveAwakening.cost));
         const bonusHeal = Math.round(finite(stats.maxHp) * finite(v3PassivePre.reviveAwakening.healPct));
         state.hero.currentHp = Math.min(finite(stats.maxHp), state.hero.currentHp + bonusHeal);
         state.shieldHp = finite(state.shieldHp) + Math.round(finite(stats.maxHp) * finite(v3PassivePre.reviveAwakening.shieldPct));
-        context.addLog?.('圣者降临觉醒：群体治愈与护盾触发。');
+        context.addLog?.(`圣者降临觉醒：消耗 ${v3PassivePre.reviveAwakening.cost} 觉醒印记，群体治愈与护盾触发。`);
       }
       context.addLog?.('圣者降临：复活！');
       return true;
@@ -179,17 +180,15 @@ export function updateMonsterAttack(dt, stats = {}, context = runtimeContext, v3
     context.showDamageNumber?.('hero', 0, 'miss');
     return true;
   }
-  // V3 标记：禁锢防止闪避
-  const isSnared = finite(state.enemyMarks?.snare) > 0;
   if (finite(state.enemyMarks?.freeze) > 0 && context.random?.() < 0.10) {
     context.showDamageNumber?.('hero', 0, 'miss');
     return true;
   }
-  if (!isSnared && context.random?.() < finite(stats.dodgeRate)) {
+  if (context.random?.() < finite(stats.dodgeRate)) {
     context.showDamageNumber?.('hero', 0, 'miss');
     return true;
   }
-  const effectiveCritChance = isSnared ? 0 : finite(monster.critChance) * (1 - Math.min(0.75, finite(stats.statusResist) * 0.5));
+  const effectiveCritChance = finite(monster.critChance) * (1 - Math.min(0.75, finite(stats.statusResist) * 0.5));
   const isCrit = context.random?.() < effectiveCritChance;
   const hpRatio = finite(state.hero?.currentHp || stats.maxHp) / Math.max(1, finite(stats.maxHp));
   const livingCount = Math.max(1, (state.enemyGroup?.monsters || []).filter((entry) => entry.alive).length || 1);

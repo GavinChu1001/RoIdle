@@ -204,6 +204,24 @@ export function settleDefeatedEnemy(payload = {}, context = runtimeContext) {
     context.explorationGainForKill?.({ isBoss, isMutated: Boolean(monster.mutation), difficulty }) || 0,
   );
   context.trackKillAchievements?.({ isBoss, isMutated: Boolean(monster.mutation), difficulty });
+
+  var fragmentCount = 0;
+  var isAbyssBoss = isBoss && difficulty === 'abyss';
+  var isElite = Boolean(monster.mutation) || monster.type === 'elite';
+  if (isAbyssBoss) {
+    fragmentCount = 20 + Math.floor(Math.random() * 11);
+  } else if (isBoss) {
+    fragmentCount = 8 + Math.floor(Math.random() * 8);
+  } else if (isElite) {
+    fragmentCount = 3 + Math.floor(Math.random() * 3);
+  } else {
+    fragmentCount = 1 + Math.floor(Math.random() * 2);
+  }
+  if (fragmentCount > 0) {
+    state.materials = state.materials || {};
+    state.materials.skillFragment = (state.materials.skillFragment || 0) + fragmentCount;
+  }
+
   if (!isBoss) {
     if (equipmentDropCount + mutationEquipmentDropCount > 0) {
       state.equipmentPityKills = 0;

@@ -49,9 +49,11 @@ export function installTaskRenderRuntime(context = {}) {
       const els = (window.els || {});
       const state = window.state || {};
       if (!els.taskPage) return;
-      const main = (state.quests?.active||[]).filter((q) => q.category === 'main');
-      const daily = (state.quests?.active||[]).filter((q) => q.category === 'daily');
-      els.taskPage.innerHTML = `${renderTaskSection('\u4e3b\u7ebf\u4efb\u52a1', main)}${renderTaskSection('\u65e5\u5e38\u4efb\u52a1', daily)}${renderDailyGoals()}${renderAchievementPage()}`;
+      const hideCompleted = state.hideCompletedTasks !== false;
+      const main = (state.quests?.active||[]).filter((q) => q.category === 'main' && (!hideCompleted || !q.completed));
+      const daily = (state.quests?.active||[]).filter((q) => q.category === 'daily' && (!hideCompleted || !q.completed));
+      const toggleLabel = hideCompleted ? '\u5df2\u5b8c\u6210\u4efb\u52a1\u5df2\u9690\u85cf\uff0c\u70b9\u51fb\u663e\u793a' : '\u663e\u793a\u5168\u90e8\u4efb\u52a1';
+      els.taskPage.innerHTML = `<div class="task-toggle-bar"><button class="task-toggle-btn" data-toggle-completed-tasks type="button">${toggleLabel}</button></div>${renderTaskSection('\u4e3b\u7ebf\u4efb\u52a1', main)}${renderTaskSection('\u65e5\u5e38\u4efb\u52a1', daily)}${renderDailyGoals()}${renderAchievementPage()}`;
     },
     renderDailyGoals,
     renderAchievementPage,

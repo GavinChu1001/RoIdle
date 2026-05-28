@@ -64,7 +64,7 @@ export function renderHeroes(ctx = charCtx) {
         <span class="rebirth-seal-count">\u26a1 \u8f6e\u56de\u5370\u8bb0\uff1a${fmtn(state.rebirthSeals || 0)}</span>
       </div>` : ''}
       <details class="hero-details" ${state.heroDetailsOpen !== false ? 'open' : ''}>
-        <summary>\u5c5e\u6027\u6765\u6e90 \xb7 \u5957\u88c5 \xb7 \u79f0\u53f7 \xb7 \u6280\u80fd</summary>
+        <summary>\u5c5e\u6027\u6765\u6e90 \xb7 \u5957\u88c5 \xb7 \u79f0\u53f7</summary>
         ${ctx.renderCharacterStatSections?.(stats) || ''}
         ${ctx.renderCharacterStatBreakdown?.(stats) || ''}
         <div class="set-talent">${ctx.renderSetTalentStatus?.() || ''}</div>
@@ -77,8 +77,8 @@ export function renderHeroes(ctx = charCtx) {
         </section>
         ${renderRebirthResearchPanel(state, fmtn)}
         <p class="job-growth">${ctx.describeJobGrowth?.() || ''}</p>
-        <section class="skill-panel">${ctx.renderSkillPanel?.() || ''}</section>
       </details>
+      <section class="skill-panel">${ctx.renderSkillPanel?.() || ''}</section>
       <div class="meter"><div style="width:${Math.min(1, F(state.hero?.jobExp) / jobExpCost) * 100}%"></div></div>
     </div>
   </article>`;
@@ -132,13 +132,11 @@ function renderAwakeningSection(state, fmtn) {
   if (!config) return '';
   const jobId = (window.currentJob?.() || {}).id;
   const awakened = runtime?.isSkillAwakened?.(jobId);
-  if (awakened) return '<hr /><strong>\u89c9\u9192</strong><span class="rebirth-node-unlocked">\u2713 \u5df2\u89c9\u9192\uff1a' + esc(config.skill) + '\u2014\u2014' + esc(config.desc) + '</span>';
-  const hasAwakeningMarks = Object.prototype.hasOwnProperty.call(state || {}, 'awakeningMarks');
-  const marks = Math.max(0, Number(state?.awakeningMarks) || 0);
-  const canDo = hasAwakeningMarks && marks >= Number(config.cost || 0);
-  if (canDo) return '<hr /><strong>\u89c9\u9192</strong><button type="button" class="rebirth-node-btn" data-rebirth-awaken>' + esc(config.skill) + '\uff1a' + esc(config.desc) + '\uff08\u6d88\u8017 ' + fmtn(config.cost) + ' \u89c9\u9192\u5370\u8bb0\uff09</button>';
-  if (!hasAwakeningMarks) return '<hr /><strong>\u89c9\u9192</strong><span class="rebirth-node-locked">\u89c9\u9192\u5370\u8bb0\u83b7\u53d6\u6682\u672a\u5f00\u653e\uff1a' + esc(config.desc) + '\uff08\u9700 ' + fmtn(config.cost) + ' \u89c9\u9192\u5370\u8bb0\uff09</span>';
-  return '<hr /><strong>\u89c9\u9192</strong><span class="rebirth-node-locked">\u89c9\u9192\u5370\u8bb0\u4e0d\u8db3\uff08\u9700 ' + fmtn(config.cost) + '\uff09\uff1a' + esc(config.desc) + '</span>';
+  if (awakened) return '<hr /><strong>\u89c9\u9192</strong><span class="rebirth-node-unlocked">\u2713 \u5df2\u89e3\u9501\uff1a' + esc(config.skill) + '\u2014\u2014' + esc(config.desc) + '\uff08\u89e6\u53d1\u65f6\u6d88\u8017 ' + fmtn(config.cost) + ' \u89c9\u9192\u5370\u8bb0\uff09</span>';
+  const seals = Math.max(0, Number(state?.rebirthSeals) || 0);
+  const canUnlock = seals >= Number(config.cost || 0);
+  if (canUnlock) return '<hr /><strong>\u89c9\u9192</strong><button type="button" class="rebirth-node-btn" data-rebirth-awaken>\u89e3\u9501 ' + esc(config.skill) + '\uff1a' + esc(config.desc) + '\uff08\u6d88\u8017 ' + fmtn(config.cost) + ' \u8f6e\u56de\u5370\u8bb0\uff1b\u89e6\u53d1\u65f6\u6d88\u8017\u89c9\u9192\u5370\u8bb0\uff09</button>';
+  return '<hr /><strong>\u89c9\u9192</strong><span class="rebirth-node-locked">\u89e3\u9501\u9700\u8981 ' + fmtn(config.cost) + ' \u8f6e\u56de\u5370\u8bb0\uff1a' + esc(config.desc) + '</span>';
 }
 
 export function renderPowerSourcePanel(stats, ctx = charCtx) {
@@ -214,48 +212,60 @@ export function renderTown(ctx = charCtx) {
 
 export function renderCharacterStatSections(stats, ctx = charCtx) {
   const statLineFn = ctx.statLine || (() => '');
-  const statGroupFn = ctx.renderStatGroup || ((title, rows) => rows.filter(Boolean).join('') ? `<section class="hero-stat-section"><strong>${esc(title)}</strong><div class="stat-grid">${rows.filter(Boolean).join('')}</div></section>` : '');
-  return (ctx.renderStatGroup || ((t, r) => `<section class="hero-stat-section"><strong>${esc(t)}</strong><div class="stat-grid">${r.filter(Boolean).join('')}</div></section>`))('\u57fa\u7840\u5c5e\u6027', [
-    statLineFn('\u529b\u91cf', stats.attrs?.str || 0, 'str'),
-    statLineFn('\u654f\u6377', stats.attrs?.agi || 0, 'agi'),
-    statLineFn('\u4f53\u8d28', stats.attrs?.vit || 0, 'vit'),
-    statLineFn('\u667a\u529b', stats.attrs?.int || 0, 'int'),
-    statLineFn('\u7075\u5de7', stats.attrs?.dex || 0, 'dex'),
-    statLineFn('\u8fd0\u6c14', stats.attrs?.luk || 0, 'luk'),
-    statLineFn('\u6218\u529b', stats.power || 0, 'power'),
-  ]) +
-  statGroupFn('\u6218\u6597\u5c5e\u6027', [
-    statLineFn('\u8f93\u51fa', stats.dps || 0, 'dps'),
-    statLineFn('\u751f\u547d\u503c', stats.maxHp || 0, 'maxHp'),
-    statLineFn('\u9632\u5fa1', stats.defense || 0, 'def'),
-    statLineFn('\u653b\u51fb\u901f\u5ea6', stats.aspd || 0, 'aspd'),
-    statLineFn('\u751f\u547d\u6062\u590d', stats.hpRegen || 0, 'hpRegen'),
-    statLineFn('\u95ea\u907f\u7387', stats.dodgeRate || 0, 'dodgeRate', { note: '\u6700\u9ad8 80%' }),
-    statLineFn('\u66b4\u51fb\u7387', stats.crit || 0, 'crit', { note: '\u6700\u9ad8 100%' }),
-    statLineFn('\u66b4\u51fb\u4f24\u5bb3', stats.critDamage || (1.85 + F(stats.critDamageBonus)), 'critDamage'),
-    statLineFn('\u5438\u8840', stats.lifeSteal || 0, 'lifeSteal'),
-    statLineFn('\u65e0\u89c6\u9632\u5fa1', stats.ignoreDefensePct || 0, 'ignoreDefense'),
-    statLineFn('\u4f24\u5bb3\u51cf\u514d', stats.damageReductionPct || 0, 'damageReduction'),
-    statLineFn('\u7269\u7406\u653b\u51fb\u529b', stats.physicalAttack || stats.atkPower || 0, 'physicalAttack'),
-    statLineFn('\u9b54\u6cd5\u653b\u51fb\u529b', stats.magicAttack || stats.matkPower || 0, 'magicAttack'),
-  ]) +
-  statGroupFn('Boss / \u6df1\u6e0a\u5c5e\u6027', [
-    statLineFn('Boss\u4f24\u5bb3', stats.bossDamageBonus || 0, 'bossDamageBonus'),
-    statLineFn('Boss\u51cf\u4f24', stats.bossDamageReduction || 0, 'bossDamageReduction'),
-    statLineFn('\u7cbe\u82f1/\u9996\u9886\u4f24\u5bb3', stats.eliteDamageBonus || 0, 'eliteDamageBonus'),
-    statLineFn('\u6df1\u6e0a\u4f24\u5bb3', stats.abyssDamageBonus || 0, 'abyssDamageBonus'),
-    statLineFn('\u6df1\u6e0a\u51cf\u4f24', stats.abyssDamageReduction || 0, 'abyssDamageReduction', { note: '\u6df1\u6e0a\u76f8\u5173\u6218\u6597\u751f\u6548' }),
-    statLineFn('\u6df1\u6e0a\u6750\u6599\u6389\u7387', stats.abyssMaterialDropBonus || 0, 'abyssMaterialDropBonus'),
-    statLineFn('\u795e\u8bdd\u54c1\u8d28\u6743\u91cd', stats.mythicWeightBonus || 0, 'mythicWeightBonus', { note: '\u6743\u91cd\uff0c\u4e0d\u662f\u76f4\u63a5\u6389\u7387' }),
-  ]) +
-  statGroupFn('\u6536\u76ca\u5c5e\u6027', [
-    statLineFn('\u91d1\u5e01\u6536\u76ca', (stats.goldMultiplier || 1) - 1, 'goldBonus'),
-    statLineFn('\u7269\u54c1\u6389\u843d\u7387', stats.dropBonus || 0, 'dropBonus', { note: '\u5305\u542b\u6750\u6599\u548c\u666e\u901a\u6389\u843d\u7387' }),
-    statLineFn('\u5361\u7247\u6389\u843d\u7387', stats.cardDropBonus || 0, 'cardDropBonus'),
-    statLineFn('\u88c5\u5907\u6389\u843d\u7387', stats.equipmentDropBonus || 0, 'equipmentDropBonus', { note: '\u4e0d\u5305\u542b Boss/\u6df1\u6e0a\u72ec\u7acb\u6389\u843d\u89e6\u53d1' }),
-    statLineFn('BASE\u7ecf\u9a8c', (stats.baseExpMultiplier || 1) - 1, 'baseExpBonus'),
-    statLineFn('JOB\u7ecf\u9a8c', (stats.jobExpMultiplier || 1) - 1, 'jobExpBonus'),
-  ]);
+  const panelState = typeof window !== 'undefined' ? (window.characterStatPanelState || {}) : {};
+  function panel(key, title, rows, defaultOpen) {
+    const expanded = panelState.hasOwnProperty(key) ? panelState[key] : Boolean(defaultOpen);
+    const content = rows.filter(Boolean).join('');
+    if (!content) return '';
+    return '<details class="stat-sub-panel"' + (expanded ? ' open' : '') + '><summary data-stat-panel-toggle="' + key + '">' + esc(title) + '</summary><div class="stat-grid">' + content + '</div></details>';
+  }
+  return (
+    panel('base', '\u57fa\u7840\u5c5e\u6027', [
+      statLineFn('\u529b\u91cf', stats.attrs?.str || 0, 'str'),
+      statLineFn('\u654f\u6377', stats.attrs?.agi || 0, 'agi'),
+      statLineFn('\u4f53\u8d28', stats.attrs?.vit || 0, 'vit'),
+      statLineFn('\u667a\u529b', stats.attrs?.int || 0, 'int'),
+      statLineFn('\u7075\u5de7', stats.attrs?.dex || 0, 'dex'),
+      statLineFn('\u8fd0\u6c14', stats.attrs?.luk || 0, 'luk'),
+      statLineFn('\u6218\u529b', stats.power || 0, 'power'),
+    ], true) +
+    panel('combat', '\u6218\u6597\u5c5e\u6027', [
+      statLineFn('\u8f93\u51fa', stats.dps || 0, 'dps'),
+      statLineFn('\u751f\u547d\u503c', stats.maxHp || 0, 'maxHp'),
+      statLineFn('\u9632\u5fa1', stats.defense || 0, 'def'),
+      statLineFn('\u653b\u51fb\u901f\u5ea6', stats.aspd || 0, 'aspd'),
+      statLineFn('\u66b4\u51fb\u7387', stats.crit || 0, 'crit', { note: '\u6700\u9ad8 100%' }),
+      statLineFn('\u66b4\u51fb\u4f24\u5bb3', stats.critDamage || (1.85 + F(stats.critDamageBonus)), 'critDamage'),
+      statLineFn('\u7269\u7406\u653b\u51fb\u529b', stats.physicalAttack || stats.atkPower || 0, 'physicalAttack'),
+      statLineFn('\u9b54\u6cd5\u653b\u51fb\u529b', stats.magicAttack || stats.matkPower || 0, 'magicAttack'),
+    ]) +
+    panel('survival', '\u751f\u5b58\u5c5e\u6027', [
+      statLineFn('\u5438\u8840', stats.lifeSteal || 0, 'lifeSteal'),
+      statLineFn('\u4f24\u5bb3\u51cf\u514d', stats.damageReductionPct || 0, 'damageReduction'),
+      statLineFn('\u65e0\u89c6\u9632\u5fa1', stats.ignoreDefensePct || 0, 'ignoreDefense'),
+      statLineFn('\u751f\u547d\u6062\u590d', stats.hpRegen || 0, 'hpRegen'),
+      statLineFn('\u95ea\u907f\u7387', stats.dodgeRate || 0, 'dodgeRate', { note: '\u6700\u9ad8 80%' }),
+      statLineFn('\u683c\u6321\u7387', stats.blockRate || 0, 'blockRate'),
+      statLineFn('\u6297\u66b4\u7387', stats.antiCrit || 0, 'antiCrit'),
+    ]) +
+    panel('abyss', 'Boss / \u6df1\u6e0a\u5c5e\u6027', [
+      statLineFn('Boss\u4f24\u5bb3', stats.bossDamageBonus || 0, 'bossDamageBonus'),
+      statLineFn('Boss\u51cf\u4f24', stats.bossDamageReduction || 0, 'bossDamageReduction'),
+      statLineFn('\u7cbe\u82f1/\u9996\u9886\u4f24\u5bb3', stats.eliteDamageBonus || 0, 'eliteDamageBonus'),
+      statLineFn('\u6df1\u6e0a\u4f24\u5bb3', stats.abyssDamageBonus || 0, 'abyssDamageBonus'),
+      statLineFn('\u6df1\u6e0a\u51cf\u4f24', stats.abyssDamageReduction || 0, 'abyssDamageReduction', { note: '\u6df1\u6e0a\u76f8\u5173\u6218\u6597\u751f\u6548' }),
+      statLineFn('\u6df1\u6e0a\u6750\u6599\u6389\u7387', stats.abyssMaterialDropBonus || 0, 'abyssMaterialDropBonus'),
+      statLineFn('\u795e\u8bdd\u54c1\u8d28\u6743\u91cd', stats.mythicWeightBonus || 0, 'mythicWeightBonus', { note: '\u6743\u91cd\uff0c\u4e0d\u662f\u76f4\u63a5\u6389\u7387' }),
+    ]) +
+    panel('loot', '\u6536\u76ca\u5c5e\u6027', [
+      statLineFn('\u91d1\u5e01\u6536\u76ca', (stats.goldMultiplier || 1) - 1, 'goldBonus'),
+      statLineFn('\u7269\u54c1\u6389\u843d\u7387', stats.dropBonus || 0, 'dropBonus', { note: '\u5305\u542b\u6750\u6599\u548c\u666e\u901a\u6389\u843d\u7387' }),
+      statLineFn('\u5361\u7247\u6389\u843d\u7387', stats.cardDropBonus || 0, 'cardDropBonus'),
+      statLineFn('\u88c5\u5907\u6389\u843d\u7387', stats.equipmentDropBonus || 0, 'equipmentDropBonus', { note: '\u4e0d\u5305\u542b Boss/\u6df1\u6e0a\u72ec\u7acb\u6389\u843d\u89e6\u53d1' }),
+      statLineFn('BASE\u7ecf\u9a8c', (stats.baseExpMultiplier || 1) - 1, 'baseExpBonus'),
+      statLineFn('JOB\u7ecf\u9a8c', (stats.jobExpMultiplier || 1) - 1, 'jobExpBonus'),
+    ])
+  );
 }
 
 export function renderCharacterStatBreakdown(stats, ctx = charCtx) {
@@ -272,7 +282,22 @@ export function renderCharacterStatBreakdown(stats, ctx = charCtx) {
 }
 
 export function renderSkillPanel(ctx = charCtx) {
+  var state = ctx.getState?.() || {};
+  var v3Skills = (typeof getV3CombatSkills === 'function' ? getV3CombatSkills(state.hero.jobId) : []);
+  var maxLevel = (typeof getSkillMaxLevel === 'function' ? getSkillMaxLevel(state.hero.jobId) : 5);
+  var fragments = (state.materials && state.materials.skillFragment) || 0;
+  var activeV3 = v3Skills.filter(function (s) { return s.kind === '主动'; });
+  var passiveV3 = v3Skills.filter(function (s) { return s.kind === '被动'; });
+  var levelMap = state.hero.skillLevels || {};
+  function skillLevelRow(skill) {
+    var lvl = levelMap[skill.id] || 1;
+    var cost = (typeof getSkillFragmentCost === 'function' ? getSkillFragmentCost(skill) : Infinity);
+    var canUpgrade = lvl < maxLevel && fragments >= cost;
+    return '<div class="skill-level-row"><span class="skill-level-name">' + esc(skill.name) + '</span><span class="skill-level-badge">Lv.' + lvl + '</span>' + (canUpgrade ? '<button class="skill-upgrade-btn" data-skill-upgrade="' + esc(skill.id) + '" type="button">' + cost + ' 碎片</button>' : lvl >= maxLevel ? '<span class="skill-max-tag">MAX</span>' : '<span class="skill-locked-tag">' + cost + ' 碎片</span>') + '</div>';
+  }
+  var v3Panel = v3Skills.length ? '<section class="v3-skill-panel"><h4>V3 技能（材料升级）<span class="skill-frag-count">技能碎片：' + fmtn(fragments) + '</span></h4><div class="v3-skill-grid">' + activeV3.map(function (s) { return skillLevelRow(s); }).join('') + passiveV3.map(function (s) { return skillLevelRow(s); }).join('') + '</div></section>' : '';
   return `<div class="skill-panel-content">
+    ${v3Panel}
     ${ctx.renderSkillSummaryCard?.() || ''}
     ${ctx.renderJobSkills?.() || ''}
   </div>`;

@@ -131,9 +131,9 @@ export function createItem(template = {}, level, forcedTierId = null, context = 
   };
   item.instanceId = item.id;
   runtime.addBaseRanges?.(item, template, safeTier, safeLevel, itemTier, slotGrowth);
-  runtime.applyTierExtra?.(item, safeTier, safeLevel, itemTier);
   runtime.applyRandomAffixes?.(item, safeTier, safeLevel, itemTier);
   runtime.applyAbyssEquipmentBonus?.(item);
+  runtime.applyRarityPerk?.(item, safeTier, template);
   return item;
 }
 
@@ -237,6 +237,7 @@ export function normalizeItem(item = {}, runtime = runtimeContext) {
     thornVitMultiplier: item.thornVitMultiplier ?? 0,
     enhanceLevel: item.enhanceLevel || 0,
     specialPassives: Array.isArray(item.specialPassives) ? item.specialPassives : [],
+    rarityPerk: item.rarityPerk || null,
   };
   runtime.applyAbyssEquipmentBonus?.(normalized);
   runtime.applyAbyssSetItemBonus?.(normalized);
