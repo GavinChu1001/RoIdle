@@ -37,6 +37,7 @@ const normalCombatSource = read('src/systems/combat/normalCombat.js');
 const encounterSource = read('src/systems/combat/encounter.js');
 const taskPageSource = read('src/ui/taskPage.js');
 const cardPageSource = read('src/ui/cardPage.js');
+const equipmentPageSource = read('src/ui/equipmentPage.js');
 const onboardingSource = read('src/systems/onboarding.js');
 const onboardingGuideSource = read('src/ui/onboardingGuide.js');
 
@@ -369,7 +370,100 @@ assert.ok(Object.values(itemStats.getEffectiveItemStats(null)).every(Number.isFi
 assert.equal(itemStats.getEffectiveItemStats({ antiCrit: 0.5 }).antiCrit || 0, 0, 'Equipment V2 must not preserve antiCrit as an effective stat.');
 assert.ok(itemStats.getEffectiveItemStats({ blockRate: 0.12 }).blockRate > 0, 'Equipment V2 must preserve blockRate as an effective stat.');
 
-const scoreStandaloneSource = itemScoreSource
+let itemArchetypeSource = '';
+assert.doesNotThrow(() => {
+  itemArchetypeSource = read('src/systems/equipment/itemArchetype.js');
+}, 'Equipment archetype module must exist.');
+assert.match(itemArchetypeSource, /\bEQUIPMENT_ARCHETYPES\b/, 'Equipment archetypes must define EQUIPMENT_ARCHETYPES.');
+for (const name of [
+  'normalizeEquipmentArchetype',
+  'inferEquipmentArchetype',
+  'rollEquipmentArchetype',
+  'getArchetypeStatPools',
+  'calculateArchetypeScores',
+  'getEquipmentFitTags',
+]) {
+  assert.match(
+    itemArchetypeSource,
+    new RegExp(`(?:export\\s+)?function\\s+${name}\\s*\\(|(?:export\\s+)?const\\s+${name}\\s*=`),
+    `Equipment archetype module must define ${name}.`
+  );
+}
+const itemArchetype = await importSource(itemArchetypeSource);
+assert.ok(itemArchetype.EQUIPMENT_ARCHETYPES && typeof itemArchetype.EQUIPMENT_ARCHETYPES === 'object', 'Equipment archetypes must export EQUIPMENT_ARCHETYPES.');
+for (const key of ['physical', 'magic', 'general']) {
+  assert.ok(Object.hasOwn(itemArchetype.EQUIPMENT_ARCHETYPES, key), `EQUIPMENT_ARCHETYPES must include ${key}.`);
+}
+assert.equal(itemArchetype.normalizeEquipmentArchetype('physical'), 'physical', 'Physical archetype must normalize to itself.');
+assert.equal(itemArchetype.normalizeEquipmentArchetype('magic'), 'magic', 'Magic archetype must normalize to itself.');
+assert.equal(itemArchetype.normalizeEquipmentArchetype('general'), 'general', 'General archetype must normalize to itself.');
+assert.equal(itemArchetype.normalizeEquipmentArchetype('unknown'), 'general', 'Unknown archetypes must fall back to general.');
+assert.equal(itemArchetype.getArchetypeLabel('physical'), '\u7269\u7406', 'Physical archetype label changed.');
+assert.equal(itemArchetype.getArchetypeLabel('magic'), '\u9b54\u6cd5', 'Magic archetype label changed.');
+assert.equal(itemArchetype.getArchetypeLabel('general'), '\u901a\u7528', 'General archetype label changed.');
+for (const jobId of ['swordman', 'archer', 'assassin']) {
+  assert.equal(itemArchetype.getJobPreferredArchetype(jobId), 'physical', `${jobId} must prefer physical equipment.`);
+}
+for (const jobId of ['mage', 'priest']) {
+  assert.equal(itemArchetype.getJobPreferredArchetype(jobId), 'magic', `${jobId} must prefer magic equipment.`);
+}
+assert.equal(itemArchetype.getJobPreferredArchetype('unknown-job'), 'general', 'Unknown jobs must prefer general equipment.');
+assert.equal(itemArchetype.inferEquipmentArchetype({ atk: 100, matk: 0 }), 'physical', 'ATK-only equipment must infer physical.');
+assert.equal(itemArchetype.inferEquipmentArchetype({ matk: 100 }), 'magic', 'MATK-only equipment must infer magic.');
+assert.equal(itemArchetype.inferEquipmentArchetype({ atk: 100, matk: 100 }), 'general', 'Mixed attack equipment must infer general.');
+assert.equal(itemArchetype.inferEquipmentArchetype({}), 'general', 'Empty equipment must infer general.');
+const physicalPools = itemArchetype.getArchetypeStatPools('physical');
+const magicPools = itemArchetype.getArchetypeStatPools('magic');
+const generalPools = itemArchetype.getArchetypeStatPools('general');
+assert.ok(Array.from(physicalPools.primary || []).includes('atkPct'), 'Physical primary pool must include atkPct.');
+assert.ok(!Array.from(physicalPools.primary || []).includes('matkPct'), 'Physical primary pool must not include matkPct.');
+assert.ok(Array.from(magicPools.primary || []).includes('matkPct'), 'Magic primary pool must include matkPct.');
+assert.ok(!Array.from(magicPools.primary || []).includes('atkPct'), 'Magic primary pool must not include atkPct.');
+assert.ok(Array.from(generalPools.primary || []).includes('str'), 'General primary pool must include str.');
+assert.ok(Array.from(generalPools.primary || []).includes('int'), 'General primary pool must include int.');
+assert.equal(itemArchetype.rollEquipmentArchetype({ slot: 'weapon' }, { currentJobId: 'swordman', rng: () => 0 }), 'physical', 'Swordman rolls must be predictable as physical with fixed rng.');
+assert.equal(itemArchetype.rollEquipmentArchetype({ slot: 'weapon' }, { currentJobId: 'mage', rng: () => 0 }), 'magic', 'Mage rolls must be predictable as magic with fixed rng.');
+assert.equal(itemArchetype.rollEquipmentArchetype({ slot: 'weapon', archetype: 'magic' }, { currentJobId: 'swordman', rng: () => 0 }), 'magic', 'Template archetype should override job preference.');
+const physicalReforgeCost = itemArchetype.getReforgeCost('physical');
+const magicReforgeCost = itemArchetype.getReforgeCost('magic');
+const generalReforgeCost = itemArchetype.getReforgeCost('general');
+const reforgeCostTotal = (cost = {}) => Number(cost.ticket || 0) + Number(cost.gold || 0) + Object.values(cost.materials || {}).reduce((sum, amount) => sum + Number(amount || 0), 0);
+assert.ok(physicalReforgeCost && typeof physicalReforgeCost === 'object', 'Physical reforge cost must be an object.');
+assert.ok('ticket' in physicalReforgeCost && 'materials' in physicalReforgeCost && 'gold' in physicalReforgeCost, 'Directed reforge cost must expose ticket/materials/gold.');
+assert.ok(reforgeCostTotal(generalReforgeCost) <= reforgeCostTotal(physicalReforgeCost), 'General reforge cost must not exceed physical directed cost.');
+assert.ok(reforgeCostTotal(generalReforgeCost) <= reforgeCostTotal(magicReforgeCost), 'General reforge cost must not exceed magic directed cost.');
+const physicalArchetypeScores = itemArchetype.calculateArchetypeScores({ archetype: 'physical', atk: 100, matk: 0 }, { currentJobId: 'swordman' });
+const magicArchetypeScores = itemArchetype.calculateArchetypeScores({ archetype: 'magic', matk: 100 }, { currentJobId: 'mage' });
+for (const key of ['physicalScore', 'magicScore', 'generalScore', 'currentJobScore', 'archetypeFit']) {
+  assert.ok(Object.hasOwn(physicalArchetypeScores, key), `Archetype scores must include ${key}.`);
+}
+assert.ok(physicalArchetypeScores.physicalScore > physicalArchetypeScores.magicScore, 'Physical equipment must score higher for physical than magic.');
+assert.ok(magicArchetypeScores.magicScore > magicArchetypeScores.physicalScore, 'Magic equipment must score higher for magic than physical.');
+const fitTagText = (tag) => typeof tag === 'string' ? tag : String(tag?.label || tag?.text || tag?.title || tag?.name || '');
+const currentJobTags = itemArchetype.getEquipmentFitTags({ archetype: 'physical', atk: 100 }, { currentJobId: 'swordman' }).map(fitTagText).join(' ');
+const crossJobTags = itemArchetype.getEquipmentFitTags({ archetype: 'magic', matk: 100 }, { currentJobId: 'swordman' }).map(fitTagText).join(' ');
+assert.match(currentJobTags, /\u9002\u5408\u5f53\u524d\u804c\u4e1a/, 'Current-job fit tags must identify suitable equipment.');
+assert.match(crossJobTags, /\u53ef\u7559\u7ed9\u5176\u4ed6\u804c\u4e1a|\u5176\u4ed6\u804c\u4e1a/, 'Cross-archetype tags must identify equipment for other jobs.');
+
+assert.match(
+  itemFactorySource,
+  /from\s+['"]\.\/itemArchetype\.js['"]|\b(?:rollEquipmentArchetype|normalizeEquipmentArchetype|inferEquipmentArchetype)\b/,
+  'Item factory must depend on equipment archetype logic.'
+);
+assert.match(equipmentPageSource, /equipmentArchetype|archetypeFilter|data-equipment-archetype|data-archetype-filter/, 'Equipment page must expose archetype filtering.');
+for (const key of ['physical', 'magic', 'general']) {
+  assert.match(equipmentPageSource, new RegExp(`['"]${key}['"]|\\b${key}\\b`), `Equipment page must expose ${key} filter entry.`);
+}
+assert.match(
+  game,
+  /data-reforge-archetype|data-archetype-reforge|reforgeArchetype/i,
+  'Directed reforge buttons must mark their target archetype.'
+);
+
+const itemArchetypeModuleUrl = `data:text/javascript;base64,${Buffer.from(itemArchetypeSource).toString('base64')}`;
+const withItemArchetypeImport = (source) => source.replace(/from\s+['"]\.\/itemArchetype\.js['"]/g, `from '${itemArchetypeModuleUrl}'`);
+
+const scoreStandaloneSource = withItemArchetypeImport(itemScoreSource)
   .replace("import { getEffectiveItemStats } from './itemStats.js';", 'const getEffectiveItemStats = (item) => item;')
   .replace("import { isAbyssEquipment } from './itemNaming.js';", "const isAbyssEquipment = (item) => Boolean(item?.abyssForged);");
 const itemScore = await importSource(scoreStandaloneSource);
@@ -382,13 +476,18 @@ const scores = itemScore.calculateEquipmentScores({
   abyssForged: true,
 });
 assert.ok(scores.output > 0 && scores.survival > 0 && scores.boss > 0 && scores.abyss > 0, 'Equipment score outputs must remain finite and positive.');
-assert.ok(Object.values(scores).every(Number.isFinite), 'Equipment scores must not contain invalid numbers.');
+assert.ok(['comprehensive', 'output', 'survival', 'boss', 'abyss', 'treasure'].every((key) => Number.isFinite(scores[key])), 'Equipment scores must not contain invalid numbers.');
+for (const key of ['physicalScore', 'magicScore', 'generalScore', 'currentJobScore', 'archetypeFit']) {
+  assert.ok(Object.hasOwn(scores, key), `Equipment score outputs must include ${key}.`);
+}
 const emptyScore = itemScore.calculateEquipmentScores({});
 const antiCritOnlyScore = itemScore.calculateEquipmentScores({ antiCrit: 0.5 });
 assert.equal(antiCritOnlyScore.survival, emptyScore.survival, 'Equipment V2 scoring must not reward antiCrit.');
 assert.ok(itemScore.calculateEquipmentScores({ blockRate: 0.12 }).survival > emptyScore.survival, 'Equipment V2 scoring must reward real blockRate.');
+assert.ok(itemScore.calculateEquipmentScores({ atk: 100 }).physicalScore > itemScore.calculateEquipmentScores({ atk: 100 }).magicScore, 'Equipment score must favor physical stats for physical scoring.');
+assert.ok(itemScore.calculateEquipmentScores({ matk: 100 }).magicScore > itemScore.calculateEquipmentScores({ matk: 100 }).physicalScore, 'Equipment score must favor magic stats for magic scoring.');
 
-const itemFactory = await importSource(itemFactorySource);
+const itemFactory = await importSource(withItemArchetypeImport(itemFactorySource));
 const factoryContext = {
   getEquipmentTiers: () => [{ id: 'normal', scale: 1, rolls: [1, 1] }],
   getItemTierForLevel: () => ({ id: 'starter', scale: 1 }),
@@ -405,10 +504,17 @@ const factoryContext = {
   applyAbyssEquipmentBonus: () => {},
   canCreateMythic: () => true,
 };
-const generated = itemFactory.createItem({ name: 'Blade', slot: 'weapon', atk: 10 }, 1, 'normal', {}, factoryContext);
+const generated = itemFactory.createItem({ name: 'Blade', slot: 'weapon', atk: 10 }, 1, 'normal', { currentJobId: 'swordman', rng: () => 0 }, factoryContext);
 assert.equal(generated.id, 'generated-item', 'Module-owned item creation did not run.');
 assert.equal(generated.atk, 10, 'Module-owned item creation changed base equipment output.');
 assert.deepEqual(generated.cardSlots, [], 'New equipment must retain the existing empty socket behavior.');
+assert.equal(generated.archetype, 'physical', 'Created equipment must record its archetype.');
+assert.equal(itemFactory.createItem({ name: 'Rod', slot: 'weapon', matk: 10 }, 1, 'normal', { currentJobId: 'mage', rng: () => 0 }, factoryContext).archetype, 'magic', 'Created mage equipment must record magic archetype.');
+assert.equal(itemFactory.normalizeItem({ atk: 100 }, factoryContext).archetype, 'physical', 'Legacy ATK equipment normalization must infer physical archetype.');
+assert.equal(itemFactory.normalizeItem({ matk: 100 }, factoryContext).archetype, 'magic', 'Legacy MATK equipment normalization must infer magic archetype.');
+assert.equal(itemFactory.normalizeItem({ atk: 100, matk: 100 }, factoryContext).archetype, 'general', 'Mixed legacy equipment normalization must infer general archetype.');
+assert.equal(itemFactory.normalizeItem({}, factoryContext).archetype, 'general', 'Empty legacy equipment normalization must infer general archetype.');
+assert.equal(itemFactory.normalizeItem({ archetype: 'unknown' }, factoryContext).archetype, 'general', 'Unknown legacy archetypes must normalize to general.');
 const rerolledV2 = itemFactory.resetItemForStatV2({
   id: 'legacy-gear',
   templateId: 'blade',
@@ -465,6 +571,7 @@ assert.equal(mutationLoot.length, 1, 'Auto-salvage must write one recent-loot re
 const protectedItem = dismantle.addEquipmentToInventory({ id: 'set', rarity: 'normal', setId: 'set-a' }, {}, mutationContext);
 assert.equal(protectedItem.added, true, 'Set equipment must remain protected from ordinary auto-salvage.');
 assert.equal(dismantle.shouldAutoSalvage({ rarity: 'normal', abyssForged: true }, mutationContext), false, 'Abyss equipment must remain protected unless explicitly enabled.');
+assert.equal(dismantle.shouldAutoSalvage({ rarity: 'normal' }, { ...mutationContext, shouldProtectEquipment: () => true }), false, 'Protected equipment must not be auto-salvaged.');
 const fullInventory = dismantle.addEquipmentToInventory({ id: 'second', rarity: 'legend' }, {}, mutationContext);
 assert.equal(fullInventory.skipped, true, 'Inventory capacity behavior changed.');
 mutationState.inventory = [{ id: 'manual', rarity: 'normal', level: 1 }];

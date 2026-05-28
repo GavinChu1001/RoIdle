@@ -10683,9 +10683,84 @@ function equipmentImagePath(id) {
   return `assets/images/equipment/${safe}.png`;
 }
 
+const equipmentIconAssetIds = new Set([
+  "extra_equipment_5",
+  "one_hand_sword_long_sword",
+  "one_hand_sword_saber",
+  "ro_armor_abyss_dragon_scale",
+  "ro_axe_orc_battle",
+  "ro_book_arcane",
+  "ro_bow_hunter",
+  "ro_head_angel_circlet",
+  "ro_head_dark_lord_crown",
+  "ro_katar_briar",
+  "ro_knuckle_iron",
+  "ro_mace_golden",
+  "ro_plate_glast_knight",
+  "ro_robe_priest",
+  "ro_shoes_abyss_walker",
+  "ro_spear_trident",
+  "ro_staff_dark_lord",
+  "ro_sword_ancient_dragonfang",
+  "ro_trinket_abyss_mark",
+  "ro_trinket_dragonblood",
+  "slot-armor",
+  "slot-headgear",
+  "slot-shoes",
+  "slot-trinket",
+  "slot-weapon",
+  "type-axe",
+  "type-book",
+  "type-boots",
+  "type-bow",
+  "type-charm",
+  "type-circlet",
+  "type-crown",
+  "type-katar",
+  "type-knuckle",
+  "type-mace",
+  "type-necklace",
+  "type-oneHandStaff",
+  "type-oneHandSword",
+  "type-plate",
+  "type-ring",
+  "type-robe",
+  "type-shoes",
+  "type-spear",
+  "type-staff",
+  "type-sword",
+]);
+
+function equipmentIconIdFromPath(src) {
+  const match = String(src || "").match(/assets\/images\/equipment\/([^/.]+)\.(?:png|gif|webp)$/i);
+  return match ? match[1] : "";
+}
+
 function itemImageCandidates(item) {
-  const src = item.image || equipmentImagePath(item.templateId || item.id || item.name);
-  return imageCandidates(src);
+  const sourceItem = item || {};
+  const sources = [];
+  const pushSource = (src) => {
+    if (!src || sources.includes(src)) return;
+    sources.push(src);
+  };
+  const pushEquipmentSource = (id) => {
+    if (!id || !equipmentIconAssetIds.has(String(id))) return;
+    pushSource(equipmentImagePath(id));
+  };
+
+  pushEquipmentSource(equipmentIconIdFromPath(sourceItem.image));
+  pushEquipmentSource(sourceItem.templateId || sourceItem.id || sourceItem.name);
+
+  const subType = sourceItem.subType || inferEquipmentSubType(sourceItem);
+  const equipType = sourceItem.equipType || sourceItem.weaponType || sourceItem.armorType;
+  const normalizedSlot = equipmentSlot(sourceItem);
+  const rawSlot = sourceItem.slot || sourceItem.equipSlot;
+  pushEquipmentSource(subType ? `type-${subType}` : "");
+  pushEquipmentSource(equipType ? `type-${equipType}` : "");
+  pushEquipmentSource(rawSlot ? `slot-${rawSlot}` : "");
+  pushEquipmentSource(normalizedSlot ? `slot-${normalizedSlot}` : "");
+  pushSource("assets/ui/slot-item.png");
+  return sources;
 }
 
 function imageBackgroundList(candidates) {

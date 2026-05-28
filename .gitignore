@@ -30,6 +30,7 @@ Desktop.ini
 # Dev tool configs
 .claude/
 .codegraph/
+.codex/
 .superpowers/
 
 # Screenshots

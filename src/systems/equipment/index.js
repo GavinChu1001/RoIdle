@@ -6,6 +6,7 @@ import { configureEquipmentMutationContext, getSalvageRewards, shouldAutoSalvage
 import { configureRefineContext, enhanceItem, getEnhanceCost, getEnhanceMilestoneBonuses, getEnhanceEffect } from './refine.js';
 import { configureStarRefineContext, refineItem, getRefineChance, getRefineCost, snapshotRefineStats, diffRefineStats, star15Bonus, refineMultiplier, refineGrowthFactorForStat, getRefineMilestoneBonuses, getRefineGrowthStats } from './starRefine.js';
 import { configureSocketContext, getMaxEquipmentCardSlots, getEquipmentCardSlotCount, getCardSocketCost, canAffordSocketCost } from './socket.js';
+import { EQUIPMENT_ARCHETYPES, normalizeEquipmentArchetype, getArchetypeLabel, getEquipmentArchetypeLabel, getJobPreferredArchetype, getJobArchetypeRoute, inferEquipmentArchetype, getArchetypeStatPools, rollEquipmentArchetype, calculateArchetypeScores, getEquipmentFitTags, shouldProtectEquipmentByArchetype, getReforgeCost } from './itemArchetype.js';
 
 export * from './itemFactory.js';
 export * from './itemStats.js';
@@ -13,6 +14,7 @@ export * from './itemScore.js';
 export * from './itemCompare.js';
 export * from './itemTags.js';
 export * from './itemNaming.js';
+export * from './itemArchetype.js';
 export * from './refine.js';
 export * from './starRefine.js';
 export * from './socket.js';
@@ -29,6 +31,19 @@ export function installEquipmentRuntime(context = {}) {
     getEquipmentDisplayName,
     getEffectiveItemStats,
     calculateEquipmentScores,
+    EQUIPMENT_ARCHETYPES,
+    normalizeEquipmentArchetype,
+    getArchetypeLabel,
+    getEquipmentArchetypeLabel,
+    getJobPreferredArchetype,
+    getJobArchetypeRoute,
+    inferEquipmentArchetype,
+    getArchetypeStatPools,
+    rollEquipmentArchetype,
+    calculateArchetypeScores,
+    getEquipmentFitTags,
+    shouldProtectEquipmentByArchetype,
+    getReforgeCost,
     createItem,
     normalizeItem,
     resetItemForStatV2,
