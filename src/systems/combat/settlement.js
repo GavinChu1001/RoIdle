@@ -235,7 +235,7 @@ export function settleDefeatedEnemy(payload = {}, context = runtimeContext) {
   }
 
   const nextAction = shouldAutoBossAfterKill ? 'autoBoss' : groupHasMoreMonsters ? 'nextEncounter' : 'spawnNormal';
-  if (nextAction === 'autoBoss') context.challengeBoss?.({ auto: true });
+  if (nextAction === 'autoBoss') context.tryAutoChallengeBoss?.('settlement', stats);
   if (nextAction === 'nextEncounter') context.syncActiveEnemyFromGroup?.();
   if (nextAction === 'spawnNormal') context.spawnEnemy?.(false);
   context.render?.();

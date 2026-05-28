@@ -2,6 +2,8 @@ import { calculateMonsterHit, calculatePlayerBasicHit, getTargetDamageBonus, nor
 import { resolveActiveSkillCast } from './skills.js';
 
 let runtimeContext = {};
+let lastAutoBossAttemptTime = 0;
+const AUTO_BOSS_ATTEMPT_INTERVAL_MS = 1000;
 
 function finite(value) {
   const number = Number(value || 0);
@@ -25,7 +27,11 @@ export function updateCombat(dt, context = runtimeContext) {
   if (finite(state.enemyHp) <= 0 || finite(state.enemyMaxHp) <= 0) context.spawnEnemy?.(false);
 
   const stats = context.computeStats?.() || {};
-  context.tryAutoChallengeBoss?.('tick', stats);
+  const now = Date.now();
+  if (now - lastAutoBossAttemptTime >= AUTO_BOSS_ATTEMPT_INTERVAL_MS) {
+    lastAutoBossAttemptTime = now;
+    context.tryAutoChallengeBoss?.('tick', stats);
+  }
   if (finite(state.hero?.currentHp) <= 0) {
     const isRebirthMode = state.rebirthMode && (state.hero?.rebirths || 0) > 0;
     // V3 霸体 + 圣者降临
@@ -237,6 +243,7 @@ export function updateMonsterAttack(dt, stats = {}, context = runtimeContext, v3
       }
       state.hero.currentHp = Math.max(1, Math.round(stats.maxHp * 0.15));
       state.paused = false;
+      if (state.enemyBoss && context.getAutoBossEnabled?.()) context.handleAutoBossFailure?.();
       context.spawnEnemy?.(false);
     } else {
       state.paused = true;

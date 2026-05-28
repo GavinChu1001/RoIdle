@@ -1,5 +1,7 @@
 let runtimeContext = {};
 
+let autoBossPowerBlockedLogged = false;
+
 function finite(value) {
   const number = Number(value || 0);
   return Number.isFinite(number) ? number : 0;
@@ -44,10 +46,12 @@ export function challengeBoss({ auto = false } = {}, context = runtimeContext) {
   if (isCurrentlyFightingBoss(context)) return false;
   if (!isBossChallengeReady(context)) {
     if (!auto) context.showToast?.(`还需要清理 ${finite(context.bossRequirement?.()) - finite(state.areaKills)} 只魔物`);
+    else context.addLog?.('自动挑战 BOSS：击杀数不足，等待更多魔物。');
     return false;
   }
   if (!canHeroFight(stats, context)) {
     if (!auto) context.showToast?.('生命值不足，无法挑战 BOSS');
+    else context.addLog?.('自动挑战 BOSS：生命值不足，等待恢复。');
     return false;
   }
   if (auto && isAutoBossInCooldown(context)) return false;
@@ -64,6 +68,17 @@ export function tryAutoChallengeBoss(reason = 'tick', stats = runtimeContext.com
   if (!isBossChallengeReady(context)) return false;
   if (isCurrentlyFightingBoss(context)) return false;
   if (state.paused) return false;
+  // Power check: don't auto-challenge if player power < 50% of recommended
+  const map = context.currentMap?.();
+  const recommendedPower = map?.recommendedPower || 0;
+  if (recommendedPower > 0 && finite(stats.power) < recommendedPower * 0.5) {
+    if (!autoBossPowerBlockedLogged) {
+      context.addLog?.('自动挑战 BOSS：战力不足，暂停自动挑战。');
+      autoBossPowerBlockedLogged = true;
+    }
+    return false;
+  }
+  autoBossPowerBlockedLogged = false;
   if (!canHeroFight(stats, context)) return false;
   if (isAutoBossInCooldown(context)) return false;
   return challengeBoss({ auto: true }, context);

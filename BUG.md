@@ -1,6 +1,6 @@
 # Bug 记录
 
-> 最后更新：2026-05-27
+> 最后更新：2026-05-28
 
 ## 待修复
 
@@ -41,6 +41,68 @@
 **可能原因**：`renderShop` tab 切换逻辑或 `data-shop-tab` 事件处理有问题。
 
 **涉及文件**：`game.js`（renderShop）、`src/ui/shopPage.js`、`styles.css`
+
+---
+
+## 已修复 (2026-05-28)
+
+### 5. 自动挑战BOSS — 每帧无意义调用 tryAutoChallengeBoss
+
+**描述**：`updateCombat` 每个战斗帧（~60fps）都调用 `tryAutoChallengeBoss('tick')`，即使所有条件明显不满足（已在对战Boss、冷却中、暂停等），仍会触发 `computeStats()` 等无谓计算。
+
+**修复**：在 `src/systems/combat/normalCombat.js` 中新增 `lastAutoBossAttemptTime` 节流变量，限制每秒最多调用一次。
+
+**涉及文件**：`src/systems/combat/normalCombat.js`
+
+---
+
+### 6. 自动挑战BOSS — 击杀后结算绕过暂停检查
+
+**描述**：`settlement.js` 击杀结算后直接调用 `challengeBoss({auto:true})`，跳过了 `tryAutoChallengeBoss` 中的 `state.paused` 检查。若在击杀瞬间战斗恰好暂停，Boss 仍会生成。
+
+**修复**：将结算路径改为调用 `tryAutoChallengeBoss('settlement', stats)`，经过完整守卫链路。
+
+**涉及文件**：`src/systems/combat/settlement.js`
+
+---
+
+### 7. 自动挑战BOSS — 无战力门槛检查
+
+**描述**：`canHeroFight` 仅检查 HP ≥ 30%，从未将玩家战力与地图 `recommendedPower` 进行对比。自动挑战可能以远低于推荐值的战力发起 Boss 战，导致必败。
+
+**修复**：在 `bossCombat.js` 的 `tryAutoChallengeBoss` 中新增检查：玩家战力 < `recommendedPower × 50%` 时阻止自动挑战，带一次性日志提示。
+
+**涉及文件**：`src/systems/combat/bossCombat.js`
+
+---
+
+### 8. 自动挑战BOSS — 转生模式死亡不进入冷却
+
+**描述**：非转生模式下，被 Boss 击杀会调用 `handleAutoBossFailure` 设置 60 秒冷却。但转生模式下复活后 `spawnEnemy(false)`，且不触发冷却，可能导致印记反复流失的循环。
+
+**修复**：在转生模式复活分支中，若 `state.enemyBoss && getAutoBossEnabled()` 也调用 `handleAutoBossFailure`。
+
+**涉及文件**：`src/systems/combat/normalCombat.js`
+
+---
+
+### 9. 自动挑战BOSS — 失败冷却硬编码 60 秒
+
+**描述**：`AUTO_BOSS_FAIL_COOLDOWN_MS = 60 * 1000` 硬编码在 `data.js` 中，无法通过任何游戏机制（VIP、转生、升级）缩短。
+
+**修复**：`game.js` 的 `getAutoBossFailCooldownMs` 现在根据 `state.vip.level` 动态计算：每个 VIP 等级 -2%，下限 30%（即最高可缩减至约 18 秒）。
+
+**涉及文件**：`game.js`
+
+---
+
+### 10. 自动挑战BOSS — auto=true 时静默失败
+
+**描述**：`challengeBoss({auto:true})` 在不满足条件时跳过 Toast 通知（`if (!auto)` 守卫），玩家完全不知道自动挑战为何未生效。
+
+**修复**：在 `auto` 模式下，不满足击杀数或生命值条件时，新增 `addLog` 日志提示（"自动挑战 BOSS：击杀数不足"/"生命值不足"）。
+
+**涉及文件**：`src/systems/combat/bossCombat.js`
 
 ---
 

@@ -12202,7 +12202,10 @@ window.RuneFrontierLegacyCombatContext = () => Object.freeze({
     return Date.now();
   },
   getAutoBossFailCooldownMs() {
-    return AUTO_BOSS_FAIL_COOLDOWN_MS;
+    let cooldown = AUTO_BOSS_FAIL_COOLDOWN_MS;
+    const vipLevel = state.vip?.level || 0;
+    if (vipLevel > 0) cooldown = Math.round(cooldown * Math.max(0.3, 1 - vipLevel * 0.02));
+    return cooldown;
   },
   showToast,
   bossDisplayName,
