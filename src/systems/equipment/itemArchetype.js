@@ -66,16 +66,25 @@ const STAT_POOLS = Object.freeze({
     primary: Object.freeze(['atkPct', 'atk', 'str', 'dex', 'critDamageBonus']),
     secondary: Object.freeze(['agi', 'attackSpeedPct', 'critRatePct', 'ignoreDefense']),
     utility: Object.freeze(['hpPct', 'defPct', 'lifeSteal', 'bossDamageBonus']),
+    flat: Object.freeze(['atk', 'str', 'dex', 'agi', 'crit', 'aspd']),
+    percent: Object.freeze(['atkPct', 'critRatePct', 'critDamageBonus', 'attackSpeedPct', 'ignoreDefense', 'lifeSteal']),
+    mechanic: Object.freeze(['splash', 'pursuit', 'breaker']),
   }),
   magic: Object.freeze({
     primary: Object.freeze(['matkPct', 'matk', 'int', 'skillDamageBonus']),
     secondary: Object.freeze(['dex', 'finalDamageBonus', 'echoChance', 'monsterDamageBonus']),
     utility: Object.freeze(['hpPct', 'defPct', 'hpRegenPct', 'abyssDamageBonus']),
+    flat: Object.freeze(['matk', 'int', 'dex', 'vit']),
+    percent: Object.freeze(['matkPct', 'skillDamageBonus', 'echoChance', 'hpRegenPct']),
+    mechanic: Object.freeze(['echo', 'starlight', 'recovery']),
   }),
   general: Object.freeze({
     primary: Object.freeze(['str', 'int', 'dex', 'vit', 'agi', 'luk']),
     secondary: Object.freeze(['hpPct', 'defPct', 'finalDamageBonus', 'bossDamageBonus']),
     utility: Object.freeze(['drop', 'gold', 'rareDropBonus', 'equipmentDrop', 'materialQuantityBonus']),
+    flat: Object.freeze(['hp', 'def', 'vit', 'luk']),
+    percent: Object.freeze(['hpPct', 'defPct', 'drop', 'gold', 'rareDropBonus', 'equipmentDrop', 'cardDrop', 'materialQuantityBonus', 'damageReductionPct']),
+    mechanic: Object.freeze(['greed', 'thorn', 'recovery']),
   }),
 });
 
@@ -197,6 +206,9 @@ export function getArchetypeStatPools(archetype) {
     primary: [...pools.primary],
     secondary: [...pools.secondary],
     utility: [...pools.utility],
+    flat: [...(pools.flat || [])],
+    percent: [...(pools.percent || [])],
+    mechanic: [...(pools.mechanic || [])],
   };
 }
 
@@ -301,6 +313,11 @@ export function getEquipmentFitTags(item = {}, context = {}) {
   } else {
     tags.push('\u901a\u7528\u5b9a\u4f4d');
   }
+  const rarity = String(item.rarity || item.tier || '').toLowerCase();
+  const scores = calculateArchetypeScores(item, context);
+  if (PROTECTED_RARITIES.has(rarity) || (scores.archetypeFit >= 0.75 && scores.currentJobScore >= 500)) {
+    tags.push('\u53ef\u6253\u9020\u6210\u80da\u5b50');
+  }
   return [...new Set(tags)];
 }
 
@@ -311,7 +328,7 @@ export function shouldProtectEquipmentByArchetype(item = {}, context = {}) {
   const rarity = String(item.rarity || item.tier || '').toLowerCase();
   if (PROTECTED_RARITIES.has(rarity)) return true;
   const scores = calculateArchetypeScores(item, context);
-  return scores.archetypeFit >= 0.9 && scores.currentJobScore >= 500;
+  return scores.archetypeFit >= 0.75 && scores.currentJobScore >= 500;
 }
 
 export function getReforgeCost(itemOrArchetype, targetArchetype = null, options = {}) {

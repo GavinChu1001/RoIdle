@@ -2348,7 +2348,11 @@ function bindEvents() {
     }
     const reforgeButton = event.target.closest("button[data-reforge-v2-item]");
     if (reforgeButton) {
-      reforgeEquipmentV2(reforgeButton.dataset.reforgeV2Item);
+      reforgeEquipmentV2(
+        reforgeButton.dataset.reforgeV2Item,
+        reforgeButton.dataset.reforgeArchetype || "",
+        reforgeButton.dataset.reforgeMode || "ticket",
+      );
       return;
     }
     const refineButton = event.target.closest("button[data-refine-item]");
@@ -3783,10 +3787,13 @@ function lootFeedbackRank(item) {
 }
 
 function lootFeedbackTitle(item) {
-  if (item.setId) return "获得星座装备！";
-  if (item.rarity === "mythic") return "获得神话装备！";
-  if (item.rarity === "darkGold") return "获得暗金装备！";
-  return `获得${rarityName(item.rarity)}装备！`;
+  const archetypeLabel = getEquipmentArchetypeLabel(item?.archetype || inferEquipmentArchetype(item));
+  const fitTags = getEquipmentFitTags(item);
+  const suffix = fitTags.includes("可打造成胚子") ? " · 可打造成胚子" : fitTags.includes("适合当前职业") ? " · 适合当前职业" : "";
+  if (item.setId) return `获得星座${archetypeLabel}装备！${suffix}`;
+  if (item.rarity === "mythic") return `获得神话${archetypeLabel}装备！${suffix}`;
+  if (item.rarity === "darkGold") return `获得暗金${archetypeLabel}装备！${suffix}`;
+  return `获得${rarityName(item.rarity)}${archetypeLabel}装备！${suffix}`;
 }
 
 function playSfx(name) {
@@ -4517,8 +4524,11 @@ function addMaterials(rewards = {}) {
 }
 
 function addDropLog(item) {
-  const prefix = item.rarity === "normal" ? "获得装备" : `获得${rarityName(item.rarity)}装备`;
-  addLogHtml(`${escapeHtml(prefix)}：${renderItemName(item)}`);
+  const archetypeLabel = getEquipmentArchetypeLabel(item?.archetype || inferEquipmentArchetype(item));
+  const fitTags = getEquipmentFitTags(item);
+  const suffix = fitTags.includes("可打造成胚子") ? " · 可打造成胚子" : fitTags.includes("适合当前职业") ? " · 适合当前职业" : "";
+  const prefix = item.rarity === "normal" ? `获得${archetypeLabel}装备` : `获得${rarityName(item.rarity)}${archetypeLabel}装备`;
+  addLogHtml(`${escapeHtml(prefix + suffix)}：${renderItemName(item)}`);
 }
 
 function createScaledItem(mapIndex) {
@@ -4589,6 +4599,7 @@ function legacyCreateItem(template, level, forcedTierId = null, context = {}) {
   const slotGrowth = getSlotLevelGrowth(template.slot);
   const quality = randomFloat(safeTier.rolls[0], safeTier.rolls[1]);
   const statScale = safeTier.scale * itemTier.scale * quality * (1 + level * slotGrowth);
+  const archetype = normalizeEquipmentArchetype(context.targetArchetype || context.archetype || rollEquipmentArchetype(template, context));
   const item = {
     id: `${template.slot}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     instanceId: "",
@@ -4609,6 +4620,7 @@ function legacyCreateItem(template, level, forcedTierId = null, context = {}) {
     setName: template.setName || "",
     baseStats: template.baseStats || {},
     description: template.description || "",
+    archetype,
     rarity: safeTier.id,
     tier: safeTier.id,
     itemTier: itemTier.id,
@@ -4634,7 +4646,7 @@ function legacyCreateItem(template, level, forcedTierId = null, context = {}) {
     affixDetails: [],
     mechanicAffixes: [],
     ranges: {},
-    randomStats: shouldRollRandomStats(template) ? rollRandomStats(safeTier.id) : defaultRandomStats(),
+    randomStats: shouldRollRandomStats(template) ? rollRandomStats(safeTier.id, archetype) : defaultRandomStats(),
     level,
     atk: Math.round((template.atk || 0) * statScale),
     matk: Math.round((template.matk || 0) * statScale),
@@ -4748,7 +4760,7 @@ function applyRarityPerk(item, tier, template) {
   if (!perkType) return;
   switch (perkType) {
     case 'randomStats':
-      item.randomStats = shouldRollRandomStats(template || {}) ? rollRandomStats(tier.id) : defaultRandomStats();
+      item.randomStats = shouldRollRandomStats(template || {}) ? rollRandomStats(tier.id, item.archetype) : defaultRandomStats();
       break;
     case 'specialAffix': {
       var affix = EPIC_SPECIAL_AFFIX_POOL[Math.floor(Math.random() * EPIC_SPECIAL_AFFIX_POOL.length)];
@@ -5044,14 +5056,23 @@ function migrateEquipmentItemToV2(item = {}) {
   const level = Math.max(1, Math.round(Number(source.dropLevel || source.level || 1)));
   const rarity = source.rarity || source.tier || "normal";
   const template = equipmentTemplateForV2Migration(source);
-  const rerolled = createItem(template, level, rarity, {
+  const archetype = source.targetArchetype
+    ? normalizeEquipmentArchetype(source.targetArchetype)
+    : source.archetype
+      ? normalizeEquipmentArchetype(source.archetype)
+      : inferEquipmentArchetype(source);
+  const createContext = {
     dropMapId: source.dropMapId || "",
     dropLevel: level,
     difficulty: source.abyssForged || source.sourceDifficulty === "abyss" ? "abyss" : source.sourceDifficulty || "",
     itemTier: source.itemTier || undefined,
-  });
+    archetype,
+  };
+  if (source.targetArchetype) createContext.targetArchetype = archetype;
+  const rerolled = createItem(template, level, rarity, createContext);
   rerolled.id = source.id || rerolled.id;
   rerolled.instanceId = rerolled.id;
+  rerolled.archetype = archetype;
   rerolled.level = level;
   rerolled.dropLevel = level;
   rerolled.rarity = rarity;
@@ -5065,18 +5086,30 @@ function migrateEquipmentItemToV2(item = {}) {
   return normalizeItem(rerolled);
 }
 
-function reforgeEquipmentV2(itemId) {
+function reforgeEquipmentV2(itemId, targetArchetype = "", mode = "ticket") {
   const item = state.inventory.find((entry) => entry.id === itemId);
   if (!item) return showToast("装备不存在。");
-  const tickets = state.materials[EQUIPMENT_V2_REFORGE_TICKET_ID] || 0;
-  if (tickets <= 0) return showToast("装备重铸券不足。");
+  const normalizedTarget = targetArchetype ? normalizeEquipmentArchetype(targetArchetype) : normalizeEquipmentArchetype(item.archetype);
+  const cost = getReforgeCost(item, normalizedTarget, { mode });
+  const ticketCost = Math.max(1, Math.ceil(Number(cost.ticket || 1)));
+  const normalizedMode = mode === "normal" || mode === "direct" ? mode : "ticket";
+  if (normalizedMode === "ticket") {
+    const tickets = state.materials[EQUIPMENT_V2_REFORGE_TICKET_ID] || 0;
+    if (tickets < ticketCost) return showToast("装备重铸券不足。");
+    state.materials[EQUIPMENT_V2_REFORGE_TICKET_ID] = Math.max(0, tickets - ticketCost);
+  } else {
+    if ((state.gold || 0) < (cost.gold || 0) || !hasMaterials(cost.materials || {})) {
+      return showToast(`重铸材料不足：${materialText(cost.materials || {})}${cost.gold ? ` · 金币 ${formatNumber(cost.gold)}` : ""}`);
+    }
+    state.gold = Math.max(0, (state.gold || 0) - (cost.gold || 0));
+    consumeMaterials(cost.materials || {});
+  }
   const slot = equipmentSlot(item);
-  const rerolled = migrateEquipmentItemToV2(item);
-  state.materials[EQUIPMENT_V2_REFORGE_TICKET_ID] = Math.max(0, tickets - 1);
+  const rerolled = migrateEquipmentItemToV2({ ...item, targetArchetype: normalizedTarget });
   const index = state.inventory.findIndex((entry) => entry.id === itemId);
   if (index >= 0) state.inventory[index] = rerolled;
   if (state.equipped?.[slot] === itemId) state.equipped[slot] = rerolled.id;
-  addLog(`使用装备重铸券重铸 ${getDisplayItemName(rerolled)}。`);
+  addLog(`重铸 ${getDisplayItemName(rerolled)}（${getEquipmentArchetypeLabel(rerolled.archetype)}）。`);
   save();
   renderEquipment();
   renderCharacter();
@@ -5096,9 +5129,19 @@ function shouldRollRandomStats(template) {
   return template.source === "monster_drop";
 }
 
-function rollRandomStats(rarity) {
+function rollRandomStats(rarity, archetype = "general") {
   const range = randomStatRanges[rarity] || randomStatRanges.normal;
-  return Object.fromEntries(attributeKeys.map((stat) => [stat, randomInt(range[0], range[1])]));
+  const lower = range[0];
+  const upper = range[1];
+  const pools = getArchetypeStatPools(archetype);
+  const primary = new Set([...(pools.primary || []), ...(pools.flat || [])]);
+  const secondary = new Set(pools.secondary || []);
+  return Object.fromEntries(attributeKeys.map((stat) => {
+    const rolled = randomInt(lower, upper);
+    if (primary.has(stat)) return [stat, Math.min(upper, Math.max(lower, Math.round(rolled * 1.35)))];
+    if (secondary.has(stat)) return [stat, Math.min(upper, Math.max(lower, Math.round(rolled * 1.15)))];
+    return [stat, Math.min(upper, Math.max(lower, Math.round(rolled * 0.65)))];
+  }));
 }
 
 function rollEquipmentTier() {
@@ -5144,16 +5187,39 @@ function applyTierExtra(item, tier, level, itemTier = getItemTierForLevel(level)
   });
 }
 
+function buildArchetypeAffixPool(type, slot, slotPool, archetypePools) {
+  const fallback = type === "flat"
+    ? archetypePools.primary || []
+    : type === "percent"
+      ? [...(archetypePools.secondary || []), ...(archetypePools.utility || [])]
+      : [];
+  const archetypeEntries = archetypePools[type]?.length ? archetypePools[type] : fallback;
+  const weighted = [...(archetypeEntries || []), ...(slotPool[type] || [])];
+  if (type === "mechanic") {
+    return weighted.filter((id) => {
+      const mechanic = MECHANIC_AFFIXES[id];
+      return mechanic && (!Array.isArray(mechanic.slots) || mechanic.slots.includes(slot));
+    });
+  }
+  return weighted.filter((stat) => Boolean(AFFIX_TIERS[type]?.[stat]));
+}
+
 function applyRandomAffixes(item, tier, level, itemTier = getItemTierForLevel(level)) {
   const slot = equipmentSlot(item);
-  const pool = SLOT_AFFIX_POOLS[slot] || SLOT_AFFIX_POOLS.trinket;
+  const slotPool = SLOT_AFFIX_POOLS[slot] || SLOT_AFFIX_POOLS.trinket;
+  const archetypePools = getArchetypeStatPools(item?.archetype || "general");
+  const pool = {
+    flat: buildArchetypeAffixPool("flat", slot, slotPool, archetypePools),
+    percent: buildArchetypeAffixPool("percent", slot, slotPool, archetypePools),
+    mechanic: buildArchetypeAffixPool("mechanic", slot, slotPool, archetypePools),
+  };
   let mechanicUsed = false;
   for (let i = 0; i < tier.affixes; i += 1) {
     const type = rollAffixType(tier.id, mechanicUsed);
     if (type === "mechanic") {
       const id = randomPick(pool.mechanic || []);
       const mechanic = id ? MECHANIC_AFFIXES[id] : null;
-      if (!mechanic) continue;
+      if (!mechanic || Array.isArray(mechanic.slots) && !mechanic.slots.includes(slot)) continue;
       mechanicUsed = true;
       item.mechanicAffixes.push(id);
       item.affixes.push(`【${mechanic.label}】${mechanic.description}`);
@@ -5688,7 +5754,7 @@ function equipBest() {
   ["weapon", "armor", "headgear", "shoes", "trinket"].forEach((slot) => {
     const best = state.inventory
       .filter((item) => equipmentSlot(item) === slot)
-      .sort((a, b) => itemScore(b) - itemScore(a))[0];
+      .sort((a, b) => equipmentAutoEquipScore(b) - equipmentAutoEquipScore(a))[0];
     if (best) state.equipped[slot] = best.id;
   });
   addLog("工坊已整理装备。");
@@ -6849,7 +6915,10 @@ function showRareLootBroadcast(item) {
   else if (rank >= rarityRank("ancient")) prefix = "【远古遗物】";
   else if (rank >= rarityRank("epic")) prefix = "【稀有掉落】";
   else return;
-  addLogHtml(`${prefix} 获得 ${renderItemName(item)}`);
+  const archetypeLabel = getEquipmentArchetypeLabel(item?.archetype || inferEquipmentArchetype(item));
+  const fitTags = getEquipmentFitTags(item);
+  const suffix = fitTags.includes("可打造成胚子") ? " · 可打造成胚子" : fitTags.includes("适合当前职业") ? " · 适合当前职业" : "";
+  addLogHtml(`${prefix} 获得${archetypeLabel}装备${escapeHtml(suffix)}：${renderItemName(item)}`);
 }
 
 function calculateFinalStats(character = {}) {
@@ -8645,9 +8714,11 @@ function renderEquipmentSpecialTags(item, limit = 3) { const runtime = window.Ru
 
 function renderEquipmentCardScore(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentCardScore === "function") return runtime.renderEquipmentCardScore(item);
   const scores = calculateEquipmentScores(item, currentJob());
+  const archetype = normalizeEquipmentArchetype(item?.archetype || inferEquipmentArchetype(item));
+  const primary = archetype === "physical" ? scores.physicalScore : archetype === "magic" ? scores.magicScore : scores.generalScore;
   return `<div class="equipment-card-score">
-    <span>综合评分</span>
-    <strong>${formatNumber(scores.comprehensive)}</strong>
+    <span>${escapeHtml(getEquipmentArchetypeLabel(archetype))}评分</span>
+    <strong>${formatNumber(primary || scores.comprehensive)}</strong>
   </div>`;
 }
 
@@ -8723,10 +8794,14 @@ function renderEquipment() { const runtime = window.RuneFrontierRenderRuntime; i
       const nextStar = (item.refine || 0) + 1;
       const nextEmpower = (item.empower || 0) + 1;
       const reforgeTickets = state.materials[EQUIPMENT_V2_REFORGE_TICKET_ID] || 0;
+      const ticketReforgeCost = getReforgeCost(item, "", { mode: "ticket" });
+      const keepReforgeCost = getReforgeCost(item, "", { mode: "normal" });
+      const directedReforgeCosts = Object.fromEntries(["physical", "magic", "general"].map((archetype) => [archetype, getReforgeCost(item, archetype, { mode: "direct" })]));
+      const canPayReforgeCost = (cost) => (state.gold || 0) >= (cost.gold || 0) && hasMaterials(cost.materials || {});
       const detailKey = equipmentDetailKey(item);
       const detailExpanded = Boolean(equipmentDetailExpandedState[detailKey]);
       return `
-        <article class="equip-item equipment-detail-card ${equipmentVisualClass(item)} ${equipped ? "equipped" : ""} ${(item.enhanceLevel || 0) >= 10 ? "enhance-glow" : ""}" data-tooltip="${escapeAttr(itemRangeTooltip(item))}" title="${escapeAttr(itemRangeTooltip(item))}">
+        <article class="equip-item equipment-detail-card ${equipmentVisualClass(item)} ${equipped ? "equipped" : ""} ${(item.enhanceLevel || 0) >= 10 ? "enhance-glow" : ""}" data-equipment-archetype="${normalizeEquipmentArchetype(item.archetype)}" data-tooltip="${escapeAttr(itemRangeTooltip(item))}" title="${escapeAttr(itemRangeTooltip(item))}">
           <div class="equip-head equipment-detail-header">
               <span class="item-icon" style="background-image:${imageBackgroundList(itemImageCandidates(item))}"></span>
             <div class="equipment-name-main">
@@ -8754,7 +8829,13 @@ function renderEquipment() { const runtime = window.RuneFrontierRenderRuntime; i
             <button type="button" data-equip-item="${item.id}">${equipped ? "已装备" : "装备"}</button>
             <button type="button" data-refine-item="${item.id}" ${nextStar > 15 || !hasMaterials(refineCost) ? "disabled" : ""}>星炼</button>
             <button type="button" data-empower-item="${item.id}" ${nextEmpower > 10 || !hasMaterials(empowerCost) ? "disabled" : ""}>赋能</button>
-            <button type="button" data-reforge-v2-item="${item.id}" ${reforgeTickets <= 0 ? "disabled" : ""}>重铸</button>
+            <button type="button" data-reforge-v2-item="${item.id}" data-reforge-mode="ticket" ${reforgeTickets < Math.max(1, Math.ceil(Number(ticketReforgeCost.ticket || 1))) ? "disabled" : ""}>券重铸</button>
+            <button type="button" data-reforge-v2-item="${item.id}" data-reforge-mode="normal" ${!canPayReforgeCost(keepReforgeCost) ? "disabled" : ""}>保留重铸</button>
+            ${[
+              ["physical", "物理"],
+              ["magic", "魔法"],
+              ["general", "通用"],
+            ].map(([archetype, label]) => `<button class="ghost" type="button" data-reforge-v2-item="${item.id}" data-reforge-mode="direct" data-reforge-archetype="${archetype}" ${!canPayReforgeCost(directedReforgeCosts[archetype]) ? "disabled" : ""}>${label}</button>`).join("")}
             <button class="ghost" type="button" data-lock-item="${item.id}">${item.locked ? "解锁" : "锁定"}</button>
             ${isZodiacItem(item) ? `<button class="ghost" type="button" data-collect-zodiac="${item.id}">收藏</button><button class="ghost" type="button" data-zodiac-salvage="${item.id}" ${equipped || item.locked ? "disabled" : ""}>星座分解</button>` : ""}
             <button class="ghost" type="button" data-salvage-item="${item.id}" ${equipped || item.locked || isZodiacItem(item) ? "disabled" : ""}>分解</button>
@@ -8775,6 +8856,11 @@ function renderEquipmentFilterBar(count) { const runtime = window.RuneFrontierRe
     ["headgear", "头饰"],
     ["shoes", "鞋子"],
     ["trinket", "饰品"],
+    ["physical", "物理"],
+    ["magic", "魔法"],
+    ["general", "通用"],
+    ["jobFit", "职业适配"],
+    ["craftBase", "可打造成胚子"],
     ["socketed", "有孔"],
     ["socketable", "可打孔"],
     ["set", "套装"],
@@ -8801,6 +8887,9 @@ function renderEquipmentFilterBar(count) { const runtime = window.RuneFrontierRe
           ["survival", "生存评分"],
           ["abyss", "深渊评分"],
           ["treasure", "打宝评分"],
+          ["physicalScore", "物理评分"],
+          ["magicScore", "魔法评分"],
+          ["generalScore", "通用评分"],
         ].map(([id, label]) => `<option value="${id}" ${equipmentSort === id ? "selected" : ""}>${label}</option>`).join("")}
       </select>
     </label>
@@ -8812,8 +8901,13 @@ function filterEquipmentList(items) {
   const equippedIds = new Set(Object.values(state.equipped || {}).filter(Boolean));
   return items.filter((item) => {
     const slot = equipmentSlot(item);
+    const archetype = normalizeEquipmentArchetype(item.archetype || inferEquipmentArchetype(item));
+    const fitTags = getEquipmentFitTags(item);
     if (equipmentFilter === "equipped") return equippedIds.has(item.id);
     if (["weapon", "armor", "headgear", "shoes", "trinket"].includes(equipmentFilter)) return slot === equipmentFilter;
+    if (["physical", "magic", "general"].includes(equipmentFilter)) return archetype === equipmentFilter;
+    if (equipmentFilter === "jobFit") return fitTags.includes("适合当前职业");
+    if (equipmentFilter === "craftBase") return fitTags.includes("可打造成胚子");
     if (equipmentFilter === "socketed") return getEquipmentCardSlotCount(item) > 0;
     if (equipmentFilter === "socketable") return getMaxEquipmentCardSlots(item) > getEquipmentCardSlotCount(item);
     if (equipmentFilter === "set") return Boolean(item.setId);
@@ -8823,7 +8917,7 @@ function filterEquipmentList(items) {
     if (equipmentFilter === "legend") return item.rarity === "legend";
     if (equipmentFilter === "locked") return Boolean(item.locked);
     if (equipmentFilter === "refinable") return (item.refine || 0) < 15 && hasMaterials(getRefineCost(item));
-    if (equipmentFilter === "salvageable") return !equippedIds.has(item.id) && !item.locked && !isHighValueEquipment(item);
+    if (equipmentFilter === "salvageable") return !equippedIds.has(item.id) && !item.locked && !shouldProtectEquipment(item);
     return true;
   });
 }
@@ -8836,6 +8930,7 @@ function sortEquipmentList(items) {
     if (key === "survival") return scores.survival || 0;
     if (key === "abyss") return scores.abyss || 0;
     if (key === "treasure") return scores.treasure || 0;
+    if (key === "physicalScore" || key === "magicScore" || key === "generalScore") return scores[key] || 0;
     return scores.comprehensive || itemScore(item);
   };
   indexed.sort((a, b) => {
@@ -8877,16 +8972,26 @@ function isHighValueEquipment(item) {
   );
 }
 
+function shouldProtectEquipment(item) {
+  const runtime = equipmentArchetypeRuntime();
+  if (runtime && typeof runtime.shouldProtectEquipmentByArchetype === "function") {
+    try {
+      if (runtime.shouldProtectEquipmentByArchetype(item, { job: currentJob(), currentJob })) return true;
+    } catch {}
+  }
+  return isHighValueEquipment(item);
+}
+
 function runEquipmentBatchAction(action) {
   if (action === "lock-high-value") {
-    const targets = state.inventory.filter((item) => !item.locked && isHighValueEquipment(item));
+    const targets = state.inventory.filter((item) => !item.locked && shouldProtectEquipment(item));
     if (!targets.length) return showToast("暂无需要锁定的高价值装备");
     if (!window.confirm(`将锁定 ${targets.length} 件高价值装备，是否继续？`)) return;
     targets.forEach((item) => (item.locked = true));
     showToast(`已锁定 ${targets.length} 件装备`);
   } else if (action === "salvage-low" || action === "salvage-normal-fine-rare") {
     const equippedIds = new Set(Object.values(state.equipped || {}).filter(Boolean));
-    const targets = state.inventory.filter((item) => !equippedIds.has(item.id) && !item.locked && ["normal", "fine", "rare"].includes(item.rarity) && !isHighValueEquipment(item));
+    const targets = state.inventory.filter((item) => !equippedIds.has(item.id) && !item.locked && ["normal", "fine", "rare"].includes(item.rarity) && !shouldProtectEquipment(item));
     if (!targets.length) return showToast("暂无可安全批量分解的低品质装备");
     if (!window.confirm(`将分解 ${targets.length} 件低品质装备，是否继续？`)) return;
     const totals = {};
@@ -8943,7 +9048,7 @@ function renderEquipmentBadges(item) { const runtime = window.RuneFrontierRender
   if (isAbyssEquipment(item)) badges.push({ text: "深渊", cls: "equipment-badge-abyss" });
   if (item.rarity === "mythic") badges.push({ text: "神话", cls: "equipment-badge-mythic" });
   if (item.setId) badges.push({ text: "套装", cls: "equipment-badge-set" });
-  return `<div class="equipment-badge-row">${badges.map((badge) => `<span class="equipment-badge ${badge.cls}">${escapeHtml(badge.text)}</span>`).join("")}</div>`;
+  return `<div class="equipment-badge-row">${renderEquipmentArchetypeBadge(item)}${badges.map((badge) => `<span class="equipment-badge ${badge.cls}">${escapeHtml(badge.text)}</span>`).join("")}</div>`;
 }
 
 function renderMaps() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderMaps === "function") return runtime.renderMaps();
@@ -11089,6 +11194,26 @@ function itemScore(item) {
   );
 }
 
+function equipmentAutoEquipScore(item, job = currentJob()) {
+  const scores = calculateEquipmentScores(item, job) || {};
+  const runtime = equipmentArchetypeRuntime();
+  let preferred = "";
+  if (runtime && typeof runtime.getJobPreferredArchetype === "function") {
+    try {
+      preferred = runtime.getJobPreferredArchetype(job);
+    } catch {}
+  }
+  const jobId = typeof job === "string" ? job : job?.id || "";
+  if (!preferred) {
+    if (["mage", "wizard", "highWizard", "warlock", "acolyte", "priest", "highPriest", "archbishop"].includes(jobId)) preferred = "magic";
+    else if (["swordman", "knight", "lordKnight", "runeKnight", "archer", "hunter", "sniper", "ranger", "thief", "assassin", "assassinCross", "guillotineCross", "merchant", "blacksmith", "whiteSmith", "mechanic"].includes(jobId)) preferred = "physical";
+    else preferred = "general";
+  }
+  if (preferred === "physical") return scores.physicalScore || scores.currentJobScore || scores.comprehensive || itemScore(item);
+  if (preferred === "magic") return scores.magicScore || scores.currentJobScore || scores.comprehensive || itemScore(item);
+  return scores.generalScore || scores.comprehensive || itemScore(item);
+}
+
 function getUnlockedSkills() {
   return currentJob().skills.filter((entry) => state.hero.jobLevel >= entry.level);
 }
@@ -11593,7 +11718,7 @@ function itemAttrText(item) {
 }
 
 function renderEquipmentUsageTags(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentUsageTags === "function") return runtime.renderEquipmentUsageTags(item);
-  const tags = getEquipmentUsageTags(item, currentJob()).slice(0, 3);
+  const tags = [...getEquipmentFitTags(item), ...getEquipmentUsageTags(item, currentJob())].slice(0, 4);
   return `<div class="equipment-badge-row equipment-usage-tags">
     <span class="equipment-badge equipment-badge-slot">推荐用途</span>
     ${tags.map((tag) => `<span class="equipment-badge">${escapeHtml(tag)}</span>`).join("")}
@@ -11675,6 +11800,9 @@ function renderEquipmentScores(item) { const runtime = window.RuneFrontierRender
   const scores = calculateEquipmentScores(item, currentJob());
   const entries = [
     ["综合", scores.comprehensive],
+    ["物理", scores.physicalScore],
+    ["魔法", scores.magicScore],
+    ["通用", scores.generalScore],
     ["输出", scores.output],
     ["生存", scores.survival],
     ["Boss", scores.boss],
@@ -12464,6 +12592,221 @@ function handleOnboardingAction(action) {
   }
 }
 
+const EQUIPMENT_ARCHETYPE_LABELS = Object.freeze({
+  physical: "物理",
+  magic: "魔法",
+  general: "通用",
+});
+
+const LEGACY_ARCHETYPE_STAT_POOLS = Object.freeze({
+  physical: Object.freeze({
+    primary: Object.freeze(["atkPct", "atk", "str", "dex", "critDamageBonus"]),
+    secondary: Object.freeze(["agi", "attackSpeedPct", "critRatePct", "ignoreDefense"]),
+    utility: Object.freeze(["hpPct", "defPct", "lifeSteal", "bossDamageBonus"]),
+    flat: Object.freeze(["atk", "str", "dex", "agi", "crit", "aspd"]),
+    percent: Object.freeze(["atkPct", "critRatePct", "critDamageBonus", "attackSpeedPct", "ignoreDefense", "lifeSteal"]),
+    mechanic: Object.freeze(["splash", "pursuit", "breaker"]),
+  }),
+  magic: Object.freeze({
+    primary: Object.freeze(["matkPct", "matk", "int", "skillDamageBonus"]),
+    secondary: Object.freeze(["dex", "finalDamageBonus", "echoChance", "monsterDamageBonus"]),
+    utility: Object.freeze(["hpPct", "defPct", "hpRegenPct", "abyssDamageBonus"]),
+    flat: Object.freeze(["matk", "int", "dex", "vit"]),
+    percent: Object.freeze(["matkPct", "skillDamageBonus", "echoChance", "hpRegenPct"]),
+    mechanic: Object.freeze(["echo", "starlight", "recovery"]),
+  }),
+  general: Object.freeze({
+    primary: Object.freeze(["str", "int", "dex", "vit", "agi", "luk"]),
+    secondary: Object.freeze(["hpPct", "defPct", "finalDamageBonus", "bossDamageBonus"]),
+    utility: Object.freeze(["drop", "gold", "rareDropBonus", "equipmentDrop", "materialQuantityBonus"]),
+    flat: Object.freeze(["hp", "def", "vit", "luk"]),
+    percent: Object.freeze(["hpPct", "defPct", "drop", "gold", "rareDropBonus", "equipmentDrop", "cardDrop", "materialQuantityBonus", "damageReductionPct"]),
+    mechanic: Object.freeze(["greed", "thorn", "recovery"]),
+  }),
+});
+
+function knownEquipmentArchetype(value) {
+  const key = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return Object.hasOwn({ physical: true, magic: true, general: true }, key) ? key : "";
+}
+
+function equipmentArchetypeRuntime() {
+  return window.RuneFrontierEquipmentRuntime;
+}
+
+function normalizeEquipmentArchetype(value) {
+  const runtime = equipmentArchetypeRuntime();
+  if (runtime && typeof runtime.normalizeEquipmentArchetype === "function") {
+    return runtime.normalizeEquipmentArchetype(value);
+  }
+  return knownEquipmentArchetype(value) || "general";
+}
+
+function getEquipmentArchetypeLabel(value) {
+  const runtime = equipmentArchetypeRuntime();
+  if (runtime && typeof runtime.getEquipmentArchetypeLabel === "function") {
+    return runtime.getEquipmentArchetypeLabel(value);
+  }
+  const labels = { physical: "物理", magic: "魔法", general: "通用" };
+  return labels[normalizeEquipmentArchetype(value)] || labels.general;
+}
+
+function cloneArchetypeStatPools(pools = {}) {
+  return {
+    primary: [...(pools.primary || [])],
+    secondary: [...(pools.secondary || [])],
+    utility: [...(pools.utility || [])],
+    flat: [...(pools.flat || [])],
+    percent: [...(pools.percent || [])],
+    mechanic: [...(pools.mechanic || [])],
+  };
+}
+
+function getArchetypeStatPools(archetype) {
+  const runtime = equipmentArchetypeRuntime();
+  if (runtime && typeof runtime.getArchetypeStatPools === "function") {
+    try {
+      return cloneArchetypeStatPools(runtime.getArchetypeStatPools(archetype));
+    } catch {}
+  }
+  const legacyPools = {
+    physical: {
+      primary: ["atkPct", "atk", "str", "dex", "critDamageBonus"],
+      secondary: ["agi", "attackSpeedPct", "critRatePct", "ignoreDefense"],
+      utility: ["hpPct", "defPct", "lifeSteal", "bossDamageBonus"],
+      flat: ["atk", "str", "dex", "agi", "crit", "aspd"],
+      percent: ["atkPct", "critRatePct", "critDamageBonus", "attackSpeedPct", "ignoreDefense", "lifeSteal"],
+      mechanic: ["splash", "pursuit", "breaker"],
+    },
+    magic: {
+      primary: ["matkPct", "matk", "int", "skillDamageBonus"],
+      secondary: ["dex", "finalDamageBonus", "echoChance", "monsterDamageBonus"],
+      utility: ["hpPct", "defPct", "hpRegenPct", "abyssDamageBonus"],
+      flat: ["matk", "int", "dex", "vit"],
+      percent: ["matkPct", "skillDamageBonus", "echoChance", "hpRegenPct"],
+      mechanic: ["echo", "starlight", "recovery"],
+    },
+    general: {
+      primary: ["str", "int", "dex", "vit", "agi", "luk"],
+      secondary: ["hpPct", "defPct", "finalDamageBonus", "bossDamageBonus"],
+      utility: ["drop", "gold", "rareDropBonus", "equipmentDrop", "materialQuantityBonus"],
+      flat: ["hp", "def", "vit", "luk"],
+      percent: ["hpPct", "defPct", "drop", "gold", "rareDropBonus", "equipmentDrop", "cardDrop", "materialQuantityBonus", "damageReductionPct"],
+      mechanic: ["greed", "thorn", "recovery"],
+    },
+  };
+  return cloneArchetypeStatPools(legacyPools[normalizeEquipmentArchetype(archetype)] || legacyPools.general);
+}
+
+function getReforgeCost(item, targetArchetype = null, options = {}) {
+  const runtime = equipmentArchetypeRuntime();
+  if (runtime && typeof runtime.getReforgeCost === "function") {
+    try {
+      return runtime.getReforgeCost(item, targetArchetype, options);
+    } catch {}
+  }
+  const source = item && typeof item === "object" ? item : null;
+  const target = source ? targetArchetype : item;
+  const archetype = normalizeEquipmentArchetype(target);
+  const directed = archetype !== "general";
+  const rarity = String(source?.rarity || source?.tier || "").toLowerCase();
+  const rarityMultiplier = rarity === "mythic" ? 2 : rarity === "darkgold" ? 1.6 : rarity === "legend" ? 1.35 : rarity === "epic" ? 1.15 : 1;
+  const levelMultiplier = 1 + Math.max(0, equipmentArchetypeNumber(source?.requiredLevel || source?.level || options.level || 1) - 1) * 0.01;
+  const multiplier = rarityMultiplier * levelMultiplier;
+  return {
+    ticket: Math.ceil((directed ? 2 : 1) * multiplier),
+    gold: Math.round((directed ? 1200 : 700) * multiplier),
+    materials: directed
+      ? { ore: Math.ceil(8 * multiplier), crystal: Math.ceil(2 * multiplier) }
+      : { ore: Math.ceil(5 * multiplier) },
+  };
+}
+
+function getEquipmentFitTags(item) {
+  const runtime = equipmentArchetypeRuntime();
+  if (runtime && typeof runtime.getEquipmentFitTags === "function") {
+    try {
+      return runtime.getEquipmentFitTags(item, { job: currentJob(), currentJob });
+    } catch {}
+  }
+  const archetype = normalizeEquipmentArchetype(item?.archetype || inferEquipmentArchetype(item));
+  return [getEquipmentArchetypeLabel(archetype), "通用定位"];
+}
+
+function renderEquipmentArchetypeBadge(item) {
+  const archetype = normalizeEquipmentArchetype(item?.archetype || inferEquipmentArchetype(item));
+  return `<span class="equipment-badge equipment-archetype-badge equipment-archetype-${archetype}">${escapeHtml(getEquipmentArchetypeLabel(archetype))}</span>`;
+}
+
+function equipmentArchetypeNumber(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function equipmentArchetypeStatSignal(item = {}, keys = []) {
+  return keys.reduce((sum, key) => {
+    const direct = key === "luk"
+      ? equipmentArchetypeNumber(item.luk) + equipmentArchetypeNumber(item.luck)
+      : equipmentArchetypeNumber(item[key]);
+    return sum +
+      Math.max(0, direct) +
+      Math.max(0, equipmentArchetypeNumber(item.randomStats?.[key])) +
+      Math.max(0, equipmentArchetypeNumber(item.baseStats?.[key])) +
+      Math.max(0, equipmentArchetypeNumber(item.templateBaseStats?.[key]));
+  }, 0);
+}
+
+function inferEquipmentArchetype(item = {}, context = {}) {
+  const runtime = equipmentArchetypeRuntime();
+  if (runtime && typeof runtime.inferEquipmentArchetype === "function") {
+    return runtime.inferEquipmentArchetype(item, buildEquipmentArchetypeContext(context));
+  }
+  if (!item || typeof item !== "object") return "general";
+  if (Object.hasOwn(item, "archetype")) return normalizeEquipmentArchetype(item.archetype);
+  const physicalSignal = equipmentArchetypeStatSignal(item, ["atk", "atkPct", "str", "agi", "dex", "aspd", "attackSpeedPct", "crit", "critRatePct", "critDamageBonus", "ignoreDefense", "lifeSteal"]);
+  const magicSignal = equipmentArchetypeStatSignal(item, ["matk", "matkPct", "int", "skillDamageBonus", "echoChance"]);
+  if (physicalSignal > 0 && magicSignal > 0) return "general";
+  if (physicalSignal > 0) return "physical";
+  if (magicSignal > 0) return "magic";
+  return "general";
+}
+
+function buildEquipmentArchetypeContext(context = {}) {
+  let job = null;
+  let stateJobId = "";
+  try {
+    job = typeof currentJob === "function" ? currentJob() : null;
+  } catch {
+    job = null;
+  }
+  try {
+    stateJobId = state?.hero?.jobId || "";
+  } catch {
+    stateJobId = "";
+  }
+  const random = context.rng || context.random || (() => Math.random());
+  return {
+    ...context,
+    currentJobId: context.currentJobId || context.jobId || job?.id || stateJobId || "",
+    job: context.job || job || null,
+    currentJob,
+    rng: random,
+    random,
+    normalizeEquipmentSlot,
+  };
+}
+
+function rollEquipmentArchetype(template = {}, context = {}) {
+  const rollContext = buildEquipmentArchetypeContext(context);
+  const runtime = equipmentArchetypeRuntime();
+  if (runtime && typeof runtime.rollEquipmentArchetype === "function") {
+    return runtime.rollEquipmentArchetype(template, rollContext);
+  }
+  const explicit = knownEquipmentArchetype(template?.archetype) || knownEquipmentArchetype(template?.templateArchetype);
+  if (explicit) return explicit;
+  return inferEquipmentArchetype(template, rollContext);
+}
+
 // [AUTHORITY] equipment-runtime: 28 config tables exposed. Module-owned: itemFactory, itemStats, itemScore, itemNaming, dismantle, refine, starRefine, socket. Deferred: equipmentTiers, ITEM_TIER_CONFIG, salvageRewards (in game.js data section).
 window.RuneFrontierLegacyEquipmentContext = () => Object.freeze({
   getState() {
@@ -12479,6 +12822,14 @@ window.RuneFrontierLegacyEquipmentContext = () => Object.freeze({
   inferItemTier,
   getSlotLevelGrowth,
   normalizeEquipmentSlot,
+  normalizeEquipmentArchetype,
+  getEquipmentArchetypeLabel,
+  getArchetypeStatPools,
+  getReforgeCost,
+  getEquipmentFitTags,
+  renderEquipmentArchetypeBadge,
+  inferEquipmentArchetype,
+  rollEquipmentArchetype,
   inferEquipmentSubType,
   equipmentImagePath,
   getTemplateBaseStats,
@@ -12573,7 +12924,8 @@ window.RuneFrontierLegacyEquipmentContext = () => Object.freeze({
   statIsPercent,
   statLabelName,
   formatNumber,
-  itemScore,
+  itemScore: equipmentAutoEquipScore,
+  shouldProtectEquipment,
   showRefineResult: showRefineResultModal,
   renderRefineStatDelta,
   getEnhanceMaxLevel() { return ENHANCE_MAX_LEVEL; },
@@ -13184,9 +13536,18 @@ Object.assign(window, {
   getSalvageRewardsPreview,
   getEquipmentSummaryEntries,
   calculateEquipmentScores,
+  equipmentAutoEquipScore,
   compareEquipmentScores,
   formatScoreDelta,
   getEquipmentUsageTags,
+  shouldProtectEquipment,
+  normalizeEquipmentArchetype,
+  getEquipmentArchetypeLabel,
+  getArchetypeStatPools,
+  getReforgeCost,
+  getEquipmentFitTags,
+  renderEquipmentArchetypeBadge,
+  inferEquipmentArchetype,
   groupEquipmentStats,
   equipmentStatEntry,
   getEffectiveItemStats,

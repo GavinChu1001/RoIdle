@@ -62,6 +62,7 @@ export function shouldAutoSalvage(item, ctx = mutationCtx) {
   const setting = state.autoSalvage || {};
   if (!setting.enabled || item.locked || item.setId || item.rarity === 'mythic' || item.rarity === 'darkGold') return false;
   if (ctx.isAbyssEquipment?.(item) && !(setting.autoDismantleAbyss || state.autoDismantleAbyss)) return false;
+  if (ctx.shouldProtectEquipment?.(item)) return false;
   const rankFn = ctx.rarityRank || (() => 0);
   return rankFn(item.rarity) >= 0 && rankFn(item.rarity) <= rankFn(setting.maxRarity || 'normal');
 }
@@ -88,8 +89,9 @@ export function salvageAllUnequipped(ctx = mutationCtx) {
   const state = ctx.getState?.();
   if (!state) return;
   const equippedIds = new Set(Object.values(state.equipped || {}).filter(Boolean));
-  const targets = (state.inventory || []).filter((item) => !equippedIds.has(item.id) && !item.locked);
+  const targets = (state.inventory || []).filter((item) => !equippedIds.has(item.id) && !item.locked && !ctx.shouldProtectEquipment?.(item));
   if (!targets.length) { ctx.showToast?.('没有可分解的未穿戴装备'); return; }
+  const targetIds = new Set(targets.map((item) => item.id));
   const totals = {};
   targets.forEach((item) => {
     const rewards = getSalvageRewards(item, ctx);
@@ -98,7 +100,7 @@ export function salvageAllUnequipped(ctx = mutationCtx) {
       state.materials[material] = finite(state.materials?.[material]) + amount;
     });
   });
-  state.inventory = (state.inventory || []).filter((item) => equippedIds.has(item.id) || item.locked);
+  state.inventory = (state.inventory || []).filter((item) => !targetIds.has(item.id));
   ctx.addLog?.(`批量分解 ${targets.length} 件未穿戴装备，获得 ${ctx.materialText?.(totals) || ''}。`);
   ctx.showSalvageResult?.('批量分解完成', targets.length, totals);
   ctx.renderAll?.();

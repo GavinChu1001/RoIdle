@@ -12,9 +12,10 @@ function callGameJsBody(fnName) {
 
 export function installEquipmentRenderRuntime(context = {}) {
   var existing = window.RuneFrontierRenderRuntime || {};
+  var archetypeFilter = ['data-equipment-archetype', 'archetypeFilter', 'physical', 'magic', 'general'];
   var fnNames = ['renderEquipment','renderEquipmentSummaryStats','renderEquipmentCardScore',
     'renderEquipmentStateBadges','renderEquipmentFilterBar','renderEquipmentBatchPanel',
-    'renderEquipmentBadges','renderEquipmentUsageTags','renderEquipmentScores',
+    'renderEquipmentBadges','renderEquipmentArchetypeBadge','renderEquipmentUsageTags','renderEquipmentScores',
     'renderEquipmentScoreComparison','renderEquipmentStatSections','renderEquipmentSetProgress',
     'renderCardSocketSection','renderRefineSection','renderSalvagePreviewSection',
     'renderStatChipGrid','renderRandomStatsPanel','renderEmpowerSection',
@@ -24,6 +25,7 @@ export function installEquipmentRenderRuntime(context = {}) {
   fnNames.forEach(function(name) {
     bridge[name] = function() { return callGameJsBody.apply(null, [name].concat(Array.prototype.slice.call(arguments))); };
   });
+  bridge.archetypeFilter = existing.archetypeFilter || archetypeFilter;
   window.RuneFrontierRenderRuntime = Object.assign(existing, bridge);
   return window.RuneFrontierRenderRuntime;
 }

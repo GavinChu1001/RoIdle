@@ -9,8 +9,8 @@
   </head>
   <body>
     <div class="app-shell">
-      <header class="topbar">
-        <div>
+      <header class="topbar ro-game-hud">
+        <div class="ro-brand-lockup">
           <p class="eyebrow">Rune Frontier Idle</p>
           <h1>符文边境</h1>
         </div>
@@ -27,43 +27,47 @@
         </div>
       </header>
 
-      <section class="resource-strip" aria-label="资源概览">
-        <div>
+      <section class="resource-strip ro-resource-hud" aria-label="资源概览">
+        <div class="resource-chip resource-chip-gold">
           <span>金币</span>
           <strong id="goldValue">0</strong>
         </div>
-        <div>
+        <div class="resource-chip resource-chip-level">
           <span>BASE 等级</span>
           <strong id="teamLevelValue">1</strong>
         </div>
-        <div>
+        <div class="resource-chip resource-chip-exp">
           <span>BASE/JOB 经验</span>
           <strong id="expValue">0</strong>
         </div>
-        <div>
+        <div class="resource-chip resource-chip-power">
           <span>战力</span>
           <strong id="powerValue">0</strong>
         </div>
-        <div>
+        <div class="resource-chip resource-chip-income">
           <span>离线收益</span>
           <strong id="gpsValue">0</strong>
         </div>
       </section>
 
-      <nav class="page-tabs ro-main-tabs" aria-label="功能分页">
-        <button class="active" data-page="adventure" type="button">冒险</button>
-        <button data-page="town" type="button">职业</button>
-        <button data-page="smithy" type="button">铁匠铺</button>
-        <button data-page="heroes" type="button">角色</button>
-        <button data-page="equipment" type="button">装备</button>
-        <button data-page="maps" type="button">地图</button>
-        <button data-page="cards" type="button">卡片</button>
-        <button data-page="codex" type="button">图鉴</button>
-        <button data-page="vip" type="button">VIP</button>
-        <button data-page="tasks" type="button">任务</button>
-        <button data-page="shop" type="button">商店</button>
-        <button data-page="logs" type="button">日志</button>
-        <button data-page="news" type="button">公告</button>
+      <nav class="page-tabs ro-main-tabs ro-nav-groups" aria-label="功能分页">
+        <div class="ro-tab-group ro-tab-primary" aria-label="常用功能">
+          <button class="active" data-page="adventure" type="button">冒险</button>
+          <button data-page="town" type="button">职业</button>
+          <button data-page="heroes" type="button">角色</button>
+          <button data-page="equipment" type="button">装备</button>
+          <button data-page="smithy" type="button">铁匠铺</button>
+          <button data-page="maps" type="button">地图</button>
+          <button data-page="tasks" type="button">任务</button>
+        </div>
+        <div class="ro-tab-group ro-tab-secondary" aria-label="扩展功能">
+          <button data-page="cards" type="button">卡片</button>
+          <button data-page="codex" type="button">图鉴</button>
+          <button data-page="vip" type="button">VIP</button>
+          <button data-page="shop" type="button">商店</button>
+          <button data-page="logs" type="button">日志</button>
+          <button data-page="news" type="button">公告</button>
+        </div>
       </nav>
 
       <main class="page-stack">
@@ -128,7 +132,7 @@
                 </button>
               </div>
 
-              <div class="action-row">
+              <div class="action-row ro-combat-actions">
                 <button id="bossButton" class="ro-wood-button ro-boss-action" type="button">挑战 BOSS</button>
                 <label class="toggle-line"><input id="autoBossToggle" type="checkbox" /> 自动挑战 BOSS</label>
                 <button id="claimButton" class="ro-light-control ro-reward-action" type="button">查看离线收益</button>

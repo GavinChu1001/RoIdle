@@ -1,3 +1,5 @@
+import { inferEquipmentArchetype, normalizeEquipmentArchetype, rollEquipmentArchetype } from './itemArchetype.js';
+
 let runtimeContext = {};
 
 const number = (value, fallback = 0) => {
@@ -6,6 +8,8 @@ const number = (value, fallback = 0) => {
 };
 
 const DEPRECATED_EQUIPMENT_STATS = ['antiCrit'];
+
+const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object || {}, key);
 
 function clearDeprecatedEquipmentStats(item = {}) {
   DEPRECATED_EQUIPMENT_STATS.forEach((stat) => {
@@ -16,6 +20,42 @@ function clearDeprecatedEquipmentStats(item = {}) {
 
 export function configureItemFactoryContext(context = {}) {
   runtimeContext = context || {};
+}
+
+function archetypeContext(context = {}, runtime = {}) {
+  return {
+    ...context,
+    normalizeEquipmentSlot: runtime.normalizeEquipmentSlot,
+  };
+}
+
+function resolveCreatedItemArchetype(template = {}, context = {}, runtime = {}) {
+  if (hasOwn(context, 'targetArchetype') && context.targetArchetype) return normalizeEquipmentArchetype(context.targetArchetype);
+  if (hasOwn(context, 'archetype') && context.archetype) return normalizeEquipmentArchetype(context.archetype);
+  const rollContext = archetypeContext(context, runtime);
+  const rolled = typeof runtime.rollEquipmentArchetype === 'function'
+    ? runtime.rollEquipmentArchetype(template, rollContext)
+    : rollEquipmentArchetype(template, rollContext);
+  return normalizeEquipmentArchetype(rolled);
+}
+
+function inferNormalizedItemArchetype(item = {}, runtime = {}) {
+  const inferContext = archetypeContext({}, runtime);
+  const inferred = typeof runtime.inferEquipmentArchetype === 'function'
+    ? runtime.inferEquipmentArchetype(item, inferContext)
+    : inferEquipmentArchetype(item, inferContext);
+  return normalizeEquipmentArchetype(inferred);
+}
+
+function resolveNormalizedItemArchetype(item = {}, runtime = {}) {
+  if (hasOwn(item, 'archetype')) return normalizeEquipmentArchetype(item.archetype);
+  return inferNormalizedItemArchetype(item, runtime);
+}
+
+function resolveResetItemArchetype(item = {}, runtime = {}) {
+  if (hasOwn(item, 'targetArchetype') && item.targetArchetype) return normalizeEquipmentArchetype(item.targetArchetype);
+  if (hasOwn(item, 'archetype') && item.archetype) return normalizeEquipmentArchetype(item.archetype);
+  return inferNormalizedItemArchetype(item, runtime);
 }
 
 export function createItem(template = {}, level, forcedTierId = null, context = {}, runtime = runtimeContext) {
@@ -38,6 +78,7 @@ export function createItem(template = {}, level, forcedTierId = null, context = 
   const slotGrowth = runtime.getSlotLevelGrowth?.(template.slot) || 0;
   const quality = runtime.randomFloat?.(safeTier.rolls[0], safeTier.rolls[1]) ?? safeTier.rolls[0];
   const statScale = safeTier.scale * number(itemTier.scale, 1) * quality * (1 + safeLevel * slotGrowth);
+  const archetype = resolveCreatedItemArchetype(template, context, runtime);
   const item = {
     id: runtime.createItemId?.(template.slot) || `${template.slot || 'item'}-${Date.now().toString(36)}`,
     instanceId: '',
@@ -58,6 +99,7 @@ export function createItem(template = {}, level, forcedTierId = null, context = 
     setName: template.setName || '',
     baseStats: template.baseStats || {},
     description: template.description || '',
+    archetype,
     rarity: safeTier.id,
     tier: safeTier.id,
     itemTier: itemTier.id,
@@ -83,7 +125,7 @@ export function createItem(template = {}, level, forcedTierId = null, context = 
     affixDetails: [],
     mechanicAffixes: [],
     ranges: {},
-    randomStats: runtime.shouldRollRandomStats?.(template) ? runtime.rollRandomStats?.(safeTier.id) : runtime.defaultRandomStats?.() || {},
+    randomStats: runtime.shouldRollRandomStats?.(template) ? runtime.rollRandomStats?.(safeTier.id, archetype) : runtime.defaultRandomStats?.() || {},
     level: safeLevel,
     atk: Math.round(number(template.atk) * statScale),
     matk: Math.round(number(template.matk) * statScale),
@@ -168,6 +210,7 @@ export function normalizeItem(item = {}, runtime = runtimeContext) {
     setName: item.setName || '',
     baseStats: item.baseStats || {},
     description: item.description || '',
+    archetype: resolveNormalizedItemArchetype(item, runtime),
     rarity: item.rarity || 'normal',
     tier: item.tier || item.rarity || 'normal',
     itemTier: runtime.inferItemTier?.(item)?.id || item.itemTier || '',
@@ -254,6 +297,7 @@ export function resetItemForStatV2(item = {}, runtime = runtimeContext) {
   item = item && typeof item === 'object' ? item : {};
   const level = Math.max(1, Math.round(number(item.dropLevel || item.level || 1, 1)));
   const rarity = item.rarity || item.tier || 'normal';
+  const archetype = resolveResetItemArchetype(item, runtime);
   const template =
     runtime.getEquipmentTemplate?.(item.templateId || '') ||
     runtime.getEquipmentTemplate?.(item.id || '') ||
@@ -278,9 +322,11 @@ export function resetItemForStatV2(item = {}, runtime = runtimeContext) {
     dropLevel: level,
     difficulty: item.abyssForged || item.sourceDifficulty === '\u6df1\u6e0a' || item.sourceDifficulty === 'abyss' ? 'abyss' : item.sourceDifficulty || '',
     itemTier: item.itemTier || undefined,
+    archetype,
   }, runtime);
   rerolled.id = item.id || rerolled.id;
   rerolled.instanceId = rerolled.id;
+  rerolled.archetype = archetype;
   rerolled.level = level;
   rerolled.dropLevel = level;
   rerolled.rarity = rarity;

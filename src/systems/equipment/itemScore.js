@@ -1,5 +1,6 @@
 import { getEffectiveItemStats } from './itemStats.js';
 import { isAbyssEquipment } from './itemNaming.js';
+import { calculateArchetypeScores } from './itemArchetype.js';
 
 const ATTRIBUTE_KEYS = ['str', 'agi', 'vit', 'int', 'dex', 'luk'];
 
@@ -7,6 +8,11 @@ function statValue(stats = {}, key) {
   if (key === 'luk') return Number(stats.luk || 0) + Number(stats.luck || 0);
   const value = Number(stats[key] || 0);
   return Number.isFinite(value) ? value : 0;
+}
+
+function finiteScore(value) {
+  const number = Number(value || 0);
+  return Number.isFinite(number) ? number : 0;
 }
 
 export function itemScore(item) {
@@ -19,6 +25,7 @@ export function calculatePower(params) {
 }
 export function calculateEquipmentScores(item, job) {
   const stats = getEffectiveItemStats(item || {}, true);
+  const archetypeScores = calculateArchetypeScores(item || {}, stats, job || {});
   const attrTotal = ATTRIBUTE_KEYS.reduce((sum, stat) => sum + statValue(stats, stat), 0);
   const output =
     statValue(stats, 'atk') * 1.7 +
@@ -75,7 +82,13 @@ export function calculateEquipmentScores(item, job) {
     statValue(stats, 'jobExpBonus') * 1800 +
     statValue(stats, 'abyssMaterialDropBonus') * 3200 +
     statValue(stats, 'mythicEssenceDropBonus') * 6000;
-  const comprehensive = output * 0.38 + survival * 0.26 + boss * 0.16 + abyss * 0.14 + treasure * 0.06;
+  const physicalScore = finiteScore(archetypeScores.physicalScore);
+  const magicScore = finiteScore(archetypeScores.magicScore);
+  const generalScore = finiteScore(archetypeScores.generalScore);
+  const currentJobScore = finiteScore(archetypeScores.currentJobScore);
+  const archetypeFit = finiteScore(archetypeScores.archetypeFit);
+  const archetypeScore = currentJobScore || Math.max(physicalScore, magicScore, generalScore);
+  const comprehensive = output * 0.34 + survival * 0.24 + boss * 0.15 + abyss * 0.13 + treasure * 0.05 + archetypeScore * 0.09;
   return {
     comprehensive: Math.max(0, Math.round(comprehensive)),
     output: Math.max(0, Math.round(output)),
@@ -83,5 +96,10 @@ export function calculateEquipmentScores(item, job) {
     boss: Math.max(0, Math.round(boss)),
     abyss: Math.max(0, Math.round(abyss)),
     treasure: Math.max(0, Math.round(treasure)),
+    physicalScore: Math.max(0, Math.round(physicalScore)),
+    magicScore: Math.max(0, Math.round(magicScore)),
+    generalScore: Math.max(0, Math.round(generalScore)),
+    currentJobScore: Math.max(0, Math.round(currentJobScore)),
+    archetypeFit,
   };
 }

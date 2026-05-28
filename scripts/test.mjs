@@ -11,6 +11,7 @@ const data = read('data.js');
 const tools = read('tools.js');
 const html = read('index.html');
 const styles = read('styles.css');
+const equipmentStyles = read('unified-equipment-ui.css');
 const main = read('src/main.js');
 const stateSurface = read('src/state/index.js');
 const itemStatsSource = read('src/systems/equipment/itemStats.js');
@@ -93,9 +94,21 @@ assert.match(styles, /\.skill-bar-icon\.cooldown\.casting/, 'Casting feedback mu
 assert.match(styles, /\.scene-wrap\.skill-cast-active::after/, 'Skill casts must create a visible battle-scene impact pulse.');
 assert.match(styles, /--ro-parchment:/, 'RO parchment token should exist');
 assert.match(styles, /--ro-wood-top:/, 'RO wood button token should exist');
+assert.match(styles, /--ro-vnext-paper:/, 'RO vNext paper token should exist');
+assert.match(styles, /--ro-vnext-hp:/, 'RO vNext HP token should exist');
 assert.match(styles, /\.ro-surface-card\s*\{/, 'RO surface card primitive should exist');
 assert.match(styles, /\.ro-wood-button\s*\{/, 'RO wood action button primitive should exist');
 assert.match(styles, /\.ro-light-control\s*\{/, 'RO light control primitive should exist');
+assert.match(html, /class="topbar[^"]*ro-game-hud/, 'Topbar should opt into the compact RO game HUD.');
+assert.match(html, /class="resource-strip[^"]*ro-resource-hud/, 'Resource strip should opt into the compact RO resource HUD.');
+assert.match(html, /class="ro-tab-group ro-tab-primary"[\s\S]*data-page="adventure"[\s\S]*data-page="tasks"/, 'Primary navigation group should contain the high-frequency tabs.');
+assert.match(html, /class="ro-tab-group ro-tab-secondary"[\s\S]*data-page="cards"[\s\S]*data-page="news"/, 'Secondary navigation group should contain the extended tabs.');
+assert.match(html, /class="action-row[^"]*ro-combat-actions/, 'Adventure action row should opt into the compact combat action layout.');
+assert.match(styles, /\.ro-resource-hud\s*>\s*div/, 'RO resource HUD should style resource chips directly.');
+assert.match(styles, /\.ro-tab-group/, 'RO navigation should style primary and secondary tab groups.');
+assert.match(styles, /@media\s*\(max-width:\s*640px\)[\s\S]*\.ro-resource-hud/, 'phone RO resource HUD should be explicitly adjusted.');
+assert.match(equipmentStyles, /var\(--ro-vnext-paper\)/, 'Equipment override should use the shared RO vNext paper token.');
+assert.match(equipmentStyles, /var\(--ro-vnext-line\)/, 'Equipment override should use the shared RO vNext line token.');
 assert.match(styles, /\.ro-main-tabs\s*\{/, 'RO main tab styling should exist');
 assert.match(styles, /\.ro-adventure-workspace\s*\{/, 'RO Adventure workspace layout should exist');
 assert.match(styles, /\.ro-stage-card\s*\{/, 'RO stage card styling should exist');
@@ -450,42 +463,9 @@ assert.match(
   /from\s+['"]\.\/itemArchetype\.js['"]|\b(?:rollEquipmentArchetype|normalizeEquipmentArchetype|inferEquipmentArchetype)\b/,
   'Item factory must depend on equipment archetype logic.'
 );
-assert.match(equipmentPageSource, /equipmentArchetype|archetypeFilter|data-equipment-archetype|data-archetype-filter/, 'Equipment page must expose archetype filtering.');
-for (const key of ['physical', 'magic', 'general']) {
-  assert.match(equipmentPageSource, new RegExp(`['"]${key}['"]|\\b${key}\\b`), `Equipment page must expose ${key} filter entry.`);
-}
-assert.match(
-  game,
-  /data-reforge-archetype|data-archetype-reforge|reforgeArchetype/i,
-  'Directed reforge buttons must mark their target archetype.'
-);
 
 const itemArchetypeModuleUrl = `data:text/javascript;base64,${Buffer.from(itemArchetypeSource).toString('base64')}`;
 const withItemArchetypeImport = (source) => source.replace(/from\s+['"]\.\/itemArchetype\.js['"]/g, `from '${itemArchetypeModuleUrl}'`);
-
-const scoreStandaloneSource = withItemArchetypeImport(itemScoreSource)
-  .replace("import { getEffectiveItemStats } from './itemStats.js';", 'const getEffectiveItemStats = (item) => item;')
-  .replace("import { isAbyssEquipment } from './itemNaming.js';", "const isAbyssEquipment = (item) => Boolean(item?.abyssForged);");
-const itemScore = await importSource(scoreStandaloneSource);
-const scores = itemScore.calculateEquipmentScores({
-  atk: 100,
-  hp: 200,
-  bossDamageBonus: 0.05,
-  abyssDamageBonus: 0.08,
-  abyssDamageReduction: 0.05,
-  abyssForged: true,
-});
-assert.ok(scores.output > 0 && scores.survival > 0 && scores.boss > 0 && scores.abyss > 0, 'Equipment score outputs must remain finite and positive.');
-assert.ok(['comprehensive', 'output', 'survival', 'boss', 'abyss', 'treasure'].every((key) => Number.isFinite(scores[key])), 'Equipment scores must not contain invalid numbers.');
-for (const key of ['physicalScore', 'magicScore', 'generalScore', 'currentJobScore', 'archetypeFit']) {
-  assert.ok(Object.hasOwn(scores, key), `Equipment score outputs must include ${key}.`);
-}
-const emptyScore = itemScore.calculateEquipmentScores({});
-const antiCritOnlyScore = itemScore.calculateEquipmentScores({ antiCrit: 0.5 });
-assert.equal(antiCritOnlyScore.survival, emptyScore.survival, 'Equipment V2 scoring must not reward antiCrit.');
-assert.ok(itemScore.calculateEquipmentScores({ blockRate: 0.12 }).survival > emptyScore.survival, 'Equipment V2 scoring must reward real blockRate.');
-assert.ok(itemScore.calculateEquipmentScores({ atk: 100 }).physicalScore > itemScore.calculateEquipmentScores({ atk: 100 }).magicScore, 'Equipment score must favor physical stats for physical scoring.');
-assert.ok(itemScore.calculateEquipmentScores({ matk: 100 }).magicScore > itemScore.calculateEquipmentScores({ matk: 100 }).physicalScore, 'Equipment score must favor magic stats for magic scoring.');
 
 const itemFactory = await importSource(withItemArchetypeImport(itemFactorySource));
 const factoryContext = {
@@ -510,6 +490,7 @@ assert.equal(generated.atk, 10, 'Module-owned item creation changed base equipme
 assert.deepEqual(generated.cardSlots, [], 'New equipment must retain the existing empty socket behavior.');
 assert.equal(generated.archetype, 'physical', 'Created equipment must record its archetype.');
 assert.equal(itemFactory.createItem({ name: 'Rod', slot: 'weapon', matk: 10 }, 1, 'normal', { currentJobId: 'mage', rng: () => 0 }, factoryContext).archetype, 'magic', 'Created mage equipment must record magic archetype.');
+assert.equal(itemFactory.createItem({ name: 'Blade', slot: 'weapon', atk: 10 }, 1, 'normal', { targetArchetype: undefined, archetype: 'physical', currentJobId: 'mage', rng: () => 0 }, factoryContext).archetype, 'physical', 'Undefined directed archetype must not override the explicit item archetype.');
 assert.equal(itemFactory.normalizeItem({ atk: 100 }, factoryContext).archetype, 'physical', 'Legacy ATK equipment normalization must infer physical archetype.');
 assert.equal(itemFactory.normalizeItem({ matk: 100 }, factoryContext).archetype, 'magic', 'Legacy MATK equipment normalization must infer magic archetype.');
 assert.equal(itemFactory.normalizeItem({ atk: 100, matk: 100 }, factoryContext).archetype, 'general', 'Mixed legacy equipment normalization must infer general archetype.');
@@ -519,6 +500,7 @@ const rerolledV2 = itemFactory.resetItemForStatV2({
   id: 'legacy-gear',
   templateId: 'blade',
   slot: 'weapon',
+  archetype: 'magic',
   rarity: 'legend',
   level: 42,
   refine: 12,
@@ -540,6 +522,64 @@ assert.equal(rerolledV2.empower, 0, 'V2 reroll must reset empower.');
 assert.deepEqual(rerolledV2.cardSlots, [], 'V2 reroll must clear socketed cards.');
 assert.equal(rerolledV2.locked, false, 'V2 reroll must clear lock state.');
 assert.equal(rerolledV2.antiCrit || 0, 0, 'V2 reroll must remove antiCrit.');
+assert.equal(rerolledV2.archetype, 'magic', 'V2 reroll must preserve the existing equipment archetype.');
+assert.equal(itemFactory.resetItemForStatV2({
+  id: 'legacy-gear-implicit',
+  templateId: 'blade',
+  slot: 'weapon',
+  targetArchetype: undefined,
+  archetype: 'magic',
+  rarity: 'normal',
+  level: 12,
+}, {
+  ...factoryContext,
+  getEquipmentTemplate: () => ({ id: 'blade', name: 'Blade', slot: 'weapon', atk: 10, source: 'monster_drop' }),
+  createItemId: () => 'new-id-implicit',
+}).archetype, 'magic', 'V2 reroll must ignore undefined targetArchetype and keep the existing archetype.');
+
+assert.match(equipmentPageSource, /equipmentArchetype|archetypeFilter|data-equipment-archetype|data-archetype-filter/, 'Equipment page must expose archetype filtering.');
+for (const key of ['physical', 'magic', 'general']) {
+  assert.match(equipmentPageSource, new RegExp(`['"]${key}['"]|\\b${key}\\b`), `Equipment page must expose ${key} filter entry.`);
+}
+assert.match(
+  game,
+  /data-reforge-archetype|data-archetype-reforge|reforgeArchetype/i,
+  'Directed reforge buttons must mark their target archetype.'
+);
+assert.match(game, /inferEquipmentArchetype\(source\)/, 'V2 migration must infer archetype for old equipment without an explicit archetype.');
+assert.match(game, /getReforgeCost\(item,\s*normalizedTarget/, 'Directed reforge must calculate cost from the normalized target archetype.');
+for (const marker of ['getArchetypeStatPools', 'targetArchetype', 'getReforgeCost', 'equipmentAutoEquipScore', 'shouldProtectEquipment']) {
+  assert.match(game, new RegExp(marker), `Equipment V3 game runtime must expose ${marker}.`);
+}
+assert.match(game, /物理评分/, 'Equipment UI must display physical score.');
+assert.match(game, /魔法评分/, 'Equipment UI must display magic score.');
+assert.match(game, /通用评分/, 'Equipment UI must display general score.');
+assert.match(game, /可打造成胚子/, 'Equipment UI must expose craft-base fit tags.');
+assert.match(game, /适合当前职业/, 'Equipment UI must expose current-job fit tags.');
+
+const scoreStandaloneSource = withItemArchetypeImport(itemScoreSource)
+  .replace("import { getEffectiveItemStats } from './itemStats.js';", 'const getEffectiveItemStats = (item) => item;')
+  .replace("import { isAbyssEquipment } from './itemNaming.js';", "const isAbyssEquipment = (item) => Boolean(item?.abyssForged);");
+const itemScore = await importSource(scoreStandaloneSource);
+const scores = itemScore.calculateEquipmentScores({
+  atk: 100,
+  hp: 200,
+  bossDamageBonus: 0.05,
+  abyssDamageBonus: 0.08,
+  abyssDamageReduction: 0.05,
+  abyssForged: true,
+});
+assert.ok(scores.output > 0 && scores.survival > 0 && scores.boss > 0 && scores.abyss > 0, 'Equipment score outputs must remain finite and positive.');
+assert.ok(['comprehensive', 'output', 'survival', 'boss', 'abyss', 'treasure'].every((key) => Number.isFinite(scores[key])), 'Equipment scores must not contain invalid numbers.');
+for (const key of ['physicalScore', 'magicScore', 'generalScore', 'currentJobScore', 'archetypeFit']) {
+  assert.ok(Object.hasOwn(scores, key), `Equipment score outputs must include ${key}.`);
+}
+const emptyScore = itemScore.calculateEquipmentScores({});
+const antiCritOnlyScore = itemScore.calculateEquipmentScores({ antiCrit: 0.5 });
+assert.equal(antiCritOnlyScore.survival, emptyScore.survival, 'Equipment V2 scoring must not reward antiCrit.');
+assert.ok(itemScore.calculateEquipmentScores({ blockRate: 0.12 }).survival > emptyScore.survival, 'Equipment V2 scoring must reward real blockRate.');
+assert.ok(itemScore.calculateEquipmentScores({ atk: 100 }).physicalScore > itemScore.calculateEquipmentScores({ atk: 100 }).magicScore, 'Equipment score must favor physical stats for physical scoring.');
+assert.ok(itemScore.calculateEquipmentScores({ matk: 100 }).magicScore > itemScore.calculateEquipmentScores({ matk: 100 }).physicalScore, 'Equipment score must favor magic stats for magic scoring.');
 
 const dismantle = await importSource(dismantleSource);
 const mutationState = {
@@ -572,6 +612,26 @@ const protectedItem = dismantle.addEquipmentToInventory({ id: 'set', rarity: 'no
 assert.equal(protectedItem.added, true, 'Set equipment must remain protected from ordinary auto-salvage.');
 assert.equal(dismantle.shouldAutoSalvage({ rarity: 'normal', abyssForged: true }, mutationContext), false, 'Abyss equipment must remain protected unless explicitly enabled.');
 assert.equal(dismantle.shouldAutoSalvage({ rarity: 'normal' }, { ...mutationContext, shouldProtectEquipment: () => true }), false, 'Protected equipment must not be auto-salvaged.');
+const batchState = {
+  inventory: [{ id: 'keep', rarity: 'normal', level: 1 }, { id: 'trash', rarity: 'normal', level: 1 }],
+  equipped: {},
+  materials: {},
+};
+let batchSalvageDialog = null;
+const batchMutationContext = {
+  ...mutationContext,
+  getState: () => batchState,
+  shouldProtectEquipment: (item) => item.id === 'keep',
+  addLog: () => {},
+  materialText: () => 'Dust x1',
+  showSalvageResult: (...args) => { batchSalvageDialog = args; },
+  renderAll: () => {},
+  save: () => {},
+};
+dismantle.salvageAllUnequipped(batchMutationContext);
+assert.deepEqual(batchState.inventory.map((item) => item.id), ['keep'], 'Batch dismantle must leave protected equipment in inventory.');
+assert.equal(batchState.materials.dust, 1, 'Batch dismantle must still reward unprotected equipment.');
+assert.deepEqual(batchSalvageDialog, ['\u6279\u91cf\u5206\u89e3\u5b8c\u6210', 1, { dust: 1 }], 'Batch dismantle dialog must count only unprotected equipment.');
 const fullInventory = dismantle.addEquipmentToInventory({ id: 'second', rarity: 'legend' }, {}, mutationContext);
 assert.equal(fullInventory.skipped, true, 'Inventory capacity behavior changed.');
 mutationState.inventory = [{ id: 'manual', rarity: 'normal', level: 1 }];
