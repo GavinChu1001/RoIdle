@@ -5825,3 +5825,564 @@ button.pixel-button {
     margin-top: 10px;
   }
 }
+
+/* RO pixel UI second slice: equipment inventory and smithy workshop */
+.page-view[data-view="equipment"],
+.page-view[data-view="smithy"] {
+  --ro-inventory-gap: 10px;
+}
+
+.page-view[data-view="equipment"] > .panel-heading,
+.page-view[data-view="smithy"] > .panel-heading {
+  position: relative;
+  align-items: center;
+  padding: 12px 14px;
+  border: 2px solid rgba(61, 37, 20, 0.5);
+  border-radius: 7px;
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 241, 199, 0.98), rgba(215, 164, 89, 0.9));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 248, 213, 0.62),
+    0 3px 0 rgba(62, 38, 21, 0.22);
+}
+
+.page-view[data-view="equipment"] > .panel-heading::before,
+.page-view[data-view="smithy"] > .panel-heading::before {
+  content: "";
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  margin-right: 10px;
+  border: 2px solid var(--ro-pixel-ink);
+  border-radius: 5px;
+  background:
+    url("assets/ui/slot-item.png") center / 100% 100% no-repeat,
+    #3b2b22;
+  image-rendering: pixelated;
+}
+
+.page-view[data-view="equipment"] > .panel-heading::after {
+  content: "";
+  position: absolute;
+  left: 24px;
+  top: 22px;
+  width: 16px;
+  height: 16px;
+  background: url("assets/ui/icon-sword.png") center / contain no-repeat;
+  image-rendering: pixelated;
+}
+
+.page-view[data-view="smithy"] > .panel-heading::after {
+  content: "";
+  position: absolute;
+  left: 24px;
+  top: 22px;
+  width: 16px;
+  height: 16px;
+  background: url("assets/ui/icon-gem.png") center / contain no-repeat;
+  image-rendering: pixelated;
+}
+
+.page-view[data-view="equipment"] .panel-heading h2,
+.page-view[data-view="smithy"] .panel-heading h2 {
+  margin: 0;
+  color: #321c10;
+  text-shadow: 0 1px 0 rgba(255, 238, 177, 0.82);
+}
+
+.page-view[data-view="equipment"] .panel-heading button,
+.page-view[data-view="smithy"] .panel-heading button {
+  min-width: 104px;
+}
+
+.equipment-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 10px 0;
+  padding: 8px;
+  border: 2px solid rgba(60, 36, 20, 0.48);
+  border-radius: 7px;
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(99, 62, 32, 0.16), rgba(239, 207, 152, 0.9));
+  box-shadow: inset 0 0 0 1px rgba(255, 240, 194, 0.56);
+}
+
+.eq-filter-btn,
+.smithy-tab {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 5px 10px;
+  border: 2px solid var(--ro-pixel-ink);
+  border-radius: 5px;
+  background-image:
+    url("assets/ui/button-wood.png"),
+    linear-gradient(180deg, #dba054 0%, #87512b 100%);
+  background-size: 32px 16px, auto;
+  color: #2d1a0f;
+  font-size: 0.82rem;
+  font-weight: 900;
+  white-space: nowrap;
+  text-shadow: 0 1px 0 rgba(255, 231, 164, 0.7);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 232, 154, 0.5),
+    0 2px 0 rgba(71, 43, 22, 0.22);
+  image-rendering: pixelated;
+}
+
+.eq-filter-btn.active,
+.smithy-tab.active {
+  background-image:
+    url("assets/ui/button-wood.png"),
+    linear-gradient(180deg, #ffe08b 0%, #ba7736 100%);
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 247, 180, 0.32),
+    0 0 0 2px rgba(231, 188, 80, 0.28),
+    0 2px 0 rgba(71, 43, 22, 0.22);
+}
+
+.equipment-sort-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid rgba(58, 36, 21, 0.38);
+  border-radius: 5px;
+  background: rgba(255, 240, 199, 0.7);
+  color: #3c2416;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.equipment-sort-control select,
+.enhance-select select {
+  min-height: 30px;
+  border: 2px solid rgba(55, 33, 18, 0.45);
+  border-radius: 5px;
+  background: #fff4d4;
+  color: #332015;
+  font-weight: 800;
+}
+
+.equipment-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.equipped-slots {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.slot-card {
+  position: relative;
+  padding: 10px;
+  border: 2px solid rgba(58, 35, 19, 0.48);
+  border-radius: 6px;
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 244, 211, 0.96), rgba(232, 199, 142, 0.9));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 250, 218, 0.55),
+    0 2px 0 rgba(72, 44, 23, 0.16);
+}
+
+.slot-card::before {
+  content: "";
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 24px;
+  height: 24px;
+  opacity: 0.55;
+  background: url("assets/ui/slot-item.png") center / 100% 100% no-repeat;
+  image-rendering: pixelated;
+}
+
+.slot-name,
+.material-group-title,
+.equipment-section-title,
+.smithy-category h3 {
+  color: #362113;
+  font-weight: 950;
+  text-shadow: 0 1px 0 rgba(255, 238, 185, 0.75);
+}
+
+.slot-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 6px;
+}
+
+.slot-name::before {
+  content: "";
+  width: 13px;
+  height: 13px;
+  background: url("assets/ui/icon-sword.png") center / contain no-repeat;
+  image-rendering: pixelated;
+}
+
+.equipped-slot-summary {
+  padding-right: 24px;
+}
+
+.equipment-summary-grid,
+.equipment-stat-grid,
+.core-stat-bars {
+  gap: 6px;
+}
+
+.equipment-summary-chip,
+.equipment-stat-chip,
+.core-stat-bar,
+.material-card {
+  border: 1px solid rgba(62, 38, 21, 0.34);
+  border-radius: 5px;
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 246, 218, 0.94), rgba(224, 190, 128, 0.78));
+  box-shadow: inset 0 1px 0 rgba(255, 251, 226, 0.55);
+}
+
+.equipment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+  align-items: start;
+}
+
+.equip-item.equipment-detail-card {
+  position: relative;
+  overflow: hidden;
+  border: 2px solid rgba(54, 32, 17, 0.48);
+  border-radius: 7px;
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 245, 216, 0.98), rgba(232, 199, 145, 0.9));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 250, 223, 0.55),
+    0 3px 0 rgba(73, 44, 23, 0.18);
+}
+
+.equip-item.equipment-detail-card::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  opacity: 0.72;
+  background: url("assets/ui/badge-rarity.png") center / contain no-repeat;
+  image-rendering: pixelated;
+}
+
+.equip-head,
+.equipment-detail-header {
+  align-items: flex-start;
+  gap: 9px;
+}
+
+.item-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  border: 0;
+  border-radius: 5px;
+  background:
+    url("assets/ui/slot-item.png") center / 100% 100% no-repeat,
+    #3c2a22;
+  color: #382113;
+  font-weight: 950;
+  image-rendering: pixelated;
+  text-shadow: 0 1px 0 rgba(255, 238, 179, 0.65);
+}
+
+.equipment-name-main,
+.equip-name {
+  padding-right: 24px;
+  line-height: 1.25;
+}
+
+.equipment-badge-row {
+  gap: 5px;
+}
+
+.equipment-badge {
+  border: 1px solid rgba(57, 35, 20, 0.38);
+  border-radius: 4px;
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 237, 180, 0.9), rgba(194, 139, 69, 0.78));
+  color: #332015;
+  font-size: 0.72rem;
+  font-weight: 900;
+  box-shadow: inset 0 1px 0 rgba(255, 250, 219, 0.5);
+}
+
+.equipment-card-score {
+  border: 1px solid rgba(54, 32, 18, 0.38);
+  border-radius: 5px;
+  background: rgba(73, 45, 25, 0.1);
+}
+
+.equip-section {
+  margin-top: 8px;
+  padding: 9px;
+  border: 1px solid rgba(63, 39, 21, 0.28);
+  border-radius: 6px;
+  background: rgba(255, 247, 222, 0.55);
+}
+
+.equip-actions,
+.equipment-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.equip-actions button,
+.equipment-action-row button,
+.smithy-category button,
+.enhance-panel button,
+.smithy-item button {
+  min-height: 32px;
+  border: 2px solid var(--ro-pixel-ink);
+  border-radius: 5px;
+  background-image:
+    url("assets/ui/button-wood.png"),
+    linear-gradient(180deg, #db9f54, #8d562d);
+  background-size: 32px 16px, auto;
+  color: #2e1b10;
+  font-weight: 900;
+  text-shadow: 0 1px 0 rgba(255, 230, 166, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 232, 154, 0.48),
+    0 2px 0 rgba(70, 43, 23, 0.2);
+  image-rendering: pixelated;
+}
+
+.equip-actions button:disabled,
+.equipment-action-row button:disabled,
+.smithy-category button:disabled,
+.enhance-panel button:disabled,
+.smithy-item button:disabled {
+  filter: grayscale(0.55) saturate(0.65);
+  opacity: 0.62;
+  transform: none;
+}
+
+.material-list,
+.material-page {
+  display: grid;
+  gap: 10px;
+}
+
+.material-group {
+  padding: 10px;
+  border: 2px solid rgba(61, 37, 20, 0.38);
+  border-radius: 6px;
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 244, 213, 0.86), rgba(228, 193, 132, 0.78));
+}
+
+.material-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 7px;
+}
+
+.material-card {
+  position: relative;
+  padding-left: 34px;
+}
+
+.material-card::before {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 11px;
+  width: 16px;
+  height: 16px;
+  background: url("assets/ui/icon-gem.png") center / contain no-repeat;
+  image-rendering: pixelated;
+}
+
+.smithy-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 12px;
+  align-items: start;
+}
+
+.smithy-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.smithy-tab-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+}
+
+.smithy-category {
+  position: relative;
+  padding: 12px;
+  border: 2px solid rgba(61, 37, 20, 0.48);
+  border-radius: 7px;
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 242, 205, 0.96), rgba(225, 188, 124, 0.9));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 250, 221, 0.55),
+    0 3px 0 rgba(73, 44, 23, 0.16);
+}
+
+.smithy-category h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 0;
+}
+
+.smithy-category h3::before {
+  content: "";
+  width: 18px;
+  height: 18px;
+  background: url("assets/ui/icon-gem.png") center / contain no-repeat;
+  image-rendering: pixelated;
+}
+
+.enhance-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(260px, 1.4fr) auto;
+  gap: 10px;
+  align-items: stretch;
+  padding: 10px;
+  border: 2px solid rgba(64, 40, 21, 0.4);
+  border-radius: 7px;
+  background:
+    linear-gradient(90deg, rgba(97, 60, 31, 0.12), transparent 36%),
+    url("assets/ui/bg-pixel-noise.png"),
+    rgba(255, 249, 224, 0.72);
+}
+
+.enhance-select,
+.enhance-info {
+  padding: 10px;
+  border: 1px solid rgba(57, 35, 20, 0.28);
+  border-radius: 6px;
+  background: rgba(255, 246, 218, 0.72);
+}
+
+.enhance-select strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #3a2415;
+}
+
+.enhance-info p {
+  margin: 0 0 6px;
+  color: #4a2d1a;
+  font-weight: 760;
+}
+
+.enhance-panel > button {
+  align-self: center;
+  min-width: 112px;
+}
+
+.smithy-items {
+  display: grid;
+  gap: 8px;
+}
+
+.smithy-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px;
+  border: 1px solid rgba(60, 37, 20, 0.3);
+  border-radius: 6px;
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 247, 220, 0.86), rgba(232, 199, 145, 0.76));
+}
+
+.smithy-item .academy-meta,
+.enhance-info .academy-meta {
+  color: #6a4426;
+}
+
+@media (max-width: 980px) {
+  .equipment-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .equipped-slots {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .enhance-panel {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .page-view[data-view="equipment"] > .panel-heading,
+  .page-view[data-view="smithy"] > .panel-heading {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 8px;
+  }
+
+  .page-view[data-view="equipment"] .panel-heading button,
+  .page-view[data-view="smithy"] .panel-heading button {
+    grid-column: span 2;
+    width: 100%;
+  }
+
+  .equipment-filter-bar,
+  .smithy-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 10px;
+  }
+
+  .equipped-slots,
+  .equipment-grid,
+  .material-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .slot-card,
+  .equip-item.equipment-detail-card,
+  .smithy-category {
+    padding: 9px;
+  }
+
+  .smithy-item {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .smithy-item button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}
