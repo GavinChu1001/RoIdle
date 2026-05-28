@@ -8265,3 +8265,482 @@ button.pixel-button {
     padding-left: 40px !important;
   }
 }
+
+/* RO pixel UI batch 7: overlays, loot, logs, result feedback */
+.modal-backdrop {
+  background:
+    radial-gradient(circle at 50% 20%, rgba(76, 48, 25, 0.22), transparent 38%),
+    rgba(24, 16, 10, 0.56);
+  backdrop-filter: blur(2px);
+}
+
+.modal-card {
+  border: 3px solid rgba(54, 32, 17, 0.64);
+  border-radius: 9px;
+  background:
+    linear-gradient(135deg, rgba(255, 220, 119, 0.15), transparent 42%),
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 246, 218, 0.98), rgba(221, 184, 121, 0.92));
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 250, 222, 0.52),
+    inset 0 0 0 5px rgba(126, 78, 34, 0.12),
+    0 16px 0 rgba(63, 38, 20, 0.18),
+    0 28px 66px rgba(30, 19, 11, 0.42);
+  image-rendering: pixelated;
+}
+
+.modal-card::before {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  border: 1px dashed rgba(111, 70, 33, 0.22);
+  border-radius: 5px;
+  pointer-events: none;
+}
+
+.modal-head {
+  position: sticky;
+  top: -14px;
+  z-index: 2;
+  margin: -14px -14px 0;
+  padding: 12px 14px;
+  border-bottom: 2px solid rgba(55, 33, 18, 0.42);
+  background:
+    url("assets/ui/button-wood.png"),
+    linear-gradient(180deg, #dca75b, #8d562d);
+  background-size: 32px 16px, auto;
+  color: #2b190e;
+  text-shadow: 0 1px 0 rgba(255, 230, 166, 0.72);
+}
+
+.modal-head strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #2b190e;
+  font-weight: 950;
+}
+
+.modal-head strong::before {
+  content: "";
+  width: 20px;
+  height: 20px;
+  background: url("assets/ui/icon-scroll.png") center / contain no-repeat;
+  image-rendering: pixelated;
+}
+
+.modal-actions {
+  position: sticky;
+  bottom: -14px;
+  z-index: 2;
+  margin: 0 -14px -14px;
+  padding: 10px 14px;
+  border-top: 2px solid rgba(55, 33, 18, 0.34);
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 241, 204, 0.94), rgba(213, 174, 109, 0.9));
+}
+
+.modal-actions button,
+.refine-actions button {
+  min-height: 34px;
+  border: 2px solid var(--ro-pixel-ink);
+  border-radius: 6px;
+  background-image:
+    url("assets/ui/button-wood.png"),
+    linear-gradient(180deg, #dba054, #8d562d);
+  background-size: 32px 16px, auto;
+  color: #2e1b10;
+  font-weight: 950;
+  text-shadow: 0 1px 0 rgba(255, 230, 166, 0.74);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 232, 154, 0.5),
+    0 2px 0 rgba(70, 43, 23, 0.22);
+}
+
+.modal-actions button.ghost,
+.refine-actions button.ghost,
+.modal-head .icon-button {
+  background-image:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 246, 221, 0.9), rgba(207, 178, 126, 0.86));
+}
+
+.modal-head .icon-button {
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0;
+}
+
+.offline-reward-modal,
+.loot-modal {
+  position: relative;
+  border: 2px solid rgba(55, 33, 18, 0.46);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(255, 219, 111, 0.16), transparent 42%),
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 247, 221, 0.96), rgba(226, 193, 132, 0.86));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 250, 223, 0.5),
+    0 3px 0 rgba(73, 44, 23, 0.13);
+}
+
+.offline-reward-header {
+  padding: 10px;
+  border: 2px solid rgba(54, 32, 17, 0.34);
+  border-radius: 8px;
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 239, 190, 0.9), rgba(210, 166, 91, 0.72));
+}
+
+.offline-chest-icon {
+  border: 2px solid rgba(54, 32, 17, 0.42);
+  border-radius: 6px;
+  background:
+    url("assets/ui/icon-loot.png") center / 24px 24px no-repeat,
+    url("assets/ui/slot-item.png") center / cover no-repeat,
+    linear-gradient(180deg, #f8dc8f, #a66a2e);
+  color: transparent;
+  image-rendering: pixelated;
+}
+
+.offline-time-pill,
+.offline-subline span,
+.offline-reason,
+.offline-detail-toggle summary,
+.offline-reward-footer {
+  border: 1px solid rgba(83, 51, 25, 0.36);
+  border-radius: 6px;
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 241, 201, 0.9), rgba(218, 184, 123, 0.78));
+  color: #614120;
+  font-weight: 950;
+}
+
+.offline-reward-footer {
+  border-color: rgba(53, 83, 48, 0.4);
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(235, 248, 190, 0.86), rgba(128, 166, 84, 0.72));
+  color: #294e2c;
+}
+
+.offline-overview-card,
+.offline-gain,
+.offline-loot-item,
+.loot-summary-card,
+.loot-section,
+.loot-empty,
+.loot-fallback,
+.loot-equipment-row {
+  border: 2px solid rgba(54, 32, 17, 0.34);
+  border-radius: 7px;
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 246, 220, 0.94), rgba(229, 198, 144, 0.82));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 250, 223, 0.44),
+    0 2px 0 rgba(73, 44, 23, 0.1);
+}
+
+.offline-reward-section,
+.loot-section {
+  border-style: solid;
+  padding: 11px;
+}
+
+.offline-reward-section-title,
+.loot-section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #3a2415;
+  font-size: 0.86rem;
+  font-weight: 950;
+  text-shadow: 0 1px 0 rgba(255, 238, 185, 0.72);
+}
+
+.offline-reward-section-title::before,
+.loot-section-title::before {
+  content: "";
+  width: 15px;
+  height: 15px;
+  background: url("assets/ui/icon-loot.png") center / contain no-repeat;
+  image-rendering: pixelated;
+}
+
+.offline-loot-icon {
+  border: 1px solid rgba(54, 32, 17, 0.36);
+  border-radius: 5px;
+  background:
+    url("assets/ui/slot-item.png") center / cover no-repeat,
+    linear-gradient(180deg, #f8e0a6, #9a6735);
+  color: #3c2414;
+  image-rendering: pixelated;
+}
+
+.offline-progress-bar,
+.vip-progress {
+  border-radius: 3px;
+}
+
+.offline-progress-fill {
+  background:
+    linear-gradient(180deg, rgba(255, 238, 138, 0.96), rgba(97, 156, 93, 0.94));
+}
+
+.loot-summary-card span,
+.offline-overview-card span,
+.offline-gain span {
+  color: #705236;
+  font-weight: 900;
+}
+
+.loot-summary-card strong,
+.offline-overview-card strong,
+.offline-gain strong {
+  color: #2f1d12;
+  font-weight: 950;
+}
+
+.loot-pending-warning {
+  border: 2px solid rgba(181, 116, 38, 0.46);
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 233, 178, 0.92), rgba(230, 185, 104, 0.8));
+}
+
+.refine-result-card {
+  border: 3px solid rgba(39, 24, 14, 0.78);
+  border-radius: 8px;
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(51, 35, 22, 0.98), rgba(26, 18, 12, 0.96));
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 220, 127, 0.12),
+    0 4px 0 rgba(30, 18, 10, 0.28);
+}
+
+.refine-result-success {
+  border-color: rgba(218, 159, 56, 0.72);
+}
+
+.refine-result-fail {
+  border-color: rgba(143, 84, 75, 0.72);
+}
+
+.refine-result-kicker {
+  display: inline-flex;
+  width: fit-content;
+  padding: 3px 7px;
+  border: 1px solid rgba(255, 226, 151, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 226, 151, 0.08);
+  color: rgba(255, 235, 188, 0.86);
+}
+
+.refine-result-item-name {
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.32);
+}
+
+.refine-level-change {
+  display: inline-flex;
+  width: fit-content;
+  padding: 5px 9px;
+  border: 1px solid rgba(255, 215, 148, 0.26);
+  border-radius: 6px;
+  background: rgba(255, 215, 148, 0.1);
+}
+
+.refine-result-line {
+  border: 1px solid rgba(255, 222, 167, 0.16);
+  border-radius: 6px;
+  background:
+    linear-gradient(180deg, rgba(255, 242, 206, 0.08), rgba(255, 242, 206, 0.03));
+}
+
+.toast {
+  border: 2px solid rgba(54, 32, 17, 0.62);
+  border-radius: 7px;
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(65, 42, 24, 0.98), rgba(31, 22, 15, 0.96));
+  color: #fff0c9;
+  font-weight: 900;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 227, 156, 0.18),
+    0 4px 0 rgba(30, 18, 10, 0.25),
+    0 18px 42px rgba(28, 18, 11, 0.34);
+}
+
+.toast::before {
+  content: "";
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-right: 7px;
+  vertical-align: -3px;
+  background: url("assets/ui/icon-scroll.png") center / contain no-repeat;
+  image-rendering: pixelated;
+}
+
+.log-list {
+  padding: 7px;
+  border: 2px solid rgba(54, 32, 17, 0.38);
+  border-radius: 8px;
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 245, 216, 0.86), rgba(220, 184, 122, 0.66));
+}
+
+.log-list li {
+  position: relative;
+  margin-bottom: 5px;
+  padding: 8px 10px 8px 29px;
+  border: 1px solid rgba(83, 51, 25, 0.22);
+  border-radius: 6px;
+  background: rgba(255, 247, 221, 0.6);
+  color: #4e3722;
+  font-weight: 800;
+}
+
+.log-list li::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 10px;
+  width: 13px;
+  height: 13px;
+  background: url("assets/ui/icon-scroll.png") center / contain no-repeat;
+  image-rendering: pixelated;
+  opacity: 0.72;
+}
+
+.combat-loot-feed {
+  padding: 6px;
+  border: 2px solid rgba(54, 32, 17, 0.34);
+  border-radius: 7px;
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 245, 216, 0.7), rgba(222, 187, 128, 0.52));
+}
+
+.combat-loot-row {
+  border: 1px solid rgba(83, 51, 25, 0.28);
+  border-radius: 5px;
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 247, 221, 0.82), rgba(230, 199, 146, 0.72));
+  color: #3d2a1b;
+  box-shadow: inset 0 1px 0 rgba(255, 250, 223, 0.36);
+}
+
+.combat-loot-row.loot-new {
+  border-color: rgba(62, 112, 55, 0.46);
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(236, 249, 196, 0.88), rgba(146, 182, 101, 0.66));
+}
+
+.combat-loot-row.loot-important {
+  border-color: rgba(186, 116, 35, 0.55);
+  background:
+    linear-gradient(90deg, rgba(255, 223, 116, 0.28), transparent 58%),
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 242, 201, 0.94), rgba(221, 172, 91, 0.74));
+}
+
+.loot-src-tag,
+.loot-kind-tag {
+  border-radius: 4px;
+  font-weight: 950;
+}
+
+.loot-drop-banner,
+.auto-salvage-feedback {
+  border: 2px solid rgba(54, 32, 17, 0.58);
+  border-radius: 7px;
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 243, 209, 0.98), rgba(188, 121, 53, 0.94));
+  color: #2d1a0f;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 240, 190, 0.42),
+    0 4px 0 rgba(59, 35, 18, 0.24),
+    0 14px 34px rgba(35, 22, 13, 0.24);
+}
+
+.loot-drop-banner strong,
+.auto-salvage-feedback strong {
+  color: #2d1a0f;
+  text-shadow: 0 1px 0 rgba(255, 230, 166, 0.72);
+}
+
+.loot-drop-mythic {
+  background:
+    linear-gradient(90deg, rgba(255, 108, 157, 0.26), transparent 58%),
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 237, 215, 0.98), rgba(190, 95, 139, 0.92));
+}
+
+.loot-drop-darkGold,
+.loot-drop-legend {
+  background:
+    linear-gradient(90deg, rgba(255, 210, 88, 0.32), transparent 58%),
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 241, 200, 0.98), rgba(178, 118, 43, 0.92));
+}
+
+@media (max-width: 640px) {
+  .modal-shell {
+    align-items: end;
+    padding: 10px;
+  }
+
+  .modal-card,
+  .modal-card-wide,
+  .refine-result-modal {
+    width: 100%;
+    max-height: min(88vh, 760px);
+  }
+
+  .modal-head,
+  .modal-actions {
+    margin-left: -12px;
+    margin-right: -12px;
+  }
+
+  .modal-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .offline-reward-header {
+    grid-template-columns: auto 1fr;
+  }
+
+  .offline-time-pill {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .offline-gain-strip,
+  .refine-result-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .loot-item-grid,
+  .offline-loot-grid,
+  .loot-summary-grid,
+  .offline-overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .toast {
+    bottom: 12px;
+  }
+}
