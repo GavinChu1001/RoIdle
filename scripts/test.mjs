@@ -145,6 +145,9 @@ assert.match(game, /state\.onboarding\s*=\s*normalizeOnboarding\(state\.onboardi
 assert.match(onboardingGuideSource, /renderOnboardingTaskSection/, 'Onboarding UI must expose a task-page section renderer.');
 assert.match(main, /installOnboardingGuideRuntime\(onboardingGuideContext\)/, 'Onboarding guide render runtime must be installed before startup.');
 assert.match(taskPageSource, /renderOnboardingTaskSection/, 'Task page must render the beginner goal section.');
+assert.match(onboardingGuideSource, /renderQuestList/, 'Onboarding UI must own the adventure current-goal renderer.');
+assert.match(game, /handleOnboardingAction/, 'Classic runtime must handle onboarding action buttons.');
+assert.match(styles, /\.onboarding-current-goal/, 'Onboarding current-goal styles must exist.');
 assert.match(main, /migrated:\s*\[[^\]]*'kill-and-boss-settlement'/s, 'Combat settlement migration status is incomplete.');
 assert.match(stateSurface, /loadGame/);
 assert.match(stateSurface, /migrateSave/);

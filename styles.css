@@ -9889,3 +9889,28 @@ details > summary::marker {
     text-align: left;
   }
 }
+
+/* Onboarding goal guide */
+.onboarding-current-goal,
+.onboarding-tutorial-hint {
+  border-color: rgba(199, 143, 64, 0.55);
+  background: linear-gradient(180deg, rgba(255, 248, 220, 0.92), rgba(238, 218, 174, 0.82));
+}
+
+.onboarding-current-goal .quest-name,
+.onboarding-tutorial-hint .quest-name {
+  color: #5f3715;
+}
+
+.onboarding-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.onboarding-goal-card .quest-rewards,
+.onboarding-current-goal .quest-rewards {
+  color: #7a4a1c;
+  font-weight: 700;
+}

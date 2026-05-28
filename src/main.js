@@ -361,6 +361,9 @@ const onboardingGuideContext = {
 	getState() { return window.state || {}; },
 	getEls() { return window.els || {}; },
 	escapeHtml: window.escapeHtml,
+	progressText: window.progressText,
+	bossDisplayName: window.bossDisplayName,
+	currentMap: window.currentMap,
 };
 installOnboardingGuideRuntime(onboardingGuideContext);
 document.documentElement.dataset.runeModuleStatus = 'onboarding-render-ready';

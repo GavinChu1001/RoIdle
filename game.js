@@ -2462,6 +2462,11 @@ els.vipPanel.addEventListener("click", (event) => {
       renderAll();
       return;
     }
+    const onboardingButton = event.target.closest("button[data-onboarding-action]");
+    if (onboardingButton) {
+      handleOnboardingAction(onboardingButton.dataset.onboardingAction);
+      return;
+    }
     const dailyButton = event.target.closest("button[data-claim-daily-goal]");
     if (dailyButton) {
       claimDailyGoal(dailyButton.dataset.claimDailyGoal);
@@ -2482,6 +2487,12 @@ els.vipPanel.addEventListener("click", (event) => {
     showToast("日常任务已刷新");
     renderAll();
     save();
+  });
+
+  if (els.questList) els.questList.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-onboarding-action]");
+    if (!button) return;
+    handleOnboardingAction(button.dataset.onboardingAction);
   });
 
   els.academyGrid.addEventListener("click", (event) => {
@@ -11760,6 +11771,29 @@ function showToast(text) {
   els.toast.classList.add("show");
   window.clearTimeout(toastTimer);
   toastTimer = window.setTimeout(() => els.toast.classList.remove("show"), 1800);
+}
+
+function goToPage(page) {
+  activePage = page;
+  renderPages();
+  renderActivePage();
+  renderFast(true);
+}
+
+function handleOnboardingAction(action) {
+  if (!action) return;
+  if (action === "skip-tutorial") {
+    const runtime = window.RuneFrontierOnboardingRuntime;
+    state.onboarding = runtime?.skipOnboarding ? runtime.skipOnboarding(state.onboarding) : { ...normalizeOnboarding(state.onboarding), skipped: true };
+    showToast("已跳过新手引导，目标手册仍会保留。");
+    save();
+    renderAll();
+    return;
+  }
+  if (action === "go-adventure") goToPage("adventure");
+  if (action === "go-tasks") goToPage("tasks");
+  if (action === "go-equipment") goToPage("equipment");
+  if (action === "go-smithy") goToPage("smithy");
 }
 
 // [AUTHORITY] equipment-runtime: 28 config tables exposed. Module-owned: itemFactory, itemStats, itemScore, itemNaming, dismantle, refine, starRefine, socket. Deferred: equipmentTiers, ITEM_TIER_CONFIG, salvageRewards (in game.js data section).
