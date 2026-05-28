@@ -155,6 +155,7 @@ assert.match(main, /installOnboardingGuideRuntime\(onboardingGuideContext\)/, 'O
 assert.match(taskPageSource, /renderOnboardingTaskSection/, 'Task page must render the beginner goal section.');
 assert.match(onboardingGuideSource, /renderQuestList/, 'Onboarding UI must own the adventure current-goal renderer.');
 assert.match(game, /handleOnboardingAction/, 'Classic runtime must handle onboarding action buttons.');
+assert.match(game, /completeOnboardingAction/, 'Onboarding action clicks must be able to complete click-only goals.');
 assert.match(styles, /\.onboarding-current-goal/, 'Onboarding current-goal styles must exist.');
 assert.match(main, /migrated:\s*\[[^\]]*'kill-and-boss-settlement'/s, 'Combat settlement migration status is incomplete.');
 assert.match(stateSurface, /loadGame/);
@@ -256,6 +257,40 @@ assert.equal(
   onboardingModule.getActiveTutorialStep({ onboarding: { skipped: true }, totalKills: 0 }),
   null,
   'Skipping tutorial should hide strong tutorial hints.'
+);
+
+assert.equal(typeof onboardingModule.completeOnboardingAction, 'function', 'Onboarding action completion helper must exist.');
+const finalOnboardingAction = onboardingModule.completeOnboardingAction(
+  { completedStepIds: ['grow_once'] },
+  { id: 'see_boss_goal', action: 'go-adventure' },
+  'go-adventure'
+);
+assert.equal(finalOnboardingAction.tutorialCompleted, true, 'Clicking the final Boss goal action must complete the tutorial.');
+assert.ok(
+  finalOnboardingAction.completedStepIds.includes('see_boss_goal'),
+  'Clicking the final Boss goal action must mark that goal complete.'
+);
+assert.equal(
+  onboardingModule.getCurrentOnboardingGoal({
+    totalKills: 35,
+    areaKills: 35,
+    quests: { completed: ['main_1_grass'] },
+    inventory: [{ id: 'starter', refine: 1 }],
+    equipped: { weapon: 'starter' },
+    onboarding: finalOnboardingAction,
+  }),
+  null,
+  'The final Boss goal must disappear after its action is clicked.'
+);
+const earlyOnboardingAction = onboardingModule.completeOnboardingAction(
+  onboardingModule.defaultOnboardingState(),
+  { id: 'grow_once', action: 'go-equipment' },
+  'go-equipment'
+);
+assert.equal(
+  earlyOnboardingAction.completedStepIds.includes('grow_once'),
+  false,
+  'Navigation alone must not complete progress-driven onboarding goals.'
 );
 
 const devBridgeModule = await importSource(devBridgeSource);

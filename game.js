@@ -12331,18 +12331,26 @@ function goToPage(page) {
 
 function handleOnboardingAction(action) {
   if (!action) return;
+  const runtime = window.RuneFrontierOnboardingRuntime;
   if (action === "skip-tutorial") {
-    const runtime = window.RuneFrontierOnboardingRuntime;
     state.onboarding = runtime?.skipOnboarding ? runtime.skipOnboarding(state.onboarding) : { ...normalizeOnboarding(state.onboarding), skipped: true };
     showToast("已跳过新手引导，目标手册仍会保留。");
     save();
     renderAll();
     return;
   }
+  const currentGoal = runtime?.getCurrentOnboardingGoal?.(state);
+  const nextOnboarding = runtime?.completeOnboardingAction?.(state.onboarding, currentGoal, action);
+  const onboardingChanged = nextOnboarding && nextOnboarding !== state.onboarding;
+  if (onboardingChanged) state.onboarding = nextOnboarding;
   if (action === "go-adventure") goToPage("adventure");
   if (action === "go-tasks") goToPage("tasks");
   if (action === "go-equipment") goToPage("equipment");
   if (action === "go-smithy") goToPage("smithy");
+  if (onboardingChanged) {
+    save();
+    renderAll();
+  }
 }
 
 // [AUTHORITY] equipment-runtime: 28 config tables exposed. Module-owned: itemFactory, itemStats, itemScore, itemNaming, dismantle, refine, starRefine, socket. Deferred: equipmentTiers, ITEM_TIER_CONFIG, salvageRewards (in game.js data section).
