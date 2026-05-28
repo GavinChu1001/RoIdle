@@ -6386,3 +6386,376 @@ button.pixel-button {
     width: 100%;
   }
 }
+
+/* RO pixel UI third slice: card album and adventurer codex */
+.page-view[data-view="cards"] > .panel-heading,
+.page-view[data-view="codex"] > .panel-heading {
+  position: relative;
+  align-items: center;
+  padding: 12px 14px;
+  border: 2px solid rgba(61, 37, 20, 0.5);
+  border-radius: 7px;
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 241, 199, 0.98), rgba(215, 164, 89, 0.9));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 248, 213, 0.62),
+    0 3px 0 rgba(62, 38, 21, 0.22);
+}
+
+.page-view[data-view="cards"] > .panel-heading::before,
+.page-view[data-view="codex"] > .panel-heading::before {
+  content: "";
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  margin-right: 10px;
+  border: 2px solid var(--ro-pixel-ink);
+  border-radius: 5px;
+  background:
+    url("assets/ui/slot-item.png") center / 100% 100% no-repeat,
+    #3b2b22;
+  image-rendering: pixelated;
+}
+
+.page-view[data-view="cards"] > .panel-heading::after {
+  content: "";
+  position: absolute;
+  left: 24px;
+  top: 22px;
+  width: 16px;
+  height: 16px;
+  background: url("assets/ui/badge-rarity.png") center / contain no-repeat;
+  image-rendering: pixelated;
+}
+
+.page-view[data-view="codex"] > .panel-heading::after {
+  content: "";
+  position: absolute;
+  left: 24px;
+  top: 22px;
+  width: 16px;
+  height: 16px;
+  background: url("assets/ui/icon-scroll.png") center / contain no-repeat;
+  image-rendering: pixelated;
+}
+
+.page-view[data-view="cards"] .panel-heading h2,
+.page-view[data-view="codex"] .panel-heading h2 {
+  margin: 0;
+  color: #321c10;
+  text-shadow: 0 1px 0 rgba(255, 238, 177, 0.82);
+}
+
+.card-list,
+#codexContent {
+  display: grid;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.card-type-section,
+.codex-collection-banner {
+  position: relative;
+  padding: 12px;
+  border: 2px solid rgba(61, 37, 20, 0.46);
+  border-radius: 7px;
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 244, 213, 0.96), rgba(228, 193, 132, 0.88));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 250, 221, 0.55),
+    0 3px 0 rgba(73, 44, 23, 0.16);
+}
+
+.card-type-section::before,
+.codex-collection-banner::before {
+  content: "";
+  position: absolute;
+  left: 11px;
+  right: 11px;
+  top: 7px;
+  height: 3px;
+  background: repeating-linear-gradient(90deg, rgba(105, 65, 30, 0.3) 0 7px, transparent 7px 10px);
+  pointer-events: none;
+}
+
+.card-type-section h3,
+.codex-collection-banner strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 0;
+  color: #362113;
+  font-weight: 950;
+  text-shadow: 0 1px 0 rgba(255, 238, 185, 0.75);
+}
+
+.card-type-section h3::before,
+.codex-collection-banner strong::before {
+  content: "";
+  width: 18px;
+  height: 18px;
+  background: url("assets/ui/badge-rarity.png") center / contain no-repeat;
+  image-rendering: pixelated;
+}
+
+.boss-card-synthesis {
+  background:
+    linear-gradient(135deg, rgba(95, 38, 42, 0.12), transparent 36%),
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 240, 203, 0.96), rgba(221, 178, 113, 0.9));
+}
+
+.boss-card-synthesis h3::before {
+  background-image: url("assets/ui/icon-boss.png");
+}
+
+.card-synthesis-grid,
+.card-type-section > div:not(.card-synthesis-grid),
+.codex-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+  align-items: start;
+}
+
+.card-item,
+.codex-card {
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+  padding: 11px;
+  border: 2px solid rgba(54, 32, 17, 0.46);
+  border-radius: 7px;
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 246, 219, 0.98), rgba(231, 199, 145, 0.9));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 250, 223, 0.55),
+    0 3px 0 rgba(73, 44, 23, 0.15);
+}
+
+.card-item::before,
+.codex-card::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  opacity: 0.65;
+  background: url("assets/ui/slot-item.png") center / 100% 100% no-repeat;
+  image-rendering: pixelated;
+}
+
+.card-item::after,
+.codex-card::after {
+  content: "";
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  width: 16px;
+  height: 16px;
+  opacity: 0.78;
+  background: url("assets/ui/badge-rarity.png") center / contain no-repeat;
+  image-rendering: pixelated;
+}
+
+.card-item.locked,
+.codex-card.locked {
+  filter: saturate(0.82);
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(244, 232, 204, 0.9), rgba(210, 188, 150, 0.82));
+}
+
+.card-name,
+.codex-head strong {
+  display: block;
+  padding-right: 36px;
+  color: #2f1d12;
+  font-size: 0.98rem;
+  font-weight: 950;
+  line-height: 1.25;
+  text-shadow: 0 1px 0 rgba(255, 239, 190, 0.7);
+}
+
+.card-meta,
+.codex-desc {
+  margin: 6px 0 0;
+  color: #5d3b22;
+  font-size: 0.82rem;
+  font-weight: 720;
+  line-height: 1.48;
+}
+
+.card-item button,
+.codex-card button,
+.codex-tab-btn {
+  min-height: 32px;
+  border: 2px solid var(--ro-pixel-ink);
+  border-radius: 5px;
+  background-image:
+    url("assets/ui/button-wood.png"),
+    linear-gradient(180deg, #dba054, #8d562d);
+  background-size: 32px 16px, auto;
+  color: #2e1b10;
+  font-weight: 900;
+  text-shadow: 0 1px 0 rgba(255, 230, 166, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 232, 154, 0.48),
+    0 2px 0 rgba(70, 43, 23, 0.2);
+  image-rendering: pixelated;
+}
+
+.card-item button {
+  margin-top: 8px;
+}
+
+.card-item button:disabled,
+.codex-card button:disabled {
+  filter: grayscale(0.55) saturate(0.65);
+  opacity: 0.62;
+}
+
+.favorite-button {
+  width: 34px;
+  min-width: 34px;
+  padding-inline: 0;
+}
+
+.codex-tabs {
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 8px !important;
+  margin: 10px 0 12px !important;
+  padding: 8px;
+  border: 2px solid rgba(60, 36, 20, 0.48);
+  border-radius: 7px;
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(99, 62, 32, 0.16), rgba(239, 207, 152, 0.9));
+  box-shadow: inset 0 0 0 1px rgba(255, 240, 194, 0.56);
+}
+
+.codex-tab-btn.active {
+  background-image:
+    url("assets/ui/button-wood.png"),
+    linear-gradient(180deg, #ffe08b 0%, #ba7736 100%);
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 247, 180, 0.32),
+    0 0 0 2px rgba(231, 188, 80, 0.28),
+    0 2px 0 rgba(71, 43, 22, 0.22);
+}
+
+.codex-collection-banner {
+  display: grid;
+  gap: 4px;
+}
+
+.codex-collection-banner small {
+  color: #704523;
+  font-weight: 800;
+}
+
+.codex-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding-right: 30px;
+}
+
+.codex-head small {
+  flex: 0 0 auto;
+  padding: 3px 6px;
+  border: 1px solid rgba(57, 35, 20, 0.35);
+  border-radius: 4px;
+  background: rgba(255, 236, 181, 0.76);
+  color: #4a2d19;
+  font-weight: 850;
+}
+
+.codex-milestones {
+  display: grid;
+  gap: 7px;
+  margin-top: 9px;
+}
+
+.codex-milestone {
+  display: grid;
+  grid-template-columns: minmax(78px, 0.42fr) minmax(0, 1fr) auto;
+  gap: 7px;
+  align-items: center;
+  padding: 7px;
+  border: 1px solid rgba(60, 37, 20, 0.28);
+  border-radius: 5px;
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 247, 220, 0.82), rgba(229, 195, 137, 0.72));
+}
+
+.codex-milestone small {
+  color: #3b2415;
+  font-weight: 900;
+}
+
+.codex-reward-items,
+.codex-reward-stats {
+  display: inline-block;
+  color: #5a3920;
+  font-size: 0.76rem;
+  font-weight: 780;
+  line-height: 1.42;
+}
+
+.codex-reward-stats {
+  color: #315f45;
+}
+
+@media (max-width: 900px) {
+  .card-synthesis-grid,
+  .card-type-section > div:not(.card-synthesis-grid),
+  .codex-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+
+  .codex-milestone {
+    grid-template-columns: 1fr;
+  }
+
+  .codex-milestone button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .page-view[data-view="cards"] > .panel-heading,
+  .page-view[data-view="codex"] > .panel-heading {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 8px;
+  }
+
+  .card-synthesis-grid,
+  .card-type-section > div:not(.card-synthesis-grid),
+  .codex-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .codex-tabs {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+  }
+
+  .codex-tab-btn {
+    flex: 0 0 auto;
+  }
+
+  .card-item,
+  .codex-card,
+  .card-type-section {
+    padding: 9px;
+  }
+}
