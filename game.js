@@ -10035,12 +10035,7 @@ function spriteCandidates(src) {
 }
 
 function classImageCandidates(jobId) {
-  const base = `assets/images/classes/${jobId}`;
-  const legacy = `assets/job-sprites/${jobId}`;
-  return [
-    ...imageExtensions.map((ext) => `${base}.${ext}`),
-    ...imageExtensions.map((ext) => `${legacy}.${ext}`),
-  ];
+  return [jobSpriteSources[jobId] || `assets/images/classes/${jobId}.png`];
 }
 
 function imageCandidates(src) {
@@ -10064,7 +10059,7 @@ function itemImageCandidates(item) {
 }
 
 function imageBackgroundList(candidates) {
-  return candidates.map((src) => `url("${escapeAttr(src)}")`).join(", ");
+  return candidates.map((src) => `url('${escapeAttr(src)}')`).join(", ");
 }
 
 function drawEnemy(ctx, x, y, scale, time) {
