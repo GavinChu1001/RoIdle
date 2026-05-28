@@ -37,6 +37,7 @@ const normalCombatSource = read('src/systems/combat/normalCombat.js');
 const encounterSource = read('src/systems/combat/encounter.js');
 const taskPageSource = read('src/ui/taskPage.js');
 const cardPageSource = read('src/ui/cardPage.js');
+const onboardingSource = read('src/systems/onboarding.js');
 
 const classicDataContext = { console };
 createContext(classicDataContext);
@@ -187,6 +188,56 @@ assert.match(game, /estimateGoldPerSecond\(stats\)/, 'Fast HUD updates must reus
 assert.match(game, /activePage\s*===\s*"adventure"[\s\S]*drawScene\(now\s*\/\s*1000\)/, 'Hidden pages must not continue drawing the battle canvas.');
 assert.match(game, /runtime\.normalizeDamage/, 'Damage normalization must forward to the combat runtime.');
 assert.equal((game.match(/requestAnimationFrame\(loop\);/g) || []).length, 2, 'Loop registration shape changed unexpectedly.');
+
+const onboardingModule = await importSource(onboardingSource);
+assert.deepEqual(onboardingModule.defaultOnboardingState(), {
+  version: 1,
+  tutorialCompleted: false,
+  skipped: false,
+  currentStepId: 'welcome',
+  completedStepIds: [],
+  dismissedHintIds: [],
+}, 'Default onboarding state changed.');
+
+assert.deepEqual(
+  onboardingModule.normalizeOnboarding({ skipped: true, completedStepIds: ['welcome', 'welcome', 7] }),
+  {
+    version: 1,
+    tutorialCompleted: false,
+    skipped: true,
+    currentStepId: 'welcome',
+    completedStepIds: ['welcome'],
+    dismissedHintIds: [],
+  },
+  'Onboarding normalization must preserve valid flags and dedupe valid ids.'
+);
+
+const freshGoal = onboardingModule.getCurrentOnboardingGoal({ totalKills: 0, areaKills: 0, quests: { completed: [] }, inventory: [], equipped: {} });
+assert.equal(freshGoal.id, 'start_adventure', 'Fresh saves should start with the adventure goal.');
+
+const rewardGoal = onboardingModule.getCurrentOnboardingGoal({
+  totalKills: 3,
+  areaKills: 3,
+  quests: { active: [{ id: 'main_1_grass', claimed: false }], completed: [] },
+  inventory: [],
+  equipped: {},
+});
+assert.equal(rewardGoal.id, 'claim_first_reward', 'After first kills, the next onboarding goal should be claiming a reward.');
+
+const grownGoal = onboardingModule.getCurrentOnboardingGoal({
+  totalKills: 35,
+  areaKills: 35,
+  quests: { completed: ['main_1_grass'] },
+  inventory: [{ id: 'starter', refine: 1 }],
+  equipped: { weapon: 'starter' },
+});
+assert.equal(grownGoal.id, 'see_boss_goal', 'After one growth action, the guide should point back to Boss progress.');
+
+assert.equal(
+  onboardingModule.getActiveTutorialStep({ onboarding: { skipped: true }, totalKills: 0 }),
+  null,
+  'Skipping tutorial should hide strong tutorial hints.'
+);
 
 const devBridgeModule = await importSource(devBridgeSource);
 const priorWindow = globalThis.window;
