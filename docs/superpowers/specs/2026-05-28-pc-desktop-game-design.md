@@ -1,180 +1,180 @@
-# Rune Frontier Idle PC Desktop Game Design
+# Rune Frontier Idle PC 桌面版设计
 
-Date: 2026-05-28
+日期：2026-05-28
 
-## Decision
+## 决策
 
-Rune Frontier Idle will pursue a complete Windows PC desktop edition first.
+Rune Frontier Idle 优先推进完整的 Windows PC 桌面版。
 
-The target is not a simple browser wrapper. The desktop edition should feel like a full PC idle RPG client: downloadable, playable offline, visually upgraded for desktop screens, and ready for later distribution through channels such as itch.io or Steam.
+目标不是简单把网页套进一个窗口，而是做成一个真正的 PC 放置 RPG 客户端：可下载、可离线游玩、针对桌面屏幕升级视觉表现，并为后续上架 itch.io、Steam 等平台做好准备。
 
-## Goals
+## 目标
 
-- Ship a Windows-first desktop game build.
-- Preserve the current idle RPG core: combat, progression, equipment, drops, offline rewards, quests, and long-term character growth.
-- Support dual-track saves: local offline play first, optional login-based cloud sync second.
-- Upgrade the experience for PC: desktop layout, richer information density, keyboard shortcuts, better window behavior, and stronger combat presentation.
-- Keep the existing Web version working while the PC edition is built.
+- 首先交付 Windows 桌面游戏版本。
+- 保留当前放置 RPG 核心：战斗、成长、装备、掉落、离线收益、任务和长期角色养成。
+- 支持双轨存档：本地离线游玩优先，登录后再进行可选云同步。
+- 升级 PC 体验：桌面布局、更高信息密度、快捷键、更好的窗口行为、更强的战斗表现。
+- PC 版开发期间，保持现有 Web 版继续可用。
 
-## Non-Goals
+## 非目标
 
-- No Godot, Unity, or full engine rewrite for the first PC edition.
-- No macOS or Linux support in the first release.
-- No mandatory always-online requirement.
-- No Steamworks-specific features in the first implementation. Achievements, cloud saves, and trading cards can be designed later.
-- No full combat art overhaul before the desktop shell and save system are stable.
+- 第一版 PC 客户端不使用 Godot、Unity，也不做完整引擎重写。
+- 第一版不支持 macOS 或 Linux。
+- 不要求玩家必须全程联网。
+- 第一版不接入 Steamworks 专属能力。成就、Steam 云存档、集换式卡牌等可以后续单独设计。
+- 在桌面壳和存档系统稳定前，不做完整战斗美术大改。
 
-## Recommended Approach
+## 推荐方案
 
-Use Electron for the first Windows desktop edition.
+第一版 Windows 桌面端使用 Electron。
 
-Electron gives the project the highest reuse of the existing HTML, CSS, JavaScript, Canvas, Node-based tooling, and current server API shape. Its larger package size is acceptable for a PC idle RPG, and it avoids the large migration cost of rewriting all UI and runtime logic into a traditional game engine.
+Electron 能最大化复用现有 HTML、CSS、JavaScript、Canvas、Node 工具链和当前服务端 API 形态。它的安装包体积会比原生方案大一些，但对 PC 放置 RPG 是可以接受的，也能避开把 UI 和运行时逻辑整体重写到传统游戏引擎里的巨大迁移成本。
 
-Tauri remains a possible later optimization if package size and runtime footprint become a major concern. Godot or Unity should be treated as a future 2.0 direction only if the game evolves toward map movement, heavy animation, entity physics, or a much more traditional RPG presentation.
+Tauri 可以作为后续优化方向。如果未来安装包大小、内存占用或运行时体积成为明显问题，再评估迁移。Godot 或 Unity 更适合作为未来 2.0 路线，前提是游戏发展到需要地图移动、大量动画、实体物理或更传统 RPG 表现。
 
-## Architecture
+## 架构
 
-The PC edition should add a desktop shell while preserving the existing game runtime.
+PC 版在保留现有游戏运行时的基础上，新增一个桌面壳。
 
 ```text
 desktop/
-  electron main process
-  preload bridge
-  desktop filesystem save adapter
-  window/menu/tray/update hooks
+  Electron 主进程
+  preload 桥接层
+  桌面文件存档适配器
+  窗口 / 菜单 / 托盘 / 更新预留
 
 src/platform/
-  browser adapter
-  desktop adapter
-  shared platform contract
+  浏览器适配器
+  桌面适配器
+  共享平台接口
 
-existing web runtime
-  game UI
-  Canvas combat scene
-  systems and data modules
+现有 Web 运行时
+  游戏 UI
+  Canvas 战斗场景
+  系统模块和数据模块
 
-server.js / future backend
-  optional cloud save
-  account login
-  sync endpoints
+server.js / 未来后端
+  可选云存档
+  账号登录
+  同步接口
 ```
 
-The platform layer should stay narrow. It should abstract storage, HTTP, dialogs/toasts, lifecycle events, filesystem access for desktop saves, and environment detection. It should not try to abstract all rendering.
+平台层要保持窄边界。它只抽象存储、HTTP、弹窗/提示、生命周期、桌面文件访问和环境识别，不抽象全部渲染层。
 
-## Save Model
+## 存档模型
 
-The desktop edition uses local save as the primary authority.
+桌面版以本地存档作为第一权威。
 
-Local saves should be stored as versioned JSON files in the user data directory through the desktop platform adapter. The game should autosave regularly and also save on quit. A visible manual export/import path should remain available for safety.
+本地存档通过桌面平台适配器保存为用户数据目录中的版本化 JSON 文件。游戏需要定期自动保存，并在退出时保存。为了安全，仍然保留可见的手动导入/导出入口。
 
-When the player logs in, the client can sync with the existing or upgraded server. The first sync implementation should avoid clever merging. If local and cloud saves differ, show a conflict choice:
+玩家登录后，客户端可以和现有或升级后的服务端同步。第一版同步不要做复杂智能合并。如果本地和云端存档不一致，展示冲突选择：
 
-- keep local save and upload it
-- use cloud save and replace local
-- keep both by exporting one backup before replacing
+- 保留本地存档，并上传覆盖云端。
+- 使用云端存档，并替换本地。
+- 替换前先导出备份，从而保留两份存档。
 
-Later versions can add smarter merge behavior for offline rewards or account-bound progression.
+后续版本可以再加入更智能的合并，例如离线收益合并或账号绑定进度合并。
 
-## Desktop Experience
+## 桌面体验
 
-The first desktop layout should be designed around a landscape window, not a mobile-style stacked page.
+第一版桌面布局应围绕横向窗口设计，而不是沿用移动端式纵向堆叠页面。
 
-Recommended default layout:
+推荐默认布局：
 
-- left navigation rail for major systems
-- center area for combat/adventure and the currently active workflow
-- right side panel for character summary, rewards, timers, and logs
-- bottom or compact toolbar for quick actions, save/sync status, settings, and build/version info
+- 左侧导航栏：承载主要系统入口。
+- 中央区域：显示战斗/冒险，以及当前主操作流程。
+- 右侧信息栏：显示角色摘要、收益、计时器和日志。
+- 底部或紧凑工具栏：放置快捷操作、保存/同步状态、设置和版本信息。
 
-The client should support common PC expectations:
+客户端应支持常见 PC 预期：
 
-- remembered window size
-- fullscreen or borderless fullscreen option
-- keyboard shortcuts for major tabs and common actions
-- readable dense panels for long sessions
-- clear save/sync indicators
-- audio and performance settings
+- 记住窗口大小。
+- 支持全屏或无边框全屏。
+- 主要标签页和常用操作支持键盘快捷键。
+- 长时间游玩时，面板信息清晰且密度合理。
+- 明确展示保存和同步状态。
+- 提供音频和性能设置。
 
-## Visual Upgrade Plan
+## 视觉升级计划
 
-Visual work should be split into two phases.
+视觉工作分两阶段推进。
 
-Phase A: UI clientization.
+阶段 A：UI 客户端化。
 
-Refresh the current pixel-style Web UI into a desktop client interface. This includes layout, panels, buttons, typography scale, hover/active feedback, modal behavior, tab navigation, and information density. The existing art direction can remain, but the game should stop feeling like a responsive web page.
+把当前像素风 Web UI 刷新成桌面客户端界面。范围包括布局、面板、按钮、字体层级、悬停/按下反馈、弹窗行为、标签导航和信息密度。现有美术方向可以保留，但整体感受要从“响应式网页”转向“PC 游戏客户端”。
 
-Phase B: combat presentation.
+阶段 B：战斗表现升级。
 
-Upgrade the Canvas battle scene after the desktop shell is stable. Improvements should focus on layered backgrounds, player and monster presentation, attack timing, skill effects, damage numbers, status feedback, and smoother idle/combat animation. This phase should reuse the existing combat logic and only improve presentation.
+桌面壳稳定后，再升级 Canvas 战斗场景。重点是分层背景、玩家和怪物表现、攻击节奏、技能特效、伤害数字、状态反馈，以及更顺滑的待机/战斗动画。这个阶段复用现有战斗逻辑，只提升表现层。
 
-## Data Flow
+## 数据流
 
-At runtime:
+运行时流程：
 
-1. The Electron main process owns desktop-only capabilities such as filesystem paths, native menus, and window lifecycle.
-2. The preload bridge exposes a minimal safe API to the game runtime.
-3. The game runtime calls the platform adapter for storage, dialogs, lifecycle, and HTTP.
-4. The desktop storage adapter reads/writes local save files.
-5. If the player logs in, the HTTP adapter syncs saves with the backend.
+1. Electron 主进程负责桌面专属能力，例如文件系统路径、原生菜单和窗口生命周期。
+2. preload 桥接层向游戏运行时暴露最小安全 API。
+3. 游戏运行时通过平台适配器调用存储、弹窗、生命周期和 HTTP。
+4. 桌面存储适配器读写本地存档文件。
+5. 玩家登录后，HTTP 适配器负责和后端同步存档。
 
-The game systems should continue moving toward pure modules with no direct DOM, browser, Electron, or server dependencies.
+游戏系统模块应继续向纯模块方向迁移，不直接依赖 DOM、浏览器、Electron 或服务端。
 
-## Backend Direction
+## 后端方向
 
-The first PC version can reuse the current backend API shape where practical, but the long-term target should be stronger persistence than `users.json`.
+第一版 PC 版可以尽量复用当前后端 API 形态，但长期目标应从 `users.json` 升级到更可靠的持久化方案。
 
-Recommended path:
+推荐路径：
 
-- keep Web compatibility
-- add desktop-aware login and save sync flows
-- migrate persistence to SQLite or PostgreSQL before public distribution
-- keep account sync optional so the game remains playable offline
+- 保持 Web 版兼容。
+- 增加桌面端可用的登录和存档同步流程。
+- 在公开发行前，把持久化迁移到 SQLite 或 PostgreSQL。
+- 保持账号同步为可选能力，让游戏离线时仍可游玩。
 
-## Testing And Verification
+## 测试与验证
 
-Each implementation phase should preserve:
+每个实施阶段都应保持以下检查：
 
 - `npm run check`
 - `npm test`
-- manual Web smoke test
-- manual desktop smoke test once Electron exists
+- Web 版手动冒烟测试
+- Electron 出现后，增加桌面版手动冒烟测试
 
-Desktop-specific checks should include:
+桌面专项检查：
 
-- first launch creates a local save location
-- autosave survives app restart
-- save import/export works
-- offline progress settles correctly after app close and reopen
-- login sync can upload and download saves
-- conflict handling never silently overwrites a newer local save
-- window resize and fullscreen do not break the main layout
+- 首次启动能创建本地存档位置。
+- 自动存档能在重启后恢复。
+- 存档导入/导出可用。
+- 关闭并重新打开客户端后，离线进度结算正确。
+- 登录同步可以上传和下载存档。
+- 存档冲突处理不会静默覆盖更新的本地存档。
+- 窗口缩放和全屏不会破坏主界面布局。
 
-## Milestones
+## 里程碑
 
-1. Desktop shell prototype: Electron launches the current game in a Windows window.
-2. Platform adapter split: browser and desktop storage paths are separated.
-3. Local desktop save: local JSON save, autosave, import/export, restart recovery.
-4. Cloud sync: optional login, upload/download, conflict flow.
-5. PC UI refresh: desktop layout for core gameplay pages.
-6. Combat visual upgrade: richer Canvas presentation without changing combat rules.
-7. Windows release package: icon, versioning, installer or portable build, release checklist.
+1. 桌面壳原型：Electron 能在 Windows 窗口中启动当前游戏。
+2. 平台适配器拆分：浏览器和桌面存储路径分离。
+3. 本地桌面存档：JSON 本地存档、自动保存、导入/导出、重启恢复。
+4. 云同步：可选登录、上传/下载、冲突处理。
+5. PC UI 刷新：核心玩法页面采用桌面布局。
+6. 战斗视觉升级：在不改变战斗规则的前提下增强 Canvas 表现。
+7. Windows 发行包：图标、版本号、安装包或便携包、发布检查清单。
 
-## Risks
+## 风险
 
-- The monolithic `game.js` and heavy `window` usage can slow platform separation.
-- Save sync can damage player trust if conflict handling is unclear.
-- Visual refresh can expand endlessly unless it is split into UI first and combat second.
-- Electron package size is larger than native alternatives, but acceptable for first release.
-- Public distribution will require better persistence, backup, and release discipline than the current hobby server setup.
+- `game.js` 体量较大，且大量使用 `window`，会拖慢平台分离。
+- 存档同步如果冲突处理不清晰，会伤害玩家信任。
+- 视觉刷新很容易膨胀，所以必须先 UI 客户端化，再做战斗表现升级。
+- Electron 包体积比原生方案大，但第一版可以接受。
+- 公开发行会要求比当前个人项目更严格的持久化、备份和发布纪律。
 
-## First Implementation Slice
+## 第一实施切片
 
-The first build slice should be small:
+第一步要保持很小：
 
-1. Add an Electron shell that can open the existing game locally.
-2. Add a desktop platform adapter skeleton.
-3. Route save loading/saving through the adapter without changing game behavior.
-4. Verify Web still works.
-5. Verify Windows desktop restart preserves progress.
+1. 新增 Electron 壳，能在本地打开现有游戏。
+2. 新增桌面平台适配器骨架。
+3. 把存档加载/保存切到适配器路径，但不改变游戏行为。
+4. 验证 Web 版仍然可用。
+5. 验证 Windows 桌面版重启后能保留进度。
 
-This creates a playable foundation before any large visual redesign begins.
+这能先建立一个可玩的桌面基础，再开始任何大规模视觉重做。
