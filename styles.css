@@ -9932,3 +9932,273 @@ details > summary::marker {
   color: #7a4a1c;
   font-weight: 700;
 }
+
+/* RO pixel UI batch 16: map-stage combat feedback */
+.scene-wrap {
+  isolation: isolate;
+}
+
+.damage-float.damage-number {
+  z-index: 9;
+  max-width: min(260px, 44vw);
+  padding: 1px 5px 2px;
+  border-radius: 3px;
+  color: #fff4cf;
+  font-size: 1.08rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-text-stroke: 0.35px rgba(46, 24, 12, 0.96);
+  text-shadow:
+    1px 0 0 rgba(46, 24, 12, 0.96),
+    -1px 0 0 rgba(46, 24, 12, 0.96),
+    0 1px 0 rgba(46, 24, 12, 0.96),
+    0 -1px 0 rgba(46, 24, 12, 0.96),
+    0 2px 0 rgba(24, 13, 7, 0.68),
+    0 0 8px rgba(255, 216, 112, 0.32);
+  transform: translate(-50%, -50%);
+  animation: roDamageFloat 920ms cubic-bezier(0.16, 0.78, 0.27, 1) forwards;
+}
+
+.damage-float.damage-normal {
+  color: #fff2c6;
+}
+
+.damage-float.damage-boss {
+  color: #ffe18e;
+  font-size: 1.18rem;
+  text-shadow:
+    1px 0 0 rgba(55, 26, 10, 0.98),
+    -1px 0 0 rgba(55, 26, 10, 0.98),
+    0 1px 0 rgba(55, 26, 10, 0.98),
+    0 -1px 0 rgba(55, 26, 10, 0.98),
+    0 0 10px rgba(255, 188, 64, 0.62);
+}
+
+.damage-float.damage-player {
+  color: #ff715c;
+  text-shadow:
+    1px 0 0 rgba(62, 15, 10, 0.98),
+    -1px 0 0 rgba(62, 15, 10, 0.98),
+    0 1px 0 rgba(62, 15, 10, 0.98),
+    0 -1px 0 rgba(62, 15, 10, 0.98),
+    0 0 9px rgba(255, 95, 70, 0.42);
+}
+
+.damage-float.damage-crit {
+  color: #ff4a1f;
+  font-size: 1.42rem;
+  text-shadow:
+    1px 0 0 rgba(74, 22, 6, 0.98),
+    -1px 0 0 rgba(74, 22, 6, 0.98),
+    0 1px 0 rgba(74, 22, 6, 0.98),
+    0 -1px 0 rgba(74, 22, 6, 0.98),
+    0 2px 0 rgba(31, 11, 5, 0.72),
+    0 0 13px rgba(255, 112, 44, 0.72);
+  animation: roDamageFloat 980ms cubic-bezier(0.12, 0.82, 0.25, 1) forwards, roCritPop 260ms steps(2, end);
+}
+
+.damage-float.damage-skill {
+  color: #fff0a6;
+  font-size: 1.16rem;
+  text-shadow:
+    1px 0 0 rgba(38, 26, 16, 0.98),
+    -1px 0 0 rgba(38, 26, 16, 0.98),
+    0 1px 0 rgba(38, 26, 16, 0.98),
+    0 -1px 0 rgba(38, 26, 16, 0.98),
+    0 0 10px rgba(255, 222, 111, 0.5);
+}
+
+.damage-float.damage-tone-fire { color: #ffb25b; }
+.damage-float.damage-tone-ice { color: #bfeeff; }
+.damage-float.damage-tone-shadow { color: #d8c0ff; }
+.damage-float.damage-tone-holy { color: #fff8cf; }
+.damage-float.damage-tone-storm { color: #cce0ff; }
+.damage-float.damage-tone-support { color: #bdf5b8; }
+
+.damage-float.damage-miss {
+  color: #d9e0e7;
+  font-size: 0.98rem;
+}
+
+.damage-float.damage-heal {
+  color: #7ee287;
+  text-shadow:
+    1px 0 0 rgba(17, 63, 32, 0.95),
+    -1px 0 0 rgba(17, 63, 32, 0.95),
+    0 1px 0 rgba(17, 63, 32, 0.95),
+    0 -1px 0 rgba(17, 63, 32, 0.95),
+    0 0 8px rgba(90, 230, 116, 0.46);
+}
+
+.combat-impact {
+  position: absolute;
+  z-index: 6;
+  pointer-events: none;
+  image-rendering: pixelated;
+  transform: translate(-50%, -50%);
+}
+
+.combat-impact-strike {
+  width: 92px;
+  height: 20px;
+  border-top: 6px solid rgba(255, 246, 205, 0.96);
+  border-bottom: 3px solid rgba(255, 187, 75, 0.92);
+  box-shadow: 0 0 10px rgba(255, 221, 111, 0.64);
+  animation: roStrikeFlash 420ms steps(3, end) forwards;
+}
+
+.combat-impact-crit {
+  width: 88px;
+  height: 88px;
+  background:
+    radial-gradient(circle, rgba(255, 251, 214, 0.95) 0 12%, transparent 13%),
+    repeating-conic-gradient(from 0deg, rgba(255, 80, 34, 0.9) 0 9deg, transparent 9deg 24deg);
+  filter: drop-shadow(0 0 12px rgba(255, 96, 42, 0.58));
+  animation: roCritBurst 560ms steps(4, end) forwards;
+}
+
+.combat-impact-skill {
+  width: 126px;
+  height: 88px;
+  border: 2px solid rgba(255, 236, 154, 0.86);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, rgba(255, 248, 204, 0.64) 0 10%, transparent 11%),
+    repeating-conic-gradient(from 0deg, rgba(255, 230, 128, 0.48) 0 8deg, transparent 8deg 22deg);
+  box-shadow: 0 0 16px rgba(255, 221, 111, 0.42);
+  animation: roSkillRing 720ms cubic-bezier(0.15, 0.78, 0.27, 1) forwards;
+}
+
+.combat-impact-player-hit {
+  width: 72px;
+  height: 58px;
+  background:
+    linear-gradient(24deg, transparent 0 41%, rgba(255, 240, 218, 0.9) 42% 48%, rgba(255, 91, 63, 0.82) 49% 56%, transparent 57%),
+    linear-gradient(-28deg, transparent 0 39%, rgba(255, 188, 140, 0.82) 40% 50%, transparent 51%);
+  animation: roPlayerHit 420ms steps(3, end) forwards;
+}
+
+.combat-impact-tone-fire {
+  border-color: rgba(255, 178, 91, 0.9);
+  box-shadow: 0 0 18px rgba(255, 105, 54, 0.45);
+}
+
+.combat-impact-tone-ice {
+  border-color: rgba(177, 237, 255, 0.9);
+  box-shadow: 0 0 18px rgba(104, 185, 255, 0.42);
+}
+
+.combat-impact-tone-shadow {
+  border-color: rgba(210, 180, 255, 0.88);
+  box-shadow: 0 0 18px rgba(119, 76, 185, 0.48);
+}
+
+.combat-impact-tone-holy,
+.combat-impact-tone-support {
+  border-color: rgba(255, 250, 198, 0.92);
+  box-shadow: 0 0 18px rgba(255, 240, 150, 0.48);
+}
+
+.combat-impact-tone-storm {
+  border-color: rgba(191, 218, 255, 0.9);
+  box-shadow: 0 0 18px rgba(120, 158, 255, 0.45);
+}
+
+.skill-cast-feedback {
+  z-index: 8;
+  border-radius: 4px;
+  background:
+    linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px),
+    rgba(38, 29, 23, 0.78);
+  background-size: 4px 4px, 4px 4px, auto;
+  color: #fff2ba;
+  -webkit-text-stroke: 0.25px rgba(49, 23, 8, 0.92);
+  text-shadow:
+    1px 0 0 rgba(49, 23, 8, 0.9),
+    -1px 0 0 rgba(49, 23, 8, 0.9),
+    0 1px 0 rgba(49, 23, 8, 0.9),
+    0 -1px 0 rgba(49, 23, 8, 0.9),
+    0 0 9px rgba(255, 216, 112, 0.36);
+}
+
+.skill-cast-feedback-fire { color: #ffd09a; }
+.skill-cast-feedback-ice { color: #d6f5ff; }
+.skill-cast-feedback-shadow { color: #e4d0ff; }
+.skill-cast-feedback-holy { color: #fffbd4; }
+.skill-cast-feedback-storm { color: #d7e6ff; }
+.skill-cast-feedback-support { color: #d6ffd2; }
+
+@keyframes roDamageFloat {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -16%) scale(0.82);
+  }
+  16% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  76% {
+    opacity: 0.92;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -126%) scale(1.04);
+  }
+}
+
+@keyframes roCritPop {
+  0% { filter: brightness(1.35); }
+  100% { filter: brightness(1); }
+}
+
+@keyframes roStrikeFlash {
+  0% { opacity: 0; transform: translate(-50%, -50%) rotate(-18deg) scaleX(0.45); }
+  38% { opacity: 1; transform: translate(-50%, -50%) rotate(-18deg) scaleX(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) rotate(-18deg) scaleX(1.12); }
+}
+
+@keyframes roCritBurst {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.35) rotate(0deg); }
+  42% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(8deg); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.2) rotate(18deg); }
+}
+
+@keyframes roSkillRing {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.42); }
+  34% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.18); }
+}
+
+@keyframes roPlayerHit {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.68); }
+  35% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.08); }
+}
+
+@media (max-width: 640px) {
+  .damage-float.damage-number {
+    max-width: min(210px, 52vw);
+    font-size: 0.98rem;
+  }
+
+  .damage-float.damage-crit {
+    font-size: 1.22rem;
+  }
+
+  .combat-impact-skill {
+    width: 104px;
+    height: 74px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .combat-impact,
+  .damage-float.damage-number {
+    animation-duration: 1ms !important;
+  }
+}
