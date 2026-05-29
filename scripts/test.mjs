@@ -1370,6 +1370,107 @@ const recentView = lootModel.getLatestRecentLootRewards({
 }, lootModelContext);
 assert.equal(recentView.equipment[0].id, 'latest', 'Latest-loot view must not be replaced by stale batches.');
 
+const mvpDataSource = read('src/systems/mvpInscription/mvpInscriptionData.js');
+const mvpSystemSource = read('src/systems/mvpInscription/mvpInscriptionSystem.js');
+const mvpDataModuleUrl = `data:text/javascript;base64,${Buffer.from(mvpDataSource).toString('base64')}`;
+const mvpSystemStandaloneSource = mvpSystemSource.replace(/from\s+['"]\.\/mvpInscriptionData\.js['"]/g, `from '${mvpDataModuleUrl}'`);
+const mvp = await importSource(mvpSystemStandaloneSource);
+
+const defaultMark = mvp.defaultMvpInscription(() => 1234);
+assert.equal(defaultMark.level, 1, 'New MVP inscription state should start at level 1.');
+assert.equal(defaultMark.exp, 0, 'New MVP inscription state should start with no current exp.');
+assert.deepEqual(defaultMark.unlockedMarks, ['kingPoring'], 'New MVP inscription state should unlock King Poring first.');
+assert.equal(defaultMark.lastOnlineTickAt, 1234, 'New MVP inscription state should keep the provided timestamp.');
+
+const normalizedMark = mvp.normalizeMvpInscription({
+  level: 999,
+  exp: -5,
+  totalExp: -10,
+  breakthroughLevel: 999,
+  unlockedMarks: [],
+  bossFirstExpClaims: null,
+}, () => 2000);
+assert.equal(normalizedMark.level, 100, 'MVP inscription level must clamp to 100.');
+assert.equal(normalizedMark.exp, 0, 'MVP inscription exp must not be negative.');
+assert.equal(normalizedMark.totalExp, 0, 'MVP inscription total exp must not be negative.');
+assert.equal(normalizedMark.breakthroughLevel, 90, 'MVP breakthrough progress must not exceed the level band.');
+assert.deepEqual(normalizedMark.unlockedMarks, ['kingPoring'], 'MVP inscription should repair missing unlocked marks.');
+
+assert.equal(mvp.getMvpInscriptionStage(1).id, 'kingPoring', 'Lv1 should be King Poring inscription.');
+assert.equal(mvp.getMvpInscriptionStage(84).id, 'darkLord', 'Lv84 should be Dark Lord inscription.');
+assert.equal(mvp.getMvpInscriptionStage(100).id, 'baphomet', 'Lv100 should be Baphomet inscription.');
+assert.equal(mvp.getMvpInscriptionLevelRequirement(1), 120, 'Lv1 inscription requirement changed.');
+
+const blockedAtBreakthrough = mvp.normalizeMvpInscription({ level: 10, exp: 0, breakthroughLevel: 0 }, () => 0);
+const blockedGain = mvp.addMvpInscriptionExp(blockedAtBreakthrough, 999999);
+assert.equal(blockedGain.blocked, true, 'MVP inscription must block at unbroken level 10.');
+assert.equal(blockedAtBreakthrough.level, 10, 'Blocked MVP inscription must not cross level 10.');
+
+const breakthroughReady = mvp.normalizeMvpInscription({ level: 10, exp: 0, breakthroughLevel: 10 }, () => 0);
+const unblockedGain = mvp.addMvpInscriptionExp(breakthroughReady, 999999);
+assert.equal(unblockedGain.blocked, false, 'Completed breakthrough should allow MVP inscription leveling.');
+assert.ok(breakthroughReady.level > 10, 'Completed breakthrough should allow crossing level 10.');
+
+assert.equal(
+  mvp.calculateMvpInscriptionOnlinePerMinute({ mapIndex: 2, difficulty: 'hard', rebirths: 3 }),
+  13.752,
+  'Foreground MVP inscription rate should use map, difficulty, and rebirth multipliers.',
+);
+
+assert.equal(
+  mvp.isMvpInscriptionMonsterEffective({ heroLevel: 80, monsterLevel: 55, currentMapIndex: 4, bestMapIndex: 4, isBoss: false, firstBossClear: false }),
+  true,
+  'Monster exactly 25 levels lower should still give MVP inscription exp.',
+);
+assert.equal(
+  mvp.isMvpInscriptionMonsterEffective({ heroLevel: 81, monsterLevel: 55, currentMapIndex: 4, bestMapIndex: 4, isBoss: false, firstBossClear: false }),
+  false,
+  'Monster more than 25 levels lower should not give MVP inscription exp.',
+);
+assert.equal(
+  mvp.isMvpInscriptionMonsterEffective({ heroLevel: 80, monsterLevel: 5, currentMapIndex: 1, bestMapIndex: 4, isBoss: false, firstBossClear: false }),
+  false,
+  'Normal monsters more than two maps behind best map should not give MVP inscription exp.',
+);
+assert.equal(
+  mvp.isMvpInscriptionMonsterEffective({ heroLevel: 99, monsterLevel: 1, currentMapIndex: 0, bestMapIndex: 9, isBoss: true, firstBossClear: true }),
+  true,
+  'Boss first clear should always be eligible for one MVP inscription reward.',
+);
+
+assert.equal(
+  mvp.calculateMvpInscriptionMonsterExp({
+    monster: { level: 40, type: 'normal' },
+    heroLevel: 50,
+    currentMapIndex: 3,
+    bestMapIndex: 3,
+    difficulty: 'normal',
+    isBoss: false,
+    isMutated: false,
+    firstBossClear: false,
+  }),
+  0.218,
+  'Normal monster MVP inscription exp should include map multiplier.',
+);
+assert.equal(
+  mvp.calculateMvpInscriptionMonsterExp({
+    monster: { level: 1, type: 'normal' },
+    heroLevel: 60,
+    currentMapIndex: 0,
+    bestMapIndex: 5,
+    difficulty: 'normal',
+    isBoss: false,
+    isMutated: false,
+    firstBossClear: false,
+  }),
+  0,
+  'Invalid low-level monsters should grant no MVP inscription exp.',
+);
+
+const darkLordBonuses = mvp.getMvpInscriptionBonuses({ level: 84, breakthroughLevel: 80 });
+assert.ok(darkLordBonuses.hpPct > 0, 'MVP inscription should grant per-level HP.');
+assert.ok(darkLordBonuses.skillDamageBonus > 0 || darkLordBonuses.matkPct > 0, 'Dark Lord breakthrough should grant offensive magic bonuses.');
+
 const offline = await importSource(offlineSource);
 assert.match(offlineSource, /claimOffline:\s*claimOfflineRewards/, 'Legacy Offline claim alias must remain available.');
 assert.match(offlineSource, /rollOfflineEquipmentDrops,/, 'Legacy Offline roll aliases must remain available.');
