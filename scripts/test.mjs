@@ -1467,9 +1467,10 @@ assert.equal(
   'Invalid low-level monsters should grant no MVP inscription exp.',
 );
 
-const darkLordBonuses = mvp.getMvpInscriptionBonuses({ level: 84, breakthroughLevel: 80 });
+const darkLordBonuses = mvp.getMvpInscriptionBonuses({ level: 90, breakthroughLevel: 90 });
 assert.ok(darkLordBonuses.hpPct > 0, 'MVP inscription should grant per-level HP.');
-assert.ok(darkLordBonuses.skillDamageBonus > 0 || darkLordBonuses.matkPct > 0, 'Dark Lord breakthrough should grant offensive magic bonuses.');
+assert.equal(darkLordBonuses.skillDamageBonus, 0.02, 'Dark Lord breakthrough should grant skill damage.');
+assert.ok(darkLordBonuses.matkPct > 0.01, 'Dark Lord breakthrough should add magic attack beyond per-level MATK.');
 
 const offline = await importSource(offlineSource);
 assert.match(offlineSource, /claimOffline:\s*claimOfflineRewards/, 'Legacy Offline claim alias must remain available.');

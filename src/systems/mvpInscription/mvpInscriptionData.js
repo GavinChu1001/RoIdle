@@ -21,14 +21,14 @@ export const MVP_INSCRIPTION_MONSTER_EXP = Object.freeze({
 });
 
 export const MVP_INSCRIPTION_STAGES = Object.freeze([
-  { id: 'kingPoring', name: '娉㈠埄鐜嬮摥鍒?', minLevel: 1, maxLevel: 10, bonus: { baseExpBonus: 0.02, jobExpBonus: 0.02 } },
-  { id: 'goldenThiefBug', name: '榛勯噾鐩楄櫕閾埢', minLevel: 11, maxLevel: 20, bonus: { goldBonus: 0.02 } },
-  { id: 'moonlightFlower', name: '鏈堝鐚摥鍒?', minLevel: 21, maxLevel: 30, bonus: { attackSpeedPct: 0.01, combatPaceBonus: 0.01 } },
-  { id: 'drake', name: '娴风洍涔嬬帇閾埢', minLevel: 31, maxLevel: 40, bonus: { bossDamageBonus: 0.02 } },
-  { id: 'phreeoni', name: '鐨噷鎭╅摥鍒?', minLevel: 41, maxLevel: 50, bonus: { hitRate: 0.02, critRatePct: 0.01 } },
-  { id: 'orcHero', name: '鍏戒汉鑻遍泟閾埢', minLevel: 51, maxLevel: 60, bonus: { hpPct: 0.02, statusResist: 0.03 } },
-  { id: 'turtleGeneral', name: '榫熷皢鍐涢摥鍒?', minLevel: 61, maxLevel: 70, bonus: { physicalFinalDamageBonus: 0.01 } },
-  { id: 'doppelganger', name: '澶氫僵闆锋牴閾埢', minLevel: 71, maxLevel: 80, bonus: { normalAttackDamageBonus: 0.02, attackSpeedPct: 0.01 } },
-  { id: 'darkLord', name: '榛戞殫棰嗕富閾埢', minLevel: 81, maxLevel: 90, bonus: { skillDamageBonus: 0.02, matkPct: 0.01 } },
-  { id: 'baphomet', name: '宸撮鐗归摥鍒?', minLevel: 91, maxLevel: 100, bonus: { finalDamageBonus: 0.015 } },
+  { id: 'kingPoring', name: '波利王铭刻', minLevel: 1, maxLevel: 10, bonus: { baseExpBonus: 0.02, jobExpBonus: 0.02 } },
+  { id: 'goldenThiefBug', name: '黄金盗虫铭刻', minLevel: 11, maxLevel: 20, bonus: { goldBonus: 0.02 } },
+  { id: 'moonlightFlower', name: '月夜猫铭刻', minLevel: 21, maxLevel: 30, bonus: { attackSpeedPct: 0.01, combatPaceBonus: 0.01 } },
+  { id: 'drake', name: '海盗之王铭刻', minLevel: 31, maxLevel: 40, bonus: { bossDamageBonus: 0.02 } },
+  { id: 'phreeoni', name: '皮里恩铭刻', minLevel: 41, maxLevel: 50, bonus: { hitRate: 0.02, critRatePct: 0.01 } },
+  { id: 'orcHero', name: '兽人英雄铭刻', minLevel: 51, maxLevel: 60, bonus: { hpPct: 0.02, statusResist: 0.03 } },
+  { id: 'turtleGeneral', name: '龟将军铭刻', minLevel: 61, maxLevel: 70, bonus: { physicalFinalDamageBonus: 0.01 } },
+  { id: 'doppelganger', name: '多佩雷根铭刻', minLevel: 71, maxLevel: 80, bonus: { normalAttackDamageBonus: 0.02, attackSpeedPct: 0.01 } },
+  { id: 'darkLord', name: '黑暗领主铭刻', minLevel: 81, maxLevel: 90, bonus: { skillDamageBonus: 0.02, matkPct: 0.01 } },
+  { id: 'baphomet', name: '巴风特铭刻', minLevel: 91, maxLevel: 100, bonus: { finalDamageBonus: 0.015 } },
 ]);
