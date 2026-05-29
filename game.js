@@ -3214,18 +3214,33 @@ function canGainMvpInscriptionOnCurrentMap() {
   });
 }
 
+function getMvpInscriptionProgressContext() {
+  const unlockedDifficulties = {};
+  Object.values(state.mapDifficultyProgress || {}).forEach((entry) => {
+    if (entry?.hard?.unlocked) unlockedDifficulties.hard = true;
+    if (entry?.abyss?.unlocked) unlockedDifficulties.abyss = true;
+  });
+  return {
+    heroLevel: state.hero?.baseLevel || 1,
+    bossFirstKills: state.vip?.bossFirstKills || {},
+    unlockedDifficulties,
+  };
+}
+
 function breakthroughMvpInscription() {
   state.mvpInscription = normalizeMvpInscriptionState(state.mvpInscription);
-  const level = Number(state.mvpInscription.level || 1);
-  if (level >= 100 || level % 10 !== 0) {
-    showToast("当前 MVP铭刻不在突破节点");
+  const runtime = window.RuneFrontierMvpInscriptionRuntime;
+  const result = runtime?.canBreakthroughMvpInscription?.(state.mvpInscription, getMvpInscriptionProgressContext()) || { ok: false, reason: "MVP铭刻突破条件不可用" };
+  if (!result.ok) {
+    showToast(`突破条件不足：${result.reason}`);
     return false;
   }
+  const level = Number(state.mvpInscription.level || 1);
   state.mvpInscription.breakthroughLevel = Math.max(state.mvpInscription.breakthroughLevel || 0, level);
-  const view = getMvpInscriptionView();
-  const markId = view.stage?.id;
+  const nextView = getMvpInscriptionView();
+  const markId = nextView.nextStage?.id;
   if (markId && !state.mvpInscription.unlockedMarks.includes(markId)) state.mvpInscription.unlockedMarks.push(markId);
-  addLog(`MVP铭刻突破完成：${view.stageName}。`);
+  addLog("MVP铭刻突破完成，新的铭刻气息正在苏醒。");
   showToast("MVP铭刻突破完成");
   renderAll();
   save();

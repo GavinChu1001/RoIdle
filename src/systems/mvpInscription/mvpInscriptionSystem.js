@@ -1,5 +1,6 @@
 import {
   MVP_INSCRIPTION_BASE_EXP_PER_MINUTE,
+  MVP_INSCRIPTION_BREAKTHROUGH_REQUIREMENTS,
   MVP_INSCRIPTION_DIFFICULTY_MULTIPLIERS,
   MVP_INSCRIPTION_LOW_LEVEL_GAP,
   MVP_INSCRIPTION_LOW_MAP_GAP,
@@ -21,6 +22,16 @@ function clamp(value, min, max) {
 
 function roundExp(value) {
   return Math.round(finite(value) * 1000) / 1000;
+}
+
+const HIGH_TIER_MVP_BOSS_MAP_IDS = new Set(['clock', 'glast_heim', 'abyss_lake', 'sky']);
+
+function bossMapIdFromKey(key) {
+  const text = String(key || '');
+  const parts = text.split('_');
+  const last = parts[parts.length - 1];
+  if (['normal', 'hard', 'abyss'].includes(last)) return parts.slice(0, -1).join('_');
+  return text;
 }
 
 export function defaultMvpInscription(now = Date.now) {
@@ -77,6 +88,41 @@ export function isMvpInscriptionAtBreakthrough(inscription = {}) {
   const level = clamp(inscription.level, 1, MVP_INSCRIPTION_MAX_LEVEL);
   if (level >= MVP_INSCRIPTION_MAX_LEVEL) return false;
   return level % MVP_INSCRIPTION_STAGE_SIZE === 0 && finite(inscription.breakthroughLevel) < level;
+}
+
+export function getMvpInscriptionBreakthroughRequirement(level) {
+  const nodeLevel = Math.floor(clamp(level, 1, MVP_INSCRIPTION_MAX_LEVEL) / MVP_INSCRIPTION_STAGE_SIZE) * MVP_INSCRIPTION_STAGE_SIZE;
+  return MVP_INSCRIPTION_BREAKTHROUGH_REQUIREMENTS[nodeLevel] || null;
+}
+
+export function canBreakthroughMvpInscription(inscription = {}, progress = {}) {
+  const normalized = normalizeMvpInscription(inscription);
+  if (!isMvpInscriptionAtBreakthrough(normalized)) return { ok: false, reason: '当前不在突破节点' };
+
+  const requirement = getMvpInscriptionBreakthroughRequirement(normalized.level);
+  if (!requirement) return { ok: false, reason: '没有可用突破条件' };
+
+  const bossFirstKills = progress.bossFirstKills && typeof progress.bossFirstKills === 'object' ? progress.bossFirstKills : {};
+  const unlockedDifficulties = progress.unlockedDifficulties && typeof progress.unlockedDifficulties === 'object' ? progress.unlockedDifficulties : {};
+
+  if (requirement.heroLevel && finite(progress.heroLevel) < requirement.heroLevel) {
+    return { ok: false, reason: requirement.label, requirement };
+  }
+  if (requirement.bossKey && !bossFirstKills[requirement.bossKey]) {
+    return { ok: false, reason: requirement.label, requirement };
+  }
+  if (requirement.difficultyUnlocked && !unlockedDifficulties[requirement.difficultyUnlocked]) {
+    return { ok: false, reason: requirement.label, requirement };
+  }
+  if (requirement.anyBossClear && !Object.values(bossFirstKills).some(Boolean)) {
+    return { ok: false, reason: requirement.label, requirement };
+  }
+  if (requirement.anyHighTierBossClear) {
+    const hasHighTierBossClear = Object.entries(bossFirstKills).some(([key, cleared]) => cleared && HIGH_TIER_MVP_BOSS_MAP_IDS.has(bossMapIdFromKey(key)));
+    if (!hasHighTierBossClear) return { ok: false, reason: requirement.label, requirement };
+  }
+
+  return { ok: true, reason: '', requirement };
 }
 
 export function addMvpInscriptionExp(inscription, amount) {
@@ -217,6 +263,8 @@ export function installMvpInscriptionRuntime(target = globalThis) {
     getMvpInscriptionStage,
     getMvpInscriptionLevelRequirement,
     addMvpInscriptionExp,
+    getMvpInscriptionBreakthroughRequirement,
+    canBreakthroughMvpInscription,
     calculateMvpInscriptionOnlinePerMinute,
     isMvpInscriptionMonsterEffective,
     calculateMvpInscriptionMonsterExp,

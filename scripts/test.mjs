@@ -1426,6 +1426,49 @@ const unblockedGain = mvp.addMvpInscriptionExp(breakthroughReady, mvp.getMvpInsc
 assert.equal(unblockedGain.blocked, false, 'Completed breakthrough should allow MVP inscription leveling.');
 assert.ok(breakthroughReady.level > 10, 'Completed breakthrough should allow crossing level 10.');
 
+assert.equal(mvp.getMvpInscriptionBreakthroughRequirement(10).label, 'BASE Lv20', 'Lv10 breakthrough should require BASE Lv20.');
+assert.equal(
+  mvp.canBreakthroughMvpInscription({ level: 10, breakthroughLevel: 0 }, { heroLevel: 19 }).ok,
+  false,
+  'Lv10 breakthrough should reject heroes below BASE Lv20.',
+);
+assert.equal(
+  mvp.canBreakthroughMvpInscription({ level: 10, breakthroughLevel: 0 }, { heroLevel: 20 }).ok,
+  true,
+  'Lv10 breakthrough should accept BASE Lv20.',
+);
+assert.equal(mvp.getMvpInscriptionBreakthroughRequirement(20).bossKey, 'forest_normal', 'Lv20 breakthrough should require the forest normal Boss.');
+assert.equal(
+  mvp.canBreakthroughMvpInscription({ level: 20, breakthroughLevel: 10 }, { bossFirstKills: {} }).ok,
+  false,
+  'Lv20 breakthrough should require the forest normal Boss first clear.',
+);
+assert.equal(
+  mvp.canBreakthroughMvpInscription({ level: 20, breakthroughLevel: 10 }, { bossFirstKills: { forest_normal: true } }).ok,
+  true,
+  'Lv20 breakthrough should pass after the forest normal Boss first clear.',
+);
+assert.equal(
+  mvp.canBreakthroughMvpInscription({ level: 40, breakthroughLevel: 30 }, { unlockedDifficulties: {} }).ok,
+  false,
+  'Lv40 breakthrough should require hard difficulty unlock.',
+);
+assert.equal(
+  mvp.canBreakthroughMvpInscription({ level: 40, breakthroughLevel: 30 }, { unlockedDifficulties: { hard: true } }).ok,
+  true,
+  'Lv40 breakthrough should pass when hard difficulty is unlocked.',
+);
+assert.equal(
+  mvp.canBreakthroughMvpInscription({ level: 90, breakthroughLevel: 80 }, { bossFirstKills: { forest_normal: true } }).ok,
+  false,
+  'Lv90 breakthrough should require a high-tier Boss first clear.',
+);
+assert.equal(
+  mvp.canBreakthroughMvpInscription({ level: 90, breakthroughLevel: 80 }, { bossFirstKills: { glast_heim_normal: true } }).ok,
+  true,
+  'Lv90 breakthrough should pass after a high-tier Boss first clear.',
+);
+
 assert.equal(
   mvp.calculateMvpInscriptionOnlinePerMinute({ mapIndex: 2, difficulty: 'hard', rebirths: 3 }),
   13.752,

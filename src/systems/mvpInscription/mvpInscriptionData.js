@@ -20,6 +20,18 @@ export const MVP_INSCRIPTION_MONSTER_EXP = Object.freeze({
   firstBossClear: 30,
 });
 
+export const MVP_INSCRIPTION_BREAKTHROUGH_REQUIREMENTS = Object.freeze({
+  10: { label: 'BASE Lv20', heroLevel: 20 },
+  20: { label: '击败森林 Boss', bossKey: 'forest_normal' },
+  30: { label: 'BASE Lv70', heroLevel: 70 },
+  40: { label: '解锁困难难度', difficultyUnlocked: 'hard' },
+  50: { label: '击败兽人村 Boss', bossKey: 'orc_village_normal' },
+  60: { label: '击败任意 Boss', anyBossClear: true },
+  70: { label: '击败钟塔 Boss', bossKey: 'clock_normal' },
+  80: { label: '击败古城 Boss', bossKey: 'glast_heim_normal' },
+  90: { label: '击败高阶 Boss', anyHighTierBossClear: true },
+});
+
 export const MVP_INSCRIPTION_STAGES = Object.freeze([
   { id: 'kingPoring', name: '波利王铭刻', minLevel: 1, maxLevel: 10, bonus: { baseExpBonus: 0.02, jobExpBonus: 0.02 } },
   { id: 'goldenThiefBug', name: '黄金盗虫铭刻', minLevel: 11, maxLevel: 20, bonus: { goldBonus: 0.02 } },
