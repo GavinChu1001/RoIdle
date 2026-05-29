@@ -173,6 +173,7 @@ assert.match(styles, /\.combat-impact-player-hit\.ro-vfx-spark\s*\{[\s\S]*width:
 assert.match(styles, /@media\s*\(max-width:\s*640px\)[\s\S]*\.combat-impact-player-hit\.ro-vfx-spark\s*\{[\s\S]*width:\s*60px[\s\S]*height:\s*60px/, 'Mobile player-hit generated spark should be compact on 390px screens.');
 assert.match(html, /styles\.css\?v=20260529-battle-effects-v9/, 'Battle effect CSS should use a fresh cache-busting version.');
 assert.match(html, /game\.js\?v=20260529-battle-effects-v7/, 'Battle effect runtime should use a fresh cache-busting version.');
+assert.match(html, /src="\.\/src\/main\.js\?v=20260529-mvp-inscription-v1"/, 'MVP inscription runtime must use a fresh module cache-busting version.');
 for (const file of [
   'assets/ui/fx/hit-slash.png',
   'assets/ui/fx/hit-crit.png',
