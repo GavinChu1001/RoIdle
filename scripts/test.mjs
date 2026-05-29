@@ -116,11 +116,18 @@ assert.match(game, /function\s+spawnCombatSparks\s*\(/, 'Combat impacts should s
 assert.match(game, /spawnCombatSparks\(wrap,\s*target,\s*type,\s*tone\)/, 'Slash and critical impacts should trigger pixel sparks through the shared combat impact hook.');
 assert.match(styles, /\.combat-spark\s*\{/, 'Combat sparks should have a dedicated pixel effect class.');
 assert.match(styles, /@keyframes\s+roImpactSpark\s*\{/, 'Combat sparks should animate with a short pixel-style keyframe.');
-assert.match(html, /styles\.css\?v=20260529-battle-effects-v1/, 'Battle effect CSS should use a fresh cache-busting version.');
+assert.match(html, /styles\.css\?v=20260529-battle-effects-v2/, 'Battle effect CSS should use a fresh cache-busting version.');
 assert.match(html, /game\.js\?v=20260529-battle-effects-v1/, 'Battle effect runtime should use a fresh cache-busting version.');
 assert.match(styles, /\.combat-impact-strike\s*\{[\s\S]*width:\s*116px[\s\S]*animation:\s*roStrikeFlash\s+620ms/, 'Slash impact should be visible long enough for player inspection.');
 assert.match(styles, /\.combat-impact-crit\s*\{[\s\S]*width:\s*108px[\s\S]*animation:\s*roCritBurst\s+780ms/, 'Critical impact should be larger and longer-lived than normal hits.');
 assert.match(styles, /\.combat-spark-crit\s*\{[\s\S]*animation-duration:\s*760ms/, 'Critical sparks should linger enough to read as a burst.');
+assert.doesNotMatch(styles, /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?\.combat-impact,[\s\S]*?\.combat-spark,[\s\S]*?\.damage-float\.damage-number\s*\{[\s\S]*?animation-duration:\s*1ms\s*!important;[\s\S]*?\}/, 'Reduced-motion combat feedback must not collapse to an invisible final frame.');
+assert.match(styles, /@keyframes\s+roReducedCombatFlash\s*\{/, 'Reduced-motion combat impacts should use a static visible flash keyframe.');
+assert.match(styles, /@keyframes\s+roReducedCombatSpark\s*\{/, 'Reduced-motion combat sparks should use a static visible spark keyframe.');
+assert.match(styles, /@keyframes\s+roReducedDamageFloat\s*\{/, 'Reduced-motion damage numbers should use a readable static keyframe.');
+assert.match(styles, /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?\.combat-impact\s*\{[\s\S]*?animation:\s*roReducedCombatFlash\s+860ms/, 'Reduced-motion combat impacts should remain visible until the runtime removes them.');
+assert.match(styles, /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?\.combat-spark\s*\{[\s\S]*?animation:\s*roReducedCombatSpark\s+840ms/, 'Reduced-motion combat sparks should remain visible until the runtime removes them.');
+assert.match(styles, /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?\.damage-float\.damage-number\s*\{[\s\S]*?animation:\s*roReducedDamageFloat\s+920ms/, 'Reduced-motion damage numbers should remain readable until the runtime removes them.');
 assert.match(styles, /--ro-parchment:/, 'RO parchment token should exist');
 assert.match(styles, /--ro-wood-top:/, 'RO wood button token should exist');
 assert.match(styles, /--ro-vnext-paper:/, 'RO vNext paper token should exist');
@@ -257,7 +264,7 @@ assert.match(game, /runtime\.rollCardDropsFromTable/, 'Card drop entry points mu
 assert.match(game, /runtime\.maybeDropBossCardFragments/, 'Boss card fragment entry points must forward to the drops runtime.');
 assert.match(game, /runtime\.rollDrops/, 'Online drop orchestration must forward to the drops runtime.');
 assert.match(game, /runtime\.rollZodiacSetDrops/, 'Zodiac-set drop entry points must forward to the drops runtime.');
-assert.match(game, /runtime\.rollTransitionSetDrops/, 'Transition-set drop entry points must forward to the drops runtime.');
+assert.doesNotMatch(game, /runtime\.rollTransitionSetDrops/, 'Transition-set drop entry points should be removed.');
 assert.match(game, /runtime\.rollMythicEquipmentDrop/, 'Mythic drop entry points must forward to the drops runtime.');
 assert.match(game, /runtime\.rollMutationExtraDrops/, 'Mutation reward entry points must forward to the drops runtime.');
 assert.match(game, /runtime\.normalizeLootRewards/, 'Loot summary view data must forward to the drops runtime.');
@@ -577,6 +584,17 @@ assert.ok(sewerProgressionRows.every((row) => String(row.equipmentId).startsWith
 assert.ok(sewerProgressionRows.some((row) => row.series === 'ancientHero' && row.growthTier === 'T2'), 'Sewer normal should drop Ancient Hero line equipment.');
 const skyAbyssRows = itemProgression.getProgressionEquipmentDropTable('sky', 'abyss');
 assert.ok(skyAbyssRows.some((row) => row.series === 'dimensional' && row.growthTier === 'T10'), 'Sky abyss should expose Dimensional top-line equipment.');
+const progressionMaps = Object.keys(itemProgression.MAP_EQUIPMENT_PROGRESSION);
+for (const mapId of progressionMaps) {
+  for (const difficulty of ['normal', 'hard', 'abyss']) {
+    const rows = itemProgression.getProgressionEquipmentDropTable(mapId, difficulty);
+    assert.ok(rows.length > 0, `${mapId} ${difficulty} must have progression equipment drops.`);
+  }
+}
+assert.ok(
+  itemProgression.getProgressionEquipmentDropTable('abyss_lake', 'hard').some((row) => row.series === 'muqaddas' || row.series === 'nebula'),
+  'Abyss Lake hard should advance through modern progression equipment, not old fallback tables.',
+);
 const lineFilters = itemProgression.getEquipmentLineFilterOptions();
 assert.ok(lineFilters.some((entry) => entry.id === 'line:ancientHero' && entry.label === '古代英雄'), 'Equipment filters should expose Ancient Hero line filtering.');
 assert.match(game, /heroReformInscription:\s*"\u82f1\u96c4\u6539\u826f\u94ed\u6587"/, 'Classic material names must expose Hero Reform Inscription.');
@@ -584,6 +602,42 @@ assert.match(game, /const EQUIPMENT_SYSTEM_VERSION\s*=\s*4/, 'Equipment V4 must 
 assert.match(game, /equipmentSystemVersion:\s*EQUIPMENT_SYSTEM_VERSION/, 'Fresh saves must mark the active equipment system version.');
 assert.match(game, /saved\.equipmentSystemVersion\s*!==\s*EQUIPMENT_SYSTEM_VERSION[\s\S]*createDefaultState\(\)/, 'Old saves must be reset at the Equipment V4 version gate.');
 assert.match(game, /getProgressionEquipmentDropTable/, 'Classic runtime must route map equipment drops through the progression equipment pool.');
+assert.doesNotMatch(
+  equipmentDropsSource,
+  /progressionRows\.length\s*\?\s*progressionRows\s*:\s*context\.getEquipmentDropTable/,
+  'Normal equipment drops must not fall back to legacy equipmentDropTables.',
+);
+assert.doesNotMatch(
+  offlineSource,
+  /progressionRows\.length\s*\?\s*progressionRows\s*:\s*table/,
+  'Offline equipment drops must not fall back to legacy equipmentDropTables.',
+);
+assert.doesNotMatch(
+  game,
+  /progressionRows\.length\s*\?\s*progressionRows\s*:\s*equipmentDropTables/,
+  'Legacy offline equipment bridge must not fall back to old equipmentDropTables.',
+);
+assert.match(
+  equipmentDropsSource,
+  /const rows = progressionRows;/,
+  'Normal equipment drops should use progression rows directly.',
+);
+assert.doesNotMatch(
+  game,
+  /getEquipmentDropTable\(tableId\)\s*\{[\s\S]*return equipmentDropTables\[tableId\]/,
+  'Active drops context should not expose legacy equipmentDropTables as a normal fallback.',
+);
+const mutationEquipmentSource = game.slice(game.indexOf('function createMutationEquipment'), game.indexOf('function weightedChoice'));
+assert.match(mutationEquipmentSource, /pickProgressionEquipmentTemplate/, 'Mutation equipment must pick from the current progression equipment pool.');
+assert.doesNotMatch(mutationEquipmentSource, /equipmentDropTables|allEquipmentTemplates/, 'Mutation equipment must not use legacy equipment pools.');
+const darkGoldExchangeSource = game.slice(game.indexOf('function createDarkGoldExchangeItem'), game.indexOf('function isZodiacSetId'));
+assert.match(darkGoldExchangeSource, /pickProgressionEquipmentTemplate/, 'Dark-gold exchange must pick from the current progression equipment pool.');
+assert.doesNotMatch(darkGoldExchangeSource, /equipmentDropTables|allEquipmentTemplates/, 'Dark-gold exchange must not use legacy equipment pools.');
+assert.match(game, /grass:\s*0\.08,\s*\n\s*forest:\s*0\.065,\s*\n\s*sewer:\s*0\.055,/, 'Early maps should have boosted online equipment drop budgets.');
+assert.match(game, /sky:\s*0\.04,/, 'Late-map online equipment drop budget should stay at the existing cap.');
+assert.match(game, /EARLY_EQUIPMENT_PITY_KILL_LIMIT\s*=\s*20/, 'Early equipment pity should only cover the first 20 kills.');
+assert.match(game, /EARLY_EQUIPMENT_PITY_THRESHOLD\s*=\s*5/, 'Early equipment pity should guarantee a short first-session window.');
+assert.match(game, /state\.totalKills\s*<=\s*EARLY_EQUIPMENT_PITY_KILL_LIMIT[\s\S]*return EARLY_EQUIPMENT_PITY_THRESHOLD/, 'Early equipment pity must override the normal map pity threshold.');
 assert.doesNotMatch(game, /查看完整属性|收起完整属性/, 'Equipment cards should not expose full stats as a prominent primary action.');
 assert.match(game, /equipment-primary-actions/, 'Equipment cards should render a compact primary action row.');
 assert.match(game, /equipment-more-actions/, 'Equipment cards should move low-frequency actions into a More section.');
@@ -943,7 +997,8 @@ let createdDropContext = null;
 const dropContext = {
   currentMap: () => ({ id: 'grass' }),
   getDropTableId: (id) => id,
-  getEquipmentDropTable: () => [{ equipmentId: 'blade', rarity: 'normal', minLevel: 1, maxLevel: 1, dropRate: 1 }],
+  getProgressionEquipmentDropTable: () => [{ equipmentId: 'blade', rarity: 'normal', minLevel: 1, maxLevel: 1, dropRate: 1 }],
+  getEquipmentDropTable: () => { throw new Error('Legacy equipment drop table fallback should not be used.'); },
   getEquipmentTemplate: () => ({ id: 'blade', name: 'Blade', rarity: 'normal' }),
   getMaxEquipmentDrops: () => 1,
   getEffectiveEquipmentDropRate: () => 1,
@@ -972,7 +1027,7 @@ const hardDropContext = {
   currentDifficulty: () => 'hard',
   getDifficultyDropLevelBonus: (difficulty) => difficulty === 'hard' ? ({ min: 20, max: 35 }) : ({ min: 0, max: 0 }),
 };
-assert.equal(equipmentDrops.resolveEquipmentDropLevel({ baseLevel: 10, difficulty: 'hard', source: 'transition-set' }, hardDropContext), 30, 'Hard special equipment must receive the configured minimum drop-level bonus.');
+assert.equal(equipmentDrops.resolveEquipmentDropLevel({ baseLevel: 10, difficulty: 'hard', source: 'zodiac-set' }, hardDropContext), 30, 'Hard special equipment must receive the configured minimum drop-level bonus.');
 const abyssDropContext = {
   ...dropContext,
   currentDifficulty: () => 'abyss',
@@ -1063,10 +1118,8 @@ const specialContext = {
   currentMap: () => ({ id: 'grass' }),
   currentDifficulty: () => 'normal',
   getZodiacSetIds: () => ['zodiac'],
-  getTransitionSetIds: () => ['transition'],
   getEquipmentSet: (id) => ({ items: [{ id: `${id}-piece`, rarity: 'rare', level: 1 }] }),
   getZodiacSetDropRates: () => ({ normal: 1, darkGoldNormal: 0 }),
-  getTransitionSetDropRates: () => ({ normal: 1 }),
   getMythicDropRates: () => ({ abyssNormal: 0 }),
   getAbyssBossMultiplier: () => ({ mythicDrop: 1, abyssSetDrop: 1 }),
   getMapLevelRange: () => ({ maxLevel: 1 }),
@@ -1075,15 +1128,14 @@ const specialContext = {
   addEquipmentToInventory: (item) => acceptedSpecial.push(item),
 };
 assert.equal(bossDrops.rollZodiacSetDrops({}, {}, {}, specialContext), 1, 'Zodiac-set reward routing changed.');
-assert.equal(bossDrops.rollTransitionSetDrops({}, {}, {}, specialContext), 1, 'Transition-set reward routing changed.');
+assert.equal(typeof bossDrops.rollTransitionSetDrops, 'undefined', 'Transition-set drop export should be removed.');
+assert.equal(acceptedSpecial.length, 1, 'Transition-set drops must not add extra special equipment.');
 assert.equal(acceptedSpecial[0].rarity, 'legend', 'Normal zodiac-set base rarity changed.');
-assert.equal(acceptedSpecial[1].id, 'transition-piece', 'Transition-set item must enter equipment acceptance.');
 const acceptedHardSpecial = [];
 const hardSpecialContext = {
   ...specialContext,
   currentDifficulty: () => 'hard',
   getZodiacSetDropRates: () => ({ hard: 1, darkGoldNormal: 0 }),
-  getTransitionSetDropRates: () => ({ hard: 1 }),
   getDifficultyDropLevelBonus: () => ({ min: 20, max: 35 }),
   clampLevel: (value) => value,
   randomInt: (min) => min,
@@ -1091,8 +1143,7 @@ const hardSpecialContext = {
   addEquipmentToInventory: (item) => acceptedHardSpecial.push(item),
 };
 assert.equal(bossDrops.rollZodiacSetDrops({ level: 10 }, {}, {}, hardSpecialContext), 1, 'Hard zodiac-set routing changed.');
-assert.equal(bossDrops.rollTransitionSetDrops({ level: 10 }, {}, {}, hardSpecialContext), 1, 'Hard transition-set routing changed.');
-assert.deepEqual(acceptedHardSpecial.map((item) => item.level), [30, 30], 'Hard special equipment must not retain low monster display levels.');
+assert.deepEqual(acceptedHardSpecial.map((item) => item.level), [30], 'Hard special equipment must not retain low monster display levels.');
 
 const abyssStandaloneSource = abyssDropsSource
   .replace("import { grantMutationMaterial } from './materialDrops.js';", 'const grantMutationMaterial = () => 0;');
@@ -1116,7 +1167,10 @@ const abyssContext = {
 assert.equal(abyssDrops.rollMythicEquipmentDrop({}, {}, {}, abyssContext), 1, 'Mythic equipment reward routing changed.');
 assert.equal(abyssDrops.rollMutationExtraDrops({ mutation: { highRarityEquipmentBonus: 1, rareMaterialBonus: 1 } }, {}, 0, abyssContext), 1, 'Mutation equipment reward routing changed.');
 assert.deepEqual(abyssAccepted.map((item) => item.rarity), ['mythic', 'legend'], 'Abyss reward rarities changed.');
-assert.match(lootRollSource, /rollEquipmentTableDrops[\s\S]*rollZodiacSetDrops[\s\S]*rollTransitionSetDrops[\s\S]*rollMythicEquipmentDrop[\s\S]*rollMapMaterialDrops[\s\S]*maybeDropMythicEssence[\s\S]*maybeDropDarkGoldFragments[\s\S]*maybeDropSocketMaterials[\s\S]*rollCardDropsFromTable[\s\S]*maybeDropBossCardFragments/, 'Online reward-category ordering changed.');
+assert.match(lootRollSource, /rollEquipmentTableDrops[\s\S]*rollZodiacSetDrops[\s\S]*rollMythicEquipmentDrop[\s\S]*rollMapMaterialDrops[\s\S]*maybeDropMythicEssence[\s\S]*maybeDropDarkGoldFragments[\s\S]*maybeDropSocketMaterials[\s\S]*rollCardDropsFromTable[\s\S]*maybeDropBossCardFragments/, 'Online reward-category ordering changed.');
+assert.doesNotMatch(lootRollSource, /rollTransitionSetDrops/, 'Online drops should not roll transition sets.');
+assert.doesNotMatch(bossDropsSource, /export function rollTransitionSetDrops/, 'Transition-set drop function should be removed from boss drops.');
+assert.doesNotMatch(game, /transitionSetDropMap/, 'Transition sets should not remain in active drop routing.');
 
 const lootModel = await importSource(lootModelSource);
 const lootModelContext = {
@@ -1161,7 +1215,7 @@ assert.equal(recentView.equipment[0].id, 'latest', 'Latest-loot view must not be
 const offline = await importSource(offlineSource);
 assert.match(offlineSource, /claimOffline:\s*claimOfflineRewards/, 'Legacy Offline claim alias must remain available.');
 assert.match(offlineSource, /rollOfflineEquipmentDrops,/, 'Legacy Offline roll aliases must remain available.');
-assert.match(offlineSource, /rollOfflineTransitionSetDrops,/, 'Offline transition-set routing must be exported.');
+assert.doesNotMatch(offlineSource, /rollOfflineTransitionSetDrops/, 'Offline transition-set routing should be removed.');
 assert.match(offlineSource, /rollOfflineMutationExtraDrops,/, 'Offline mutation routing must be exported.');
 assert.match(game, /RuneFrontierLegacyOfflineContext[\s\S]*rollEquipmentDropsFromTable/, 'Offline LegacyContext must provide equipment drop table routing.');
 assert.equal(offline.shouldSettleBackgroundOffline(14999), false, 'Short background pauses should resume normal combat without offline settlement.');
@@ -1197,7 +1251,6 @@ const backgroundOfflineContext = {
   getCardDropTable: () => [],
   getMaterialDropTable: () => [],
   getZodiacSetIds: () => [],
-  getTransitionSetIds: () => [],
   getMythicDropRates: () => ({ abyssNormal: 0 }),
   getMutationExtraDrops: () => ({ materialBonusRate: 0, rareMaterialBonusRate: 0 }),
   gainMapExploration: () => {},
@@ -1294,10 +1347,8 @@ const offlineCategoryContext = {
   getMaterialName: (id) => id,
   getMaterialRarity: () => 'normal',
   getZodiacSetIds: () => ['offline-zodiac'],
-  getTransitionSetIds: () => ['offline-transition'],
   getEquipmentSet: (id) => ({ items: [{ id: `${id}-piece`, rarity: 'rare', level: 1 }] }),
   getZodiacSetDropRates: () => ({ normal: 1, darkGoldNormal: 0 }),
-  getTransitionSetDropRates: () => ({ normal: 1 }),
   getMythicDropRates: () => ({ abyssNormal: 0 }),
   getMapLevelRange: () => ({ maxLevel: 1 }),
   getOfflineEquipmentDropRateMultiplier: () => 1,
@@ -1314,22 +1365,19 @@ const offlineCategoryContext = {
 offline.rollOfflineCardDrops(offlineCategoryRewards, {}, { id: 'grass' }, 0, 1, offlineCategoryContext);
 offline.rollOfflineMaterialDrops(offlineCategoryRewards, {}, { id: 'grass' }, 1, offlineCategoryContext);
 offline.rollOfflineZodiacSetDrops(offlineCategoryRewards, {}, { id: 'grass' }, 1, 0, offlineCategoryContext);
-offline.rollOfflineTransitionSetDrops(offlineCategoryRewards, {}, { id: 'grass' }, 1, offlineCategoryContext);
 assert.equal(offlineCategoryRewards.cards[0].cardId, 'offline-card', 'Offline card reward routing changed.');
 assert.equal(offlineCategoryRewards.materials[0].materialId, 'ore', 'Offline material reward routing changed.');
-assert.deepEqual(offlineCategoryRewards.equipments.map((item) => item.id), ['offline-zodiac-piece', 'offline-transition-piece'], 'Offline special equipment candidates changed.');
+assert.deepEqual(offlineCategoryRewards.equipments.map((item) => item.id), ['offline-zodiac-piece'], 'Offline special equipment candidates changed.');
 const offlineHardRewards = { equipments: [], cards: [], materials: [] };
 const offlineHardContext = {
   ...offlineCategoryContext,
   currentDifficulty: () => 'hard',
   getZodiacSetDropRates: () => ({ hard: 1, darkGoldNormal: 0 }),
-  getTransitionSetDropRates: () => ({ hard: 1 }),
   getEquipmentSet: (id) => ({ items: [{ id: `${id}-piece`, rarity: 'rare', level: 8 }] }),
   resolveEquipmentDropLevel: ({ baseLevel }) => baseLevel + 20,
 };
 offline.rollOfflineZodiacSetDrops(offlineHardRewards, {}, { id: 'grass' }, 1, 0, offlineHardContext);
-offline.rollOfflineTransitionSetDrops(offlineHardRewards, {}, { id: 'grass' }, 1, offlineHardContext);
-assert.deepEqual(offlineHardRewards.equipments.map((item) => item.level), [28, 28], 'Offline hard set drops must apply the same difficulty level bonus as online drops.');
+assert.deepEqual(offlineHardRewards.equipments.map((item) => item.level), [28], 'Offline hard set drops must apply the same difficulty level bonus as online drops.');
 
 const settlement = await importSource(settlementSource);
 const killState = {

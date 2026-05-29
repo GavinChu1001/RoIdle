@@ -70,42 +70,6 @@ export function rollZodiacSetDrops(monster, stats = {}, options = {}, context = 
   return 1;
 }
 
-export function rollTransitionSetDrops(monster, stats = {}, options = {}, context = runtimeContext) {
-  const map = context.currentMap?.() || {};
-  const setIds = context.getTransitionSetIds?.(map.id) || [];
-  if (!Array.isArray(setIds) || !setIds.length) return 0;
-  const rates = context.getTransitionSetDropRates?.() || {};
-  const isBoss = Boolean(options.boss);
-  const difficulty = context.currentDifficulty?.() || 'normal';
-  const baseRate = isBoss
-    ? difficulty === 'abyss'
-      ? finite(rates.abyssBoss)
-      : difficulty === 'hard'
-        ? finite(rates.hardBoss)
-        : finite(rates.boss)
-    : difficulty === 'abyss'
-      ? finite(rates.abyss)
-      : difficulty === 'hard'
-        ? finite(rates.hard)
-        : finite(rates.normal);
-  const rate = baseRate * (1 + Math.min(1.2, finite(stats.equipmentDropBonus)));
-  if (random(context) >= rate) return 0;
-  const set = context.getEquipmentSet?.(setIds[Math.floor(random(context) * setIds.length)]);
-  if (!set?.items?.length) return 0;
-  const template = set.items[Math.floor(random(context) * set.items.length)];
-  const range = context.getMapLevelRange?.(map) || { maxLevel: 1 };
-  const dropLevel = resolveEquipmentDropLevel({
-    baseLevel: monster?.level || template.level || range.maxLevel,
-    mapId: map.id,
-    difficulty,
-    source: 'transition-set',
-  }, context);
-  const item = context.createItem?.(template, dropLevel, template.rarity || 'rare', { dropMapId: map.id, dropLevel, difficulty });
-  if (!item) return 0;
-  context.addEquipmentToInventory?.(item, { logDrop: true });
-  return 1;
-}
-
 // Boss victory essence remains attached to combat settlement until that chain migrates.
 export function grantBossEssence(mapIndex) {
   if (typeof window.grantBossEssence === 'function') return window.grantBossEssence(mapIndex);

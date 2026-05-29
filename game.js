@@ -1082,17 +1082,19 @@ const extraEquipmentDropPlan = {
 
 // Online equipment drops use one map-level budget; adding templates changes variety, not total frequency.
 const ONLINE_EQUIPMENT_BASE_DROP_RATES = {
-  grass: 0.02,
-  forest: 0.022,
-  sewer: 0.024,
-  desert: 0.026,
-  orc_village: 0.028,
-  mine: 0.03,
-  clock: 0.032,
-  glast_heim: 0.034,
-  abyss_lake: 0.037,
+  grass: 0.08,
+  forest: 0.065,
+  sewer: 0.055,
+  desert: 0.045,
+  orc_village: 0.04,
+  mine: 0.04,
+  clock: 0.04,
+  glast_heim: 0.04,
+  abyss_lake: 0.04,
   sky: 0.04,
 };
+const EARLY_EQUIPMENT_PITY_KILL_LIMIT = 20;
+const EARLY_EQUIPMENT_PITY_THRESHOLD = 5;
 
 Object.entries(extraEquipmentDropPlan).forEach(([mapId, plan]) => {
   extraEquipmentPools.forEach((item) => {
@@ -1140,47 +1142,6 @@ Object.assign(equipmentSets, Object.fromEntries(zodiacSetPlans.map(([id, name, t
   createZodiacSet({ id, name, talentName, role, prefix, weapon, effects, stats }),
 ])));
 
-Object.assign(equipmentSets, {
-  poring_adventurer: createTransitionSet({
-    id: "poring_adventurer",
-    name: "波波冒险者套装",
-    talentName: "波波冒险者守护",
-    talentDescription: "2件最大生命 +8%，3件最大生命 +12%、物品掉率 +2%",
-    level: 8,
-    rarity: "rare",
-    effects: {
-      pieces: {
-        2: { maxHpPct: 0.08 },
-        3: { maxHpPct: 0.12, itemDropPct: 0.02 },
-      },
-    },
-    items: [
-      { key: "hat", name: "波波冒险帽", slot: "headgear", def: 8, hp: 55, vit: 2 },
-      { key: "coat", name: "波波冒险衣", slot: "armor", def: 18, hp: 120, vit: 3 },
-      { key: "shoes", name: "波波冒险鞋", slot: "shoes", def: 10, hp: 60, agi: 2 },
-    ],
-  }),
-  forest_patroller: createTransitionSet({
-    id: "forest_patroller",
-    name: "森林巡游者套装",
-    talentName: "森林巡游者节奏",
-    talentDescription: "2件攻击速度 +4%，3件攻击速度 +6%、BASE/JOB经验 +5%",
-    level: 18,
-    rarity: "epic",
-    effects: {
-      pieces: {
-        2: { attackSpeedPct: 0.04 },
-        3: { attackSpeedPct: 0.06, baseExpPct: 0.05, jobExpPct: 0.05 },
-      },
-    },
-    items: [
-      { key: "hat", name: "森林巡游帽", slot: "headgear", def: 14, dex: 3, luk: 2 },
-      { key: "armor", name: "森林巡游甲", slot: "armor", def: 34, hp: 210, vit: 4 },
-      { key: "boots", name: "森林巡游靴", slot: "shoes", def: 18, agi: 5, aspd: 0.03 },
-    ],
-  }),
-});
-
 ensureSetProgressionBonuses();
 
 function createZodiacSet(plan) {
@@ -1223,38 +1184,6 @@ function createZodiacSet(plan) {
       craftable: false,
       source: "monster_drop",
       description: `${plan.name}部件。集齐 5 件可激活${plan.talentName}。`,
-    })),
-  };
-}
-
-function createTransitionSet(plan) {
-  return {
-    id: plan.id,
-    name: plan.name,
-    talentName: plan.talentName,
-    talentDescription: plan.talentDescription,
-    effects: { full: plan.effects?.pieces?.[3] || plan.effects?.full || {}, pieces: plan.effects?.pieces || {} },
-    items: plan.items.map((item) => ({
-      id: `${plan.id}_${item.key}`,
-      name: item.name,
-      slot: item.slot,
-      rarity: plan.rarity,
-      level: plan.level,
-      requiredLevel: Math.max(1, plan.level - 3),
-      atk: item.atk || 0,
-      matk: item.matk || 0,
-      def: item.def || 0,
-      hp: item.hp || 0,
-      str: item.str || 0,
-      agi: item.agi || 0,
-      vit: item.vit || 0,
-      int: item.int || 0,
-      dex: item.dex || 0,
-      luk: item.luk || 0,
-      aspd: item.aspd || 0,
-      craftable: false,
-      source: "monster_drop",
-      description: `${plan.name}部件，通过怪物掉落获得。`,
     })),
   };
 }
@@ -1398,20 +1327,6 @@ const zodiacSetDropMap = {
   glast_heim: ["sagittarius_aiolos", "capricorn_shura"],
   abyss_lake: ["capricorn_shura", "aquarius_camyu"],
   sky: ["aquarius_camyu", "pisces_aphrodite"],
-};
-
-const transitionSetDropMap = {
-  grass: ["poring_adventurer"],
-  forest: ["forest_patroller"],
-};
-
-const TRANSITION_SET_DROP_RATES = {
-  normal: 0.008,
-  hard: 0.012,
-  abyss: 0.015,
-  boss: 0.045,
-  hardBoss: 0.06,
-  abyssBoss: 0.08,
 };
 
 const jobSpriteSources = {
@@ -3950,7 +3865,7 @@ function spawnCombatSparks(wrap, target, type = "normal", tone = "physical") {
     spark.style.setProperty("--spark-y", `${Math.sin(angle * Math.PI / 180) * distance}px`);
     spark.style.setProperty("--spark-rotate", `${randomFloat(-35, 35)}deg`);
     wrap.appendChild(spark);
-    window.setTimeout(() => spark.remove(), isCrit ? 580 : 360);
+    window.setTimeout(() => spark.remove(), isCrit ? 820 : type === "skill" ? 680 : 640);
   }
 }
 
@@ -3973,7 +3888,7 @@ function spawnCombatImpact(wrap, target, type = "normal", tone = "physical") {
   el.style.top = `${baseTop + randomFloat(-5, 5)}%`;
   wrap.appendChild(el);
   spawnCombatSparks(wrap, target, type, tone);
-  window.setTimeout(() => el.remove(), type === "skill" ? 760 : type === "crit" ? 560 : 420);
+  window.setTimeout(() => el.remove(), type === "skill" ? 820 : type === "crit" ? 840 : 680);
 }
 
 function showDamageNumber(target, amount, type = "player", options = {}) {
@@ -4711,16 +4626,6 @@ function rollZodiacSetDrops(monster, stats, options = {}) {
   return legacyRollZodiacSetDrops(monster, stats, options);
 }
 
-function legacyRollTransitionSetDrops(monster, stats, options = {}) { return; }
-
-function rollTransitionSetDrops(monster, stats, options = {}) {
-  const runtime = window.RuneFrontierDropsRuntime;
-  if (runtime && typeof runtime.rollTransitionSetDrops === "function") {
-    return runtime.rollTransitionSetDrops(monster, stats, options);
-  }
-  return legacyRollTransitionSetDrops(monster, stats, options);
-}
-
 function legacyRollEquipmentTableDrops(stats, options = {}) { return; }
 
 function rollEquipmentTableDrops(stats, options = {}) {
@@ -4742,6 +4647,7 @@ function rollEquipmentDropsFromTable(rows, stats, options = {}) {
 }
 
 function getEquipmentPityThreshold() {
+  if (state.totalKills <= EARLY_EQUIPMENT_PITY_KILL_LIMIT) return EARLY_EQUIPMENT_PITY_THRESHOLD;
   const configured = EQUIPMENT_PITY_THRESHOLDS[currentMap().id] || {};
   return Number(configured[state.currentDifficulty] || configured.normal || 60);
 }
@@ -4826,17 +4732,44 @@ function maybeDropMythicEssence(stats = computeStats(), options = {}) {
   return legacyMaybeDropMythicEssence(stats, options);
 }
 
+function resolveProgressionDropTemplate(drop) {
+  if (!drop?.equipmentId) return null;
+  return window.RuneFrontierEquipmentRuntime?.getProgressionEquipmentTemplate?.(drop.equipmentId) || equipmentTemplateDb[drop.equipmentId] || null;
+}
+
+function getCurrentProgressionEquipmentRows(options = {}) {
+  const map = currentMap();
+  const difficulty = state.currentDifficulty || "normal";
+  const rows = window.RuneFrontierEquipmentRuntime?.getProgressionEquipmentDropTable?.(map.id, difficulty) || [];
+  const minRarity = options.minRarity || "normal";
+  const slot = options.slot || "";
+  const hasTemplate = (drop) => Boolean(resolveProgressionDropTemplate(drop));
+  const matchesSlot = (drop) => !slot || equipmentSlot(resolveProgressionDropTemplate(drop)) === slot;
+  const matchesRarity = (drop) => !minRarity || rarityRank(drop.rarity) >= rarityRank(minRarity);
+  let filtered = rows.filter((drop) => hasTemplate(drop) && matchesSlot(drop) && matchesRarity(drop));
+  if (!filtered.length && options.allowFallback !== false) {
+    filtered = rows.filter((drop) => hasTemplate(drop) && matchesSlot(drop));
+  }
+  return filtered;
+}
+
+function pickProgressionEquipmentTemplate(options = {}) {
+  const rows = getCurrentProgressionEquipmentRows(options);
+  const row = rows.length ? weightedChoice(rows, (drop) => Math.max(0.0001, drop.dropRate || drop.weight || 1)) : null;
+  const template = resolveProgressionDropTemplate(row);
+  return template ? { row, template } : null;
+}
+
 function createMutationEquipment(rarity) {
-  const tableId = mapDropTableAlias[currentMap().id] || currentMap().id;
-  const rows = (equipmentDropTables[tableId] || []).filter((drop) => rarityRank(drop.rarity) >= rarityRank(rarity === "darkGold" ? "legend" : rarity));
-  const pick = rows.length ? weightedChoice(rows, (drop) => Math.max(0.0001, drop.dropRate)) : null;
-  const fallback = allEquipmentTemplates.filter((item) => rarityRank(item.rarity) >= rarityRank("legend"));
-  const template = pick ? equipmentTemplateDb[pick.equipmentId] : fallback[Math.floor(Math.random() * fallback.length)];
-  if (!template) return null;
+  const minRarity = rarity === "darkGold" || rarity === "mythic" ? "legend" : rarity;
+  const pick = pickProgressionEquipmentTemplate({ minRarity, allowFallback: true });
+  if (!pick) return null;
   const bonus = DIFFICULTY_DROP_LEVEL_BONUS[state.currentDifficulty] || DIFFICULTY_DROP_LEVEL_BONUS.normal;
-  const rawLevel = pick ? randomInt(pick.minLevel, pick.maxLevel) : (currentMonsterStats().level || 30);
+  const minLevel = Math.max(1, Number(pick.row.minLevel) || 1);
+  const maxLevel = Math.max(minLevel, Number(pick.row.maxLevel) || currentMonsterStats().level || minLevel);
+  const rawLevel = randomInt(minLevel, maxLevel);
   const dropLevel = clampNumber(rawLevel + randomInt(bonus.min, bonus.max), 1, MAX_EQUIPMENT_LEVEL);
-  return createItem(template, dropLevel, rarity, { dropMapId: currentMap().id, dropLevel, difficulty: state.currentDifficulty, allowMythic: rarity === "mythic" });
+  return createItem(pick.template, dropLevel, rarity, { dropMapId: currentMap().id, dropLevel, difficulty: state.currentDifficulty, allowMythic: rarity === "mythic" });
 }
 
 function weightedChoice(items, weightFn) {
@@ -6582,9 +6515,9 @@ function buildOfflineMonsterStats(map) {
 function legacyBuildOfflineMonsterStats(map) { return; }
 
 function rollOfflineEquipmentDrops(rewards, stats, map, mapIndex, killCount) {
-  const tableId = mapDropTableAlias[map.id] || map.id;
   const progressionRows = window.RuneFrontierEquipmentRuntime?.getProgressionEquipmentDropTable?.(map.id, state.currentDifficulty) || [];
-  const rows = progressionRows.length ? progressionRows : equipmentDropTables[tableId] || [];
+  const rows = progressionRows;
+  if (!rows.length) return;
   const capacity = { freeSlots: Math.max(0, getInventoryLimit() - state.inventory.length) };
   for (let kill = 0; kill < killCount; kill += 1) {
     const drops = rollEquipmentDropsFromTable(rows, stats, { offline: true });
@@ -6628,16 +6561,6 @@ function rollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills
     return runtime.rollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills);
   }
   return legacyRollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills);
-}
-
-function legacyRollOfflineTransitionSetDrops(rewards, stats, map, killCount) { return; }
-
-function rollOfflineTransitionSetDrops(rewards, stats, map, killCount) {
-  const runtime = window.RuneFrontierOfflineRuntime;
-  if (runtime && typeof runtime.rollOfflineTransitionSetDrops === "function") {
-    return runtime.rollOfflineTransitionSetDrops(rewards, stats, map, killCount);
-  }
-  return legacyRollOfflineTransitionSetDrops(rewards, stats, map, killCount);
 }
 
 function legacyRollOfflineMythicDrops(rewards, stats, map, killCount, mutationKills = 0) { return; }
@@ -8891,27 +8814,19 @@ function exchangeDarkGoldEquipment(mode = "random", slot = "") {
 
 function createDarkGoldExchangeItem(mode = "random", slot = "") {
   const map = currentMap();
-  const tableId = mapDropTableAlias[map.id] || map.id;
-  let templates = [];
-  if (mode === "map") {
-    templates = (equipmentDropTables[tableId] || [])
-      .filter((drop) => equipmentTemplateDb[drop.equipmentId])
-      .map((drop) => equipmentTemplateDb[drop.equipmentId]);
-  } else {
-    templates = allEquipmentTemplates.filter((template) => template && rarityRank(template.rarity) >= rarityRank("rare"));
-  }
-  if (mode === "slot" && slot) {
-    templates = templates.filter((template) => equipmentSlot(template) === slot);
-  }
-  if (!templates.length) {
-    templates = allEquipmentTemplates.filter((template) => template && rarityRank(template.rarity) >= rarityRank("legend"));
-  }
-  const template = templates[Math.floor(Math.random() * templates.length)];
-  if (!template) return null;
+  const pick = pickProgressionEquipmentTemplate({
+    minRarity: "rare",
+    slot: mode === "slot" ? slot : "",
+    allowFallback: true,
+  });
+  if (!pick) return null;
   const mapRange = getMapLevelRange(map);
-  const baseLevel = mode === "map" ? mapRange.maxLevel : Math.max(mapRange.maxLevel, state.hero.baseLevel || template.level || 1);
+  const rowMaxLevel = Math.max(1, Number(pick.row.maxLevel) || mapRange.maxLevel || 1);
+  const baseLevel = mode === "map"
+    ? rowMaxLevel
+    : Math.max(rowMaxLevel, state.hero.baseLevel || pick.template.level || 1);
   const dropLevel = clampNumber(baseLevel + randomInt(8, 18), 1, MAX_EQUIPMENT_LEVEL);
-  return createItem(template, dropLevel, "darkGold", { dropMapId: mode === "map" ? map.id : "dark_gold_exchange", dropLevel, difficulty: state.currentDifficulty });
+  return createItem(pick.template, dropLevel, "darkGold", { dropMapId: mode === "map" ? map.id : "dark_gold_exchange", dropLevel, difficulty: state.currentDifficulty });
 }
 
 function isZodiacSetId(setId) {
@@ -13503,17 +13418,11 @@ window.RuneFrontierLegacyDropsContext = () => Object.freeze({
   getZodiacSetIds(mapId) {
     return zodiacSetDropMap[mapId] || [];
   },
-  getTransitionSetIds(mapId) {
-    return transitionSetDropMap[mapId] || [];
-  },
   getEquipmentSet(setId) {
     return equipmentSets[setId];
   },
   getZodiacSetDropRates() {
     return ZODIAC_SET_DROP_RATES;
-  },
-  getTransitionSetDropRates() {
-    return TRANSITION_SET_DROP_RATES;
   },
   getMythicDropRates() {
     return MYTHIC_DROP_RATES;
@@ -13542,8 +13451,8 @@ window.RuneFrontierLegacyDropsContext = () => Object.freeze({
   getDropTableId(mapId) {
     return mapDropTableAlias[mapId] || mapId;
   },
-  getEquipmentDropTable(tableId) {
-    return equipmentDropTables[tableId] || [];
+  getEquipmentDropTable() {
+    return [];
   },
   getProgressionEquipmentDropTable(mapId, difficulty) {
     return window.RuneFrontierEquipmentRuntime?.getProgressionEquipmentDropTable?.(mapId, difficulty) || [];
@@ -13620,8 +13529,8 @@ window.RuneFrontierLegacyOfflineContext = () => Object.freeze({
   getDropTableAlias(mapId) {
     return mapDropTableAlias[mapId] || mapId;
   },
-  getEquipmentDropTable(tableId) {
-    return equipmentDropTables[tableId] || [];
+  getEquipmentDropTable() {
+    return [];
   },
   getProgressionEquipmentDropTable(mapId, difficulty) {
     return window.RuneFrontierEquipmentRuntime?.getProgressionEquipmentDropTable?.(mapId, difficulty) || [];
@@ -13638,17 +13547,11 @@ window.RuneFrontierLegacyOfflineContext = () => Object.freeze({
   getZodiacSetIds(mapId) {
     return zodiacSetDropMap[mapId] || [];
   },
-  getTransitionSetIds(mapId) {
-    return transitionSetDropMap[mapId] || [];
-  },
   getEquipmentSet(setId) {
     return equipmentSets[setId];
   },
   getZodiacSetDropRates() {
     return ZODIAC_SET_DROP_RATES;
-  },
-  getTransitionSetDropRates() {
-    return TRANSITION_SET_DROP_RATES;
   },
   getMythicDropRates() {
     return MYTHIC_DROP_RATES;
@@ -13721,7 +13624,6 @@ window.RuneFrontierLegacyOfflineContext = () => Object.freeze({
   rollOfflineCardDrops,
   rollOfflineMaterialDrops,
   rollOfflineZodiacSetDrops,
-  rollOfflineTransitionSetDrops,
   rollOfflineMythicDrops,
   rollOfflineMutationExtraDrops,
 });

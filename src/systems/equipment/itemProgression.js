@@ -230,7 +230,7 @@ export const MAP_EQUIPMENT_PROGRESSION = Object.freeze({
   },
   abyss_lake: {
     normal: { targetMapOffset: 0, tiers: ['T8'], series: ['goodEvil', 'nebula'], grade: 'base', upgradeStage: 0, materialSeries: ['goodEvil', 'nebula'], materialKinds: ['basic'] },
-    hard: { targetMapOffset: 2, tiers: ['T8'], series: ['nebula'], grade: 'geoborg', upgradeStage: 1, materialSeries: ['muqaddas'], materialKinds: ['basic'] },
+    hard: { targetMapOffset: 2, tiers: ['T9'], series: ['nebula', 'muqaddas'], grade: 'geoborg', upgradeStage: 1, materialSeries: ['muqaddas'], materialKinds: ['basic', 'advanced'] },
     abyss: { targetMapOffset: 4, tiers: ['T9'], series: ['muqaddas'], grade: 'embryo', upgradeStage: 0, materialSeries: ['muqaddas'], materialKinds: ['advanced', 'core'] },
   },
   sky: {

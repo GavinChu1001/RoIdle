@@ -1,5 +1,5 @@
 import { rollEquipmentTableDrops } from './equipmentDrops.js';
-import { rollZodiacSetDrops, rollTransitionSetDrops } from './bossDrops.js';
+import { rollZodiacSetDrops } from './bossDrops.js';
 import { rollMythicEquipmentDrop } from './abyssDrops.js';
 import { maybeDropDarkGoldFragments, maybeDropMythicEssence, maybeDropSocketMaterials, rollMapMaterialDrops } from './materialDrops.js';
 import { maybeDropBossCardFragments, rollCardDropsFromTable } from './cardDrops.js';
@@ -16,7 +16,6 @@ export function rollDrops(options = {}, context = runtimeContext) {
   const monster = options.monster || context.currentMonsterStats?.();
   const equipmentDropCount = rollEquipmentTableDrops(stats, { boss: isBoss }, context);
   const zodiacDropCount = rollZodiacSetDrops(monster, stats, { boss: isBoss }, context);
-  const transitionDropCount = rollTransitionSetDrops(monster, stats, { boss: isBoss }, context);
   const mythicDropCount = rollMythicEquipmentDrop(monster, stats, { boss: isBoss }, context);
   rollMapMaterialDrops(stats, { boss: isBoss }, context);
   maybeDropMythicEssence(stats, { boss: isBoss }, context);
@@ -24,7 +23,7 @@ export function rollDrops(options = {}, context = runtimeContext) {
   maybeDropSocketMaterials(stats, { boss: isBoss }, context);
   rollCardDropsFromTable(stats, { boss: isBoss }, context);
   maybeDropBossCardFragments(stats, { boss: isBoss }, context);
-  return equipmentDropCount + zodiacDropCount + transitionDropCount + mythicDropCount;
+  return equipmentDropCount + zodiacDropCount + mythicDropCount;
 }
 
 export function getEffectiveEquipmentDropRate(drop, stats, options) {

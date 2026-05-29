@@ -10517,10 +10517,10 @@ details > summary::marker {
   background: var(--spark-color);
   box-shadow:
     0 0 0 1px rgba(72, 35, 12, 0.42),
-    0 0 8px rgba(255, 219, 97, 0.48);
+    0 0 10px rgba(255, 219, 97, 0.68);
   image-rendering: pixelated;
   transform: translate(-50%, -50%) rotate(var(--spark-rotate));
-  animation: roImpactSpark 380ms steps(4, end) forwards;
+  animation: roImpactSpark 620ms steps(4, end) forwards;
 }
 
 .combat-spark-strike {
@@ -10530,12 +10530,12 @@ details > summary::marker {
 
 .combat-spark-crit {
   --spark-color: #ff6a35;
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   box-shadow:
     0 0 0 1px rgba(86, 24, 8, 0.54),
-    0 0 10px rgba(255, 93, 39, 0.62);
-  animation-duration: 560ms;
+    0 0 14px rgba(255, 93, 39, 0.78);
+  animation-duration: 760ms;
 }
 
 .combat-spark-skill {
@@ -10545,22 +10545,25 @@ details > summary::marker {
 }
 
 .combat-impact-strike {
-  width: 92px;
-  height: 20px;
-  border-top: 6px solid rgba(255, 246, 205, 0.96);
-  border-bottom: 3px solid rgba(255, 187, 75, 0.92);
-  box-shadow: 0 0 10px rgba(255, 221, 111, 0.64);
-  animation: roStrikeFlash 420ms steps(3, end) forwards;
+  width: 116px;
+  height: 28px;
+  border-top: 8px solid rgba(255, 250, 218, 0.98);
+  border-bottom: 4px solid rgba(255, 188, 65, 0.95);
+  box-shadow:
+    0 0 0 1px rgba(94, 46, 18, 0.16),
+    0 0 14px rgba(255, 221, 111, 0.78);
+  animation: roStrikeFlash 620ms steps(4, end) forwards;
 }
 
 .combat-impact-crit {
-  width: 88px;
-  height: 88px;
+  width: 108px;
+  height: 108px;
   background:
-    radial-gradient(circle, rgba(255, 251, 214, 0.95) 0 12%, transparent 13%),
-    repeating-conic-gradient(from 0deg, rgba(255, 80, 34, 0.9) 0 9deg, transparent 9deg 24deg);
-  filter: drop-shadow(0 0 12px rgba(255, 96, 42, 0.58));
-  animation: roCritBurst 560ms steps(4, end) forwards;
+    radial-gradient(circle, rgba(255, 255, 224, 0.98) 0 11%, transparent 12%),
+    radial-gradient(circle, rgba(255, 149, 54, 0.48) 0 28%, transparent 29%),
+    repeating-conic-gradient(from 0deg, rgba(255, 72, 28, 0.95) 0 10deg, transparent 10deg 22deg);
+  filter: drop-shadow(0 0 16px rgba(255, 96, 42, 0.74));
+  animation: roCritBurst 780ms steps(5, end) forwards;
 }
 
 .combat-impact-skill {
@@ -10704,6 +10707,44 @@ details > summary::marker {
   100% { opacity: 0; transform: translate(-50%, -50%) scale(1.08); }
 }
 
+@keyframes roReducedCombatFlash {
+  0%,
+  96% {
+    opacity: 0.92;
+    filter: brightness(1.12);
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    filter: brightness(1);
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes roReducedCombatSpark {
+  0%,
+  96% {
+    opacity: 0.95;
+    transform: translate(-50%, -50%) rotate(var(--spark-rotate));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--spark-rotate));
+  }
+}
+
+@keyframes roReducedDamageFloat {
+  0%,
+  96% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
 @media (max-width: 640px) {
   .damage-float.damage-number {
     max-width: min(210px, 52vw);
@@ -10731,10 +10772,16 @@ details > summary::marker {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .combat-impact,
-  .combat-spark,
+  .combat-impact {
+    animation: roReducedCombatFlash 860ms steps(1, end) forwards !important;
+  }
+
+  .combat-spark {
+    animation: roReducedCombatSpark 840ms steps(1, end) forwards !important;
+  }
+
   .damage-float.damage-number {
-    animation-duration: 1ms !important;
+    animation: roReducedDamageFloat 920ms steps(1, end) forwards !important;
   }
 }
 

@@ -32,9 +32,8 @@ export function resolveEquipmentDropLevel({
 export function rollEquipmentTableDrops(stats, options = {}, context = runtimeContext) {
   const map = context.currentMap?.() || {};
   const difficulty = context.currentDifficulty?.() || 'normal';
-  const tableId = context.getDropTableId?.(map.id) || map.id;
   const progressionRows = context.getProgressionEquipmentDropTable?.(map.id, difficulty) || [];
-  const rows = progressionRows.length ? progressionRows : context.getEquipmentDropTable?.(tableId) || [];
+  const rows = progressionRows;
   const drops = rollEquipmentDropsFromTable(rows, stats, options, context);
   drops.forEach((item) => context.addEquipmentToInventory?.(item, { logDrop: true }));
   return drops.length;
