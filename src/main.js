@@ -210,6 +210,8 @@ const characterRenderContext = {
   getTitleEffects: window.getTitleEffects,
   getVipBonuses: window.getVipBonuses,
   getMapExplorationBonuses: window.getMapExplorationBonuses,
+  getMvpInscriptionView: window.getMvpInscriptionView,
+  canGainMvpInscriptionOnCurrentMap: window.canGainMvpInscriptionOnCurrentMap,
   getNextJobId: window.getNextJobId,
   getFirstJobs() { return window.firstJobs || []; },
   getJobTemplates() { return window.jobTemplates || {}; },
