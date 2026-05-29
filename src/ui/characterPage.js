@@ -32,7 +32,7 @@ export function renderHeroes(ctx = charCtx) {
   const inscriptionMapEffective = ctx.canGainMvpInscriptionOnCurrentMap?.() !== false;
   const inscriptionStageName = mvpInscription.stageName || '波利王铭刻';
   const nextStageName = mvpInscription.nextStage?.name || inscriptionStageName;
-  const canBreakthroughMvpInscription = F(mvpInscription.level) > 0 && F(mvpInscription.level) < 100 && F(mvpInscription.level) % 10 === 0;
+  const canBreakthroughMvpInscription = Boolean(mvpInscription.atBreakthrough);
   const rebirthModeHtml = F(state.hero?.rebirths) > 0 ? `
         <div class="rebirth-mode-section ro-character-mode">
           <label class="rebirth-toggle">

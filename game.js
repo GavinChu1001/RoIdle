@@ -7290,7 +7290,7 @@ function computeStats() {
   const cardStats = getCardStats();
   const vipBonuses = getVipBonuses();
   const mvpInscriptionBonuses = window.RuneFrontierMvpInscriptionRuntime?.getMvpInscriptionBonuses?.(state.mvpInscription) || {};
-  ["hpPct", "atkPct", "matkPct", "defPct"].forEach((stat) => {
+  ["hpPct", "atkPct", "matkPct", "defPct", "attackSpeedPct", "combatPaceBonus", "hitRate", "critRatePct", "statusResist", "physicalFinalDamageBonus", "normalAttackDamageBonus", "skillDamageBonus"].forEach((stat) => {
     equip[stat] = (equip[stat] || 0) + (Number(mvpInscriptionBonuses[stat]) || 0);
   });
   const attrBreakdown = calculateFinalStats({ equip });
