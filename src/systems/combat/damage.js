@@ -30,6 +30,7 @@ export function getTargetDamageBonus(stats = {}, monsterContext = {}, context = 
   const monster = monsterContext.monster || context.currentMonsterStats?.() || {};
   const isBoss = monsterContext.isBoss ?? Boolean(state.enemyBoss || monster.type === 'boss');
   const difficulty = monsterContext.difficulty || state.currentDifficulty || 'normal';
+  const damageType = monsterContext.damageType || monsterContext.sourceType || '';
   const enemyHp = monsterContext.enemyHp ?? state.enemyHp;
   const enemyMaxHp = monsterContext.enemyMaxHp ?? state.enemyMaxHp;
   let bonus = finite(stats.monsterDamageBonus);
@@ -46,6 +47,12 @@ export function getTargetDamageBonus(stats = {}, monsterContext = {}, context = 
     if (finite(enemyHp) / Math.max(1, finite(enemyMaxHp || 1)) <= 0.2) bonus += finite(stats.abyssExecuteDamageBonus);
   }
   bonus += finite(stats.finalDamageBonus);
+  if (damageType === 'physical' || damageType === 'basic' || damageType === 'normal') {
+    bonus += finite(stats.physicalFinalDamageBonus);
+  }
+  if (damageType === 'magic') {
+    bonus += finite(stats.magicFinalDamageBonus);
+  }
   bonus += Math.min(0.5, finite(stats.ignoreDefensePct));
   return Math.min(3, bonus);
 }

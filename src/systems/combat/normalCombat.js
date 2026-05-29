@@ -99,7 +99,7 @@ export function updateCombat(dt, context = runtimeContext) {
     for (let hit = 0; hit < attacks && state.enemyHp > 0; hit += 1) {
       // 隐匿在 V4 中强化下一次主动技能，不由普通攻击消费。
       const isCrit = context.random?.() < critChance;
-      const targetBonus = getTargetDamageBonus(stats, {}, context);
+      const targetBonus = getTargetDamageBonus(stats, { damageType: 'physical' }, context);
       const monsterGuard = Math.min(0.65, finite(context.currentMonsterStats?.().damageReduction));
       let critDamageMult = isCrit ? (finite(stats.critDamage) || 1.85) : 1;
       if (isCrit && v3Passive.critDamageBonus) critDamageMult += v3Passive.critDamageBonus;
@@ -192,8 +192,22 @@ export function updateMonsterAttack(dt, stats = {}, context = runtimeContext, v3
       (1 + finite(stats.setBonuses?.monsterAttackSpeedReductionPct)) *
       (finite(state.enemyMarks?.freeze) > 0 ? 1.43 : 1) // 冰冻：攻速 -30% ≈ 间隔 +43%
   );
-  if (state.enemyAttackTimer < interval) return false;
+  if (state.enemyAttackTimer < interval) {
+    const progress = interval > 0 ? state.enemyAttackTimer / interval : 0;
+    const warningAt = state.enemyBoss ? 0.58 : 0.72;
+    if (progress >= warningAt && !state.enemyAttackWarningShown) {
+      state.enemyAttackWarningShown = true;
+      context.showEnemyAttackWarning?.({
+        boss: Boolean(state.enemyBoss),
+        kind: state.enemyBoss ? 'boss' : 'normal',
+        progress,
+        interval,
+      });
+    }
+    return false;
+  }
   state.enemyAttackTimer = 0;
+  state.enemyAttackWarningShown = false;
   const monster = context.currentMonsterStats?.() || {};
   if (finite(state.invincibleTimer) > 0) {
     context.showDamageNumber?.('hero', 0, 'miss');
@@ -221,6 +235,13 @@ export function updateMonsterAttack(dt, stats = {}, context = runtimeContext, v3
     finalDamage = window.RuneFrontierCombatRuntime.applyShieldReduction(finalDamage, state);
   }
   state.hero.currentHp = Math.max(0, finite(state.hero?.currentHp || stats.maxHp) - finalDamage);
+  context.showEnemyAttackImpact?.({
+    boss: Boolean(state.enemyBoss),
+    kind: state.enemyBoss ? 'boss' : isCrit ? 'crit' : isBlocked ? 'block' : 'normal',
+    critical: isCrit,
+    blocked: isBlocked,
+    damage: finalDamage,
+  });
   context.showDamageNumber?.('hero', finalDamage, isCrit ? 'crit' : isBlocked ? 'block' : 'monster');
   context.flashPlayerHp?.();
   if (state.enemyHp > 0 && finite(stats.thornVitMultiplier) > 0) {

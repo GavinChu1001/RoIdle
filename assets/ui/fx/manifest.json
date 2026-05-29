@@ -34,6 +34,181 @@
       "generated": true,
       "tone": "storm",
       "usage": ["skill-hit", "arc-skill"]
+    },
+    {
+      "id": "skill-fire",
+      "path": "assets/ui/fx/skill-fire.png",
+      "generated": true,
+      "tone": "fire",
+      "usage": ["skill-hit", "fire-skill"]
+    },
+    {
+      "id": "skill-ice",
+      "path": "assets/ui/fx/skill-ice.png",
+      "generated": true,
+      "tone": "ice",
+      "usage": ["skill-hit", "ice-skill"]
+    },
+    {
+      "id": "skill-shadow",
+      "path": "assets/ui/fx/skill-shadow.png",
+      "generated": true,
+      "tone": "shadow",
+      "usage": ["skill-hit", "shadow-skill"]
+    },
+    {
+      "id": "skill-holy",
+      "path": "assets/ui/fx/skill-holy.png",
+      "generated": true,
+      "tone": "holy",
+      "usage": ["skill-hit", "holy-skill"]
+    },
+    {
+      "id": "skill-storm",
+      "path": "assets/ui/fx/skill-storm.png",
+      "generated": true,
+      "tone": "storm",
+      "usage": ["skill-hit", "storm-skill"]
+    },
+    {
+      "id": "skill-support",
+      "path": "assets/ui/fx/skill-support.png",
+      "generated": true,
+      "tone": "support",
+      "usage": ["skill-hit", "support-skill", "healing-skill"]
+    },
+    {
+      "id": "status-burn",
+      "path": "assets/ui/fx/status-burn.png",
+      "generated": true,
+      "tone": "burn",
+      "usage": ["enemy-status-residue", "burn-status"]
+    },
+    {
+      "id": "status-freeze",
+      "path": "assets/ui/fx/status-freeze.png",
+      "generated": true,
+      "tone": "freeze",
+      "usage": ["enemy-status-residue", "freeze-status"]
+    },
+    {
+      "id": "status-poison",
+      "path": "assets/ui/fx/status-poison.png",
+      "generated": true,
+      "tone": "poison",
+      "usage": ["enemy-status-residue", "poison-status"]
+    },
+    {
+      "id": "status-snare",
+      "path": "assets/ui/fx/status-snare.png",
+      "generated": true,
+      "tone": "snare",
+      "usage": ["enemy-status-residue", "root-status"]
+    },
+    {
+      "id": "status-mark",
+      "path": "assets/ui/fx/status-mark.png",
+      "generated": true,
+      "tone": "mark",
+      "usage": ["enemy-status-residue", "marked-status"]
+    },
+    {
+      "id": "status-break",
+      "path": "assets/ui/fx/status-break.png",
+      "generated": true,
+      "tone": "break",
+      "usage": ["enemy-status-residue", "armor-break-status"]
+    },
+    {
+      "id": "status-wound",
+      "path": "assets/ui/fx/status-wound.png",
+      "generated": true,
+      "tone": "wound",
+      "usage": ["enemy-status-residue", "wound-status"]
+    },
+    {
+      "id": "reward-death",
+      "path": "assets/ui/fx/reward-death.png",
+      "generated": true,
+      "tone": "death",
+      "usage": ["monster-death", "kill-reward-feedback"]
+    },
+    {
+      "id": "reward-boss-death",
+      "path": "assets/ui/fx/reward-boss-death.png",
+      "generated": true,
+      "tone": "boss-death",
+      "usage": ["boss-death", "boss-kill-feedback"]
+    },
+    {
+      "id": "reward-loot",
+      "path": "assets/ui/fx/reward-loot.png",
+      "generated": true,
+      "tone": "loot",
+      "usage": ["high-value-drop", "loot-banner-accent"]
+    },
+    {
+      "id": "reward-gold",
+      "path": "assets/ui/fx/reward-gold.png",
+      "generated": true,
+      "tone": "gold",
+      "usage": ["kill-gold-feedback", "small-reward-accent"]
+    },
+    {
+      "id": "player-heal",
+      "path": "assets/ui/fx/player-heal.png",
+      "generated": true,
+      "tone": "player-heal",
+      "usage": ["player-heal", "hp-recovery-feedback"]
+    },
+    {
+      "id": "player-shield",
+      "path": "assets/ui/fx/player-shield.png",
+      "generated": true,
+      "tone": "player-shield",
+      "usage": ["player-block", "guard-feedback", "shield-feedback"]
+    },
+    {
+      "id": "player-dodge",
+      "path": "assets/ui/fx/player-dodge.png",
+      "generated": true,
+      "tone": "player-dodge",
+      "usage": ["player-dodge", "miss-feedback"]
+    },
+    {
+      "id": "player-hurt",
+      "path": "assets/ui/fx/player-hurt.png",
+      "generated": true,
+      "tone": "player-hurt",
+      "usage": ["player-hurt", "incoming-hit-feedback"]
+    },
+    {
+      "id": "enemy-warning",
+      "path": "assets/ui/fx/enemy-warning.png",
+      "generated": true,
+      "tone": "enemy-warning",
+      "usage": ["enemy-attack-warning", "normal-monster-windup"]
+    },
+    {
+      "id": "boss-cast",
+      "path": "assets/ui/fx/boss-cast.png",
+      "generated": true,
+      "tone": "boss-cast",
+      "usage": ["boss-skill-cast", "boss-windup-warning"]
+    },
+    {
+      "id": "boss-impact",
+      "path": "assets/ui/fx/boss-impact.png",
+      "generated": true,
+      "tone": "boss-impact",
+      "usage": ["boss-skill-impact", "boss-hit-feedback"]
+    },
+    {
+      "id": "danger-mark",
+      "path": "assets/ui/fx/danger-mark.png",
+      "generated": true,
+      "tone": "danger-mark",
+      "usage": ["player-danger-warning", "boss-target-marker"]
     }
   ],
   "plannedElements": [
@@ -64,6 +239,82 @@
     {
       "tone": "support",
       "promptBasis": "Soft green-gold pixel glow with tiny square motes, used for healing and buffs without attack-like aggression."
+    },
+    {
+      "tone": "burn",
+      "promptBasis": "Small orange-red pixel flame ring with ember motes, readable as a lingering burn without covering the monster."
+    },
+    {
+      "tone": "freeze",
+      "promptBasis": "Compact blue-white crystal cluster and frost ring, clear frozen status residue with crisp pixel shards."
+    },
+    {
+      "tone": "poison",
+      "promptBasis": "Green-violet pixel mist with small bubbles, compact poison residue that stays behind the enemy silhouette."
+    },
+    {
+      "tone": "snare",
+      "promptBasis": "Brown-green root binding ring with small leaves and thorns, used as a ground-level restraint status."
+    },
+    {
+      "tone": "mark",
+      "promptBasis": "Gold-red target rune glow, compact marked-target residue for follow-up skills."
+    },
+    {
+      "tone": "break",
+      "promptBasis": "Cracked shield fragments and small stone chips, readable armor-break status with restrained motion."
+    },
+    {
+      "tone": "wound",
+      "promptBasis": "Red pixel slash droplets over a small circular trace, readable wound status without gore."
+    },
+    {
+      "tone": "death",
+      "promptBasis": "Warm white and amber pixel dust pop with small square motes, compact monster defeat feedback."
+    },
+    {
+      "tone": "boss-death",
+      "promptBasis": "Larger golden pixel burst with faint purple edge and star motes, reserved for boss defeat."
+    },
+    {
+      "tone": "loot",
+      "promptBasis": "Treasure chest pixel sparkle with gem glints and warm reward motes, used beside high-value drops."
+    },
+    {
+      "tone": "gold",
+      "promptBasis": "Small gold coin pixel sparkle with square motes, subtle per-kill reward accent."
+    },
+    {
+      "tone": "player-heal",
+      "promptBasis": "Soft green-gold pixel healing ring with warm white core and square motes, used for player recovery feedback."
+    },
+    {
+      "tone": "player-shield",
+      "promptBasis": "Blue-gold compact pixel barrier crest with bright guard sparks, used for player block and shield feedback."
+    },
+    {
+      "tone": "player-dodge",
+      "promptBasis": "Pale blue-white pixel afterimage swirl with short wind streaks, used for miss and dodge feedback near the player."
+    },
+    {
+      "tone": "player-hurt",
+      "promptBasis": "Compact red-orange pixel impact burst with amber square sparks, used for incoming player hit feedback without gore."
+    },
+    {
+      "tone": "enemy-warning",
+      "promptBasis": "Compact orange-red pixel claw warning flare with ember squares and a faint triangular anticipation arc for normal monster windups."
+    },
+    {
+      "tone": "boss-cast",
+      "promptBasis": "Dark red and gold pixel magic circle with rune rings and square sparks, used for Boss skill charging cues."
+    },
+    {
+      "tone": "boss-impact",
+      "promptBasis": "Red-gold pixel impact burst with crimson core and short radial streaks, reserved for Boss skill hits without gore."
+    },
+    {
+      "tone": "danger-mark",
+      "promptBasis": "Compact red warning sigil made of pixels and angular sparks, used near the player as a danger marker."
     }
   ]
 }

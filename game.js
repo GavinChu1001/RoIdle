@@ -1459,10 +1459,14 @@ const COMBAT_PAGE_REFRESH_INTERVAL_MS = 300;
 const PASSIVE_PAGE_REFRESH_INTERVAL_MS = 2000;
 const SCENE_RENDER_INTERVAL_MS = 33;
 const BACKGROUND_OFFLINE_THRESHOLD_MS = 15000;
+const COMBAT_SIMULATION_STEP_SECONDS = 0.12;
+const COMBAT_CATCHUP_MAX_SECONDS = BACKGROUND_OFFLINE_THRESHOLD_MS / 1000;
+const BOSS_BACKGROUND_CATCHUP_MAX_SECONDS = 5 * 60;
 let lastFastRenderAt = 0;
 let lastCombatPageRenderAt = 0;
 let lastSceneRenderAt = 0;
 let backgroundStartedAt = 0;
+let backgroundStartedInBoss = false;
 let equipmentFilter = "all";
 let equipmentSort = "score";
 let equipmentShowAll = false;
@@ -2125,6 +2129,7 @@ function cacheElements() {
     "skillBarV3",
     "skillCastBanner",
     "enemyStatusBar",
+    "enemyStatusVfxLayer",
   ].forEach((id) => {
     els[id] = document.getElementById(id);
   });
@@ -3565,16 +3570,19 @@ function buildBackgroundOfflineReward(startedAt, now = Date.now()) {
 function handleBackgroundStart() {
   if (backgroundStartedAt) return;
   backgroundStartedAt = Date.now();
+  backgroundStartedInBoss = Boolean(state.enemyBoss);
   save({ updateLastActive: false });
 }
 
 function handleForegroundResume() {
   if (!backgroundStartedAt) return false;
   const startedAt = backgroundStartedAt;
+  const startedInBoss = backgroundStartedInBoss;
   backgroundStartedAt = 0;
+  backgroundStartedInBoss = false;
   const result = buildBackgroundOfflineReward(startedAt, Date.now());
   const elapsedSec = Math.max(0, result.elapsedMs || 0) / 1000;
-  if (result.settled) {
+  if (!startedInBoss && result.settled) {
     state.offlinePending = mergeOfflineRewards(state.offlineRewards, result.rewards);
     state.offlineRewards = state.offlinePending;
     showToast("后台挂机收益已结算");
@@ -3582,6 +3590,11 @@ function handleForegroundResume() {
   updateRecovery(elapsedSec);
   updatePotionCooldown(elapsedSec);
   maybeAutoUsePotion();
+  if (startedInBoss) {
+    simulateCombatElapsed(elapsedSec, { maxSeconds: BOSS_BACKGROUND_CATCHUP_MAX_SECONDS, stopWhenBossEnds: true });
+  } else if (!result.settled) {
+    simulateCombatElapsed(elapsedSec);
+  }
   lastTick = performance.now();
   save();
   renderAll();
@@ -3613,6 +3626,22 @@ function handleBeforeUnload() {
   save();
 }
 
+function simulateCombatElapsed(elapsedSeconds, options = {}) {
+  const maxSeconds = Math.max(0, Number(options.maxSeconds ?? COMBAT_CATCHUP_MAX_SECONDS) || 0);
+  const total = Math.min(maxSeconds, Math.max(0, Number(elapsedSeconds) || 0));
+  if (total <= 0 || state.paused) return;
+  let remaining = total;
+  let steps = 0;
+  const maxSteps = Math.ceil(maxSeconds / COMBAT_SIMULATION_STEP_SECONDS) + 1;
+  while (remaining > 0 && steps < maxSteps && !state.paused) {
+    if (options.stopWhenBossEnds && !state.enemyBoss) break;
+    const combatStep = Math.min(COMBAT_SIMULATION_STEP_SECONDS, remaining);
+    updateCombat(combatStep);
+    remaining -= combatStep;
+    steps += 1;
+  }
+}
+
 function loop(now) {
   const elapsedDt = Math.max(0, (now - lastTick) / 1000);
   const dt = Math.min(0.12, elapsedDt);
@@ -3628,7 +3657,7 @@ function loop(now) {
   updateRecovery(elapsedDt);
   updatePotionCooldown(elapsedDt);
   maybeAutoUsePotion();
-  if (!state.paused) updateCombat(dt);
+  simulateCombatElapsed(elapsedDt);
   updateFloatTexts(dt);
   updateOnlinePlaytime(dt);
 
@@ -3854,6 +3883,46 @@ const COMBAT_VFX_ASSET_TYPES = {
   spark: "spark",
 };
 
+const COMBAT_VFX_TONE_ASSET_TYPES = {
+  fire: "fire",
+  ice: "ice",
+  shadow: "shadow",
+  holy: "holy",
+  storm: "storm",
+  support: "support",
+};
+
+const COMBAT_STATUS_VFX_ASSET_TYPES = {
+  burn: "burn",
+  freeze: "freeze",
+  poison: "poison",
+  snare: "snare",
+  mark: "mark",
+  "armor-break": "break",
+  wound: "wound",
+};
+
+const COMBAT_REWARD_VFX_ASSET_TYPES = {
+  death: "death",
+  "boss-death": "boss-death",
+  loot: "loot",
+  gold: "gold",
+};
+
+const COMBAT_PLAYER_FEEDBACK_VFX_ASSET_TYPES = {
+  heal: "heal",
+  shield: "shield",
+  dodge: "dodge",
+  hurt: "hurt",
+};
+
+const COMBAT_ENEMY_ACTION_VFX_ASSET_TYPES = {
+  "enemy-warning": "enemy-warning",
+  "boss-cast": "boss-cast",
+  "boss-impact": "boss-impact",
+  "danger-mark": "danger-mark",
+};
+
 function spawnCombatSparks(wrap, target, type = "normal", tone = "physical") {
   if (!wrap || type === "heal" || type === "miss") return;
   const sparks = wrap.querySelectorAll(".combat-spark");
@@ -3887,7 +3956,7 @@ function spawnCombatImpact(wrap, target, type = "normal", tone = "physical") {
         ? "skill"
         : "strike"
     : "player-hit";
-  const vfxType = COMBAT_VFX_ASSET_TYPES[impactType] || COMBAT_VFX_ASSET_TYPES.strike;
+  const vfxType = type === "skill" ? (COMBAT_VFX_TONE_ASSET_TYPES[tone] || COMBAT_VFX_ASSET_TYPES.skill) : (COMBAT_VFX_ASSET_TYPES[impactType] || COMBAT_VFX_ASSET_TYPES.strike);
   el.className = `ro-vfx ro-vfx-${vfxType} combat-impact combat-impact-${impactType} combat-impact-tone-${tone}`;
   const baseLeft = target === "monster" ? (type === "skill" ? 70 : 73) : 23;
   const baseTop = target === "monster" ? (type === "skill" ? 43 : 50) : 49;
@@ -3898,6 +3967,115 @@ function spawnCombatImpact(wrap, target, type = "normal", tone = "physical") {
   wrap.appendChild(el);
   spawnCombatSparks(wrap, target, type, tone);
   window.setTimeout(() => el.remove(), type === "skill" ? 860 : type === "crit" ? 880 : 760);
+}
+
+function spawnCombatRewardVfx(wrap, type = "death", options = {}) {
+  if (!wrap) return null;
+  const effects = wrap.querySelectorAll(".ro-reward-vfx");
+  if (effects.length > 8) effects[0].remove();
+  const vfxType = COMBAT_REWARD_VFX_ASSET_TYPES[type] || COMBAT_REWARD_VFX_ASSET_TYPES.death;
+  const legacyClass = type === "boss-death"
+    ? options.abyss
+      ? "abyss-boss-death-pop"
+      : "boss-death-pop"
+    : type === "death"
+      ? options.mutation
+        ? "mutation-death-pop"
+        : "monster-death-pop"
+      : type === "gold"
+        ? "gold-reward-pop"
+        : "loot-reward-pop";
+  const el = document.createElement("span");
+  el.className = `ro-reward-vfx ro-reward-vfx-${vfxType} ${legacyClass} reward-vfx-${type}${options.rarity ? ` reward-vfx-rarity-${options.rarity}` : ""}`;
+  const baseLeft = type === "loot" ? 83 : type === "gold" ? 70 : 74;
+  const baseTop = type === "loot" ? 49 : type === "gold" ? 63 : 51;
+  el.style.left = `${baseLeft + randomFloat(-2, 2)}%`;
+  el.style.top = `${baseTop + randomFloat(-3, 3)}%`;
+  el.style.setProperty("--reward-rotate", type === "loot" ? `${randomFloat(-4, 4)}deg` : "0deg");
+  el.style.setProperty("--reward-scale", type === "boss-death" ? "1.08" : type === "gold" ? "0.72" : "0.92");
+  wrap.appendChild(el);
+  window.setTimeout(() => el.remove(), type === "boss-death" ? 1320 : type === "loot" ? 1450 : type === "gold" ? 980 : 860);
+  return el;
+}
+
+function spawnPlayerFeedbackVfx(wrap, target, type) {
+  if (!wrap || target === "monster") return null;
+  const effects = wrap.querySelectorAll(".ro-player-vfx");
+  if (effects.length > 8) effects[0].remove();
+  const feedbackType = type === "heal"
+    ? "heal"
+    : type === "miss"
+      ? "dodge"
+      : type === "block"
+        ? "shield"
+        : "hurt";
+  const vfxType = COMBAT_PLAYER_FEEDBACK_VFX_ASSET_TYPES[feedbackType] || COMBAT_PLAYER_FEEDBACK_VFX_ASSET_TYPES.hurt;
+  const el = document.createElement("span");
+  el.className = `ro-player-vfx ro-player-vfx-${vfxType} player-feedback-vfx player-feedback-${type}`;
+  const baseLeft = feedbackType === "dodge" ? 20 : feedbackType === "shield" ? 22 : 23;
+  const baseTop = feedbackType === "heal" ? 53 : feedbackType === "dodge" ? 52 : 50;
+  el.style.left = `${baseLeft + randomFloat(-2, 2)}%`;
+  el.style.top = `${baseTop + randomFloat(-3, 3)}%`;
+  el.style.setProperty("--player-vfx-rotate", feedbackType === "dodge" ? `${randomFloat(-6, 6)}deg` : "0deg");
+  el.style.setProperty("--player-vfx-scale", feedbackType === "shield" ? "0.86" : feedbackType === "hurt" ? "0.74" : "0.82");
+  wrap.appendChild(el);
+  window.setTimeout(() => el.remove(), feedbackType === "heal" ? 1120 : feedbackType === "shield" ? 980 : 860);
+  return el;
+}
+
+function spawnEnemyActionVfx(wrap, type = "enemy-warning", options = {}) {
+  if (!wrap) return null;
+  const effects = wrap.querySelectorAll(".ro-enemy-action-vfx");
+  if (effects.length > 10) effects[0].remove();
+  const vfxType = COMBAT_ENEMY_ACTION_VFX_ASSET_TYPES[type] || COMBAT_ENEMY_ACTION_VFX_ASSET_TYPES["enemy-warning"];
+  const boss = Boolean(options.boss) || type === "boss-cast" || type === "boss-impact";
+  const el = document.createElement("span");
+  el.className = `ro-enemy-action-vfx ro-enemy-action-vfx-${vfxType} enemy-action-vfx enemy-action-${type}${boss ? " enemy-action-boss" : ""}`;
+  const baseLeft = type === "boss-impact" || type === "danger-mark" ? 23 : type === "boss-cast" ? 74 : 73;
+  const baseTop = type === "danger-mark" ? 39 : type === "boss-impact" ? 50 : type === "boss-cast" ? 44 : 51;
+  el.style.left = `${baseLeft + randomFloat(-2, 2)}%`;
+  el.style.top = `${baseTop + randomFloat(-3, 3)}%`;
+  el.style.setProperty("--enemy-action-rotate", type === "enemy-warning" ? `${randomFloat(-5, 5)}deg` : "0deg");
+  el.style.setProperty("--enemy-action-scale", type === "boss-cast" ? "0.96" : type === "boss-impact" ? "0.88" : type === "danger-mark" ? "0.74" : "0.82");
+  wrap.appendChild(el);
+  window.setTimeout(() => el.remove(), type === "boss-cast" ? 1160 : type === "boss-impact" ? 980 : type === "danger-mark" ? 860 : 760);
+  return el;
+}
+
+function showEnemyAttackWarning(payload = {}) {
+  const wrap = document.querySelector(".scene-wrap");
+  if (!wrap) return;
+  const boss = Boolean(payload.boss);
+  if (boss) {
+    spawnEnemyActionVfx(wrap, "boss-cast", { boss: true });
+    spawnEnemyActionVfx(wrap, "danger-mark", { boss: true });
+    wrap.classList.remove("enemy-warning-active", "boss-warning-active");
+    void wrap.offsetWidth;
+    wrap.classList.add("enemy-warning-active", "boss-warning-active");
+    window.setTimeout(() => wrap.classList.remove("enemy-warning-active", "boss-warning-active"), 760);
+    return;
+  }
+  spawnEnemyActionVfx(wrap, "enemy-warning", { boss: false });
+  wrap.classList.remove("enemy-warning-active");
+  void wrap.offsetWidth;
+  wrap.classList.add("enemy-warning-active");
+  window.setTimeout(() => wrap.classList.remove("enemy-warning-active"), 520);
+}
+
+function showEnemyAttackImpact(payload = {}) {
+  const wrap = document.querySelector(".scene-wrap");
+  if (!wrap) return;
+  const boss = Boolean(payload.boss);
+  spawnEnemyActionVfx(wrap, boss ? "boss-impact" : "enemy-warning", {
+    boss,
+    critical: Boolean(payload.critical),
+    blocked: Boolean(payload.blocked),
+  });
+  if (!boss) return;
+  wrap.classList.remove("boss-impact-flash");
+  void wrap.offsetWidth;
+  wrap.classList.add("boss-impact-flash");
+  window.setTimeout(() => wrap.classList.remove("boss-impact-flash"), 360);
 }
 
 function showDamageNumber(target, amount, type = "player", options = {}) {
@@ -3923,6 +4101,7 @@ function showDamageNumber(target, amount, type = "player", options = {}) {
   el.style.left = `${baseLeft + randomFloat(-3, 3)}%`;
   el.style.top = `${baseTop + randomFloat(-2, 2)}%`;
   wrap.appendChild(el);
+  spawnPlayerFeedbackVfx(wrap, target, type);
   spawnCombatImpact(wrap, target, type, tone);
   window.setTimeout(() => el.remove(), 900);
 }
@@ -3971,11 +4150,8 @@ function showMonsterDeathFeedback(monster = currentMonsterStats()) {
   const wrap = document.querySelector(".scene-wrap");
   if (!wrap) return;
   const isAbyssBoss = state.enemyBoss && state.currentDifficulty === "abyss";
-  const className = isAbyssBoss ? "abyss-boss-death-pop" : state.enemyBoss ? "boss-death-pop" : monster?.mutation ? "mutation-death-pop" : "monster-death-pop";
-  const el = document.createElement("span");
-  el.className = `death-pop ${className}`;
-  wrap.appendChild(el);
-  window.setTimeout(() => el.remove(), state.enemyBoss ? 1500 : 760);
+  spawnCombatRewardVfx(wrap, state.enemyBoss ? "boss-death" : "death", { mutation: Boolean(monster?.mutation), abyss: isAbyssBoss });
+  if (!state.enemyBoss) spawnCombatRewardVfx(wrap, "gold", { compact: true });
   if (state.enemyBoss) { wrap.classList.add("boss-death-shake"); wrap.classList.add("boss-death-flash"); window.setTimeout(() => { wrap.classList.remove("boss-death-shake"); wrap.classList.remove("boss-death-flash"); }, 1100); }
   playSfx(state.enemyBoss ? "boss_die" : "monster_die");
 }
@@ -4007,6 +4183,7 @@ function showLootDropFeedback(item) {
   el.className = `loot-drop-banner loot-drop-${rarity} ${top.setId ? "loot-drop-set" : ""}`;
   el.innerHTML = `<strong>${escapeHtml(lootFeedbackTitle(top))}</strong><span>${escapeHtml(getDisplayItemName(top))}</span>`;
   wrap.appendChild(el);
+  spawnCombatRewardVfx(wrap, "loot", { rarity, set: Boolean(top.setId) });
   window.setTimeout(() => {
     el.remove();
     recentLootFeedback = recentLootFeedback.filter((entry) => entry.id !== top.id);
@@ -6528,10 +6705,22 @@ function rollOfflineEquipmentDrops(rewards, stats, map, mapIndex, killCount) {
   const rows = progressionRows;
   if (!rows.length) return;
   const capacity = { freeSlots: Math.max(0, getInventoryLimit() - state.inventory.length) };
+  const pityThreshold = Math.max(0, Math.floor(Number(getEquipmentPityThreshold()) || 0));
+  let pityKills = Math.max(0, Math.floor(Number(state.equipmentPityKills) || 0));
   for (let kill = 0; kill < killCount; kill += 1) {
-    const drops = rollEquipmentDropsFromTable(rows, stats, { offline: true });
+    let drops = rollEquipmentDropsFromTable(rows, stats, { offline: true });
+    if (drops.length) {
+      pityKills = 0;
+    } else if (pityThreshold > 0) {
+      pityKills += 1;
+      if (pityKills >= pityThreshold) {
+        drops = rollEquipmentDropsFromTable(rows, stats, { offline: true, guaranteed: true });
+        if (drops.length) pityKills = 0;
+      }
+    }
     processOfflineGeneratedEquipment(rewards, drops, capacity);
   }
+  if (pityThreshold > 0) state.equipmentPityKills = pityKills;
 }
 
 function canOfflineFullSalvage(item) {
@@ -7018,7 +7207,8 @@ function computeStats() {
     critDamageBonus: critDamageBonusTotal,
     critDamage: 1.85 + critDamageBonusTotal,
     ignoreDefensePct: setBonuses.ignoreDefensePct + (equip.ignoreDefense || 0) + (passive.ignoreDefense || 0) + (isAbyss ? setBonuses.abyssIgnoreDefense || 0 : 0),
-    finalDamageBonus: (equip.finalDamageBonus || 0) + (equip.physicalFinalDamageBonus || 0) + (passive.finalDamageBonus || 0),
+    finalDamageBonus: (equip.finalDamageBonus || 0) + (passive.finalDamageBonus || 0),
+    physicalFinalDamageBonus: equip.physicalFinalDamageBonus || 0,
     lifeSteal: Math.min(0.35, (equip.lifeSteal || 0) + (passive.lifeSteal || passive.lifeStealPct || 0)),
     goldMultiplier: 1 + calculateGoldBonus({ equip, cardStats, passive, vipBonuses }) + explorationBonuses.goldBonus + (isAbyss ? setBonuses.abyssGoldPct || 0 : 0) + (codexS.goldBonus || 0),
     monsterGoldMultiplier: 1 + setBonuses.monsterGoldPct,
@@ -7931,6 +8121,38 @@ function renderEnemyStatusBar() {
     var timeText = status.remaining > 0 ? ' ' + Math.ceil(status.remaining) + 's' : '';
     return '<span class="enemy-status-chip ' + escapeHtml(status.tone || '') + '">' +
       escapeHtml(status.label + countText + timeText) + '</span>';
+  }).join('');
+  renderEnemyStatusVfx(statuses);
+}
+
+function renderEnemyStatusVfx(statuses) {
+  var layer = els.enemyStatusVfxLayer || document.getElementById("enemyStatusVfxLayer");
+  if (!layer) {
+    var wrap = document.querySelector(".scene-wrap");
+    if (!wrap) return;
+    layer = document.createElement("div");
+    layer.id = "enemyStatusVfxLayer";
+    layer.className = "enemy-status-vfx-layer";
+    layer.setAttribute("aria-hidden", "true");
+    wrap.appendChild(layer);
+    els.enemyStatusVfxLayer = layer;
+  }
+  var active = (statuses || []).filter(function (status) {
+    return COMBAT_STATUS_VFX_ASSET_TYPES[status.id] || COMBAT_STATUS_VFX_ASSET_TYPES[status.tone];
+  }).slice(0, 3);
+  var signature = active.map(function (status) {
+    var type = COMBAT_STATUS_VFX_ASSET_TYPES[status.id] || COMBAT_STATUS_VFX_ASSET_TYPES[status.tone];
+    return [type, Number(status.stacks || 0)].join(":");
+  }).join("|");
+  if (layer.dataset.statusVfxSignature === signature) {
+    layer.hidden = active.length === 0;
+    return;
+  }
+  layer.dataset.statusVfxSignature = signature;
+  layer.hidden = active.length === 0;
+  layer.innerHTML = active.map(function (status, index) {
+    var type = COMBAT_STATUS_VFX_ASSET_TYPES[status.id] || COMBAT_STATUS_VFX_ASSET_TYPES[status.tone];
+    return '<span class="ro-status-vfx ro-status-vfx-' + escapeHtml(type) + ' ro-status-vfx-slot-' + index + '"></span>';
   }).join('');
 }
 
@@ -13659,6 +13881,7 @@ window.RuneFrontierLegacyOfflineContext = () => Object.freeze({
   getOfflineMaxKills() {
     return OFFLINE_MAX_KILLS;
   },
+  getEquipmentPityThreshold,
   getInventoryLimit,
   random() {
     return Math.random();
@@ -13820,6 +14043,8 @@ window.RuneFrontierLegacyCombatContext = () => Object.freeze({
   showDamageNumber,
   showHitFeedback,
   showSkillCastFeedback,
+  showEnemyAttackWarning,
+  showEnemyAttackImpact,
   applySplashDamageToEncounter,
   applySkillSplashDamageToEncounter,
   flashPlayerHp() {

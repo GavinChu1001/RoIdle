@@ -295,10 +295,22 @@ export function rollOfflineEquipmentDrops(rewards, stats, map, mapIndex, killCou
   const rows = context.getProgressionEquipmentDropTable?.(map.id, difficulty) || [];
   if (!rows.length) return;
   const capacity = { freeSlots: Math.max(0, invLimit() - (state.inventory || []).length) };
+  const pityThreshold = Math.max(0, Math.floor(finite(context.getEquipmentPityThreshold?.())));
+  let pityKills = Math.max(0, Math.floor(finite(state.equipmentPityKills)));
   for (let kill = 0; kill < killCount; kill += 1) {
-    const drops = rollFn(rows, stats, { offline: true });
+    let drops = rollFn(rows, stats, { offline: true });
+    if (drops.length) {
+      pityKills = 0;
+    } else if (pityThreshold > 0) {
+      pityKills += 1;
+      if (pityKills >= pityThreshold) {
+        drops = rollFn(rows, stats, { offline: true, guaranteed: true });
+        if (drops.length) pityKills = 0;
+      }
+    }
     processGeneratedOfflineEquipment(rewards, drops, capacity, {}, context);
   }
+  if (pityThreshold > 0) state.equipmentPityKills = pityKills;
 }
 
 export function rollOfflineCardDrops(rewards, stats, map, mapIndex, killCount, context = runtimeContext) {

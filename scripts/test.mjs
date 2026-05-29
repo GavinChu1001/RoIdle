@@ -129,22 +129,80 @@ assert.match(styles, /\.scene-wrap\.skill-cast-active::after/, 'Skill casts must
 assert.match(game, /function\s+spawnCombatSparks\s*\(/, 'Combat impacts should spawn lightweight pixel spark accents.');
 assert.match(game, /spawnCombatSparks\(wrap,\s*target,\s*type,\s*tone\)/, 'Slash and critical impacts should trigger pixel sparks through the shared combat impact hook.');
 assert.match(game, /const\s+COMBAT_VFX_ASSET_TYPES\s*=/, 'Combat impact routing should choose generated VFX asset types explicitly.');
+assert.match(game, /const\s+COMBAT_VFX_TONE_ASSET_TYPES\s*=/, 'Skill impact routing should choose generated VFX assets by combat tone.');
+assert.match(game, /const\s+COMBAT_STATUS_VFX_ASSET_TYPES\s*=/, 'Enemy status residues should choose generated VFX assets explicitly.');
+assert.match(game, /const\s+COMBAT_REWARD_VFX_ASSET_TYPES\s*=/, 'Death and reward feedback should choose generated VFX assets explicitly.');
+assert.match(game, /const\s+COMBAT_PLAYER_FEEDBACK_VFX_ASSET_TYPES\s*=/, 'Player-side combat feedback should choose generated VFX assets explicitly.');
+assert.match(game, /const\s+COMBAT_ENEMY_ACTION_VFX_ASSET_TYPES\s*=/, 'Enemy attack and Boss warning feedback should choose generated VFX assets explicitly.');
 assert.match(game, /ro-vfx\s+ro-vfx-\$\{vfxType\}/, 'Combat impacts should render generated VFX sprites instead of CSS-only shapes.');
+assert.match(game, /type\s*===\s*"skill"\s*\?\s*\(COMBAT_VFX_TONE_ASSET_TYPES\[tone\]/, 'Skill impacts should prefer tone-specific generated assets.');
+assert.match(game, /function\s+renderEnemyStatusVfx\s*\(/, 'Enemy status chips should have a matching battle-scene residue layer.');
+assert.match(game, /renderEnemyStatusVfx\(statuses\)/, 'Enemy status bar rendering should keep the battle-scene residue layer in sync.');
+assert.match(game, /function\s+spawnCombatRewardVfx\s*\(/, 'Death and loot events should spawn generated reward VFX.');
+assert.match(game, /spawnCombatRewardVfx\(wrap,\s*state\.enemyBoss\s*\?\s*"boss-death"\s*:\s*"death"/, 'Monster death should use generated death or boss-death VFX.');
+assert.match(game, /spawnCombatRewardVfx\(wrap,\s*"loot"/, 'High-value loot banners should add generated loot VFX.');
+assert.match(game, /function\s+spawnPlayerFeedbackVfx\s*\(/, 'Player heal, block, dodge, and hurt events should spawn generated player-side VFX.');
+assert.match(game, /spawnPlayerFeedbackVfx\(wrap,\s*target,\s*type\)/, 'Damage-number routing should attach player-side VFX to existing combat feedback events.');
+assert.match(game, /function\s+spawnEnemyActionVfx\s*\(/, 'Enemy attacks should have generated warning and impact VFX.');
+assert.match(game, /function\s+showEnemyAttackWarning\s*\(/, 'Enemy attack windups should expose a scene warning hook.');
+assert.match(game, /function\s+showEnemyAttackImpact\s*\(/, 'Enemy attack hits should expose a scene impact hook.');
+assert.match(game, /showEnemyAttackWarning,\s*\n\s*showEnemyAttackImpact,/, 'Combat runtime context should receive enemy warning and impact hooks.');
 assert.match(styles, /\.ro-vfx\s*\{[\s\S]*background-repeat:\s*no-repeat/, 'Generated combat VFX should share a sprite display primitive.');
 assert.match(styles, /\.ro-vfx-slash\s*\{[\s\S]*assets\/ui\/fx\/hit-slash\.png/, 'Slash hits should use the generated slash asset.');
 assert.match(styles, /\.ro-vfx-crit\s*\{[\s\S]*assets\/ui\/fx\/hit-crit\.png/, 'Critical hits should use the generated crit burst asset.');
 assert.match(styles, /\.ro-vfx-spark\s*\{[\s\S]*assets\/ui\/fx\/hit-spark\.png/, 'Small impacts should use the generated spark asset.');
 assert.match(styles, /\.ro-vfx-skill\s*\{[\s\S]*assets\/ui\/fx\/hit-skill\.png/, 'Skill hits should use the generated skill arc asset.');
+for (const tone of ['fire', 'ice', 'shadow', 'holy', 'storm', 'support']) {
+  assert.match(styles, new RegExp(`\\.ro-vfx-${tone}\\s*\\{[\\s\\S]*assets\\/ui\\/fx\\/skill-${tone}\\.png`), `${tone} skills should use a generated element VFX asset.`);
+}
+for (const status of ['burn', 'freeze', 'poison', 'snare', 'mark', 'break', 'wound']) {
+  assert.match(styles, new RegExp(`\\.ro-status-vfx-${status}\\s*\\{[\\s\\S]*assets\\/ui\\/fx\\/status-${status}\\.png`), `${status} enemy statuses should use a generated residue VFX asset.`);
+}
+for (const reward of ['death', 'boss-death', 'loot', 'gold']) {
+  assert.match(styles, new RegExp(`\\.ro-reward-vfx-${reward}\\s*\\{[\\s\\S]*assets\\/ui\\/fx\\/reward-${reward}\\.png`), `${reward} reward feedback should use a generated VFX asset.`);
+}
+for (const playerFeedback of ['heal', 'shield', 'dodge', 'hurt']) {
+  assert.match(styles, new RegExp(`\\.ro-player-vfx-${playerFeedback}\\s*\\{[\\s\\S]*assets\\/ui\\/fx\\/player-${playerFeedback}\\.png`), `${playerFeedback} player feedback should use a generated VFX asset.`);
+}
+for (const enemyAction of ['enemy-warning', 'boss-cast', 'boss-impact', 'danger-mark']) {
+  assert.match(styles, new RegExp(`\\.ro-enemy-action-vfx-${enemyAction}\\s*\\{[\\s\\S]*assets\\/ui\\/fx\\/${enemyAction}\\.png`), `${enemyAction} enemy action feedback should use a generated VFX asset.`);
+}
+assert.match(html, /id="enemyStatusVfxLayer"[\s\S]*class="enemy-status-vfx-layer"/, 'Battle canvas should expose a dedicated enemy status VFX layer without changing combat ids.');
 assert.match(styles, /\.ro-vfx-spark\s*\{[\s\S]*width:\s*64px[\s\S]*height:\s*64px/, 'Generated spark VFX should stay compact enough to avoid covering the hero.');
 assert.match(styles, /\.combat-impact-player-hit\.ro-vfx-spark\s*\{[\s\S]*width:\s*74px[\s\S]*height:\s*74px/, 'Player-hit generated spark should be smaller than the first preview implementation.');
 assert.match(styles, /@media\s*\(max-width:\s*640px\)[\s\S]*\.combat-impact-player-hit\.ro-vfx-spark\s*\{[\s\S]*width:\s*60px[\s\S]*height:\s*60px/, 'Mobile player-hit generated spark should be compact on 390px screens.');
-assert.match(html, /styles\.css\?v=20260529-battle-effects-v4/, 'Battle effect CSS should use a fresh cache-busting version.');
-assert.match(html, /game\.js\?v=20260529-battle-effects-v2/, 'Battle effect runtime should use a fresh cache-busting version.');
+assert.match(html, /styles\.css\?v=20260529-battle-effects-v9/, 'Battle effect CSS should use a fresh cache-busting version.');
+assert.match(html, /game\.js\?v=20260529-battle-effects-v7/, 'Battle effect runtime should use a fresh cache-busting version.');
 for (const file of [
   'assets/ui/fx/hit-slash.png',
   'assets/ui/fx/hit-crit.png',
   'assets/ui/fx/hit-spark.png',
   'assets/ui/fx/hit-skill.png',
+  'assets/ui/fx/skill-fire.png',
+  'assets/ui/fx/skill-ice.png',
+  'assets/ui/fx/skill-shadow.png',
+  'assets/ui/fx/skill-holy.png',
+  'assets/ui/fx/skill-storm.png',
+  'assets/ui/fx/skill-support.png',
+  'assets/ui/fx/status-burn.png',
+  'assets/ui/fx/status-freeze.png',
+  'assets/ui/fx/status-poison.png',
+  'assets/ui/fx/status-snare.png',
+  'assets/ui/fx/status-mark.png',
+  'assets/ui/fx/status-break.png',
+  'assets/ui/fx/status-wound.png',
+  'assets/ui/fx/reward-death.png',
+  'assets/ui/fx/reward-boss-death.png',
+  'assets/ui/fx/reward-loot.png',
+  'assets/ui/fx/reward-gold.png',
+  'assets/ui/fx/player-heal.png',
+  'assets/ui/fx/player-shield.png',
+  'assets/ui/fx/player-dodge.png',
+  'assets/ui/fx/player-hurt.png',
+  'assets/ui/fx/enemy-warning.png',
+  'assets/ui/fx/boss-cast.png',
+  'assets/ui/fx/boss-impact.png',
+  'assets/ui/fx/danger-mark.png',
 ]) {
   const png = readPngInfo(file);
   assert.equal(png.colorType, 6, `${file} must be RGBA so the generated effect has transparency.`);
@@ -155,10 +213,10 @@ assert.ok(existsSync(join(root, 'assets/ui/fx/manifest.json')), 'Generated VFX a
 const battleVfxManifest = JSON.parse(read('assets/ui/fx/manifest.json'));
 assert.equal(battleVfxManifest.style, 'ro-pixel-generated-vfx', 'Combat VFX manifest should lock the RO pixel generated style.');
 assert.equal(battleVfxManifest.rules.generatedOnly, true, 'Combat VFX manifest should require generated assets for image-based effects.');
-for (const file of ['hit-slash.png', 'hit-crit.png', 'hit-spark.png', 'hit-skill.png']) {
+for (const file of ['hit-slash.png', 'hit-crit.png', 'hit-spark.png', 'hit-skill.png', 'skill-fire.png', 'skill-ice.png', 'skill-shadow.png', 'skill-holy.png', 'skill-storm.png', 'skill-support.png', 'status-burn.png', 'status-freeze.png', 'status-poison.png', 'status-snare.png', 'status-mark.png', 'status-break.png', 'status-wound.png', 'reward-death.png', 'reward-boss-death.png', 'reward-loot.png', 'reward-gold.png', 'player-heal.png', 'player-shield.png', 'player-dodge.png', 'player-hurt.png', 'enemy-warning.png', 'boss-cast.png', 'boss-impact.png', 'danger-mark.png']) {
   assert.ok(battleVfxManifest.assets.some((asset) => asset.path === `assets/ui/fx/${file}` && asset.generated === true), `${file} must be tracked as a generated VFX asset.`);
 }
-for (const tone of ['physical', 'fire', 'ice', 'shadow', 'holy', 'storm', 'support']) {
+for (const tone of ['physical', 'fire', 'ice', 'shadow', 'holy', 'storm', 'support', 'burn', 'freeze', 'poison', 'snare', 'mark', 'break', 'wound', 'death', 'boss-death', 'loot', 'gold', 'player-heal', 'player-shield', 'player-dodge', 'player-hurt', 'enemy-warning', 'boss-cast', 'boss-impact', 'danger-mark']) {
   assert.ok(battleVfxManifest.plannedElements.some((entry) => entry.tone === tone && entry.promptBasis), `${tone} VFX should have a planned generated prompt basis.`);
 }
 assert.doesNotMatch(styles, /\.combat-impact-strike\s*\{[\s\S]*border-top:/, 'Slash hits should not fall back to the hard-edged CSS border line.');
@@ -1365,6 +1423,14 @@ assert.match(game, /function\s+handleBackgroundStart\s*\(/, 'Runtime must track 
 assert.match(game, /save\(\{\s*updateLastActive:\s*false\s*\}\)/, 'Background saves must preserve lastActiveAt for offline accounting.');
 assert.match(game, /function\s+handleForegroundResume\s*\(/, 'Runtime must settle hidden time when the page returns to the foreground.');
 assert.match(game, /if\s*\(backgroundStartedAt\)\s*\{[\s\S]*requestAnimationFrame\(loop\);[\s\S]*return;[\s\S]*\}/, 'The main loop must not run throttled combat frames while backgrounded.');
+assert.match(game, /function\s+simulateCombatElapsed\s*\(/, 'Visible throttled frames should be split into combat catch-up steps.');
+assert.match(game, /simulateCombatElapsed\(elapsedDt\)/, 'Main loop combat must use real elapsed time instead of the animation-capped dt.');
+assert.match(game, /else\s+if\s*\(!result\.settled\)\s*\{[\s\S]*simulateCombatElapsed\(elapsedSec\);[\s\S]*\}/, 'Short hidden tab switches should catch up online combat when returning to foreground.');
+assert.match(game, /let\s+backgroundStartedInBoss\s*=\s*false/, 'Background tracking must remember whether the hidden tab started during a Boss fight.');
+assert.match(game, /backgroundStartedInBoss\s*=\s*Boolean\(state\.enemyBoss\)/, 'Entering the background during a Boss fight must be captured before combat pauses.');
+assert.match(game, /const\s+BOSS_BACKGROUND_CATCHUP_MAX_SECONDS\s*=\s*5\s*\*\s*60/, 'Backgrounded Boss combat should have its own bounded catch-up window.');
+assert.match(game, /if\s*\(startedInBoss\)\s*\{[\s\S]*simulateCombatElapsed\(elapsedSec,\s*\{\s*maxSeconds:\s*BOSS_BACKGROUND_CATCHUP_MAX_SECONDS,\s*stopWhenBossEnds:\s*true\s*\}\);[\s\S]*\}/, 'Returning from a backgrounded Boss fight should catch up Boss combat instead of granting normal offline kills.');
+assert.match(game, /if\s*\(options\.stopWhenBossEnds\s*&&\s*!state\.enemyBoss\)\s*break/, 'Boss background catch-up should stop once the Boss encounter ends.');
 const generatedRewards = { equipments: [], materials: [] };
 const generatedMaterials = [];
 const generatedContext = {
@@ -1462,6 +1528,18 @@ const offlineCategoryContext = {
   getEquipmentRuntime: () => ({ shouldAutoSalvage: () => false }),
   canOfflineFullSalvage: () => false,
 };
+const offlinePityState = { inventory: [], equipmentPityKills: 0 };
+const offlinePityRewards = { equipments: [], cards: [], materials: [] };
+offline.rollOfflineEquipmentDrops(offlinePityRewards, {}, { id: 'grass' }, 0, 3, {
+  ...offlineCategoryContext,
+  getState: () => offlinePityState,
+  getProgressionEquipmentDropTable: () => [{ equipmentId: 'offline-blade', dropRate: 1, minLevel: 1, maxLevel: 1 }],
+  getInventoryLimit: () => 5,
+  getEquipmentPityThreshold: () => 3,
+  rollEquipmentDropsFromTable: (_rows, _stats, options) => options.guaranteed ? [{ id: 'offline-blade' }] : [],
+});
+assert.deepEqual(offlinePityRewards.equipments.map((item) => item.id), ['offline-blade'], 'Offline normal kills must use equipment pity so long sessions do not show zero equipment.');
+assert.equal(offlinePityState.equipmentPityKills, 0, 'Offline equipment pity must reset after a guaranteed drop.');
 offline.rollOfflineCardDrops(offlineCategoryRewards, {}, { id: 'grass' }, 0, 1, offlineCategoryContext);
 offline.rollOfflineMaterialDrops(offlineCategoryRewards, {}, { id: 'grass' }, 1, offlineCategoryContext);
 offline.rollOfflineZodiacSetDrops(offlineCategoryRewards, {}, { id: 'grass' }, 1, 0, offlineCategoryContext);
@@ -1647,6 +1725,11 @@ assert.equal(bossLogs.length, 3, 'Boss state routing must write one start log pe
 const damageStandaloneSource = damageSource
   .replace("export { calculatePower } from '../equipment/itemScore.js';", 'export const calculatePower = () => 0;');
 const damage = await importSource(damageStandaloneSource);
+assert.doesNotMatch(
+  game,
+  /finalDamageBonus:\s*\([^\n]*physicalFinalDamageBonus/,
+  'Physical final damage must stay separate from generic final damage in computed stats.',
+);
 damage.configureDamageContext({
   getState: () => ({
     hero: { baseLevel: 10 },
@@ -1670,6 +1753,22 @@ assert.equal(
   }, { monster: { type: 'boss', level: 10 }, isBoss: true, difficulty: 'abyss', enemyHp: 10, enemyMaxHp: 100 }),
   1.05,
   'Target-specific damage bonus routing changed.',
+);
+assert.equal(
+  Number(damage.getTargetDamageBonus({
+    finalDamageBonus: 0.1,
+    physicalFinalDamageBonus: 0.2,
+  }, { monster: { type: 'normal', level: 10 }, damageType: 'physical' }).toFixed(6)),
+  0.3,
+  'Physical final damage must apply to physical outgoing damage.',
+);
+assert.equal(
+  damage.getTargetDamageBonus({
+    finalDamageBonus: 0.1,
+    physicalFinalDamageBonus: 0.2,
+  }, { monster: { type: 'normal', level: 10 }, damageType: 'magic' }),
+  0.1,
+  'Physical final damage must not apply to magic outgoing damage.',
 );
 const regularHit = damage.calculatePlayerBasicHit({ stats: { dps: 100 }, attackInterval: 1, targetBonus: 0.1, monsterGuard: 0.2, isCrit: false });
 const criticalHit = damage.calculatePlayerBasicHit({ stats: { dps: 100, critDamageBonus: 0.15 }, attackInterval: 1, targetBonus: 0.1, monsterGuard: 0.2, isCrit: true });
@@ -1763,6 +1862,32 @@ skillMechanics.tickSkillSystem(0, {
 });
 assert.equal(synergySkillState.enemyHp, 880, 'Equipment synergy should increase matching V3 skill damage.');
 assert.equal(synergySkillState.skillCooldowns.synergy_fire, 5, 'Equipment synergy should reduce matching V3 skill cooldown.');
+
+const bonusSkill = { id: 'bonus_skill', name: 'Bonus Skill', kind: '主动', cooldown: 5, mechanism: { type: 'singleHit', multiplier: 1, stat: 'matk' } };
+const bonusSkillState = { hero: { currentHp: 100 }, enemyHp: 1000, enemyMaxHp: 1000, skillCooldowns: {}, activeZones: [], activeBuffs: [], enemyMarks: {} };
+let bonusSkillDamageType = '';
+globalThis.window = { ...(priorSkillWindow || {}), v3JobSkills: { mage: [bonusSkill] } };
+skillMechanics.configureSkillMechanicsContext({
+  getState: () => bonusSkillState,
+  currentJob: () => ({ id: 'mage' }),
+  currentMonsterStats: () => ({ type: 'normal', damageReduction: 0 }),
+  getTargetDamageBonus: (_stats, monsterContext) => {
+    bonusSkillDamageType = monsterContext.damageType;
+    return 0.25;
+  },
+  normalizeDamage: Math.round,
+  random: () => 0.5,
+});
+skillMechanics.tickSkillSystem(0, {
+  atkPower: 100,
+  matkPower: 100,
+  crit: 0,
+  maxHp: 100,
+  skillDamageBonus: 0.5,
+  physicalFinalDamageBonus: 1,
+});
+assert.equal(bonusSkillState.enemyHp, 825, 'V3 skill damage must include skill and target damage bonuses.');
+assert.equal(bonusSkillDamageType, 'magic', 'V3 magic skill target bonus must be routed as magic damage.');
 
 globalThis.window = { ...(priorSkillWindow || {}), v3JobSkills: { mage: [mageSkill] } };
 skillMechanics.configureSkillMechanicsContext({
@@ -2179,6 +2304,50 @@ normalCombat.configureNormalCombatContext({
 normalCombat.updateMonsterAttack(1, { maxHp: 100, dodgeRate: 0, blockRate: 0.5, statusResist: 0 });
 assert.equal(blockedEnemyState.hero.currentHp, 97, 'Blocked monster attacks must use the reduced blocked damage.');
 assert.equal(blockedAttackFeedback, 'block', 'Blocked monster attacks must show block feedback.');
+
+const enemyWarningState = {
+  enemyHp: 10,
+  enemyMaxHp: 10,
+  hero: { currentHp: 100 },
+  enemyAttackTimer: 0.68,
+  currentMap: 0,
+  enemyMarks: {},
+};
+let enemyWarningPayload = null;
+normalCombat.configureNormalCombatContext({
+  getState: () => enemyWarningState,
+  getMonsterAttackInterval: () => 1,
+  currentMonsterStats: () => ({ attack: 100, critChance: 0 }),
+  random: () => 0.9,
+  showEnemyAttackWarning: (payload) => { enemyWarningPayload = payload; },
+  showDamageNumber: () => { throw new Error('Attack warning must not deal damage before the timer is full.'); },
+});
+assert.equal(normalCombat.updateMonsterAttack(0.05, { maxHp: 100, dodgeRate: 0, blockRate: 0, statusResist: 0 }), false, 'Enemy attack windup should not resolve before the attack timer is full.');
+assert.equal(enemyWarningPayload?.boss, false, 'Normal monster attack windup must emit a non-Boss warning payload.');
+assert.equal(enemyWarningState.hero.currentHp, 100, 'Enemy attack warning must not change player HP.');
+
+const bossImpactState = {
+  enemyHp: 10,
+  enemyMaxHp: 10,
+  enemyBoss: true,
+  hero: { currentHp: 100 },
+  enemyAttackTimer: 9,
+  currentMap: 0,
+  enemyMarks: {},
+};
+let bossImpactPayload = null;
+normalCombat.configureNormalCombatContext({
+  getState: () => bossImpactState,
+  getMonsterAttackInterval: () => 1,
+  currentMonsterStats: () => ({ attack: 100, critChance: 0 }),
+  random: () => 0.9,
+  showDamageNumber: () => {},
+  flashPlayerHp: () => {},
+  showEnemyAttackImpact: (payload) => { bossImpactPayload = payload; },
+});
+normalCombat.updateMonsterAttack(1, { maxHp: 100, dodgeRate: 0, blockRate: 0, statusResist: 0 });
+assert.equal(bossImpactPayload?.boss, true, 'Boss attacks must emit a Boss impact payload for generated VFX.');
+assert.equal(bossImpactPayload?.kind, 'boss', 'Boss impact payload should route to the Boss impact generated asset.');
 
 const angelGuardState = { enemyHp: 100, enemyMaxHp: 100, hero: { currentHp: 30 }, playerAttackTimer: 0, enemyAttackTimer: 0, shieldHp: 0 };
 const angelGuardWindow = globalThis.window;

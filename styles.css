@@ -10663,6 +10663,342 @@ details > summary::marker {
   --vfx-bright: 1.02;
 }
 
+.ro-vfx-fire {
+  width: 150px;
+  height: 144px;
+  --vfx-hue: 0deg;
+  --vfx-sat: 1;
+  --vfx-bright: 1;
+  background-image: url("assets/ui/fx/skill-fire.png");
+  animation: roVfxSkill 820ms steps(5, end) forwards;
+}
+
+.ro-vfx-ice {
+  width: 154px;
+  height: 150px;
+  --vfx-hue: 0deg;
+  --vfx-sat: 1;
+  --vfx-bright: 1;
+  background-image: url("assets/ui/fx/skill-ice.png");
+  animation: roVfxSkill 820ms steps(5, end) forwards;
+}
+
+.ro-vfx-shadow {
+  width: 156px;
+  height: 148px;
+  --vfx-hue: 0deg;
+  --vfx-sat: 1;
+  --vfx-bright: 1;
+  background-image: url("assets/ui/fx/skill-shadow.png");
+  animation: roVfxSkill 840ms steps(5, end) forwards;
+}
+
+.ro-vfx-holy {
+  width: 150px;
+  height: 150px;
+  --vfx-hue: 0deg;
+  --vfx-sat: 1;
+  --vfx-bright: 1;
+  background-image: url("assets/ui/fx/skill-holy.png");
+  animation: roVfxCrit 840ms steps(5, end) forwards;
+}
+
+.ro-vfx-storm {
+  width: 156px;
+  height: 150px;
+  --vfx-hue: 0deg;
+  --vfx-sat: 1;
+  --vfx-bright: 1;
+  background-image: url("assets/ui/fx/skill-storm.png");
+  animation: roVfxSkill 820ms steps(5, end) forwards;
+}
+
+.ro-vfx-support {
+  width: 138px;
+  height: 138px;
+  --vfx-hue: 0deg;
+  --vfx-sat: 1;
+  --vfx-bright: 1;
+  background-image: url("assets/ui/fx/skill-support.png");
+  animation: roVfxCrit 820ms steps(5, end) forwards;
+}
+
+.enemy-status-vfx-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.enemy-status-vfx-layer[hidden] {
+  display: none;
+}
+
+.ro-status-vfx {
+  position: absolute;
+  left: 75%;
+  top: 64%;
+  display: block;
+  width: 88px;
+  height: 78px;
+  pointer-events: none;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  image-rendering: pixelated;
+  opacity: 0.74;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 2px 4px rgba(41, 24, 12, 0.28));
+  animation: roStatusResidue 1800ms steps(4, end) infinite;
+}
+
+.ro-status-vfx-slot-1 {
+  left: 70%;
+  top: 60%;
+  width: 76px;
+  height: 70px;
+  opacity: 0.62;
+  animation-delay: -420ms;
+}
+
+.ro-status-vfx-slot-2 {
+  left: 80%;
+  top: 59%;
+  width: 72px;
+  height: 66px;
+  opacity: 0.58;
+  animation-delay: -860ms;
+}
+
+.ro-status-vfx-burn {
+  background-image: url("assets/ui/fx/status-burn.png");
+}
+
+.ro-status-vfx-freeze {
+  width: 90px;
+  height: 84px;
+  background-image: url("assets/ui/fx/status-freeze.png");
+}
+
+.ro-status-vfx-poison {
+  width: 84px;
+  height: 78px;
+  background-image: url("assets/ui/fx/status-poison.png");
+}
+
+.ro-status-vfx-snare {
+  width: 98px;
+  height: 76px;
+  background-image: url("assets/ui/fx/status-snare.png");
+}
+
+.ro-status-vfx-mark {
+  width: 82px;
+  height: 90px;
+  background-image: url("assets/ui/fx/status-mark.png");
+}
+
+.ro-status-vfx-break {
+  width: 82px;
+  height: 78px;
+  background-image: url("assets/ui/fx/status-break.png");
+}
+
+.ro-status-vfx-wound {
+  width: 84px;
+  height: 78px;
+  background-image: url("assets/ui/fx/status-wound.png");
+}
+
+.ro-reward-vfx {
+  --reward-rotate: 0deg;
+  --reward-scale: 1;
+  position: absolute;
+  left: 74%;
+  top: 51%;
+  z-index: 9;
+  display: block;
+  width: 128px;
+  height: 128px;
+  pointer-events: none;
+  background: none;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  image-rendering: pixelated;
+  opacity: 0;
+  transform: translate(-50%, -50%) rotate(var(--reward-rotate)) scale(var(--reward-scale));
+  filter: drop-shadow(0 0 8px rgba(255, 222, 112, 0.48));
+  will-change: opacity, transform;
+  animation: roRewardPop 940ms steps(5, end) forwards;
+}
+
+.ro-reward-vfx-death {
+  width: 118px;
+  height: 136px;
+  background-image: url("assets/ui/fx/reward-death.png");
+}
+
+.ro-reward-vfx-boss-death {
+  width: 216px;
+  height: 200px;
+  background-image: url("assets/ui/fx/reward-boss-death.png");
+  animation-duration: 1280ms;
+  filter:
+    drop-shadow(0 0 9px rgba(255, 226, 118, 0.58))
+    drop-shadow(0 0 13px rgba(148, 110, 255, 0.24));
+}
+
+.ro-reward-vfx-loot {
+  width: 134px;
+  height: 150px;
+  background-image: url("assets/ui/fx/reward-loot.png");
+  animation: roRewardLoot 1360ms steps(5, end) forwards;
+}
+
+.ro-reward-vfx-gold {
+  width: 92px;
+  height: 108px;
+  z-index: 5;
+  background-image: url("assets/ui/fx/reward-gold.png");
+  opacity: 0;
+  filter: drop-shadow(0 0 7px rgba(255, 211, 87, 0.42));
+  animation: roRewardGold 920ms steps(4, end) forwards;
+}
+
+.reward-vfx-rarity-mythic.ro-reward-vfx-loot {
+  filter:
+    drop-shadow(0 0 10px rgba(255, 108, 157, 0.48))
+    drop-shadow(0 0 12px rgba(255, 224, 125, 0.42));
+}
+
+.reward-vfx-rarity-legend.ro-reward-vfx-loot,
+.reward-vfx-rarity-darkGold.ro-reward-vfx-loot {
+  filter: drop-shadow(0 0 10px rgba(255, 210, 88, 0.54));
+}
+
+.ro-player-vfx {
+  --player-vfx-rotate: 0deg;
+  --player-vfx-scale: 1;
+  position: absolute;
+  left: 23%;
+  top: 50%;
+  z-index: 7;
+  display: block;
+  width: 96px;
+  height: 96px;
+  pointer-events: none;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  image-rendering: pixelated;
+  opacity: 0;
+  transform: translate(-50%, -50%) rotate(var(--player-vfx-rotate)) scale(var(--player-vfx-scale));
+  filter: drop-shadow(0 0 7px rgba(255, 225, 136, 0.32));
+  will-change: opacity, transform;
+  animation: roPlayerFeedbackPop 860ms steps(5, end) forwards;
+}
+
+.ro-player-vfx-heal {
+  width: 104px;
+  height: 112px;
+  background-image: url("assets/ui/fx/player-heal.png");
+  filter:
+    drop-shadow(0 0 7px rgba(118, 227, 111, 0.45))
+    drop-shadow(0 0 9px rgba(255, 227, 126, 0.28));
+  animation: roPlayerHeal 1080ms steps(5, end) forwards;
+}
+
+.ro-player-vfx-shield {
+  width: 112px;
+  height: 108px;
+  z-index: 8;
+  background-image: url("assets/ui/fx/player-shield.png");
+  filter:
+    drop-shadow(0 0 8px rgba(108, 190, 255, 0.42))
+    drop-shadow(0 0 8px rgba(255, 214, 104, 0.24));
+  animation: roPlayerShield 940ms steps(5, end) forwards;
+}
+
+.ro-player-vfx-dodge {
+  width: 108px;
+  height: 92px;
+  background-image: url("assets/ui/fx/player-dodge.png");
+  filter: drop-shadow(0 0 7px rgba(171, 226, 255, 0.42));
+  animation: roPlayerDodge 820ms steps(5, end) forwards;
+}
+
+.ro-player-vfx-hurt {
+  width: 82px;
+  height: 84px;
+  z-index: 6;
+  background-image: url("assets/ui/fx/player-hurt.png");
+  filter: drop-shadow(0 0 7px rgba(255, 109, 69, 0.38));
+  animation: roPlayerFeedbackPop 760ms steps(4, end) forwards;
+}
+
+.ro-enemy-action-vfx {
+  --enemy-action-rotate: 0deg;
+  --enemy-action-scale: 1;
+  position: absolute;
+  left: 73%;
+  top: 51%;
+  z-index: 8;
+  display: block;
+  width: 112px;
+  height: 102px;
+  pointer-events: none;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  image-rendering: pixelated;
+  opacity: 0;
+  transform: translate(-50%, -50%) rotate(var(--enemy-action-rotate)) scale(var(--enemy-action-scale));
+  filter:
+    drop-shadow(0 0 7px rgba(255, 111, 58, 0.4))
+    drop-shadow(0 0 5px rgba(255, 218, 110, 0.28));
+  will-change: opacity, transform;
+  animation: roEnemyWarning 760ms steps(5, end) forwards;
+}
+
+.ro-enemy-action-vfx-enemy-warning {
+  width: 126px;
+  height: 114px;
+  background-image: url("assets/ui/fx/enemy-warning.png");
+}
+
+.ro-enemy-action-vfx-boss-cast {
+  width: 176px;
+  height: 170px;
+  z-index: 7;
+  background-image: url("assets/ui/fx/boss-cast.png");
+  filter:
+    drop-shadow(0 0 10px rgba(255, 103, 54, 0.48))
+    drop-shadow(0 0 12px rgba(119, 42, 180, 0.24));
+  animation: roBossCast 1120ms steps(5, end) forwards;
+}
+
+.ro-enemy-action-vfx-boss-impact {
+  width: 132px;
+  height: 124px;
+  z-index: 9;
+  background-image: url("assets/ui/fx/boss-impact.png");
+  filter:
+    drop-shadow(0 0 9px rgba(255, 80, 42, 0.52))
+    drop-shadow(0 0 10px rgba(255, 209, 92, 0.3));
+  animation: roBossImpact 920ms steps(5, end) forwards;
+}
+
+.ro-enemy-action-vfx-danger-mark {
+  width: 84px;
+  height: 96px;
+  z-index: 9;
+  background-image: url("assets/ui/fx/danger-mark.png");
+  filter: drop-shadow(0 0 8px rgba(255, 82, 54, 0.48));
+  animation: roDangerMark 820ms steps(4, end) forwards;
+}
+
 .skill-cast-feedback {
   z-index: 8;
   border-radius: 4px;
@@ -10747,6 +11083,247 @@ details > summary::marker {
   }
 }
 
+@keyframes roStatusResidue {
+  0%,
+  100% {
+    opacity: 0.58;
+    transform: translate(-50%, -48%) scale(0.96);
+  }
+  50% {
+    opacity: 0.78;
+    transform: translate(-50%, -52%) scale(1.04);
+  }
+}
+
+@keyframes roRewardPop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -48%) rotate(var(--reward-rotate)) scale(0.42);
+  }
+  24% {
+    opacity: 0.96;
+    transform: translate(-50%, -50%) rotate(var(--reward-rotate)) scale(var(--reward-scale));
+  }
+  72% {
+    opacity: 0.84;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -60%) rotate(var(--reward-rotate)) scale(1.12);
+  }
+}
+
+@keyframes roRewardLoot {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -42%) rotate(var(--reward-rotate)) scale(0.62);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(var(--reward-rotate)) scale(var(--reward-scale));
+  }
+  78% {
+    opacity: 0.92;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -68%) rotate(var(--reward-rotate)) scale(1);
+  }
+}
+
+@keyframes roRewardGold {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -38%) scale(0.58);
+  }
+  28% {
+    opacity: 0.72;
+    transform: translate(-50%, -50%) scale(var(--reward-scale));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -76%) scale(0.92);
+  }
+}
+
+@keyframes roRewardReducedHold {
+  0%,
+  92% {
+    opacity: 0.86;
+    transform: translate(-50%, -50%) rotate(var(--reward-rotate)) scale(var(--reward-scale));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--reward-rotate)) scale(var(--reward-scale));
+  }
+}
+
+@keyframes roPlayerFeedbackPop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -46%) rotate(var(--player-vfx-rotate)) scale(0.44);
+  }
+  24% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) rotate(var(--player-vfx-rotate)) scale(var(--player-vfx-scale));
+  }
+  74% {
+    opacity: 0.82;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -56%) rotate(var(--player-vfx-rotate)) scale(0.94);
+  }
+}
+
+@keyframes roPlayerHeal {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -42%) scale(0.48);
+  }
+  26% {
+    opacity: 0.86;
+    transform: translate(-50%, -50%) scale(var(--player-vfx-scale));
+  }
+  76% {
+    opacity: 0.74;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -68%) scale(1);
+  }
+}
+
+@keyframes roPlayerShield {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.42);
+  }
+  22% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(var(--player-vfx-scale));
+  }
+  64% {
+    opacity: 0.82;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.98);
+  }
+}
+
+@keyframes roPlayerDodge {
+  0% {
+    opacity: 0;
+    transform: translate(-64%, -50%) rotate(var(--player-vfx-rotate)) scale(0.54);
+  }
+  24% {
+    opacity: 0.76;
+    transform: translate(-50%, -50%) rotate(var(--player-vfx-rotate)) scale(var(--player-vfx-scale));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-34%, -54%) rotate(var(--player-vfx-rotate)) scale(0.92);
+  }
+}
+
+@keyframes roPlayerReducedHold {
+  0%,
+  94% {
+    opacity: 0.82;
+    transform: translate(-50%, -50%) rotate(var(--player-vfx-rotate)) scale(var(--player-vfx-scale));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--player-vfx-rotate)) scale(var(--player-vfx-scale));
+  }
+}
+
+@keyframes roEnemyWarning {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -44%) rotate(var(--enemy-action-rotate)) scale(0.5);
+  }
+  26% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) rotate(var(--enemy-action-rotate)) scale(var(--enemy-action-scale));
+  }
+  72% {
+    opacity: 0.82;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -54%) rotate(var(--enemy-action-rotate)) scale(0.96);
+  }
+}
+
+@keyframes roBossCast {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.46);
+  }
+  22% {
+    opacity: 0.88;
+    transform: translate(-50%, -50%) scale(var(--enemy-action-scale));
+  }
+  68% {
+    opacity: 0.8;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.08);
+  }
+}
+
+@keyframes roBossImpact {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.42);
+  }
+  18% {
+    opacity: 0.96;
+    transform: translate(-50%, -50%) scale(var(--enemy-action-scale));
+  }
+  62% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -56%) scale(1.02);
+  }
+}
+
+@keyframes roDangerMark {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -36%) scale(0.5);
+  }
+  24% {
+    opacity: 0.92;
+    transform: translate(-50%, -50%) scale(var(--enemy-action-scale));
+  }
+  74% {
+    opacity: 0.84;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -66%) scale(0.92);
+  }
+}
+
+@keyframes roEnemyReducedHold {
+  0%,
+  94% {
+    opacity: 0.84;
+    transform: translate(-50%, -50%) rotate(var(--enemy-action-rotate)) scale(var(--enemy-action-scale));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--enemy-action-rotate)) scale(var(--enemy-action-scale));
+  }
+}
+
 @keyframes roVfxReducedHold {
   0%,
   96% {
@@ -10805,11 +11382,138 @@ details > summary::marker {
     width: 132px;
     height: 118px;
   }
+
+  .ro-vfx-fire,
+  .ro-vfx-ice,
+  .ro-vfx-shadow,
+  .ro-vfx-storm {
+    width: 122px;
+    height: 116px;
+  }
+
+  .ro-vfx-holy {
+    width: 118px;
+    height: 118px;
+  }
+
+  .ro-vfx-support {
+    width: 108px;
+    height: 108px;
+  }
+
+  .ro-status-vfx {
+    left: 75%;
+    top: 60%;
+    width: 62px;
+    height: 56px;
+  }
+
+  .ro-status-vfx-slot-1 {
+    left: 69%;
+    top: 55%;
+    width: 52px;
+    height: 48px;
+  }
+
+  .ro-status-vfx-slot-2 {
+    left: 81%;
+    top: 55%;
+    width: 50px;
+    height: 46px;
+  }
+
+  .ro-status-vfx-freeze,
+  .ro-status-vfx-mark {
+    width: 62px;
+    height: 62px;
+  }
+
+  .ro-status-vfx-snare {
+    width: 70px;
+    height: 54px;
+  }
+
+  .ro-reward-vfx-death {
+    width: 78px;
+    height: 92px;
+  }
+
+  .ro-reward-vfx-boss-death {
+    width: 124px;
+    height: 116px;
+  }
+
+  .ro-reward-vfx-loot {
+    width: 84px;
+    height: 96px;
+  }
+
+  .ro-reward-vfx-gold {
+    width: 58px;
+    height: 70px;
+  }
+
+  .ro-player-vfx-heal {
+    width: 76px;
+    height: 82px;
+  }
+
+  .ro-player-vfx-shield {
+    width: 82px;
+    height: 78px;
+  }
+
+  .ro-player-vfx-dodge {
+    width: 78px;
+    height: 66px;
+  }
+
+  .ro-player-vfx-hurt {
+    width: 62px;
+    height: 64px;
+  }
+
+  .ro-enemy-action-vfx-enemy-warning {
+    width: 82px;
+    height: 74px;
+  }
+
+  .ro-enemy-action-vfx-boss-cast {
+    width: 112px;
+    height: 108px;
+  }
+
+  .ro-enemy-action-vfx-boss-impact {
+    width: 86px;
+    height: 80px;
+  }
+
+  .ro-enemy-action-vfx-danger-mark {
+    width: 58px;
+    height: 66px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .ro-vfx {
     animation: roVfxReducedHold 880ms steps(1, end) forwards !important;
+  }
+
+  .ro-status-vfx {
+    animation: none !important;
+    opacity: 0.7;
+  }
+
+  .ro-reward-vfx {
+    animation: roRewardReducedHold 1000ms steps(1, end) forwards !important;
+  }
+
+  .ro-player-vfx {
+    animation: roPlayerReducedHold 900ms steps(1, end) forwards !important;
+  }
+
+  .ro-enemy-action-vfx {
+    animation: roEnemyReducedHold 900ms steps(1, end) forwards !important;
   }
 
   .damage-float.damage-number {

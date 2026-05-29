@@ -51,7 +51,7 @@ export function installCombatRuntime(context = {}) {
   configureNormalCombatContext(context);
   configureMonsterContext(context);
   configureEncounterContext(context);
-  configureSkillMechanicsContext(context);
+  configureSkillMechanicsContext({ ...context, getTargetDamageBonus });
   configureFailureReasonContext(context);
   const runtime = Object.freeze({
     grantBossEssence,

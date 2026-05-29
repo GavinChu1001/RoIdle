@@ -42,7 +42,8 @@ export function resolveActiveSkillCast({ dt = 0, stats = {} } = {}, context = ru
     const jobPower = 1 + finite(state.hero?.jobLevel) * 0.018 + Math.floor(finite(state.hero?.jobLevel) / 10) * 0.06;
     const monsterGuard = Math.min(0.65, finite(monster.damageReduction));
     const isBoss = Boolean(state.enemyBoss);
-    const targetBonus = getTargetDamageBonus(stats, { monster, isBoss, difficulty: state.currentDifficulty }, context);
+    const damageType = entry.active.stat === 'matk' ? 'magic' : 'physical';
+    const targetBonus = getTargetDamageBonus(stats, { monster, isBoss, difficulty: state.currentDifficulty, damageType }, context);
     const damage = normalizeDamage(
       source *
         finite(entry.active.multiplier) *
