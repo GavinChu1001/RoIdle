@@ -1522,6 +1522,10 @@ assert.match(game, /tickMvpInscription\(elapsedDt\)/, 'Main loop must advance MV
 assert.match(game, /gainMvpInscriptionExp/, 'Game runtime must expose MVP inscription exp gain.');
 assert.match(game, /currentMapIndex:\s*payload\.currentMapIndex\s*\?\?\s*payload\.mapIndex\s*\?\?\s*state\.currentMap/, 'MVP kill exp must use the defeated map index instead of live state.currentMap.');
 assert.match(game, /grantMvpInscriptionKillExp[\s\S]*silentBlocked:\s*true/, 'Routine MVP kill grants must not spam breakthrough-blocked logs.');
+assert.match(game, /getMvpInscriptionBonuses/, 'Game stats must merge MVP inscription bonuses.');
+assert.match(characterPageSource, /MVP铭刻/, 'Character page must render the MVP inscription card.');
+assert.match(characterPageSource, /当前地图.*铭刻/, 'Character page should show whether the current map grants inscription exp.');
+assert.match(characterPageSource, /下一突破/, 'Character page should show MVP inscription breakthrough guidance.');
 assert.equal(offline.shouldSettleBackgroundOffline(14999), false, 'Short background pauses should resume normal combat without offline settlement.');
 assert.equal(offline.shouldSettleBackgroundOffline(15000), true, 'Background pauses at the threshold should settle through offline rewards.');
 const backgroundOfflineState = {

@@ -27,6 +27,12 @@ export function renderHeroes(ctx = charCtx) {
   const jobProgress = Math.min(1, F(state.hero?.jobExp) / jobExpCost) * 100;
   const nextSkillText = nextSkill ? `\u4e0b\u4e2a Job ${nextSkill.level}` : '\u6280\u80fd\u5b8c\u6210';
   const portraitBg = ctx.imageBackgroundList?.(ctx.classImageCandidates?.(job.id)) || '';
+  const mvpInscription = ctx.getMvpInscriptionView?.() || {};
+  const inscriptionProgress = Math.round(F(mvpInscription.progress) * 1000) / 10;
+  const inscriptionMapEffective = ctx.canGainMvpInscriptionOnCurrentMap?.() !== false;
+  const inscriptionStageName = mvpInscription.stageName || '波利王铭刻';
+  const nextStageName = mvpInscription.nextStage?.name || inscriptionStageName;
+  const canBreakthroughMvpInscription = F(mvpInscription.level) > 0 && F(mvpInscription.level) < 100 && F(mvpInscription.level) % 10 === 0;
   const rebirthModeHtml = F(state.hero?.rebirths) > 0 ? `
         <div class="rebirth-mode-section ro-character-mode">
           <label class="rebirth-toggle">
@@ -72,6 +78,21 @@ export function renderHeroes(ctx = charCtx) {
       </div>
       ${rebirthModeHtml}
       <p class="ro-character-growth-note">${ctx.describeJobGrowth?.() || ''}</p>
+      <div class="ro-character-section-title">
+        <strong>MVP铭刻</strong>
+        <span>${esc(inscriptionStageName)} Lv.${fmtn(F(mvpInscription.level) || 1)}</span>
+      </div>
+      <div class="ro-character-job-progress">
+        <div class="ro-character-job-meta">
+          <span>铭刻经验</span>
+          <strong>${fmtn(F(mvpInscription.exp))}/${fmtn(F(mvpInscription.nextRequirement))}</strong>
+        </div>
+        <div class="meter ro-character-job-meter"><div style="width:${Math.max(0, Math.min(100, inscriptionProgress))}%"></div></div>
+      </div>
+      <p class="ro-character-growth-note">前台修行 ${fmtn(F(mvpInscription.onlinePerMinute))} / 分钟 · ${inscriptionMapEffective ? '当前地图可获得铭刻经验' : '当前地图过低，不获得铭刻经验'}</p>
+      <div class="hero-actions-inline ro-character-actions">
+        <button class="ro-light-control" type="button" data-mvp-inscription-breakthrough ${canBreakthroughMvpInscription ? '' : 'disabled'}>下一突破：${esc(nextStageName)}</button>
+      </div>
     </section>
 
     <section class="ro-character-stats-panel">

@@ -2294,6 +2294,8 @@ function bindEvents() {
     if (batchButton) batchTrainBase();
     const rebirthButton = event.target.closest("button[data-rebirth]");
     if (rebirthButton) rebirthHero();
+    const mvpInscriptionButton = event.target.closest("button[data-mvp-inscription-breakthrough]");
+    if (mvpInscriptionButton) { breakthroughMvpInscription(); return; }
     const renameButton = event.target.closest("button[data-rename-hero]");
     if (renameButton) renameHero();
     const specButton = event.target.closest("button[data-skill-spec]");
@@ -3194,6 +3196,40 @@ function getMvpInscriptionView() {
   const context = { mapIndex: state.currentMap || 0, difficulty: state.currentDifficulty || "normal", rebirths: state.hero?.rebirths || 0 };
   if (runtime && typeof runtime.getMvpInscriptionView === "function") return runtime.getMvpInscriptionView(state.mvpInscription, context);
   return { stageName: "波利王铭刻", level: 1, exp: 0, nextRequirement: 120, progress: 0, bonuses: {} };
+}
+
+function canGainMvpInscriptionOnCurrentMap() {
+  const runtime = window.RuneFrontierMvpInscriptionRuntime;
+  if (!runtime || typeof runtime.isMvpInscriptionMonsterEffective !== "function") return true;
+  const map = currentMap();
+  const range = getMapLevelRange(map) || {};
+  const monsterLevel = Math.max(1, Number(range.maxLevel || map?.maxLevel || range.minLevel || map?.minLevel || 1));
+  return runtime.isMvpInscriptionMonsterEffective({
+    heroLevel: state.hero?.baseLevel || 1,
+    monsterLevel,
+    currentMapIndex: state.currentMap || 0,
+    bestMapIndex: state.bestMap || 0,
+    isBoss: false,
+    firstBossClear: false,
+  });
+}
+
+function breakthroughMvpInscription() {
+  state.mvpInscription = normalizeMvpInscriptionState(state.mvpInscription);
+  const level = Number(state.mvpInscription.level || 1);
+  if (level >= 100 || level % 10 !== 0) {
+    showToast("当前 MVP铭刻不在突破节点");
+    return false;
+  }
+  state.mvpInscription.breakthroughLevel = Math.max(state.mvpInscription.breakthroughLevel || 0, level);
+  const view = getMvpInscriptionView();
+  const markId = view.stage?.id;
+  if (markId && !state.mvpInscription.unlockedMarks.includes(markId)) state.mvpInscription.unlockedMarks.push(markId);
+  addLog(`MVP铭刻突破完成：${view.stageName}。`);
+  showToast("MVP铭刻突破完成");
+  renderAll();
+  save();
+  return true;
 }
 
 function tickMvpInscription(elapsedSeconds) {
@@ -7253,6 +7289,10 @@ function computeStats() {
   const jobLevel = state.hero.jobLevel;
   const cardStats = getCardStats();
   const vipBonuses = getVipBonuses();
+  const mvpInscriptionBonuses = window.RuneFrontierMvpInscriptionRuntime?.getMvpInscriptionBonuses?.(state.mvpInscription) || {};
+  ["hpPct", "atkPct", "matkPct", "defPct"].forEach((stat) => {
+    equip[stat] = (equip[stat] || 0) + (Number(mvpInscriptionBonuses[stat]) || 0);
+  });
   const attrBreakdown = calculateFinalStats({ equip });
   const attrs = { ...attrBreakdown.final };
   attributeKeys.forEach((stat) => {
@@ -7276,7 +7316,7 @@ function computeStats() {
   const equipmentDropBonus = calculateEquipmentDropBonus({ equip, cardStats, passive, attrs, vipBonuses }) + setBonuses.equipmentDropPct + explorationBonuses.equipmentDropBonus;
   const codexS = getCodexBonusStats();
   const vipMs = getVipMilestoneBonuses();
-  const bossDamageBonusTotal = setBonuses.bossDamagePct + (equip.bossDamageBonus || 0) + (passive.bossDamageBonus || 0) + explorationBonuses.bossDamageBonus + (codexS.bossDamage || 0);
+  const bossDamageBonusTotal = setBonuses.bossDamagePct + (equip.bossDamageBonus || 0) + (passive.bossDamageBonus || 0) + explorationBonuses.bossDamageBonus + (codexS.bossDamage || 0) + (mvpInscriptionBonuses.bossDamageBonus || 0);
   const critDamageBonusTotal = setBonuses.critDamagePct + (equip.critDamageBonus || 0) + (passive.critDamageBonus || 0) + (isAbyss ? setBonuses.abyssCritDamageBonus || 0 : 0);
   const damageReductionTotal = setBonuses.damageReductionPct + (equip.damageReductionPct || 0) + (passive.damageReductionPct || 0) + (isAbyss ? (setBonuses.abyssDamageReduction || 0) + (equip.abyssDamageReduction || 0) + (passive.abyssDamageReduction || 0) + (state.enemyBoss ? setBonuses.abyssBossDamageReduction || 0 : 0) : 0);
   const abyssDamageBonusTotal = (setBonuses.abyssDamageBonus || 0) + (equip.abyssDamageBonus || 0) + (passive.abyssDamageBonus || 0);
@@ -7316,13 +7356,13 @@ function computeStats() {
     critDamageBonus: critDamageBonusTotal,
     critDamage: 1.85 + critDamageBonusTotal,
     ignoreDefensePct: setBonuses.ignoreDefensePct + (equip.ignoreDefense || 0) + (passive.ignoreDefense || 0) + (isAbyss ? setBonuses.abyssIgnoreDefense || 0 : 0),
-    finalDamageBonus: (equip.finalDamageBonus || 0) + (passive.finalDamageBonus || 0),
+    finalDamageBonus: (equip.finalDamageBonus || 0) + (passive.finalDamageBonus || 0) + (mvpInscriptionBonuses.finalDamageBonus || 0),
     physicalFinalDamageBonus: equip.physicalFinalDamageBonus || 0,
     lifeSteal: Math.min(0.35, (equip.lifeSteal || 0) + (passive.lifeSteal || passive.lifeStealPct || 0)),
-    goldMultiplier: 1 + calculateGoldBonus({ equip, cardStats, passive, vipBonuses }) + explorationBonuses.goldBonus + (isAbyss ? setBonuses.abyssGoldPct || 0 : 0) + (codexS.goldBonus || 0),
+    goldMultiplier: 1 + calculateGoldBonus({ equip, cardStats, passive, vipBonuses }) + explorationBonuses.goldBonus + (isAbyss ? setBonuses.abyssGoldPct || 0 : 0) + (codexS.goldBonus || 0) + (mvpInscriptionBonuses.goldBonus || 0),
     monsterGoldMultiplier: 1 + setBonuses.monsterGoldPct,
-    baseExpMultiplier: 1 + setBonuses.baseExpPct + (equip.baseExpBonus || 0) + (passive.baseExpBonus || 0) + explorationBonuses.expBonus + (isAbyss ? setBonuses.abyssBaseExpPct || 0 : 0) + (codexS.expBonus || 0),
-    jobExpMultiplier: 1 + setBonuses.jobExpPct + (equip.jobExpBonus || 0) + (passive.jobExpBonus || 0) + explorationBonuses.expBonus + (isAbyss ? setBonuses.abyssJobExpPct || 0 : 0),
+    baseExpMultiplier: 1 + setBonuses.baseExpPct + (equip.baseExpBonus || 0) + (passive.baseExpBonus || 0) + explorationBonuses.expBonus + (isAbyss ? setBonuses.abyssBaseExpPct || 0 : 0) + (codexS.expBonus || 0) + (mvpInscriptionBonuses.baseExpBonus || 0),
+    jobExpMultiplier: 1 + setBonuses.jobExpPct + (equip.jobExpBonus || 0) + (passive.jobExpBonus || 0) + explorationBonuses.expBonus + (isAbyss ? setBonuses.abyssJobExpPct || 0 : 0) + (mvpInscriptionBonuses.jobExpBonus || 0),
     materialQuantityBonus: setBonuses.materialQuantityPct + (equip.materialQuantityBonus || 0) + (passive.materialQuantityBonus || 0),
     damageReductionPct: damageReductionTotal,
     blockRate: Math.min(0.45, (equip.blockRate || 0) + attrs.str * 0.0002),
@@ -14430,6 +14470,8 @@ Object.assign(window, {
   hasMaterials,
   isZodiacItem,
   currentJob,
+  getMvpInscriptionView,
+  canGainMvpInscriptionOnCurrentMap,
   pruneEquipmentDetailExpandedState,
   equippedSlotMeta,
   sortEquipmentList,

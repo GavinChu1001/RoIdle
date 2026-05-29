@@ -218,6 +218,7 @@ export function installMvpInscriptionRuntime(target = globalThis) {
     getMvpInscriptionLevelRequirement,
     addMvpInscriptionExp,
     calculateMvpInscriptionOnlinePerMinute,
+    isMvpInscriptionMonsterEffective,
     calculateMvpInscriptionMonsterExp,
     getMvpInscriptionBonuses,
     getMvpInscriptionView,
