@@ -1406,8 +1406,13 @@ const blockedGain = mvp.addMvpInscriptionExp(blockedAtBreakthrough, 999999);
 assert.equal(blockedGain.blocked, true, 'MVP inscription must block at unbroken level 10.');
 assert.equal(blockedAtBreakthrough.level, 10, 'Blocked MVP inscription must not cross level 10.');
 
+const crossesIntoBreakthrough = mvp.normalizeMvpInscription({ level: 9, exp: 0, breakthroughLevel: 0 }, () => 0);
+const crossingGain = mvp.addMvpInscriptionExp(crossesIntoBreakthrough, 999999);
+assert.equal(crossesIntoBreakthrough.level, 10, 'MVP inscription should stop on the level 10 breakthrough wall.');
+assert.equal(crossingGain.blocked, true, 'MVP inscription gain should report blocked when it stops at a breakthrough wall.');
+
 const breakthroughReady = mvp.normalizeMvpInscription({ level: 10, exp: 0, breakthroughLevel: 10 }, () => 0);
-const unblockedGain = mvp.addMvpInscriptionExp(breakthroughReady, 999999);
+const unblockedGain = mvp.addMvpInscriptionExp(breakthroughReady, mvp.getMvpInscriptionLevelRequirement(10));
 assert.equal(unblockedGain.blocked, false, 'Completed breakthrough should allow MVP inscription leveling.');
 assert.ok(breakthroughReady.level > 10, 'Completed breakthrough should allow crossing level 10.');
 
@@ -1471,6 +1476,8 @@ const darkLordBonuses = mvp.getMvpInscriptionBonuses({ level: 90, breakthroughLe
 assert.ok(darkLordBonuses.hpPct > 0, 'MVP inscription should grant per-level HP.');
 assert.equal(darkLordBonuses.skillDamageBonus, 0.02, 'Dark Lord breakthrough should grant skill damage.');
 assert.ok(darkLordBonuses.matkPct > 0.01, 'Dark Lord breakthrough should add magic attack beyond per-level MATK.');
+const baphometBonuses = mvp.getMvpInscriptionBonuses({ level: 100, breakthroughLevel: 90 });
+assert.equal(baphometBonuses.finalDamageBonus, 0.015, 'Lv100 MVP inscription should grant Baphomet final damage.');
 
 const offline = await importSource(offlineSource);
 assert.match(offlineSource, /claimOffline:\s*claimOfflineRewards/, 'Legacy Offline claim alias must remain available.');

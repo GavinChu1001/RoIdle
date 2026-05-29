@@ -110,7 +110,7 @@ export function addMvpInscriptionExp(inscription, amount) {
   }
 
   if (inscription.level >= MVP_INSCRIPTION_MAX_LEVEL) inscription.exp = 0;
-  return { gained: gain, levelsGained, blocked: blocked && levelsGained === 0, reachedMax: inscription.level >= MVP_INSCRIPTION_MAX_LEVEL };
+  return { gained: gain, levelsGained, blocked, reachedMax: inscription.level >= MVP_INSCRIPTION_MAX_LEVEL };
 }
 
 export function getMvpInscriptionMapMultiplier(mapIndex = 0) {
@@ -179,7 +179,8 @@ export function getMvpInscriptionBonuses(inscription = {}) {
     defPct: level * 0.0008,
   };
   MVP_INSCRIPTION_STAGES.forEach((stage) => {
-    if (normalized.breakthroughLevel >= stage.maxLevel) {
+    const finalStageUnlocked = stage.maxLevel === MVP_INSCRIPTION_MAX_LEVEL && normalized.level >= MVP_INSCRIPTION_MAX_LEVEL;
+    if (normalized.breakthroughLevel >= stage.maxLevel || finalStageUnlocked) {
       Object.entries(stage.bonus || {}).forEach(([key, value]) => {
         bonuses[key] = (bonuses[key] || 0) + finite(value);
       });
