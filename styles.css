@@ -10504,6 +10504,46 @@ details > summary::marker {
   transform: translate(-50%, -50%);
 }
 
+.combat-spark {
+  --spark-x: 18px;
+  --spark-y: -12px;
+  --spark-rotate: 0deg;
+  --spark-color: #fff0b4;
+  position: absolute;
+  z-index: 7;
+  width: 7px;
+  height: 7px;
+  pointer-events: none;
+  background: var(--spark-color);
+  box-shadow:
+    0 0 0 1px rgba(72, 35, 12, 0.42),
+    0 0 8px rgba(255, 219, 97, 0.48);
+  image-rendering: pixelated;
+  transform: translate(-50%, -50%) rotate(var(--spark-rotate));
+  animation: roImpactSpark 380ms steps(4, end) forwards;
+}
+
+.combat-spark-strike {
+  width: 6px;
+  height: 6px;
+}
+
+.combat-spark-crit {
+  --spark-color: #ff6a35;
+  width: 9px;
+  height: 9px;
+  box-shadow:
+    0 0 0 1px rgba(86, 24, 8, 0.54),
+    0 0 10px rgba(255, 93, 39, 0.62);
+  animation-duration: 560ms;
+}
+
+.combat-spark-skill {
+  --spark-color: #fff4a8;
+  width: 8px;
+  height: 8px;
+}
+
 .combat-impact-strike {
   width: 92px;
   height: 20px;
@@ -10570,6 +10610,13 @@ details > summary::marker {
   box-shadow: 0 0 18px rgba(120, 158, 255, 0.45);
 }
 
+.combat-spark.combat-impact-tone-fire { --spark-color: #ff9a45; }
+.combat-spark.combat-impact-tone-ice { --spark-color: #bfeeff; }
+.combat-spark.combat-impact-tone-shadow { --spark-color: #d8c0ff; }
+.combat-spark.combat-impact-tone-holy,
+.combat-spark.combat-impact-tone-support { --spark-color: #fff8cf; }
+.combat-spark.combat-impact-tone-storm { --spark-color: #cce0ff; }
+
 .skill-cast-feedback {
   z-index: 8;
   border-radius: 4px;
@@ -10618,6 +10665,21 @@ details > summary::marker {
   100% { filter: brightness(1); }
 }
 
+@keyframes roImpactSpark {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.45) rotate(var(--spark-rotate));
+  }
+  25% {
+    opacity: 1;
+    transform: translate(calc(-50% + var(--spark-x) * 0.38), calc(-50% + var(--spark-y) * 0.38)) scale(1) rotate(var(--spark-rotate));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--spark-x)), calc(-50% + var(--spark-y))) scale(0.35) rotate(var(--spark-rotate));
+  }
+}
+
 @keyframes roStrikeFlash {
   0% { opacity: 0; transform: translate(-50%, -50%) rotate(-18deg) scaleX(0.45); }
   38% { opacity: 1; transform: translate(-50%, -50%) rotate(-18deg) scaleX(1); }
@@ -10656,10 +10718,21 @@ details > summary::marker {
     width: 104px;
     height: 74px;
   }
+
+  .combat-spark {
+    width: 5px;
+    height: 5px;
+  }
+
+  .combat-spark-crit {
+    width: 7px;
+    height: 7px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .combat-impact,
+  .combat-spark,
   .damage-float.damage-number {
     animation-duration: 1ms !important;
   }

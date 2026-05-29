@@ -112,6 +112,15 @@ assert.match(game, /bar\.dataset\.skillComposition/, 'The RO skill bar must upda
 assert.match(game, /renderSkillCastBanner\(\)/, 'Skill casts must update their visible combat banner.');
 assert.match(styles, /\.skill-bar-icon\.cooldown\.casting/, 'Casting feedback must remain visible when a skill immediately enters cooldown.');
 assert.match(styles, /\.scene-wrap\.skill-cast-active::after/, 'Skill casts must create a visible battle-scene impact pulse.');
+assert.match(game, /function\s+spawnCombatSparks\s*\(/, 'Combat impacts should spawn lightweight pixel spark accents.');
+assert.match(game, /spawnCombatSparks\(wrap,\s*target,\s*type,\s*tone\)/, 'Slash and critical impacts should trigger pixel sparks through the shared combat impact hook.');
+assert.match(styles, /\.combat-spark\s*\{/, 'Combat sparks should have a dedicated pixel effect class.');
+assert.match(styles, /@keyframes\s+roImpactSpark\s*\{/, 'Combat sparks should animate with a short pixel-style keyframe.');
+assert.match(html, /styles\.css\?v=20260529-battle-effects-v1/, 'Battle effect CSS should use a fresh cache-busting version.');
+assert.match(html, /game\.js\?v=20260529-battle-effects-v1/, 'Battle effect runtime should use a fresh cache-busting version.');
+assert.match(styles, /\.combat-impact-strike\s*\{[\s\S]*width:\s*116px[\s\S]*animation:\s*roStrikeFlash\s+620ms/, 'Slash impact should be visible long enough for player inspection.');
+assert.match(styles, /\.combat-impact-crit\s*\{[\s\S]*width:\s*108px[\s\S]*animation:\s*roCritBurst\s+780ms/, 'Critical impact should be larger and longer-lived than normal hits.');
+assert.match(styles, /\.combat-spark-crit\s*\{[\s\S]*animation-duration:\s*760ms/, 'Critical sparks should linger enough to read as a burst.');
 assert.match(styles, /--ro-parchment:/, 'RO parchment token should exist');
 assert.match(styles, /--ro-wood-top:/, 'RO wood button token should exist');
 assert.match(styles, /--ro-vnext-paper:/, 'RO vNext paper token should exist');
@@ -859,6 +868,26 @@ const taskHtml = taskRuntime.renderTaskCard({
 assert.match(taskHtml, /Correct description/, 'Task cards must use the current description field.');
 assert.match(taskHtml, /2 \/ 5/, 'Task cards must use currentCount and requiredCount.');
 assert.doesNotMatch(taskHtml, /undefined/, 'Task cards must not print missing legacy field values.');
+let taskPageHtml = '';
+globalThis.window = {
+  RuneFrontierRenderRuntime: taskRuntime,
+  questRewardText: () => 'Reward',
+  state: {
+    hideCompletedTasks: true,
+    quests: {
+      active: [
+        { id: 'main_1_grass', category: 'main', title: 'Claim me', description: 'Ready reward', currentCount: 30, requiredCount: 30, rewards: {}, completed: true, claimed: false },
+        { id: 'main_claimed', category: 'main', title: 'Already claimed', description: 'Hidden reward', currentCount: 30, requiredCount: 30, rewards: {}, completed: true, claimed: true },
+      ],
+    },
+    dailyGoals: { goals: [] },
+  },
+  els: { taskPage: { set innerHTML(value) { taskPageHtml = value; } } },
+};
+taskRuntime.renderTasks();
+assert.match(taskPageHtml, /Claim me/, 'Completed but unclaimed beginner tasks must stay visible so onboarding rewards can be claimed.');
+assert.doesNotMatch(taskPageHtml, /Already claimed/, 'Completed and claimed tasks should remain hidden when completed-task hiding is enabled.');
+assert.match(game, /\(!hideCompleted \|\| !quest\.completed \|\| !quest\.claimed\)/, 'Classic task rendering must not hide completed unclaimed rewards.');
 let cardHtml = '';
 globalThis.window = { RuneFrontierRenderRuntime: {} };
 const cardRuntime = cardPage.installCardRenderRuntime({

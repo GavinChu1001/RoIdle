@@ -3931,6 +3931,29 @@ function combatDamageText(value, type, options = {}) {
   return `-${formatNumber(value)}`;
 }
 
+function spawnCombatSparks(wrap, target, type = "normal", tone = "physical") {
+  if (!wrap || type === "heal" || type === "miss") return;
+  const sparks = wrap.querySelectorAll(".combat-spark");
+  if (sparks.length > 24) sparks[0].remove();
+  const isCrit = type === "crit";
+  const count = isCrit ? 7 : type === "skill" ? 5 : 3;
+  const baseLeft = target === "monster" ? (type === "skill" ? 70 : 73) : 23;
+  const baseTop = target === "monster" ? (type === "skill" ? 43 : 50) : 49;
+  for (let i = 0; i < count; i += 1) {
+    const spark = document.createElement("span");
+    const angle = -70 + (140 / Math.max(1, count - 1)) * i + randomFloat(-12, 12);
+    const distance = isCrit ? randomFloat(22, 42) : randomFloat(12, 26);
+    spark.className = `combat-spark combat-spark-${isCrit ? "crit" : type === "skill" ? "skill" : "strike"} combat-impact-tone-${tone}`;
+    spark.style.left = `${baseLeft + randomFloat(-4, 4)}%`;
+    spark.style.top = `${baseTop + randomFloat(-5, 5)}%`;
+    spark.style.setProperty("--spark-x", `${Math.cos(angle * Math.PI / 180) * distance}px`);
+    spark.style.setProperty("--spark-y", `${Math.sin(angle * Math.PI / 180) * distance}px`);
+    spark.style.setProperty("--spark-rotate", `${randomFloat(-35, 35)}deg`);
+    wrap.appendChild(spark);
+    window.setTimeout(() => spark.remove(), isCrit ? 580 : 360);
+  }
+}
+
 function spawnCombatImpact(wrap, target, type = "normal", tone = "physical") {
   if (!wrap || type === "heal" || type === "miss") return;
   const impacts = wrap.querySelectorAll(".combat-impact");
@@ -3949,6 +3972,7 @@ function spawnCombatImpact(wrap, target, type = "normal", tone = "physical") {
   el.style.left = `${baseLeft + randomFloat(-3, 3)}%`;
   el.style.top = `${baseTop + randomFloat(-5, 5)}%`;
   wrap.appendChild(el);
+  spawnCombatSparks(wrap, target, type, tone);
   window.setTimeout(() => el.remove(), type === "skill" ? 760 : type === "crit" ? 560 : 420);
 }
 
@@ -10237,8 +10261,8 @@ function renderVip() { const runtime = window.RuneFrontierRenderRuntime; if (run
 
 function renderTasks() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderTasks === "function") return runtime.renderTasks();
   const hideCompleted = state.hideCompletedTasks !== false;
-  const main = state.quests.active.filter((quest) => quest.category === "main" && (!hideCompleted || !quest.completed));
-  const daily = state.quests.active.filter((quest) => quest.category === "daily" && (!hideCompleted || !quest.completed));
+  const main = state.quests.active.filter((quest) => quest.category === "main" && (!hideCompleted || !quest.completed || !quest.claimed));
+  const daily = state.quests.active.filter((quest) => quest.category === "daily" && (!hideCompleted || !quest.completed || !quest.claimed));
   const toggleLabel = hideCompleted ? "已完成任务已隐藏，点击显示" : "显示全部任务";
   els.taskPage.innerHTML = `
     <div class="task-toggle-bar"><button class="task-toggle-btn" data-toggle-completed-tasks type="button">${toggleLabel}</button></div>
