@@ -23,6 +23,11 @@ export function rollDrops(options = {}, context = runtimeContext) {
   maybeDropSocketMaterials(stats, { boss: isBoss }, context);
   rollCardDropsFromTable(stats, { boss: isBoss }, context);
   maybeDropBossCardFragments(stats, { boss: isBoss }, context);
+  context.noteEquipmentSynergyKill?.({
+    boss: isBoss,
+    monster,
+    equipmentDrops: equipmentDropCount + zodiacDropCount + mythicDropCount,
+  });
   return equipmentDropCount + zodiacDropCount + mythicDropCount;
 }
 

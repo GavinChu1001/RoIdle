@@ -6030,6 +6030,74 @@ button.pixel-button {
   image-rendering: pixelated;
 }
 
+.equipment-synergy-panel {
+  display: grid;
+  gap: 7px;
+  padding-right: 12px;
+}
+
+.equipment-synergy-panel::before {
+  opacity: 0.28;
+}
+
+.equipment-synergy-panel.active {
+  border-color: rgba(129, 84, 34, 0.72);
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 247, 219, 0.98), rgba(225, 190, 128, 0.92));
+}
+
+.equipment-synergy-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.equipment-synergy-head .slot-name {
+  margin-bottom: 0;
+}
+
+.equipment-synergy-count {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border: 1px solid rgba(85, 50, 21, 0.38);
+  border-radius: 5px;
+  background: rgba(255, 241, 198, 0.82);
+  color: #4b2d15;
+  font-size: 0.78rem;
+  font-weight: 950;
+}
+
+.equipment-synergy-chips,
+.equipment-synergy-routes,
+.equipment-synergy-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.equipment-synergy-chip,
+.equipment-synergy-route,
+.equipment-synergy-stats span {
+  min-height: 22px;
+  padding: 3px 7px;
+  border: 1px solid rgba(89, 54, 25, 0.28);
+  border-radius: 5px;
+  background: rgba(255, 250, 231, 0.72);
+  color: #4b2d15;
+  font-size: 0.76rem;
+  font-weight: 850;
+  line-height: 1.2;
+}
+
+.equipment-synergy-route {
+  border-color: rgba(49, 94, 75, 0.35);
+  background: rgba(231, 243, 217, 0.72);
+  color: #264f3e;
+}
+
 .slot-name,
 .material-group-title,
 .equipment-section-title,
@@ -10544,8 +10612,8 @@ details > summary::marker {
 }
 
 .ro-vfx-spark {
-  width: 82px;
-  height: 82px;
+  width: 64px;
+  height: 64px;
   background-image: url("assets/ui/fx/hit-spark.png");
   animation: roVfxSpark 680ms steps(4, end) forwards;
 }
@@ -10558,8 +10626,8 @@ details > summary::marker {
 }
 
 .combat-impact-player-hit.ro-vfx-spark {
-  width: 92px;
-  height: 92px;
+  width: 74px;
+  height: 74px;
   --vfx-hue: -12deg;
   --vfx-sat: 1.08;
 }
@@ -10724,8 +10792,13 @@ details > summary::marker {
   }
 
   .ro-vfx-spark {
-    width: 66px;
-    height: 66px;
+    width: 52px;
+    height: 52px;
+  }
+
+  .combat-impact-player-hit.ro-vfx-spark {
+    width: 60px;
+    height: 60px;
   }
 
   .ro-vfx-skill {

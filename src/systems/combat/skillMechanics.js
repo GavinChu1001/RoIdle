@@ -7,6 +7,31 @@ function finite(v) { const n = Number(v || 0); return Number.isFinite(n) ? n : 0
 function random(ctx = mechContext) { return ctx.random?.() ?? Math.random(); }
 function stateFrom(ctx = mechContext) { return ctx.getState?.() || {}; }
 
+function getEquipmentSkillEnhancement(skill, stats = {}) {
+  const result = { multiplierBonus: 0, cooldownMultiplier: 1, healBonus: 0 };
+  const entries = stats.equipmentSynergies?.skillEnhancements;
+  if (!skill?.name || !Array.isArray(entries)) return result;
+  entries.forEach((entry) => {
+    const skillNames = Array.isArray(entry?.skillNames) ? entry.skillNames : [];
+    if (!skillNames.includes(skill.name)) return;
+    result.multiplierBonus += finite(entry.multiplierBonus);
+    const cooldownMultiplier = Number(entry.cooldownMultiplier);
+    if (Number.isFinite(cooldownMultiplier) && cooldownMultiplier > 0) {
+      result.cooldownMultiplier *= cooldownMultiplier;
+    }
+    result.healBonus += finite(entry.healBonus);
+  });
+  return result;
+}
+
+function applyEquipmentSkillHealBonus(mechanism, enhancement) {
+  if (!finite(enhancement.healBonus)) return mechanism;
+  const next = { ...mechanism };
+  if (next.hpPct) next.hpPct = finite(next.hpPct) * (1 + finite(enhancement.healBonus));
+  if (next.healRatio) next.healRatio = finite(next.healRatio) * (1 + finite(enhancement.healBonus));
+  return next;
+}
+
 export function configureSkillMechanicsContext(ctx = {}) {
   mechContext = ctx || {};
 }
@@ -893,6 +918,9 @@ export function tickSkillSystem(dt, stats, ctx = mechContext) {
     var levelScaling = skill.levelScaling || {};
     var cdMult = Math.pow(levelScaling.cooldownPerLevel || 0.94, skillLevel - 1);
     var dmgMult = Math.pow(levelScaling.multiplierPerLevel || 1.12, skillLevel - 1);
+    const equipmentSkillEnhancement = getEquipmentSkillEnhancement(skill, stats);
+    if (equipmentSkillEnhancement.multiplierBonus) dmgMult *= 1 + finite(equipmentSkillEnhancement.multiplierBonus);
+    cdMult *= equipmentSkillEnhancement.cooldownMultiplier || 1;
 
     // 觉醒效果：检查是否有觉醒并修改机制
     let awakenedMech = null;
@@ -907,6 +935,7 @@ export function tickSkillSystem(dt, stats, ctx = mechContext) {
     const reduceThisSkillCooldown = Boolean(state.cooldownReductionNextSkill);
     let fired = false;
     let activeMech = mergeAwakenedMechanism(mech, awakenedMech);
+    activeMech = applyEquipmentSkillHealBonus(activeMech, equipmentSkillEnhancement);
     if (skill.name === '二连矢' && passiveEffects.enhanceDoubleStrafe && hasMark(state, 'mark')) {
       activeMech = { ...activeMech, hits: passiveEffects.enhanceDoubleStrafe.hits || 3 };
     }
@@ -916,10 +945,13 @@ export function tickSkillSystem(dt, stats, ctx = mechContext) {
     }
     activeMech = { ...activeMech, _skillLevel: skillLevel, _dmgMult: dmgMult, _cdMult: cdMult };
     if (activeMech.multiplier) activeMech.multiplier = finite(activeMech.multiplier) * dmgMult;
+    if (activeMech.multiplierPerHit) activeMech.multiplierPerHit = finite(activeMech.multiplierPerHit) * dmgMult;
     if (activeMech.perHit) activeMech.perHit = finite(activeMech.perHit) * dmgMult;
     if (activeMech.perSecond) activeMech.perSecond = finite(activeMech.perSecond) * dmgMult;
     if (activeMech.baseMultiplier) activeMech.baseMultiplier = finite(activeMech.baseMultiplier) * dmgMult;
     if (activeMech.finisherMultiplier) activeMech.finisherMultiplier = finite(activeMech.finisherMultiplier) * dmgMult;
+    if (activeMech.markedMultiplier) activeMech.markedMultiplier = finite(activeMech.markedMultiplier) * dmgMult;
+    if (activeMech.snareMultiplier) activeMech.snareMultiplier = finite(activeMech.snareMultiplier) * dmgMult;
     switch (mech.type) {
       case 'multihit': fired = executeMultihit(activeMech, skill, state, stats, monster, ctx); break;
       case 'singleHit': fired = executeSingleHit(activeMech, skill, state, stats, monster, ctx); break;

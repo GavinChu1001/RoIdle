@@ -111,7 +111,10 @@ export function calculateOfflineRewards(character, offlineMs, mapId, context = r
   const averageHp = estimateMapAverageMonsterHp(map, context);
   const onlineKills = Math.max(0, (stats.dps || 0) / Math.max(1, averageHp)) * seconds;
   const vipEff = vipBonuses ? (vipBonuses().offlineEfficiencyBonus || 0) : 0;
-  const killCount = Math.min(offlineMaxKills, Math.floor(onlineKills * Math.min(1, offlineEfficiency + vipEff + (stats.offlineEfficiencyBonus || 0))));
+  const equipmentSynergyCombatEffects = stats?.equipmentSynergyCombatEffects || context.getEquipmentSynergyEffects?.()?.combatEffects || {};
+  const autoStrikeBonus = Math.min(0.25, finite(equipmentSynergyCombatEffects.autoStrikePct) * 0.5);
+  let killCount = Math.min(offlineMaxKills, Math.floor(onlineKills * Math.min(1, offlineEfficiency + vipEff + (stats.offlineEfficiencyBonus || 0))));
+  if (autoStrikeBonus > 0) killCount = Math.min(offlineMaxKills, Math.floor(killCount * (1 + autoStrikeBonus)));
   rewards.killCount = killCount;
   if (killCount <= 0) return rewards;
 

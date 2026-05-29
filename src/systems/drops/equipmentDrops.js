@@ -48,11 +48,13 @@ export function rollEquipmentDropsFromTable(rows, stats, options = {}, context =
   const weighted = rows
     .map((drop) => ({ drop, finalRate: context.getEffectiveEquipmentDropRate?.(drop, stats, { offline: isOffline, boss: isBoss }) || 0 }))
     .filter((entry) => entry.finalRate > 0 && context.getEquipmentTemplate?.(entry.drop.equipmentId));
+  const equipmentSynergyDropEffects = stats?.equipmentSynergyDropEffects || context.getEquipmentSynergyEffects?.()?.dropEffects || {};
+  const synergyDropBonus = Math.min(0.5, Number(equipmentSynergyDropEffects.dropChainBonus || 0));
   const drops = [];
   for (let attempt = 0; attempt < maxDrops && weighted.length; attempt += 1) {
     const totalChance = isOffline
-      ? Math.min(0.75, weighted.reduce((sum, entry) => sum + entry.finalRate, 0))
-      : context.getOnlineEquipmentDropChance?.(stats, { boss: isBoss, rows }) || 0;
+      ? Math.min(0.75, weighted.reduce((sum, entry) => sum + entry.finalRate, 0) * (1 + synergyDropBonus * 0.5))
+      : (context.getOnlineEquipmentDropChance?.(stats, { boss: isBoss, rows }) || 0) * (1 + synergyDropBonus);
     if (!guaranteed && (context.random?.() ?? Math.random()) >= totalChance) break;
     const pick = context.weightedChoice?.(
       weighted,

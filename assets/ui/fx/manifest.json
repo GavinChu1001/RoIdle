@@ -1,0 +1,69 @@
+{
+  "style": "ro-pixel-generated-vfx",
+  "rules": {
+    "generatedOnly": true,
+    "transparentPng": true,
+    "noCssDrawnReplacement": true,
+    "notes": "All image-based battle VFX should be generated as RO-inspired pixel assets, processed to transparent PNG, and then wired into the combat layer. CSS may position, size, tint, and animate generated images, but should not draw replacement slash or burst art."
+  },
+  "assets": [
+    {
+      "id": "hit-slash",
+      "path": "assets/ui/fx/hit-slash.png",
+      "generated": true,
+      "tone": "physical",
+      "usage": ["normal-hit", "physical-hit"]
+    },
+    {
+      "id": "hit-crit",
+      "path": "assets/ui/fx/hit-crit.png",
+      "generated": true,
+      "tone": "physical",
+      "usage": ["critical-hit"]
+    },
+    {
+      "id": "hit-spark",
+      "path": "assets/ui/fx/hit-spark.png",
+      "generated": true,
+      "tone": "physical",
+      "usage": ["small-impact", "player-hit", "hit-accent"]
+    },
+    {
+      "id": "hit-skill",
+      "path": "assets/ui/fx/hit-skill.png",
+      "generated": true,
+      "tone": "storm",
+      "usage": ["skill-hit", "arc-skill"]
+    }
+  ],
+  "plannedElements": [
+    {
+      "tone": "physical",
+      "promptBasis": "Warm white and amber pixel slash, compact square spark particles, RO-like melee impact, no scenery or text."
+    },
+    {
+      "tone": "fire",
+      "promptBasis": "Orange-red pixel burst with ember squares and bright white core, RO-like fire skill impact, no smoke cloud that hides targets."
+    },
+    {
+      "tone": "ice",
+      "promptBasis": "Blue-white pixel shard crescent with small crystal squares, clean icy hit effect, readable over green fields."
+    },
+    {
+      "tone": "shadow",
+      "promptBasis": "Purple-black pixel crescent with violet sparks and thin dark aura, restrained so it does not obscure HP bars."
+    },
+    {
+      "tone": "holy",
+      "promptBasis": "Gold-white pixel starburst with small cross-like spark clusters, bright but compact healing or holy hit effect."
+    },
+    {
+      "tone": "storm",
+      "promptBasis": "Blue-white wind or lightning arc with sharp pixel streaks, short crescent shape for skill hits."
+    },
+    {
+      "tone": "support",
+      "promptBasis": "Soft green-gold pixel glow with tiny square motes, used for healing and buffs without attack-like aggression."
+    }
+  ]
+}

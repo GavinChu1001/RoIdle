@@ -6914,6 +6914,25 @@ function summarizeByName(items) {
   return [...map.values()];
 }
 
+function computeEquipmentSynergyState() {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  const synergy = runtime?.computeEquipmentSynergies?.(state);
+  return synergy || { activeLines: [], stats: {}, skillEnhancements: [], activeLineIds: [], activeMechanismIds: [], bestLine: null };
+}
+
+function getEquipmentSynergyEffects() {
+  return computeEquipmentSynergyState();
+}
+
+function noteEquipmentSynergyKill(payload = {}) {
+  state.equipmentSynergyState = state.equipmentSynergyState || {};
+  state.equipmentSynergyState.lastKill = {
+    time: Date.now(),
+    boss: Boolean(payload.boss),
+    equipmentDrops: Number(payload.equipmentDrops || 0),
+  };
+}
+
 function computeStats() {
   const equip = computeEquipmentFullStats();
   const costumeEffects = getCostumeEffects();
@@ -6924,6 +6943,10 @@ function computeStats() {
   Object.entries(titleEffects).forEach(([stat, value]) => {
     const key = stat === "goldBonus" ? "gold" : stat;
     equip[key] = (equip[key] || 0) + value;
+  });
+  const equipmentSynergies = computeEquipmentSynergyState();
+  Object.entries(equipmentSynergies.stats || {}).forEach(([stat, value]) => {
+    equip[stat] = Number(((equip[stat] || 0) + (Number(value) || 0)).toFixed(3));
   });
   const explorationBonuses = getMapExplorationBonuses(currentMap().id);
   const passive = getPassiveSkillTotals();
@@ -6983,6 +7006,9 @@ function computeStats() {
     baseAttrs: attrBreakdown.base,
     trainingPct: attrBreakdown.trainingPct,
     setBonuses,
+    equipmentSynergies,
+    equipmentSynergyDropEffects: equipmentSynergies.dropEffects || {},
+    equipmentSynergyCombatEffects: equipmentSynergies.combatEffects || {},
     monsterDamageBonus: Math.min(2, (cardStats.monsterDamage || 0) + (equip.monsterDamageBonus || 0) + (passive.monsterDamageBonus || 0)),
     bossDamageBonus: bossDamageBonusTotal,
     mutationDamageBonus: setBonuses.mutationDamagePct,
@@ -9069,9 +9095,54 @@ function toggleEquipmentDetailExpanded(key) {
   renderEquipment();
 }
 
+function renderEquipmentSynergyStatChips(stats = {}) {
+  const entries = Object.entries(stats || {}).filter(([, value]) => Number(value) !== 0).slice(0, 4);
+  if (!entries.length) return "";
+  return `<div class="equipment-synergy-stats">
+    ${entries.map(([stat, value]) => `<span>${escapeHtml(statLabelName(stat))} ${escapeHtml(formatStatValue(stat, value))}</span>`).join("")}
+  </div>`;
+}
+
+function renderEquipmentSynergyPanel() {
+  const synergy = computeEquipmentSynergyState();
+  const line = synergy.bestLine || synergy.activeLines?.[0];
+  if (!line) {
+    return `<section class="slot-card equipment-synergy-panel">
+      <div class="equipment-synergy-head">
+        <span class="slot-name">装备联动</span>
+        <span class="equipment-synergy-count">0/5</span>
+      </div>
+      <p class="slot-meta">装备同一成长线的 4 件装备可激活核心机制，5 件会升级效果。</p>
+    </section>`;
+  }
+  const mechanismRows = (line.activeMechanisms || []).map((entry) => `
+    <span class="equipment-synergy-chip">${escapeHtml(entry.label)}</span>
+  `).join("");
+  const routeRows = (line.routeEnhancements || []).map((entry) => `
+    <span class="equipment-synergy-route">+${entry.refineTotalRequired} ${escapeHtml((entry.skillNames || []).join(" / "))}</span>
+  `).join("");
+  const nextParts = [
+    line.nextMechanism ? `${line.nextMechanism.unlockPieces}件：${line.nextMechanism.label}` : "",
+    line.nextThreshold ? `总精炼 +${line.nextThreshold.refineTotal}：${line.nextThreshold.label}` : "",
+  ].filter(Boolean);
+  return `<section class="slot-card equipment-synergy-panel active">
+    <div class="equipment-synergy-head">
+      <span class="slot-name">${escapeHtml(line.label)}</span>
+      <span class="equipment-synergy-count">${line.pieceCount}/5 · +${line.refineTotal}</span>
+    </div>
+    <p class="slot-meta">${escapeHtml(line.activeMechanisms?.[0]?.description || "同线装备正在形成联动。")}</p>
+    ${mechanismRows ? `<div class="equipment-synergy-chips">${mechanismRows}</div>` : ""}
+    ${routeRows ? `<div class="equipment-synergy-routes">${routeRows}</div>` : ""}
+    ${renderEquipmentSynergyStatChips(synergy.stats)}
+    ${nextParts.length ? `<p class="slot-meta">下一目标：${escapeHtml(nextParts[0])}</p>` : `<p class="slot-meta">这条装备线的当前联动已全部激活。</p>`}
+  </section>`;
+}
+
 function renderEquipment() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipment === "function") return runtime.renderEquipment();
   pruneEquipmentDetailExpandedState();
-  els.equippedSlots.innerHTML = ["weapon", "armor", "headgear", "shoes", "trinket"]
+  els.equippedSlots.innerHTML = `
+    ${renderEquipmentSynergyPanel()}
+    ${["weapon", "armor", "headgear", "shoes", "trinket"]
     .map((slot) => {
       const item = state.inventory.find((entry) => entry.id === state.equipped[slot]);
       return `
@@ -9081,11 +9152,12 @@ function renderEquipment() { const runtime = window.RuneFrontierRenderRuntime; i
         </div>
       `;
     })
-    .join("");
+    .join("")}
+  `;
 
   els.materialList.innerHTML = `
-    ${renderMaterialGroups()}
     ${renderEquipmentBatchPanel()}
+    ${renderMaterialGroups()}
     ${renderZodiacCollectionPanel()}
     ${renderCostumePanel()}
     <div class="slot-card auto-salvage-card">
@@ -13403,6 +13475,8 @@ window.RuneFrontierLegacyDropsContext = () => Object.freeze({
   currentMap,
   getDifficultyConfig: currentDifficultyConfig,
   computeStats,
+  getEquipmentSynergyEffects,
+  noteEquipmentSynergyKill,
   getMaterialDropTable(mapId) {
     return materialDropTables[mapId] || [];
   },
@@ -13527,6 +13601,7 @@ window.RuneFrontierLegacyOfflineContext = () => Object.freeze({
     return maps;
   },
   computeStats,
+  getEquipmentSynergyEffects,
   getDifficultyConfig: currentDifficultyConfig,
   getVipMilestoneBonuses,
   getCardDropTable(mapId) {

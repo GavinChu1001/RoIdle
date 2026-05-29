@@ -30,6 +30,7 @@ const styles = read('styles.css');
 const equipmentStyles = read('unified-equipment-ui.css');
 const main = read('src/main.js');
 const stateSurface = read('src/state/index.js');
+const equipmentIndexSource = read('src/systems/equipment/index.js');
 const itemStatsSource = read('src/systems/equipment/itemStats.js');
 const itemNamingSource = read('src/systems/equipment/itemNaming.js');
 const itemScoreSource = read('src/systems/equipment/itemScore.js');
@@ -134,7 +135,10 @@ assert.match(styles, /\.ro-vfx-slash\s*\{[\s\S]*assets\/ui\/fx\/hit-slash\.png/,
 assert.match(styles, /\.ro-vfx-crit\s*\{[\s\S]*assets\/ui\/fx\/hit-crit\.png/, 'Critical hits should use the generated crit burst asset.');
 assert.match(styles, /\.ro-vfx-spark\s*\{[\s\S]*assets\/ui\/fx\/hit-spark\.png/, 'Small impacts should use the generated spark asset.');
 assert.match(styles, /\.ro-vfx-skill\s*\{[\s\S]*assets\/ui\/fx\/hit-skill\.png/, 'Skill hits should use the generated skill arc asset.');
-assert.match(html, /styles\.css\?v=20260529-battle-effects-v3/, 'Battle effect CSS should use a fresh cache-busting version.');
+assert.match(styles, /\.ro-vfx-spark\s*\{[\s\S]*width:\s*64px[\s\S]*height:\s*64px/, 'Generated spark VFX should stay compact enough to avoid covering the hero.');
+assert.match(styles, /\.combat-impact-player-hit\.ro-vfx-spark\s*\{[\s\S]*width:\s*74px[\s\S]*height:\s*74px/, 'Player-hit generated spark should be smaller than the first preview implementation.');
+assert.match(styles, /@media\s*\(max-width:\s*640px\)[\s\S]*\.combat-impact-player-hit\.ro-vfx-spark\s*\{[\s\S]*width:\s*60px[\s\S]*height:\s*60px/, 'Mobile player-hit generated spark should be compact on 390px screens.');
+assert.match(html, /styles\.css\?v=20260529-battle-effects-v4/, 'Battle effect CSS should use a fresh cache-busting version.');
 assert.match(html, /game\.js\?v=20260529-battle-effects-v2/, 'Battle effect runtime should use a fresh cache-busting version.');
 for (const file of [
   'assets/ui/fx/hit-slash.png',
@@ -146,6 +150,16 @@ for (const file of [
   assert.equal(png.colorType, 6, `${file} must be RGBA so the generated effect has transparency.`);
   assert.ok(png.width >= 48 && png.height >= 48, `${file} must remain readable at battle scale.`);
   assert.ok(png.size > 1024, `${file} must contain real generated effect data.`);
+}
+assert.ok(existsSync(join(root, 'assets/ui/fx/manifest.json')), 'Generated VFX assets must have a manifest documenting source style and future element prompts.');
+const battleVfxManifest = JSON.parse(read('assets/ui/fx/manifest.json'));
+assert.equal(battleVfxManifest.style, 'ro-pixel-generated-vfx', 'Combat VFX manifest should lock the RO pixel generated style.');
+assert.equal(battleVfxManifest.rules.generatedOnly, true, 'Combat VFX manifest should require generated assets for image-based effects.');
+for (const file of ['hit-slash.png', 'hit-crit.png', 'hit-spark.png', 'hit-skill.png']) {
+  assert.ok(battleVfxManifest.assets.some((asset) => asset.path === `assets/ui/fx/${file}` && asset.generated === true), `${file} must be tracked as a generated VFX asset.`);
+}
+for (const tone of ['physical', 'fire', 'ice', 'shadow', 'holy', 'storm', 'support']) {
+  assert.ok(battleVfxManifest.plannedElements.some((entry) => entry.tone === tone && entry.promptBasis), `${tone} VFX should have a planned generated prompt basis.`);
 }
 assert.doesNotMatch(styles, /\.combat-impact-strike\s*\{[\s\S]*border-top:/, 'Slash hits should not fall back to the hard-edged CSS border line.');
 assert.doesNotMatch(styles, /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?\.combat-impact,[\s\S]*?\.combat-spark,[\s\S]*?\.damage-float\.damage-number\s*\{[\s\S]*?animation-duration:\s*1ms\s*!important;[\s\S]*?\}/, 'Reduced-motion combat feedback must not collapse to an invisible final frame.');
@@ -621,6 +635,68 @@ assert.ok(
 );
 const lineFilters = itemProgression.getEquipmentLineFilterOptions();
 assert.ok(lineFilters.some((entry) => entry.id === 'line:ancientHero' && entry.label === '古代英雄'), 'Equipment filters should expose Ancient Hero line filtering.');
+const itemSynergy = await import('./../src/systems/equipment/itemSynergy.js');
+assert.equal(Object.keys(itemSynergy.EQUIPMENT_SYNERGY_LINES).length, 10, 'Equipment synergy must define one rule for every progression equipment line.');
+assert.ok(itemSynergy.EQUIPMENT_SYNERGY_LINES.ancientHero, 'Ancient Hero synergy line must exist.');
+assert.equal(itemSynergy.EQUIPMENT_SYNERGY_LINES.ancientHero.thresholds.refine10.routeTier, 1, 'Refine +10 must unlock first-job route enhancement.');
+assert.equal(itemSynergy.EQUIPMENT_SYNERGY_LINES.ancientHero.thresholds.refine20.routeTier, 2, 'Refine +20 must unlock second-job route enhancement.');
+assert.equal(itemSynergy.EQUIPMENT_SYNERGY_LINES.ancientHero.thresholds.refine30.routeTier, 3, 'Refine +30 must unlock third-job route enhancement.');
+const synergyState = {
+  inventory: [
+    { id: 'w', series: 'ancientHero', refine: 8 },
+    { id: 'a', series: 'ancientHero', refine: 7 },
+    { id: 'h', series: 'ancientHero', refine: 6 },
+    { id: 's', series: 'ancientHero', refine: 5 },
+    { id: 't', series: 'ancientHero', refine: 4 },
+    { id: 'x', series: 'os', refine: 20 },
+  ],
+  equipped: { weapon: 'w', armor: 'a', headgear: 'h', shoes: 's', trinket: 't' },
+  hero: { jobId: 'runeKnight', jobHistory: ['novice', 'swordman', 'knight', 'runeKnight'] },
+};
+const synergy = itemSynergy.computeEquipmentSynergies(synergyState);
+assert.equal(synergy.activeLines[0].series, 'ancientHero', 'Synergy should use the equipped same-line group.');
+assert.equal(synergy.activeLines[0].pieceCount, 5, 'Synergy should count equipped same-line pieces.');
+assert.equal(synergy.activeLines[0].refineTotal, 30, 'Synergy should sum same-line refine values.');
+assert.ok(synergy.activeLines[0].activeMechanisms.some((entry) => entry.id === 'heroBurst'), 'Four-piece core mechanism should activate.');
+assert.ok(synergy.activeLines[0].activeMechanisms.some((entry) => entry.id === 'heroBurstUpgrade'), 'Five-piece mechanism upgrade should activate.');
+assert.deepEqual(synergy.activeLines[0].routeEnhancements.map((entry) => entry.routeTier), [1, 2, 3], 'Refine milestones should unlock route tiers 1/2/3.');
+assert.ok(itemSynergy.getEquipmentSynergySummary(synergy).includes('Hero Resonance'), 'Synergy summary should be readable for UI.');
+assert.match(equipmentIndexSource, /computeEquipmentSynergies/, 'Equipment runtime must expose synergy computation.');
+assert.match(game, /function computeEquipmentSynergyState\(\)/, 'game.js must wrap equipment synergy computation for classic runtime use.');
+assert.match(game, /computeEquipmentSynergies\?\.\(state\)/, 'Equipment synergy computation should read the current game state.');
+assert.match(game, /Object\.entries\(equipmentSynergies\.stats \|\| \{\}\)/, 'computeStats should merge equipment synergy stats into equipment totals.');
+assert.match(game, /equipmentSynergies,/, 'computeStats should expose active equipment synergy details.');
+assert.match(game, /function renderEquipmentSynergyPanel\(\)/, 'Equipment page should render a synergy summary panel.');
+assert.match(game, /renderEquipmentSynergyPanel\(\)/, 'Equipment page should include the synergy panel in its main material column.');
+const nebulaSynergy = itemSynergy.computeEquipmentSynergies({
+  inventory: [
+    { id: 'n1', series: 'nebula', refine: 8 },
+    { id: 'n2', series: 'nebula', refine: 8 },
+    { id: 'n3', series: 'nebula', refine: 8 },
+    { id: 'n4', series: 'nebula', refine: 8 },
+  ],
+  equipped: { weapon: 'n1', armor: 'n2', headgear: 'n3', shoes: 'n4' },
+  hero: { jobId: 'wizard' },
+});
+assert.ok(nebulaSynergy.dropEffects.dropChainBonus > 0, 'Nebula four-piece synergy should expose a drop-chain bonus.');
+const osSynergy = itemSynergy.computeEquipmentSynergies({
+  inventory: [
+    { id: 'o1', series: 'os', refine: 5 },
+    { id: 'o2', series: 'os', refine: 5 },
+    { id: 'o3', series: 'os', refine: 5 },
+    { id: 'o4', series: 'os', refine: 5 },
+  ],
+  equipped: { weapon: 'o1', armor: 'o2', headgear: 'o3', shoes: 'o4' },
+  hero: { jobId: 'blacksmith' },
+});
+assert.ok(osSynergy.combatEffects.autoStrikePct > 0, 'OS four-piece synergy should expose a combat/offline pace bonus.');
+assert.match(equipmentDropsSource, /equipmentSynergyDropEffects/, 'Equipment drop rates must consume equipment synergy drop effects.');
+assert.match(lootRollSource, /noteEquipmentSynergyKill/, 'Loot roll should notify synergy kill-chain hooks.');
+assert.match(offlineSource, /equipmentSynergyCombatEffects/, 'Offline settlement should consume equipment synergy combat effects.');
+assert.match(game, /equipmentSynergyDropEffects:/, 'computeStats should expose equipment synergy drop effects.');
+assert.match(game, /equipmentSynergyCombatEffects:/, 'computeStats should expose equipment synergy combat effects.');
+assert.match(styles, /\.equipment-synergy-panel\s*\{/, 'Equipment synergy panel styles must exist.');
+assert.doesNotMatch(game, /data-synergy-action/, 'Equipment synergy UI must not add new action buttons.');
 assert.match(game, /heroReformInscription:\s*"\u82f1\u96c4\u6539\u826f\u94ed\u6587"/, 'Classic material names must expose Hero Reform Inscription.');
 assert.match(game, /const EQUIPMENT_SYSTEM_VERSION\s*=\s*4/, 'Equipment V4 must define a save-breaking system version.');
 assert.match(game, /equipmentSystemVersion:\s*EQUIPMENT_SYSTEM_VERSION/, 'Fresh saves must mark the active equipment system version.');
@@ -1667,6 +1743,40 @@ assert.equal(mageSkillState.enemyHp, 765, 'Mage single-hit spell must deal its V
 assert.equal(mageSkillState.skillCooldowns.mage_fire_bolt, 5, 'Mage spell must enter cooldown after casting.');
 assert.equal(mageSkillState.enemyMarks.burn, 5, 'Fire Bolt must apply its burn mark.');
 assert.equal(mageSkillFeedback, '火箭术', 'Mage single-hit spells must show cast feedback.');
+
+const synergyFireSkill = { id: 'synergy_fire', name: '火箭术', kind: '主动', cooldown: 10, mechanism: { type: 'singleHit', multiplier: 1, stat: 'matk' } };
+const synergySkillState = { hero: { currentHp: 100 }, enemyHp: 1000, enemyMaxHp: 1000, skillCooldowns: {}, activeZones: [], activeBuffs: [], enemyMarks: {} };
+globalThis.window = { ...(priorSkillWindow || {}), v3JobSkills: { mage: [synergyFireSkill] } };
+skillMechanics.configureSkillMechanicsContext({
+  getState: () => synergySkillState,
+  currentJob: () => ({ id: 'mage' }),
+  currentMonsterStats: () => ({ damageReduction: 0 }),
+  normalizeDamage: Math.round,
+  random: () => 0.5,
+});
+skillMechanics.tickSkillSystem(0, {
+  matkPower: 100,
+  atkPower: 0,
+  crit: 0,
+  maxHp: 100,
+  equipmentSynergies: { skillEnhancements: [{ skillNames: ['火箭术'], multiplierBonus: 0.2, cooldownMultiplier: 0.5 }] },
+});
+assert.equal(synergySkillState.enemyHp, 880, 'Equipment synergy should increase matching V3 skill damage.');
+assert.equal(synergySkillState.skillCooldowns.synergy_fire, 5, 'Equipment synergy should reduce matching V3 skill cooldown.');
+
+globalThis.window = { ...(priorSkillWindow || {}), v3JobSkills: { mage: [mageSkill] } };
+skillMechanics.configureSkillMechanicsContext({
+  getState: () => mageSkillState,
+  currentJob: () => ({ id: 'mage' }),
+  getUnlockedSkills: () => [mageSkill],
+  currentMonsterStats: () => ({ damageReduction: 0 }),
+  normalizeDamage: (value) => Math.round(value),
+  random: () => 0.5,
+  showDamageNumber: () => {},
+  showHitFeedback: () => {},
+  showSkillCastFeedback: (skill) => { mageSkillFeedback = skill.name; },
+});
+
 mageSkillState.skillCooldowns.mage_fire_bolt = 999;
 for (let i = 0; i < 32; i += 1) {
   skillMechanics.tickSkillSystem(0.16, { matkPower: 100, atkPower: 10, crit: 0, maxHp: 100 });
