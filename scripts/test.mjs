@@ -101,11 +101,18 @@ assert.match(styles, /\.ro-wood-button\s*\{/, 'RO wood action button primitive s
 assert.match(styles, /\.ro-light-control\s*\{/, 'RO light control primitive should exist');
 assert.match(html, /class="topbar[^"]*ro-game-hud/, 'Topbar should opt into the compact RO game HUD.');
 assert.match(html, /class="resource-strip[^"]*ro-resource-hud/, 'Resource strip should opt into the compact RO resource HUD.');
-assert.match(html, /class="ro-tab-group ro-tab-primary"[\s\S]*data-page="adventure"[\s\S]*data-page="tasks"/, 'Primary navigation group should contain the high-frequency tabs.');
-assert.match(html, /class="ro-tab-group ro-tab-secondary"[\s\S]*data-page="cards"[\s\S]*data-page="news"/, 'Secondary navigation group should contain the extended tabs.');
+assert.match(html, /class="ro-play-layout"/, 'Main play layout should wrap navigation and pages for the desktop side rail.');
+assert.match(html, /class="page-tabs[^"]*ro-main-tabs[^"]*ro-side-nav/, 'Main navigation should opt into the RO side navigation shell.');
+assert.match(html, /class="ro-desktop-nav"[\s\S]*data-page="adventure"[\s\S]*data-page="news"/, 'Desktop side navigation should expose all pages.');
+assert.match(html, /class="ro-mobile-bottom-bar"[\s\S]*data-page="adventure"[\s\S]*data-page="heroes"[\s\S]*data-page="equipment"[\s\S]*data-page="smithy"[\s\S]*data-page="tasks"/, 'Mobile bottom navigation should expose the common pages.');
+assert.match(html, /class="ro-mobile-more-panel"[\s\S]*<summary[^>]*>更多[\s\S]*data-page="town"[\s\S]*data-page="maps"[\s\S]*data-page="news"/, 'Mobile more menu should expose the extended pages.');
 assert.match(html, /class="action-row[^"]*ro-combat-actions/, 'Adventure action row should opt into the compact combat action layout.');
 assert.match(styles, /\.ro-resource-hud\s*>\s*div/, 'RO resource HUD should style resource chips directly.');
-assert.match(styles, /\.ro-tab-group/, 'RO navigation should style primary and secondary tab groups.');
+assert.match(styles, /\.ro-play-layout\s*\{/, 'RO play layout styling should exist.');
+assert.match(styles, /\.ro-side-nav\s*\{/, 'RO side navigation styling should exist.');
+assert.match(styles, /\.ro-desktop-nav\s*\{/, 'RO desktop navigation styling should exist.');
+assert.match(styles, /\.ro-mobile-bottom-bar\s*\{/, 'RO mobile bottom navigation styling should exist.');
+assert.match(styles, /\.ro-mobile-more-grid\s*\{/, 'RO mobile more menu grid styling should exist.');
 assert.match(styles, /@media\s*\(max-width:\s*640px\)[\s\S]*\.ro-resource-hud/, 'phone RO resource HUD should be explicitly adjusted.');
 assert.match(equipmentStyles, /var\(--ro-vnext-paper\)/, 'Equipment override should use the shared RO vNext paper token.');
 assert.match(equipmentStyles, /var\(--ro-vnext-line\)/, 'Equipment override should use the shared RO vNext line token.');
@@ -116,8 +123,8 @@ assert.match(styles, /\.ro-command-sidebar\s*\{/, 'RO sidebar styling should exi
 assert.match(styles, /\.ro-boss-action\s*\{/, 'Boss action hierarchy should exist');
 assert.match(
   styles,
-  /@media\s*\(max-width:\s*820px\)[\s\S]*\.ro-main-tabs/,
-  'mobile RO tabs should be adjusted under the existing small-screen breakpoint'
+  /@media\s*\(max-width:\s*820px\)[\s\S]*\.ro-mobile-nav/,
+  'mobile RO navigation should switch to the bottom menu under the existing small-screen breakpoint'
 );
 assert.match(
   styles,

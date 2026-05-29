@@ -452,6 +452,19 @@
   opacity: 0.55;
 }
 
+.page-view[data-view="equipment"] .equipment-batch-card .equipment-action-row,
+.page-view[data-view="equipment"] .equipment-batch-panel .equipment-action-row {
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+}
+
+.page-view[data-view="equipment"] .equipment-batch-card .equipment-action-row button,
+.page-view[data-view="equipment"] .equipment-batch-panel .equipment-action-row button {
+  height: auto;
+  min-height: 34px;
+  padding: 5px 8px;
+  white-space: normal;
+}
+
 @media (max-width: 820px) {
   .page-view[data-view="equipment"] .equipment-filter-bar {
     overflow-x: auto;

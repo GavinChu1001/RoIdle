@@ -50,27 +50,58 @@
         </div>
       </section>
 
-      <nav class="page-tabs ro-main-tabs ro-nav-groups" aria-label="功能分页">
-        <div class="ro-tab-group ro-tab-primary" aria-label="常用功能">
-          <button class="active" data-page="adventure" type="button">冒险</button>
-          <button data-page="town" type="button">职业</button>
-          <button data-page="heroes" type="button">角色</button>
-          <button data-page="equipment" type="button">装备</button>
-          <button data-page="smithy" type="button">铁匠铺</button>
-          <button data-page="maps" type="button">地图</button>
-          <button data-page="tasks" type="button">任务</button>
-        </div>
-        <div class="ro-tab-group ro-tab-secondary" aria-label="扩展功能">
-          <button data-page="cards" type="button">卡片</button>
-          <button data-page="codex" type="button">图鉴</button>
-          <button data-page="vip" type="button">VIP</button>
-          <button data-page="shop" type="button">商店</button>
-          <button data-page="logs" type="button">日志</button>
-          <button data-page="news" type="button">公告</button>
-        </div>
-      </nav>
+      <div class="ro-play-layout">
+        <nav class="page-tabs ro-main-tabs ro-side-nav" aria-label="功能分页">
+          <div class="ro-desktop-nav" aria-label="桌面功能导航">
+            <div class="ro-nav-section" aria-label="核心功能">
+              <span class="ro-nav-section-title">核心</span>
+              <button class="active" data-page="adventure" type="button">冒险</button>
+              <button data-page="heroes" type="button">角色</button>
+              <button data-page="equipment" type="button">装备</button>
+              <button data-page="smithy" type="button">铁匠铺</button>
+            </div>
+            <div class="ro-nav-section" aria-label="成长探索">
+              <span class="ro-nav-section-title">成长</span>
+              <button data-page="town" type="button">职业</button>
+              <button data-page="maps" type="button">地图</button>
+              <button data-page="tasks" type="button">任务</button>
+            </div>
+            <div class="ro-nav-section" aria-label="扩展功能">
+              <span class="ro-nav-section-title">扩展</span>
+              <button data-page="cards" type="button">卡片</button>
+              <button data-page="codex" type="button">图鉴</button>
+              <button data-page="vip" type="button">VIP</button>
+              <button data-page="shop" type="button">商店</button>
+              <button data-page="logs" type="button">日志</button>
+              <button data-page="news" type="button">公告</button>
+            </div>
+          </div>
 
-      <main class="page-stack">
+          <div class="ro-mobile-nav" aria-label="手机功能导航">
+            <details class="ro-mobile-more-panel">
+              <summary class="ro-mobile-more-trigger">更多</summary>
+              <div class="ro-mobile-more-grid">
+                <button data-page="town" type="button">职业</button>
+                <button data-page="maps" type="button">地图</button>
+                <button data-page="cards" type="button">卡片</button>
+                <button data-page="codex" type="button">图鉴</button>
+                <button data-page="vip" type="button">VIP</button>
+                <button data-page="shop" type="button">商店</button>
+                <button data-page="logs" type="button">日志</button>
+                <button data-page="news" type="button">公告</button>
+              </div>
+            </details>
+            <div class="ro-mobile-bottom-bar" aria-label="常用功能">
+              <button class="active" data-page="adventure" type="button">冒险</button>
+              <button data-page="heroes" type="button">角色</button>
+              <button data-page="equipment" type="button">装备</button>
+              <button data-page="smithy" type="button">铁匠铺</button>
+              <button data-page="tasks" type="button">任务</button>
+            </div>
+          </div>
+        </nav>
+
+        <main class="page-stack">
         <section class="page-view active" data-view="adventure">
           <div class="adventure-grid ro-adventure-workspace">
             <section class="stage-panel ro-surface-card ro-stage-card">
@@ -897,7 +928,8 @@
             </article>
           </div>
         </section>
-      </main>
+        </main>
+      </div>
     </div>
 
     <div class="modal-shell hidden" id="offlineRewardModal" aria-hidden="true">
