@@ -1481,6 +1481,28 @@ assert.equal(
   0,
   'Invalid low-level monsters should grant no MVP inscription exp.',
 );
+assert.equal(
+  mvp.calculateMvpInscriptionMonsterExp({
+    monster: {},
+    heroLevel: 1,
+    currentMapIndex: 0,
+    bestMapIndex: 0,
+  }),
+  0,
+  'Anonymous monsters without a real level must not grant MVP inscription exp.',
+);
+assert.equal(
+  mvp.calculateMvpInscriptionMonsterExp({
+    monster: {},
+    heroLevel: 99,
+    currentMapIndex: 0,
+    bestMapIndex: 9,
+    isBoss: true,
+    firstBossClear: true,
+  }),
+  30,
+  'Explicit first Boss clear should still grant MVP inscription exp even without monster level data.',
+);
 
 const darkLordBonuses = mvp.getMvpInscriptionBonuses({ level: 90, breakthroughLevel: 90 });
 assert.ok(darkLordBonuses.hpPct > 0, 'MVP inscription should grant per-level HP.');
@@ -1498,6 +1520,8 @@ assert.match(game, /RuneFrontierLegacyOfflineContext[\s\S]*rollEquipmentDropsFro
 assert.match(game, /function\s+tickMvpInscription\s*\(/, 'Game runtime must expose a foreground MVP inscription tick.');
 assert.match(game, /tickMvpInscription\(elapsedDt\)/, 'Main loop must advance MVP inscription from real foreground elapsed time.');
 assert.match(game, /gainMvpInscriptionExp/, 'Game runtime must expose MVP inscription exp gain.');
+assert.match(game, /currentMapIndex:\s*payload\.currentMapIndex\s*\?\?\s*payload\.mapIndex\s*\?\?\s*state\.currentMap/, 'MVP kill exp must use the defeated map index instead of live state.currentMap.');
+assert.match(game, /grantMvpInscriptionKillExp[\s\S]*silentBlocked:\s*true/, 'Routine MVP kill grants must not spam breakthrough-blocked logs.');
 assert.equal(offline.shouldSettleBackgroundOffline(14999), false, 'Short background pauses should resume normal combat without offline settlement.');
 assert.equal(offline.shouldSettleBackgroundOffline(15000), true, 'Background pauses at the threshold should settle through offline rewards.');
 const backgroundOfflineState = {
@@ -1766,14 +1790,14 @@ const bossContext = {
   ...baseCombatContext,
   getState: () => bossState,
   currentMap: () => ({ id: 'grass', name: 'Grass' }),
-  currentMapIndex: () => 0,
+  currentMapIndex: () => bossState.currentMap || 0,
   getMaps: () => [{ id: 'grass', name: 'Grass' }, { id: 'forest', name: 'Forest' }],
   getBossEssenceId: () => 'grassEssence',
   getMaterialName: () => 'Grass Essence',
   getDifficultyLabel: () => 'Normal',
   applyMaterialQuantityBonus: (qty) => qty,
   getAutoBossEnabled: () => false,
-  gainVipExp: (amount) => { bossVipExp += amount; },
+  gainVipExp: (amount) => { bossVipExp += amount; bossState.currentMap = 1; },
   hasLivingEncounterMembers: () => false,
   rollDrops: () => 0,
   spawnEnemy: () => {},
@@ -1788,6 +1812,7 @@ const firstBoss = settlement.settleDefeatedEnemy({
 assert.equal(firstBoss.firstBossClear, true, 'First Boss clear reward must be recorded once.');
 assert.equal(killInscriptionPayload.isBoss, true, 'Boss kill MVP inscription payload must be flagged as Boss.');
 assert.equal(killInscriptionPayload.firstBossClear, true, 'First Boss kill MVP inscription payload must include first-clear state.');
+assert.equal(killInscriptionPayload.currentMapIndex, 0, 'Boss kill MVP inscription payload must keep the defeated map index even if settlement advances patrol state.');
 assert.equal(bossState.materials.grassEssence, 1, 'Boss essence quantity changed.');
 assert.equal(bossState.areaKills, 0, 'Boss victory must reset Boss gauge.');
 assert.equal(bossState.mapDifficultyProgress.grass.hard.unlocked, true, 'Normal Boss victory must unlock hard difficulty.');

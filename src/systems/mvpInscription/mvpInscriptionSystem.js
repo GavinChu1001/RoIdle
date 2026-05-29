@@ -159,6 +159,8 @@ export function calculateMvpInscriptionMonsterExp({
   firstBossClear = false,
 } = {}) {
   const monsterLevel = finite(monster.level || monster.baseLevel || monster.maxLevel);
+  const hasMonsterIdentity = Boolean(monster.id || monster.name);
+  if (!firstBossClear && !hasMonsterIdentity && monsterLevel <= 0) return 0;
   if (!isMvpInscriptionMonsterEffective({ heroLevel, monsterLevel, currentMapIndex, bestMapIndex, isBoss, firstBossClear })) return 0;
   let base = MVP_INSCRIPTION_MONSTER_EXP.normal;
   if (firstBossClear) base = MVP_INSCRIPTION_MONSTER_EXP.firstBossClear;

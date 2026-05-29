@@ -3217,7 +3217,7 @@ function grantMvpInscriptionKillExp(payload = {}) {
   const amount = runtime?.calculateMvpInscriptionMonsterExp?.({
     ...payload,
     heroLevel: state.hero?.baseLevel || 1,
-    currentMapIndex: state.currentMap || 0,
+    currentMapIndex: payload.currentMapIndex ?? payload.mapIndex ?? state.currentMap,
     bestMapIndex: state.bestMap || 0,
   }) || 0;
   return gainMvpInscriptionExp(amount, {
@@ -3225,6 +3225,7 @@ function grantMvpInscriptionKillExp(payload = {}) {
     monster: payload.monster,
     map: payload.map,
     difficulty: payload.difficulty,
+    silentBlocked: true,
   });
 }
 

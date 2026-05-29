@@ -105,6 +105,9 @@ export function settleDefeatedEnemy(payload = {}, context = runtimeContext) {
   const monster = payload.monster || context.currentMonsterStats?.() || {};
   const isBoss = payload.isBoss ?? Boolean(state.enemyBoss);
   const difficulty = payload.difficulty || state.currentDifficulty || 'normal';
+  const maps = context.getMaps?.() || [];
+  const mapIndexFromList = map.id ? maps.findIndex((entry) => entry?.id === map.id) : -1;
+  const defeatedMapIndex = finite(payload.currentMapIndex ?? payload.mapIndex ?? (mapIndexFromList >= 0 ? mapIndexFromList : context.currentMapIndex?.()));
   context.updateActiveEnemyHpInGroup?.();
   const stats = payload.stats || context.computeStats?.() || {};
   const bossBonus = isBoss ? 2 : 1;
@@ -154,6 +157,8 @@ export function settleDefeatedEnemy(payload = {}, context = runtimeContext) {
   context.grantMvpInscriptionKillExp?.({
     monster,
     map,
+    currentMapIndex: defeatedMapIndex,
+    mapIndex: defeatedMapIndex,
     difficulty,
     isBoss,
     isMutated: Boolean(monster.mutation),
