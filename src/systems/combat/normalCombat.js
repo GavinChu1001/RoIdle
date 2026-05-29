@@ -27,6 +27,7 @@ export function updateCombat(dt, context = runtimeContext) {
   if (finite(state.enemyHp) <= 0 || finite(state.enemyMaxHp) <= 0) context.spawnEnemy?.(false);
 
   const stats = context.computeStats?.() || {};
+  if (context.resetUnsafeEarlyEncounter?.(stats)) return true;
   const now = Date.now();
   if (now - lastAutoBossAttemptTime >= AUTO_BOSS_ATTEMPT_INTERVAL_MS) {
     lastAutoBossAttemptTime = now;
@@ -164,12 +165,16 @@ export function updateCombat(dt, context = runtimeContext) {
 export function updateRecovery(dt, context = runtimeContext) {
   const state = stateFrom(context);
   const stats = context.computeStats?.() || {};
-  if (finite(state.hero?.currentHp) >= finite(stats.maxHp)) return false;
-  state.regenTimer = finite(state.regenTimer) + finite(dt);
-  if (state.regenTimer < finite(context.getHpRegenInterval?.())) return false;
-  state.regenTimer = 0;
+  const maxHp = finite(stats.maxHp);
   const before = finite(state.hero?.currentHp);
-  state.hero.currentHp = Math.min(finite(stats.maxHp), before + finite(stats.hpRegen));
+  if (before >= maxHp) return false;
+  state.regenTimer = finite(state.regenTimer) + finite(dt);
+  const interval = Math.max(0.001, finite(context.getHpRegenInterval?.()));
+  if (state.regenTimer < interval) return false;
+  const ticks = Math.floor(state.regenTimer / interval);
+  state.regenTimer %= interval;
+  state.hero.currentHp = Math.min(maxHp, before + finite(stats.hpRegen) * ticks);
+  if (state.hero.currentHp >= maxHp) state.regenTimer = 0;
   const healed = Math.round(state.hero.currentHp - before);
   if (healed > 0) {
     context.showDamageNumber?.('hero', healed, 'heal');

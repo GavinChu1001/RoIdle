@@ -310,6 +310,7 @@ const SLOT_LEVEL_GROWTH = {
 };
 
 const EQUIPMENT_STAT_VERSION = 2;
+const EQUIPMENT_SYSTEM_VERSION = 4;
 const EQUIPMENT_V2_REFORGE_TICKET_ID = "equipmentReforgeTicket";
 const EQUIPMENT_V2_REFORGE_TICKET_GRANT = 5;
 
@@ -460,6 +461,33 @@ const materialNames = {
   enhanceAsh: "强化灰烬",
   skillFragment: "技能碎片",
   equipmentReforgeTicket: "装备重铸券",
+  ancientHeroShard: "古代英雄碎片",
+  heroReformInscription: "英雄改良铭文",
+  mythicHeroCore: "神话英雄核心",
+  osGear: "OS齿轮",
+  illusionModule: "幻象模块",
+  osAdCore: "OS-AD核心",
+  fidesFragment: "信念残片",
+  purificationSeal: "净化印记",
+  vivatusCore: "活力信念核心",
+  snowflowerStone: "雪花魔石",
+  glacierCrystal: "冰川结晶",
+  dimGlacierCore: "黯淡冰川核心",
+  penitentiaChapter: "悔恨篇章",
+  awakeningStigma: "觉醒圣痕",
+  penitentiaCore: "悔恨核心",
+  justiceEvilMark: "善恶刻印",
+  demonTempleEcho: "魔神殿回响",
+  goodEvilCore: "善恶核心",
+  nebulaDust: "星云尘",
+  geoborgGear: "葛帔尼亚齿轮",
+  geoborgCore: "葛帔尼亚核心",
+  muqaddasFragment: "莫卡迪斯碎片",
+  sanctuaryPlate: "圣域装甲片",
+  muqaddasCore: "莫卡迪斯核心",
+  dimensionalShard: "次元碎片",
+  timeRune: "时间符文",
+  dimensionalCrownCore: "次元冠冕核心",
 };
 
 const MATERIAL_DB = Object.fromEntries(
@@ -504,6 +532,44 @@ MATERIAL_DB.darkGoldFragment = {
     rarity: id === "mythicSocketStone" ? "mythic" : id === "advancedSocketStone" ? "legend" : "epic",
     type: "socket_material",
     description: id === "cardRemover" ? "拆除装备卡槽中的卡片，卡片会回到卡片背包。" : "装备打孔材料，用于开启卡片镶嵌槽。",
+  };
+});
+const EQUIPMENT_PROGRESSION_MATERIAL_RARITIES = {
+  ancientHeroShard: "rare",
+  heroReformInscription: "epic",
+  mythicHeroCore: "legend",
+  osGear: "rare",
+  illusionModule: "epic",
+  osAdCore: "legend",
+  fidesFragment: "rare",
+  purificationSeal: "epic",
+  vivatusCore: "legend",
+  snowflowerStone: "rare",
+  glacierCrystal: "epic",
+  dimGlacierCore: "legend",
+  penitentiaChapter: "rare",
+  awakeningStigma: "epic",
+  penitentiaCore: "legend",
+  justiceEvilMark: "rare",
+  demonTempleEcho: "epic",
+  goodEvilCore: "legend",
+  nebulaDust: "rare",
+  geoborgGear: "epic",
+  geoborgCore: "legend",
+  muqaddasFragment: "rare",
+  sanctuaryPlate: "epic",
+  muqaddasCore: "legend",
+  dimensionalShard: "rare",
+  timeRune: "epic",
+  dimensionalCrownCore: "mythic",
+};
+Object.entries(EQUIPMENT_PROGRESSION_MATERIAL_RARITIES).forEach(([id, rarity]) => {
+  MATERIAL_DB[id] = {
+    id,
+    name: materialNames[id] || id,
+    rarity,
+    type: "equipment_progression",
+    description: "装备成长线专属进阶材料，按地图难度逐级掉落。",
   };
 });
 
@@ -1963,6 +2029,7 @@ function createDefaultState() {
     areaKills: 0,
     totalKills: 0,
     equipmentPityKills: 0,
+    equipmentSystemVersion: EQUIPMENT_SYSTEM_VERSION,
     equipmentStatVersion: EQUIPMENT_STAT_VERSION,
     mapDifficultyProgress: { grass: { normal: { unlocked: true, cleared: false }, hard: { unlocked: false, cleared: false }, abyss: { unlocked: false, cleared: false } } },
     paused: false,
@@ -2365,6 +2432,11 @@ function bindEvents() {
       empowerItem(empowerButton.dataset.empowerItem);
       return;
     }
+    const progressionButton = event.target.closest("button[data-upgrade-progression-item]");
+    if (progressionButton) {
+      upgradeEquipmentProgression(progressionButton.dataset.upgradeProgressionItem);
+      return;
+    }
     const lockButton = event.target.closest("button[data-lock-item]");
     if (lockButton) {
       toggleItemLock(lockButton.dataset.lockItem);
@@ -2547,6 +2619,11 @@ els.vipPanel.addEventListener("click", (event) => {
       enhanceItem(enhanceButton.dataset.enhanceItem);
       return;
     }
+    const progressionButton = event.target.closest("button[data-upgrade-progression-item]");
+    if (progressionButton) {
+      upgradeEquipmentProgression(progressionButton.dataset.upgradeProgressionItem);
+      return;
+    }
     const refineButton = event.target.closest("button[data-refine-item]");
     if (refineButton) {
       refineItem(refineButton.dataset.refineItem);
@@ -2590,6 +2667,11 @@ els.vipPanel.addEventListener("click", (event) => {
     const enhanceButton = event.target.closest("button[data-enhance-item]");
     if (enhanceButton) {
       enhanceItem(enhanceButton.dataset.enhanceItem);
+      return;
+    }
+    const progressionButton = event.target.closest("button[data-upgrade-progression-item]");
+    if (progressionButton) {
+      upgradeEquipmentProgression(progressionButton.dataset.upgradeProgressionItem);
       return;
     }
     const refineButton = event.target.closest("button[data-refine-item]");
@@ -2783,6 +2865,14 @@ function load() {
 
   try {
     const saved = JSON.parse(raw);
+    if (saved.equipmentSystemVersion !== EQUIPMENT_SYSTEM_VERSION) {
+      state = createDefaultState();
+      state.offlinePending = buildOfflineReward(0);
+      state.offlineRewards = state.offlinePending;
+      state.log.unshift("装备系统 V4 已启用，旧存档已重置。");
+      save();
+      return;
+    }
     state = mergeState(createDefaultState(), saved);
     sanitizeProgression();
     const elapsed = Math.max(0, Math.floor((Date.now() - (state.lastActiveAt || state.lastSavedAt || Date.now())) / 1000));
@@ -2798,6 +2888,13 @@ function load() {
 function mergeState(base, saved) {
   const runtime = window.RuneFrontierStateRuntime;
   if (runtime && typeof runtime.mergeState === "function") return runtime.mergeState(base, saved);
+  if (saved.equipmentSystemVersion !== EQUIPMENT_SYSTEM_VERSION) {
+    return {
+      ...base,
+      equipmentSystemVersion: EQUIPMENT_SYSTEM_VERSION,
+      log: ["装备系统 V4 已启用，旧存档已重置。", ...(base.log || [])].slice(0, 24),
+    };
+  }
   const oldHero = Array.isArray(saved.heroes) ? saved.heroes.find((hero) => hero.unlocked) || saved.heroes[0] : null;
   const hero = saved.hero || {
     ...base.hero,
@@ -2869,6 +2966,7 @@ function mergeState(base, saved) {
     offlineRewards: normalizeOfflineRewards(saved.offlineRewards || saved.offlinePending || base.offlineRewards),
     floatTexts: [],
     skillLog: Array.isArray(saved.skillLog) ? saved.skillLog.slice(0, 8) : [],
+    equipmentSystemVersion: EQUIPMENT_SYSTEM_VERSION,
     equipmentStatVersion: EQUIPMENT_STAT_VERSION,
     inventory: normalizedInventory,
     log: mergedLog.slice(0, 24),
@@ -3420,11 +3518,12 @@ async function flushRemoteSave() {
 }
 
 function loop(now) {
-  const dt = Math.min(0.12, (now - lastTick) / 1000);
+  const elapsedDt = Math.max(0, (now - lastTick) / 1000);
+  const dt = Math.min(0.12, elapsedDt);
   lastTick = now;
   loopDt = dt;
 
-  updateRecovery(dt);
+  updateRecovery(elapsedDt);
   if (!state.paused) updateCombat(dt);
   updateFloatTexts(dt);
   updateOnlinePlaytime(dt);
@@ -3972,6 +4071,50 @@ function spawnEnemy(isBoss) {
 }
 
 function legacySpawnEnemy(isBoss) { return; }
+
+const EARLY_GRASS_SAFE_KILLS = 5;
+
+function isFreshGrassProtectionWindow() {
+  const map = currentMap();
+  const progressKills = Math.max(Number(state.totalKills || 0), Number(state.areaKills || 0));
+  return Boolean(
+    map?.id === "grass" &&
+    (state.currentDifficulty || "normal") === "normal" &&
+    !state.enemyBoss &&
+    !(state.rebirthMode && (state.hero?.rebirths || 0) > 0) &&
+    progressKills < EARLY_GRASS_SAFE_KILLS
+  );
+}
+
+function isUnsafeFreshEncounterMonster(monster) {
+  if (!monster || monster.alive === false) return false;
+  return monster.type === "elite" || Boolean(monster.mutation || monster.mutationId);
+}
+
+function hasUnsafeFreshEncounter() {
+  const monsters = Array.isArray(state.enemyGroup?.monsters) ? state.enemyGroup.monsters : [];
+  if (monsters.some(isUnsafeFreshEncounterMonster)) return true;
+  return isUnsafeFreshEncounterMonster(state.enemy) || Boolean(state.enemyMutationId);
+}
+
+function resetUnsafeEarlyEncounter(stats = {}) {
+  if (!isFreshGrassProtectionWindow() || !hasUnsafeFreshEncounter()) return false;
+  state.enemyGroup = null;
+  state.enemy = null;
+  state.enemyBoss = false;
+  state.enemyHp = 0;
+  state.enemyMaxHp = 0;
+  state.enemyTemplateId = "";
+  state.enemyMutationId = "";
+  const fallbackStats = stats.maxHp ? stats : computeStats();
+  const maxHp = Math.max(1, Number(fallbackStats.maxHp || 1));
+  if (Number(state.hero?.currentHp || 0) <= 0) state.hero.currentHp = Math.max(1, Math.round(maxHp * 0.45));
+  state.paused = false;
+  addLog("新手保护：避开过强遭遇，重新寻找适合的魔物。");
+  spawnEnemy(false);
+  renderCombatSettlementUi();
+  return true;
+}
 
 function currentMonsterStats() {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -6227,7 +6370,8 @@ function legacyBuildOfflineMonsterStats(map) { return; }
 
 function rollOfflineEquipmentDrops(rewards, stats, map, mapIndex, killCount) {
   const tableId = mapDropTableAlias[map.id] || map.id;
-  const rows = equipmentDropTables[tableId] || [];
+  const progressionRows = window.RuneFrontierEquipmentRuntime?.getProgressionEquipmentDropTable?.(map.id, state.currentDifficulty) || [];
+  const rows = progressionRows.length ? progressionRows : equipmentDropTables[tableId] || [];
   const capacity = { freeSlots: Math.max(0, getInventoryLimit() - state.inventory.length) };
   for (let kill = 0; kill < killCount; kill += 1) {
     const drops = rollEquipmentDropsFromTable(rows, stats, { offline: true });
@@ -8047,6 +8191,7 @@ function renderSmithy() { const runtime = window.RuneFrontierRenderRuntime; if (
 function renderSmithyContent() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderSmithyContent === "function") return runtime.renderSmithyContent();
   const tabs = [
     ["enhance", "装备精炼"],
+    ["upgrade", "装备进阶"],
     ["star", "装备星炼"],
     ["socket", "装备打孔"],
     ["set", "套装打造"],
@@ -8114,6 +8259,7 @@ function renderSmithyContent() { const runtime = window.RuneFrontierRenderRuntim
     .join("");
   const panes = {
     enhance: `<section class="smithy-category"><h3>装备精炼</h3>${renderEnhancePanel()}</section><section class="smithy-category"><h3>暗金兑换</h3>${renderDarkGoldExchangePanel()}</section>`,
+    upgrade: `<section class="smithy-category"><h3>装备进阶</h3>${renderEquipmentProgressionSmithyPanel()}</section>`,
     star: `<section class="smithy-category"><h3>装备星炼</h3>${renderStarRefineSmithyPanel()}</section>`,
     socket: `<section class="smithy-category"><h3>装备打孔</h3>${renderCardSocketSmithyPanel()}</section>`,
     set: `<section class="smithy-category"><h3>套装打造</h3>${setCraftHtml || `<p class="academy-meta">星座套装通过怪物掉落获得。已穿戴部件可在装备页查看套装进度，未穿戴部件在图鉴页查看全貌。</p>`}</section>`,
@@ -8184,6 +8330,12 @@ function renderSmithyMaterialGuide() { const runtime = window.RuneFrontierRender
     ["advancedSocketStone", "用于高品质装备或第 2 / 第 3 孔。主要来源：Boss、商店、高阶材料。"],
     ["mythicSocketStone", "用于暗金、神话或深渊装备高级孔位。主要来源：深渊、Boss、商店。"],
     ["cardRemover", "用于拆除装备卡槽中的卡片，卡片会回到卡片背包。"],
+    ["ancientHeroShard", "古代英雄线基础进阶材料。主要来源：困难南门、森林与下水道。"],
+    ["heroReformInscription", "古代英雄线改良材料。主要来源：深渊南门与下水道困难。"],
+    ["mythicHeroCore", "古代英雄线核心材料。主要来源：深渊南门 Boss。"],
+    ["osGear", "OS线基础进阶材料。主要来源：森林困难、沙漠与兽人村。"],
+    ["illusionModule", "OS线改良材料。主要来源：下水道/沙漠困难与深渊。"],
+    ["osAdCore", "OS-AD核心材料。主要来源：OS线深渊 Boss。"],
     ["oridecon", "武器精炼材料，主要用于 +N 精炼。"],
     ["elunium", "防具精炼材料，主要用于 +N 精炼。"],
     ["starShard", "高阶星炼、套装打造和神话相关材料。"],
@@ -8797,9 +8949,13 @@ function renderEquipment() { const runtime = window.RuneFrontierRenderRuntime; i
       const ticketReforgeCost = getReforgeCost(item, "", { mode: "ticket" });
       const keepReforgeCost = getReforgeCost(item, "", { mode: "normal" });
       const directedReforgeCosts = Object.fromEntries(["physical", "magic", "general"].map((archetype) => [archetype, getReforgeCost(item, archetype, { mode: "direct" })]));
+      const progressionCost = getEquipmentUpgradeCost(item);
       const canPayReforgeCost = (cost) => (state.gold || 0) >= (cost.gold || 0) && hasMaterials(cost.materials || {});
-      const detailKey = equipmentDetailKey(item);
-      const detailExpanded = Boolean(equipmentDetailExpandedState[detailKey]);
+      const primaryGrowthButton = progressionCost
+        ? `<button class="equipment-primary-action" type="button" data-upgrade-progression-item="${item.id}" ${!canUpgradeEquipmentProgression(item) ? "disabled" : ""}>进阶</button>`
+        : nextStar <= 15
+          ? `<button class="equipment-primary-action" type="button" data-refine-item="${item.id}" ${!hasMaterials(refineCost) ? "disabled" : ""}>星炼</button>`
+          : "";
       return `
         <article class="equip-item equipment-detail-card ${equipmentVisualClass(item)} ${equipped ? "equipped" : ""} ${(item.enhanceLevel || 0) >= 10 ? "enhance-glow" : ""}" data-equipment-archetype="${normalizeEquipmentArchetype(item.archetype)}" data-tooltip="${escapeAttr(itemRangeTooltip(item))}" title="${escapeAttr(itemRangeTooltip(item))}">
           <div class="equip-head equipment-detail-header">
@@ -8807,6 +8963,7 @@ function renderEquipment() { const runtime = window.RuneFrontierRenderRuntime; i
             <div class="equipment-name-main">
               <span class="equip-name equipment-name-row">${renderItemName(item, `Lv.${item.level} ${refineText(item)} ${empowerText(item)}`)}</span>
               ${renderEquipmentBadges(item)}
+              ${renderEquipmentProgressionTags(item)}
               ${renderEquipmentUsageTags(item)}
               ${renderEquipmentStateBadges(item, equipped, nextStar)}
             </div>
@@ -8817,29 +8974,37 @@ function renderEquipment() { const runtime = window.RuneFrontierRenderRuntime; i
           ${renderEquipmentCardScore(item)}
           ${renderCoreStatBars(item, 4)}
           ${renderEquipmentSpecialTags(item, 3)}
-          <details class="equipment-detail-toggle" data-equipment-detail-key="${escapeAttr(detailKey)}" ${detailExpanded ? "open" : ""}>
-            <summary data-equipment-detail-toggle="${escapeAttr(detailKey)}">${detailExpanded ? "收起完整属性" : "查看完整属性"}</summary>
-            ${renderCardSocketSection(item)}
-            ${renderEquipmentStatSections(item)}
-            ${renderSalvagePreviewSection(item)}
-            <span class="equip-meta">星炼 ${Math.round(getRefineChance(nextStar, item) * 100)}% · 保底 +${Math.round((item.refineFailCount || 0) * 1.5 * 10) / 10}% · ${nextStar <= 15 ? materialText(refineCost) : "已满星"}</span>
-            <span class="equip-meta">赋能 ${nextEmpower <= 10 ? materialText(empowerCost) : "已满阶"}</span>
-          </details>
-          <div class="equip-actions equipment-action-row">
-            <button type="button" data-equip-item="${item.id}">${equipped ? "已装备" : "装备"}</button>
-            <button type="button" data-refine-item="${item.id}" ${nextStar > 15 || !hasMaterials(refineCost) ? "disabled" : ""}>星炼</button>
-            <button type="button" data-empower-item="${item.id}" ${nextEmpower > 10 || !hasMaterials(empowerCost) ? "disabled" : ""}>赋能</button>
-            <button type="button" data-reforge-v2-item="${item.id}" data-reforge-mode="ticket" ${reforgeTickets < Math.max(1, Math.ceil(Number(ticketReforgeCost.ticket || 1))) ? "disabled" : ""}>券重铸</button>
-            <button type="button" data-reforge-v2-item="${item.id}" data-reforge-mode="normal" ${!canPayReforgeCost(keepReforgeCost) ? "disabled" : ""}>保留重铸</button>
-            ${[
-              ["physical", "物理"],
-              ["magic", "魔法"],
-              ["general", "通用"],
-            ].map(([archetype, label]) => `<button class="ghost" type="button" data-reforge-v2-item="${item.id}" data-reforge-mode="direct" data-reforge-archetype="${archetype}" ${!canPayReforgeCost(directedReforgeCosts[archetype]) ? "disabled" : ""}>${label}</button>`).join("")}
-            <button class="ghost" type="button" data-lock-item="${item.id}">${item.locked ? "解锁" : "锁定"}</button>
-            ${isZodiacItem(item) ? `<button class="ghost" type="button" data-collect-zodiac="${item.id}">收藏</button><button class="ghost" type="button" data-zodiac-salvage="${item.id}" ${equipped || item.locked ? "disabled" : ""}>星座分解</button>` : ""}
-            <button class="ghost" type="button" data-salvage-item="${item.id}" ${equipped || item.locked || isZodiacItem(item) ? "disabled" : ""}>分解</button>
+          <div class="equip-actions equipment-primary-actions">
+            <button class="equipment-primary-action" type="button" data-equip-item="${item.id}">${equipped ? "已装备" : "装备"}</button>
+            ${primaryGrowthButton}
+            <button class="ghost equipment-lock-action" type="button" data-lock-item="${item.id}">${item.locked ? "解锁" : "锁定"}</button>
           </div>
+          <details class="equipment-more-actions">
+            <summary class="equipment-more-summary">更多</summary>
+            <div class="equipment-more-panel">
+              <div class="equipment-secondary-actions">
+                ${progressionCost && nextStar <= 15 ? `<button type="button" data-refine-item="${item.id}" ${!hasMaterials(refineCost) ? "disabled" : ""}>星炼</button>` : ""}
+                <button type="button" data-empower-item="${item.id}" ${nextEmpower > 10 || !hasMaterials(empowerCost) ? "disabled" : ""}>赋能</button>
+                <button type="button" data-reforge-v2-item="${item.id}" data-reforge-mode="ticket" ${reforgeTickets < Math.max(1, Math.ceil(Number(ticketReforgeCost.ticket || 1))) ? "disabled" : ""}>券重铸</button>
+                <button type="button" data-reforge-v2-item="${item.id}" data-reforge-mode="normal" ${!canPayReforgeCost(keepReforgeCost) ? "disabled" : ""}>保留重铸</button>
+                ${[
+                  ["physical", "物理"],
+                  ["magic", "魔法"],
+                  ["general", "通用"],
+                ].map(([archetype, label]) => `<button class="ghost" type="button" data-reforge-v2-item="${item.id}" data-reforge-mode="direct" data-reforge-archetype="${archetype}" ${!canPayReforgeCost(directedReforgeCosts[archetype]) ? "disabled" : ""}>${label}</button>`).join("")}
+                ${isZodiacItem(item) ? `<button class="ghost" type="button" data-collect-zodiac="${item.id}">收藏</button><button class="ghost" type="button" data-zodiac-salvage="${item.id}" ${equipped || item.locked ? "disabled" : ""}>星座分解</button>` : ""}
+                <button class="ghost equipment-danger-action" type="button" data-salvage-item="${item.id}" ${equipped || item.locked || isZodiacItem(item) ? "disabled" : ""}>分解</button>
+              </div>
+              <details class="equipment-detail-toggle equipment-detail-compact">
+                <summary class="equipment-detail-summary">明细</summary>
+                ${renderCardSocketSection(item)}
+                ${renderEquipmentStatSections(item)}
+                ${renderSalvagePreviewSection(item)}
+                <span class="equip-meta">星炼 ${Math.round(getRefineChance(nextStar, item) * 100)}% · 保底 +${Math.round((item.refineFailCount || 0) * 1.5 * 10) / 10}% · ${nextStar <= 15 ? materialText(refineCost) : "已满星"}</span>
+                <span class="equip-meta">赋能 ${nextEmpower <= 10 ? materialText(empowerCost) : "已满阶"}</span>
+              </details>
+            </div>
+          </details>
         </article>
       `;
     })
@@ -8847,7 +9012,25 @@ function renderEquipment() { const runtime = window.RuneFrontierRenderRuntime; i
   `;
 }
 
+function getEquipmentLineFilterOptions() {
+  const runtime = equipmentProgressionRuntime();
+  return runtime && typeof runtime.getEquipmentLineFilterOptions === "function" ? runtime.getEquipmentLineFilterOptions() : [];
+}
+
+function equipmentMatchesCurrentProgressionTarget(item) {
+  const runtime = equipmentProgressionRuntime();
+  if (!runtime || typeof runtime.getMapEquipmentProgression !== "function") return false;
+  const progression = runtime.getMapEquipmentProgression(currentMap().id, state.currentDifficulty);
+  return (progression.series || []).includes(item.series) && (progression.tiers || []).includes(item.growthTier);
+}
+
+function equipmentMissingProgressionMaterials(item) {
+  const cost = getEquipmentUpgradeCost(item);
+  return Boolean(cost && !hasMaterials(cost.materials || {}));
+}
+
 function renderEquipmentFilterBar(count) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentFilterBar === "function") return runtime.renderEquipmentFilterBar(count);
+  const lineFilters = getEquipmentLineFilterOptions().map((entry) => [entry.id, entry.label]);
   const filters = [
     ["all", "全部"],
     ["equipped", "已装备"],
@@ -8858,9 +9041,11 @@ function renderEquipmentFilterBar(count) { const runtime = window.RuneFrontierRe
     ["trinket", "饰品"],
     ["physical", "物理"],
     ["magic", "魔法"],
-    ["general", "通用"],
     ["jobFit", "职业适配"],
     ["craftBase", "可打造成胚子"],
+    ["currentTarget", "当前地图目标"],
+    ["missingMaterial", "缺进阶材料"],
+    ...lineFilters,
     ["socketed", "有孔"],
     ["socketable", "可打孔"],
     ["set", "套装"],
@@ -8869,6 +9054,7 @@ function renderEquipmentFilterBar(count) { const runtime = window.RuneFrontierRe
     ["darkGold", "暗金"],
     ["legend", "传说"],
     ["locked", "已锁定"],
+    ["upgradeable", "可进阶"],
     ["refinable", "可星炼"],
     ["salvageable", "可分解"],
   ];
@@ -8916,6 +9102,10 @@ function filterEquipmentList(items) {
     if (equipmentFilter === "darkGold") return item.rarity === "darkGold";
     if (equipmentFilter === "legend") return item.rarity === "legend";
     if (equipmentFilter === "locked") return Boolean(item.locked);
+    if (equipmentFilter === "upgradeable") return canUpgradeEquipmentProgression(item);
+    if (equipmentFilter === "currentTarget") return equipmentMatchesCurrentProgressionTarget(item);
+    if (equipmentFilter === "missingMaterial") return equipmentMissingProgressionMaterials(item);
+    if (equipmentFilter.startsWith("line:")) return item.series === equipmentFilter.slice(5);
     if (equipmentFilter === "refinable") return (item.refine || 0) < 15 && hasMaterials(getRefineCost(item));
     if (equipmentFilter === "salvageable") return !equippedIds.has(item.id) && !item.locked && !shouldProtectEquipment(item);
     return true;
@@ -8980,6 +9170,81 @@ function shouldProtectEquipment(item) {
     } catch {}
   }
   return isHighValueEquipment(item);
+}
+
+function equipmentProgressionRuntime() {
+  return window.RuneFrontierEquipmentRuntime || null;
+}
+
+function getEquipmentProgressionTags(item) {
+  const runtime = equipmentProgressionRuntime();
+  if (runtime && typeof runtime.getEquipmentProgressionTags === "function") return runtime.getEquipmentProgressionTags(item);
+  return [];
+}
+
+function renderEquipmentProgressionTags(item) {
+  const tags = getEquipmentProgressionTags(item);
+  if (!tags.length) return "";
+  return `<div class="equipment-badge-row equipment-progression-tags">${tags.map((tag) => `<span class="equipment-badge equipment-badge-progression">${escapeHtml(tag)}</span>`).join("")}</div>`;
+}
+
+function getEquipmentUpgradeCost(item) {
+  const runtime = equipmentProgressionRuntime();
+  return runtime && typeof runtime.getEquipmentUpgradeCost === "function" ? runtime.getEquipmentUpgradeCost(item) : null;
+}
+
+function getNextEquipmentUpgrade(item) {
+  const runtime = equipmentProgressionRuntime();
+  return runtime && typeof runtime.getNextEquipmentUpgrade === "function" ? runtime.getNextEquipmentUpgrade(item) : null;
+}
+
+function canUpgradeEquipmentProgression(item) {
+  const cost = getEquipmentUpgradeCost(item);
+  return Boolean(cost && (state.gold || 0) >= (cost.gold || 0) && hasMaterials(cost.materials || {}));
+}
+
+function equipmentProgressionCostText(cost) {
+  if (!cost) return "已到顶点";
+  const parts = [];
+  const matText = materialText(cost.materials || {});
+  if (matText) parts.push(matText);
+  if (cost.gold) parts.push(`金币 ${formatNumber(cost.gold)}`);
+  return parts.join(" · ") || "无消耗";
+}
+
+function upgradeEquipmentProgression(itemId) {
+  const runtime = equipmentProgressionRuntime();
+  if (!runtime || typeof runtime.upgradeEquipmentProgression !== "function") return showToast("装备进阶系统尚未就绪");
+  return runtime.upgradeEquipmentProgression(itemId);
+}
+
+function renderEquipmentProgressionSmithyPanel() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentProgressionSmithyPanel === "function") return runtime.renderEquipmentProgressionSmithyPanel();
+  const candidates = [...state.inventory]
+    .filter((item) => getEquipmentUpgradeCost(item))
+    .sort((a, b) => itemScore(b) - itemScore(a))
+    .slice(0, 24);
+  if (!candidates.length) return `<p class="academy-meta">暂无可进阶装备。困难地图主要掉落下一装备线材料，深渊 Boss 会稳定给核心材料。</p>`;
+  return `<div class="smithy-items smithy-progression-list">${candidates.map((item) => {
+    const cost = getEquipmentUpgradeCost(item);
+    const next = cost?.next;
+    const disabled = !canUpgradeEquipmentProgression(item);
+    return `<article class="smithy-item smithy-progression-item">
+      <span class="item-icon" style="background-image:${imageBackgroundList(itemImageCandidates(item))}"></span>
+      <div>
+        ${renderItemName(item)}
+        ${renderEquipmentProgressionTags(item)}
+        <p class="academy-meta">${slotName(equipmentSlot(item))} · ${rarityName(item.rarity)} · 目标 ${escapeHtml(next?.label || "下一阶段")}</p>
+        <p class="academy-meta">消耗：${equipmentProgressionCostText(cost)}</p>
+      </div>
+      <button type="button" data-upgrade-progression-item="${item.id}" ${disabled ? "disabled" : ""}>进阶</button>
+    </article>`;
+  }).join("")}</div>`;
+}
+
+function formatMapEquipmentProgression(mapId, difficulty = "normal") {
+  const runtime = equipmentProgressionRuntime();
+  if (!runtime || typeof runtime.formatEquipmentProgressionSummary !== "function") return "";
+  return runtime.formatEquipmentProgressionSummary(mapId, difficulty);
 }
 
 function runEquipmentBatchAction(action) {
@@ -9080,6 +9345,7 @@ function renderMaps() { const runtime = window.RuneFrontierRenderRuntime; if (ru
         : previewDifficulty === "hard"
           ? HARD_MAP_TIER_SCALE[map.id]?.recommendedPower || 130000
           : Math.round(range.recommendedPower * (DIFFICULTY_CONFIG[previewDifficulty]?.power || 1));
+      const equipmentProgression = formatMapEquipmentProgression(map.id, previewDifficulty);
       const bossName = bossDisplayName(map, previewDifficulty);
       const exploration = getMapExplorationEntry(map.id);
       const nextNeed = MAP_EXPLORATION_REQUIREMENTS[Math.min(10, exploration.level + 1)] || MAP_EXPLORATION_REQUIREMENTS[10];
@@ -9095,6 +9361,7 @@ function renderMaps() { const runtime = window.RuneFrontierRenderRuntime; if (ru
             <p class="map-meta">等级 ${preview.levelRange[0]}-${preview.levelRange[1]} · HP ${formatRangeNumber(preview.hpRange)} · 攻击 ${formatRangeNumber(preview.attackRange)} · 防御 ${formatRangeNumber(preview.defenseRange)}</p>
             <p class="map-meta">推荐评分：输出 ${formatNumber(recommendedScores.output)} · 生存 ${formatNumber(recommendedScores.survival)}${recommendedScores.abyss ? ` · 深渊 ${formatNumber(recommendedScores.abyss)}` : ""}</p>
             <p class="map-meta">难度倍率：HP x${preview.difficulty.hp} / ATK x${preview.difficulty.attack} / EXP x${preview.difficulty.exp}</p>
+            ${equipmentProgression ? `<p class="map-meta map-equipment-progression">装备目标：${escapeHtml(equipmentProgression)}</p>` : ""}
             ${
               previewDifficulty === "abyss"
                 ? `<p class="map-meta map-abyss-preview">深渊主要掉落：深渊前缀装备 / 深渊化套装 / 神话装备。神话掉率极低，变异怪与 Boss 机会更高。</p>`
@@ -12830,6 +13097,18 @@ window.RuneFrontierLegacyEquipmentContext = () => Object.freeze({
   renderEquipmentArchetypeBadge,
   inferEquipmentArchetype,
   rollEquipmentArchetype,
+  resolveEquipmentProgressionContext(payload) {
+    return window.RuneFrontierEquipmentRuntime?.resolveEquipmentProgressionContext?.(payload);
+  },
+  getProgressionMaterialDrops(mapId, difficulty, options) {
+    return window.RuneFrontierEquipmentRuntime?.getProgressionMaterialDrops?.(mapId, difficulty, options) || [];
+  },
+  getProgressionEquipmentTemplate(id) {
+    return window.RuneFrontierEquipmentRuntime?.getProgressionEquipmentTemplate?.(id) || null;
+  },
+  getProgressionEquipmentDropTable(mapId, difficulty) {
+    return window.RuneFrontierEquipmentRuntime?.getProgressionEquipmentDropTable?.(mapId, difficulty) || [];
+  },
   inferEquipmentSubType,
   equipmentImagePath,
   getTemplateBaseStats,
@@ -12961,6 +13240,9 @@ window.RuneFrontierLegacyDropsContext = () => Object.freeze({
   getMaterialDropTable(mapId) {
     return materialDropTables[mapId] || [];
   },
+  getProgressionMaterialDrops(mapId, difficulty, options) {
+    return window.RuneFrontierEquipmentRuntime?.getProgressionMaterialDrops?.(mapId, difficulty, options) || [];
+  },
   getCardDropTable(mapId) {
     return cardDropTables[mapId] || [];
   },
@@ -13021,8 +13303,11 @@ window.RuneFrontierLegacyDropsContext = () => Object.freeze({
   getEquipmentDropTable(tableId) {
     return equipmentDropTables[tableId] || [];
   },
+  getProgressionEquipmentDropTable(mapId, difficulty) {
+    return window.RuneFrontierEquipmentRuntime?.getProgressionEquipmentDropTable?.(mapId, difficulty) || [];
+  },
   getEquipmentTemplate(id) {
-    return equipmentTemplateDb[id];
+    return window.RuneFrontierEquipmentRuntime?.getProgressionEquipmentTemplate?.(id) || equipmentTemplateDb[id];
   },
   getMaxEquipmentDrops(isBoss) {
     return isBoss ? MAX_BOSS_EQUIPMENT_DROPS : MAX_EQUIPMENT_DROPS_PER_KILL;
@@ -13032,6 +13317,9 @@ window.RuneFrontierLegacyDropsContext = () => Object.freeze({
   weightedChoice,
   applyRebirthPrestigeDropWeight,
   getDarkGoldUpgradeRate,
+  resolveEquipmentProgressionContext(payload) {
+    return window.RuneFrontierEquipmentRuntime?.resolveEquipmentProgressionContext?.(payload);
+  },
   getDifficultyDropLevelBonus() {
     return DIFFICULTY_DROP_LEVEL_BONUS[state.currentDifficulty] || DIFFICULTY_DROP_LEVEL_BONUS.normal;
   },
@@ -13092,6 +13380,9 @@ window.RuneFrontierLegacyOfflineContext = () => Object.freeze({
   },
   getEquipmentDropTable(tableId) {
     return equipmentDropTables[tableId] || [];
+  },
+  getProgressionEquipmentDropTable(mapId, difficulty) {
+    return window.RuneFrontierEquipmentRuntime?.getProgressionEquipmentDropTable?.(mapId, difficulty) || [];
   },
   getCard(cardId) {
     return getSocketCard(cardId);
@@ -13339,6 +13630,7 @@ window.RuneFrontierLegacyCombatContext = () => Object.freeze({
   },
   challengeBoss,
   defeatEnemy,
+  resetUnsafeEarlyEncounter,
   syncActiveEnemyFromGroup,
   spawnEnemy,
   render: renderCombatSettlementUi,
@@ -13548,6 +13840,14 @@ Object.assign(window, {
   getEquipmentFitTags,
   renderEquipmentArchetypeBadge,
   inferEquipmentArchetype,
+  getEquipmentProgressionTags,
+  renderEquipmentProgressionTags,
+  getEquipmentUpgradeCost,
+  getNextEquipmentUpgrade,
+  canUpgradeEquipmentProgression,
+  upgradeEquipmentProgression,
+  renderEquipmentProgressionSmithyPanel,
+  formatMapEquipmentProgression,
   groupEquipmentStats,
   equipmentStatEntry,
   getEffectiveItemStats,

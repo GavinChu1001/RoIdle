@@ -40,18 +40,27 @@ export function grantMaterialDrop(materialId, quantity, source, options = {}, co
 export function rollMapMaterialDrops(stats = {}, options = {}, context = runtimeContext) {
   const map = context.currentMap?.() || {};
   const rows = context.getMaterialDropTable?.(map.id) || [];
-  if (!Array.isArray(rows) || !rows.length) return 0;
+  const progressionRows = context.getProgressionMaterialDrops?.(map.id, context.currentDifficulty?.() || 'normal', options) || [];
+  const allRows = [
+    ...(Array.isArray(rows) ? rows : []),
+    ...(Array.isArray(progressionRows) ? progressionRows : []),
+  ];
+  if (!allRows.length) return 0;
   const difficulty = context.getDifficultyConfig?.() || { materialDrop: 1 };
   const isBoss = Boolean(options.boss);
   const bossMultiplier = isBoss ? 2.5 : 1;
   let total = 0;
-  rows.forEach((drop) => {
+  allRows.forEach((drop) => {
     const abyssBonus = context.currentDifficulty?.() === 'abyss' ? finite(stats.abyssMaterialDropBonus) : 0;
     const finalDropRate = finite(drop.dropRate) * (1 + finite(stats.dropBonus) + abyssBonus) * finite(difficulty.materialDrop || 1) * bossMultiplier;
     if (random(context) >= finalDropRate) return;
     const baseQty = context.randomInt?.(drop.minQty || 1, drop.maxQty || drop.minQty || 1) || 1;
     const qty = context.applyMaterialQuantityBonus?.(baseQty, stats) ?? baseQty;
-    total += grantMaterialDrop(drop.materialId, qty, isBoss ? '\u0042\u006f\u0073\u0073\u6750\u6599' : '\u6750\u6599\u6389\u843d', {
+    const source = drop.progression
+      ? (isBoss ? '\u0042\u006f\u0073\u0073\u88c5\u5907\u6750\u6599' : '\u88c5\u5907\u8fdb\u9636\u6750\u6599')
+      : (isBoss ? '\u0042\u006f\u0073\u0073\u6750\u6599' : '\u6750\u6599\u6389\u843d');
+    total += grantMaterialDrop(drop.materialId, qty, source, {
+      rarity: drop.rarity,
       logText: `\u83b7\u5f97\u6750\u6599\uff1a${materialName(drop.materialId, context)} \u00d7 ${qty}\u3002`,
     }, context);
   });

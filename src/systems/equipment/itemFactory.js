@@ -1,4 +1,5 @@
 import { inferEquipmentArchetype, normalizeEquipmentArchetype, rollEquipmentArchetype } from './itemArchetype.js';
+import { resolveItemProgression } from './itemProgression.js';
 
 let runtimeContext = {};
 
@@ -79,6 +80,7 @@ export function createItem(template = {}, level, forcedTierId = null, context = 
   const quality = runtime.randomFloat?.(safeTier.rolls[0], safeTier.rolls[1]) ?? safeTier.rolls[0];
   const statScale = safeTier.scale * number(itemTier.scale, 1) * quality * (1 + safeLevel * slotGrowth);
   const archetype = resolveCreatedItemArchetype(template, context, runtime);
+  const progression = resolveItemProgression(template, { ...context, archetype }, runtime);
   const item = {
     id: runtime.createItemId?.(template.slot) || `${template.slot || 'item'}-${Date.now().toString(36)}`,
     instanceId: '',
@@ -100,6 +102,13 @@ export function createItem(template = {}, level, forcedTierId = null, context = 
     baseStats: template.baseStats || {},
     description: template.description || '',
     archetype,
+    growthTier: progression.growthTier || 'T1',
+    series: progression.series || 'oldWorld',
+    upgradeStage: Math.max(0, Math.round(number(progression.upgradeStage, 0))),
+    grade: progression.grade || '',
+    upgradePathId: progression.upgradePathId || progression.series || 'oldWorld',
+    progressionLabel: progression.progressionLabel || '',
+    progressionSource: progression.progressionSource || '',
     rarity: safeTier.id,
     tier: safeTier.id,
     itemTier: itemTier.id,
@@ -190,6 +199,15 @@ export function normalizeItem(item = {}, runtime = runtimeContext) {
   item = item && typeof item === 'object' ? item : {};
   const fallbackPower = number(item.power);
   const abyssForged = Boolean(item.abyssForged || item.sourceDifficulty === 'abyss' || item.prefix === '\u6df1\u6e0a');
+  const progression = resolveItemProgression(item, {
+    dropMapId: item.dropMapId || '',
+    difficulty: item.sourceDifficulty || '',
+    series: item.series || '',
+    growthTier: item.growthTier || '',
+    upgradeStage: item.upgradeStage ?? 0,
+    grade: item.grade || '',
+    upgradePathId: item.upgradePathId || '',
+  }, runtime);
   const normalized = {
     id: item.id || runtime.createLegacyItemId?.() || `legacy-${Date.now().toString(36)}`,
     instanceId: item.instanceId || item.id || '',
@@ -211,6 +229,13 @@ export function normalizeItem(item = {}, runtime = runtimeContext) {
     baseStats: item.baseStats || {},
     description: item.description || '',
     archetype: resolveNormalizedItemArchetype(item, runtime),
+    growthTier: progression.growthTier || 'T1',
+    series: progression.series || 'oldWorld',
+    upgradeStage: Math.max(0, Math.round(number(progression.upgradeStage, 0))),
+    grade: progression.grade || '',
+    upgradePathId: progression.upgradePathId || progression.series || 'oldWorld',
+    progressionLabel: item.progressionLabel || progression.progressionLabel || '',
+    progressionSource: item.progressionSource || progression.progressionSource || '',
     rarity: item.rarity || 'normal',
     tier: item.tier || item.rarity || 'normal',
     itemTier: runtime.inferItemTier?.(item)?.id || item.itemTier || '',
@@ -323,10 +348,20 @@ export function resetItemForStatV2(item = {}, runtime = runtimeContext) {
     difficulty: item.abyssForged || item.sourceDifficulty === '\u6df1\u6e0a' || item.sourceDifficulty === 'abyss' ? 'abyss' : item.sourceDifficulty || '',
     itemTier: item.itemTier || undefined,
     archetype,
+    growthTier: item.growthTier || undefined,
+    series: item.series || undefined,
+    upgradeStage: item.upgradeStage ?? undefined,
+    grade: item.grade || undefined,
+    upgradePathId: item.upgradePathId || undefined,
   }, runtime);
   rerolled.id = item.id || rerolled.id;
   rerolled.instanceId = rerolled.id;
   rerolled.archetype = archetype;
+  rerolled.growthTier = item.growthTier || rerolled.growthTier;
+  rerolled.series = item.series || rerolled.series;
+  rerolled.upgradeStage = item.upgradeStage ?? rerolled.upgradeStage;
+  rerolled.grade = item.grade || rerolled.grade;
+  rerolled.upgradePathId = item.upgradePathId || rerolled.upgradePathId;
   rerolled.level = level;
   rerolled.dropLevel = level;
   rerolled.rarity = rarity;

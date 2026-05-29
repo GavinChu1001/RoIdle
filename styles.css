@@ -6252,6 +6252,100 @@ button.pixel-button {
   transform: none;
 }
 
+.equipment-primary-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.equipment-primary-actions button {
+  width: 100%;
+  min-width: 0;
+}
+
+.equipment-primary-actions button:last-child:not(:disabled),
+.equipment-primary-actions .equipment-lock-action:not(:disabled) {
+  border-color: var(--ro-pixel-ink);
+  background-image:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(249, 232, 190, 0.92), rgba(208, 177, 124, 0.84));
+  color: #3b2819;
+  text-shadow: none;
+}
+
+.equipment-more-actions {
+  margin-top: 6px;
+  border-top: 1px solid rgba(92, 70, 35, 0.16);
+  padding-top: 5px;
+}
+
+.equipment-more-summary,
+.equipment-detail-summary {
+  cursor: pointer;
+  list-style: none;
+  color: #6d4b20;
+  font-size: 0.72rem;
+  font-weight: 900;
+  user-select: none;
+}
+
+.equipment-more-summary::-webkit-details-marker,
+.equipment-detail-summary::-webkit-details-marker {
+  display: none;
+}
+
+.equipment-more-summary::before,
+.equipment-detail-summary::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: 4px;
+  transform: translateY(-1px);
+}
+
+.equipment-more-actions[open] > .equipment-more-summary::before,
+.equipment-detail-compact[open] > .equipment-detail-summary::before {
+  content: "▾";
+}
+
+.equipment-more-panel {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.equipment-secondary-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.equipment-secondary-actions button {
+  min-height: 28px;
+  min-width: 0;
+  padding: 0 6px;
+  border: 1px solid rgba(80, 53, 28, 0.48);
+  border-radius: 5px;
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(247, 231, 191, 0.92), rgba(203, 174, 122, 0.82));
+  color: #3b2819;
+  font-size: 0.7rem;
+  font-weight: 900;
+  text-shadow: none;
+}
+
+.equipment-secondary-actions .equipment-danger-action:not(:disabled) {
+  border-color: rgba(108, 44, 32, 0.64);
+  color: #7a2d21;
+}
+
+.equipment-detail-compact {
+  padding: 5px 6px;
+  border-radius: 5px;
+  background: rgba(255, 250, 232, 0.46);
+}
+
 .material-list,
 .material-page {
   display: grid;
@@ -10676,6 +10770,133 @@ body {
   border-color: #596574;
 }
 
+.ro-battle-frame {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px;
+  overflow: hidden;
+  border: 2px solid rgba(49, 29, 15, 0.46);
+  border-radius: var(--ro-vnext-radius-panel);
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 239, 202, 0.9), rgba(213, 173, 105, 0.62));
+  box-shadow: inset 0 0 0 1px rgba(255, 248, 221, 0.44);
+}
+
+.ro-battle-topline {
+  position: absolute;
+  z-index: 6;
+  order: 0;
+  top: 12px;
+  right: 12px;
+  left: 12px;
+  min-height: 42px;
+  margin: 0;
+  padding: 6px 8px;
+  border: 1px solid rgba(54, 32, 18, 0.36);
+  border-radius: var(--ro-vnext-radius-control);
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 247, 221, 0.88), rgba(221, 190, 132, 0.72));
+  box-shadow: 0 6px 18px rgba(49, 29, 15, 0.14);
+}
+
+.ro-battle-topline .eyebrow {
+  font-size: 0.62rem;
+}
+
+.ro-battle-topline h2 {
+  font-size: 0.95rem;
+}
+
+.ro-battle-canvas {
+  order: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ro-hp-hud-layer {
+  position: absolute;
+  z-index: 7;
+  order: 2;
+  inset: 0;
+  display: block;
+  margin: 0;
+  pointer-events: none;
+}
+
+.ro-hp-hud-layer .combat-unit-card {
+  position: absolute;
+  width: min(302px, 43%);
+  padding: 7px;
+  pointer-events: auto;
+  box-shadow:
+    0 8px 22px rgba(42, 25, 13, 0.16),
+    inset 0 0 0 1px rgba(255, 247, 217, 0.52);
+}
+
+.ro-player-hud {
+  bottom: 76px;
+  left: 12px;
+}
+
+.ro-enemy-hud {
+  top: 62px;
+  right: 12px;
+}
+
+.ro-cast-ribbon {
+  position: absolute;
+  z-index: 8;
+  order: 3;
+  top: 50%;
+  left: 50%;
+  max-width: min(420px, calc(100% - 40px));
+  transform: translate(-50%, -50%);
+  box-shadow: 0 10px 24px rgba(49, 29, 15, 0.16);
+}
+
+.ro-skill-dock {
+  position: relative;
+  z-index: 5;
+  order: 4;
+  min-width: 0;
+  margin-top: -2px;
+  scrollbar-width: thin;
+}
+
+.ro-battle-action-strip {
+  grid-template-columns: minmax(132px, 0.9fr) minmax(148px, 1fr) minmax(140px, 1fr) minmax(104px, 0.7fr);
+  padding: 8px;
+  border: 2px solid rgba(65, 38, 19, 0.28);
+  border-radius: var(--ro-vnext-radius-control);
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 247, 222, 0.88), rgba(231, 200, 141, 0.7));
+}
+
+.ro-stage-card .ro-battle-topline {
+  order: 0;
+}
+
+.ro-stage-card .ro-battle-canvas {
+  order: 1;
+}
+
+.ro-stage-card .ro-hp-hud-layer {
+  order: 2;
+}
+
+.ro-stage-card .ro-cast-ribbon {
+  order: 3;
+}
+
+.ro-stage-card .ro-skill-dock {
+  order: 4;
+}
+
 .ro-stage-card .formation {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
@@ -11055,12 +11276,88 @@ body {
   .ro-stage-card .scene-wrap {
     width: 100%;
     max-width: 100%;
+    min-height: 0;
     overflow: hidden;
   }
 
   .ro-stage-card .scene-wrap canvas {
     max-width: 100%;
     height: auto !important;
+  }
+
+  .ro-battle-frame {
+    gap: 7px;
+    padding: 7px;
+    overflow: hidden;
+  }
+
+  .ro-battle-topline {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    left: 12px;
+    min-height: 38px;
+    padding: 6px 7px;
+    box-shadow: 0 6px 16px rgba(49, 29, 15, 0.12);
+  }
+
+  .ro-hp-hud-layer {
+    position: static;
+    display: grid;
+    gap: 6px;
+    pointer-events: auto;
+  }
+
+  .ro-hp-hud-layer .combat-unit-card {
+    position: static;
+    width: 100%;
+    min-height: 42px;
+    padding: 5px 6px;
+    box-shadow: inset 0 0 0 1px rgba(255, 247, 217, 0.46);
+  }
+
+  .ro-hp-hud-layer .combat-unit-image {
+    width: 32px;
+    height: 32px;
+  }
+
+  .ro-hp-hud-layer .combat-unit-info {
+    gap: 2px;
+  }
+
+  .ro-hp-hud-layer .combat-unit-info span,
+  .ro-hp-hud-layer .combat-unit-info strong {
+    font-size: 0.78rem;
+  }
+
+  .ro-hp-hud-layer .player-hp-regen {
+    display: none;
+  }
+
+  .ro-hp-hud-layer .combat-hp-bar,
+  .ro-hp-hud-layer .player-hp-bar {
+    height: 7px;
+  }
+
+  .ro-cast-ribbon {
+    position: static;
+    max-width: 100%;
+    transform: none;
+  }
+
+  .ro-skill-dock {
+    margin-top: 0;
+    padding: 5px;
+  }
+
+  .ro-stage-card .ro-skill-dock .skill-bar-icon {
+    flex-basis: 42px;
+    width: 42px;
+    height: 42px;
+  }
+
+  .ro-battle-action-strip {
+    padding: 6px;
   }
 
   .ro-stage-card .combat-layout,
@@ -11082,6 +11379,29 @@ body {
   .ro-combat-actions .toggle-line {
     width: 100%;
   }
+}
+
+.equipment-progression-tags {
+  margin-top: 3px;
+}
+
+.equipment-badge-progression {
+  border-color: rgba(54, 117, 106, 0.28);
+  background: rgba(54, 117, 106, 0.09);
+  color: #2f665d;
+}
+
+.map-equipment-progression {
+  color: #35675e;
+  font-weight: 700;
+}
+
+.smithy-progression-list .equipment-progression-tags {
+  margin: 4px 0;
+}
+
+.smithy-progression-item .equipment-badge {
+  font-size: 0.72rem;
 }
 
 @media (prefers-reduced-motion: reduce) {

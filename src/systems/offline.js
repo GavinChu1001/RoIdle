@@ -263,7 +263,9 @@ export function rollOfflineEquipmentDrops(rewards, stats, map, mapIndex, killCou
   const invLimit = context.getInventoryLimit;
   if (!map || !table || !rollFn || !invLimit) return;
   const tableId = alias ? (alias(map.id) || map.id) : map.id;
-  const rows = table(tableId) || [];
+  const difficulty = context.currentDifficulty?.() || 'normal';
+  const progressionRows = context.getProgressionEquipmentDropTable?.(map.id, difficulty) || [];
+  const rows = progressionRows.length ? progressionRows : table(tableId) || [];
   if (!rows.length) return;
   const capacity = { freeSlots: Math.max(0, invLimit() - (state.inventory || []).length) };
   for (let kill = 0; kill < killCount; kill += 1) {

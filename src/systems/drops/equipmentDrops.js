@@ -31,8 +31,10 @@ export function resolveEquipmentDropLevel({
 
 export function rollEquipmentTableDrops(stats, options = {}, context = runtimeContext) {
   const map = context.currentMap?.() || {};
+  const difficulty = context.currentDifficulty?.() || 'normal';
   const tableId = context.getDropTableId?.(map.id) || map.id;
-  const rows = context.getEquipmentDropTable?.(tableId) || [];
+  const progressionRows = context.getProgressionEquipmentDropTable?.(map.id, difficulty) || [];
+  const rows = progressionRows.length ? progressionRows : context.getEquipmentDropTable?.(tableId) || [];
   const drops = rollEquipmentDropsFromTable(rows, stats, options, context);
   drops.forEach((item) => context.addEquipmentToInventory?.(item, { logDrop: true }));
   return drops.length;
@@ -75,11 +77,21 @@ export function rollEquipmentDropsFromTable(rows, stats, options = {}, context =
       : (context.random?.() ?? Math.random()) < darkGoldRate
         ? 'darkGold'
         : template.rarity;
+    const progression = context.resolveEquipmentProgressionContext?.({
+      mapId,
+      difficulty: context.currentDifficulty?.(),
+      template,
+      drop: pick.drop,
+      stats,
+      boss: isBoss,
+      random: () => context.random?.() ?? Math.random(),
+    }) || {};
     drops.push(context.createItem?.(template, dropLevel, rolledRarity, {
       dropMapId: mapId,
       dropLevel,
       difficulty: context.currentDifficulty?.(),
       allowMythic: rolledRarity === 'mythic',
+      ...progression,
     }));
 
     // 转生词缀：轮回刻印解锁后，装备有概率获得转生专属词缀

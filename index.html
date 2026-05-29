@@ -105,7 +105,8 @@
         <section class="page-view active" data-view="adventure">
           <div class="adventure-grid ro-adventure-workspace">
             <section class="stage-panel ro-surface-card ro-stage-card">
-              <div class="panel-heading">
+              <div class="ro-battle-frame">
+              <div class="panel-heading ro-battle-topline">
                 <div>
                   <p class="eyebrow">冒险进度</p>
                   <h2 id="mapName">南门青草地</h2>
@@ -115,12 +116,12 @@
                 </button>
               </div>
 
-              <div class="scene-wrap">
+              <div class="scene-wrap ro-battle-canvas">
                 <canvas id="sceneCanvas" width="900" height="520"></canvas>
               </div>
 
-              <div class="combat-layout combat-mobile-stack">
-                <article class="combat-unit-card combat-unit-card-player player-hp-panel">
+              <div class="combat-layout combat-mobile-stack ro-hp-hud-layer">
+                <article class="combat-unit-card combat-unit-card-player player-hp-panel ro-player-hud">
                   <div class="combat-unit-image combat-unit-image-player" aria-hidden="true">我</div>
                   <div class="combat-unit-info">
                     <span id="playerHpName" class="player-name">冒险者</span>
@@ -132,7 +133,7 @@
                   </div>
                 </article>
 
-                <article class="combat-unit-card combat-unit-card-monster monster-hp-panel">
+                <article class="combat-unit-card combat-unit-card-monster monster-hp-panel ro-enemy-hud">
                   <div class="combat-unit-image combat-unit-image-monster" aria-hidden="true">敌</div>
                   <div class="combat-unit-info">
                     <span id="enemyName">果冻波波</span>
@@ -145,10 +146,11 @@
                 </article>
               </div>
 
-              <div id="skillCastBanner" class="skill-cast-banner" hidden></div>
-              <div class="skill-bar-v3" id="skillBarV3" aria-label="主动技能栏"></div>
+              <div id="skillCastBanner" class="skill-cast-banner ro-cast-ribbon" hidden></div>
+              <div id="skillBarV3" class="skill-bar-v3 ro-skill-dock" aria-label="主动技能栏"></div>
+              </div>
 
-              <div class="formation" aria-label="队伍站位">
+              <div class="formation ro-party-slots" aria-label="队伍站位">
                 <button class="slot active" data-slot="front" type="button">
                   <span>角色1</span>
                   <strong id="frontHero">剑士</strong>
@@ -163,14 +165,14 @@
                 </button>
               </div>
 
-              <div class="action-row ro-combat-actions">
+              <div class="action-row ro-combat-actions ro-battle-action-strip">
                 <button id="bossButton" class="ro-wood-button ro-boss-action" type="button">挑战 BOSS</button>
                 <label class="toggle-line"><input id="autoBossToggle" type="checkbox" /> 自动挑战 BOSS</label>
                 <button id="claimButton" class="ro-light-control ro-reward-action" type="button">查看离线收益</button>
                 <button id="resetButton" class="ghost" type="button">重置存档</button>
               </div>
 
-              <div class="offline-entry hidden" id="offlineEntry">
+              <div class="offline-entry hidden ro-offline-reward-entry" id="offlineEntry">
                 <div>
                   <strong id="offlineEntryTitle">离线收益待领取</strong>
                   <p id="offlineEntryMeta">离线战利品已结算，点击查看清点。</p>

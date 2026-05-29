@@ -7,6 +7,8 @@ import { configureRefineContext, enhanceItem, getEnhanceCost, getEnhanceMileston
 import { configureStarRefineContext, refineItem, getRefineChance, getRefineCost, snapshotRefineStats, diffRefineStats, star15Bonus, refineMultiplier, refineGrowthFactorForStat, getRefineMilestoneBonuses, getRefineGrowthStats } from './starRefine.js';
 import { configureSocketContext, getMaxEquipmentCardSlots, getEquipmentCardSlotCount, getCardSocketCost, canAffordSocketCost } from './socket.js';
 import { EQUIPMENT_ARCHETYPES, normalizeEquipmentArchetype, getArchetypeLabel, getEquipmentArchetypeLabel, getJobPreferredArchetype, getJobArchetypeRoute, inferEquipmentArchetype, getArchetypeStatPools, rollEquipmentArchetype, calculateArchetypeScores, getEquipmentFitTags, shouldProtectEquipmentByArchetype, getReforgeCost } from './itemArchetype.js';
+import { EQUIPMENT_GROWTH_TIERS, EQUIPMENT_SERIES, EQUIPMENT_LINE_MATERIALS, MAP_EQUIPMENT_PROGRESSION, PROGRESSION_EQUIPMENT_SLOTS, normalizeGrowthTier, normalizeEquipmentSeries, getEquipmentSeriesConfig, getEquipmentLineMaterials, getMapEquipmentProgression, getProgressionEquipmentTemplates, getProgressionEquipmentTemplate, getProgressionEquipmentDropTable, getEquipmentLineFilterOptions, formatEquipmentProgressionSummary, resolveEquipmentProgressionContext, resolveItemProgression, getProgressionMaterialDrops, getNextEquipmentUpgrade, getEquipmentUpgradeCost, getEquipmentProgressionTags } from './itemProgression.js';
+import { canUpgradeEquipmentProgression, upgradeEquipmentProgression } from './progressionUpgrade.js';
 
 export * from './itemFactory.js';
 export * from './itemStats.js';
@@ -15,6 +17,8 @@ export * from './itemCompare.js';
 export * from './itemTags.js';
 export * from './itemNaming.js';
 export * from './itemArchetype.js';
+export * from './itemProgression.js';
+export * from './progressionUpgrade.js';
 export * from './refine.js';
 export * from './starRefine.js';
 export * from './socket.js';
@@ -44,6 +48,29 @@ export function installEquipmentRuntime(context = {}) {
     getEquipmentFitTags,
     shouldProtectEquipmentByArchetype,
     getReforgeCost,
+    EQUIPMENT_GROWTH_TIERS,
+    EQUIPMENT_SERIES,
+    EQUIPMENT_LINE_MATERIALS,
+    MAP_EQUIPMENT_PROGRESSION,
+    PROGRESSION_EQUIPMENT_SLOTS,
+    normalizeGrowthTier,
+    normalizeEquipmentSeries,
+    getEquipmentSeriesConfig,
+    getEquipmentLineMaterials,
+    getMapEquipmentProgression,
+    getProgressionEquipmentTemplates,
+    getProgressionEquipmentTemplate,
+    getProgressionEquipmentDropTable,
+    getEquipmentLineFilterOptions,
+    formatEquipmentProgressionSummary,
+    resolveEquipmentProgressionContext,
+    resolveItemProgression,
+    getProgressionMaterialDrops,
+    getNextEquipmentUpgrade,
+    getEquipmentUpgradeCost,
+    getEquipmentProgressionTags,
+    canUpgradeEquipmentProgression,
+    upgradeEquipmentProgression: (itemId) => upgradeEquipmentProgression(itemId, context),
     createItem,
     normalizeItem,
     resetItemForStatV2,

@@ -15,7 +15,7 @@ export function installEquipmentRenderRuntime(context = {}) {
   var archetypeFilter = ['data-equipment-archetype', 'archetypeFilter', 'physical', 'magic', 'general'];
   var fnNames = ['renderEquipment','renderEquipmentSummaryStats','renderEquipmentCardScore',
     'renderEquipmentStateBadges','renderEquipmentFilterBar','renderEquipmentBatchPanel',
-    'renderEquipmentBadges','renderEquipmentArchetypeBadge','renderEquipmentUsageTags','renderEquipmentScores',
+    'renderEquipmentBadges','renderEquipmentArchetypeBadge','renderEquipmentProgressionTags','renderEquipmentUsageTags','renderEquipmentScores',
     'renderEquipmentScoreComparison','renderEquipmentStatSections','renderEquipmentSetProgress',
     'renderCardSocketSection','renderRefineSection','renderSalvagePreviewSection',
     'renderStatChipGrid','renderRandomStatsPanel','renderEmpowerSection',

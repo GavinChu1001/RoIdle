@@ -1,14 +1,17 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { createRequire } from 'node:module';
 import { createContext, runInContext } from 'node:vm';
 
 const root = new URL('../', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 const read = (file) => readFileSync(join(root, file), 'utf8');
 const importSource = async (source) => import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+const require = createRequire(import.meta.url);
 const game = read('game.js');
 const data = read('data.js');
 const tools = read('tools.js');
+const serverSource = read('server.js');
 const html = read('index.html');
 const styles = read('styles.css');
 const equipmentStyles = read('unified-equipment-ui.css');
@@ -36,6 +39,7 @@ const skillsSource = read('src/systems/combat/skills.js');
 const skillMechanicsSource = read('src/systems/combat/skillMechanics.js');
 const normalCombatSource = read('src/systems/combat/normalCombat.js');
 const encounterSource = read('src/systems/combat/encounter.js');
+const monsterSource = read('src/systems/combat/monster.js');
 const taskPageSource = read('src/ui/taskPage.js');
 const cardPageSource = read('src/ui/cardPage.js');
 const equipmentPageSource = read('src/ui/equipmentPage.js');
@@ -46,6 +50,12 @@ const classicDataContext = { console };
 createContext(classicDataContext);
 runInContext(tools, classicDataContext, { filename: 'tools.js' });
 assert.doesNotThrow(() => runInContext(data, classicDataContext, { filename: 'data.js' }), 'Classic data script must initialize before game.js loads.');
+assert.match(serverSource, /require\.main\s*===\s*module/, 'Server module must be importable by tests without starting the HTTP listener.');
+assert.match(serverSource, /function\s+normalizeDb\s*\(/, 'Server account database reader must normalize cleared or partial stores.');
+const { normalizeDb } = require(join(root, 'server.js'));
+assert.deepEqual(normalizeDb({}), { users: {}, sessions: {} }, 'Cleared account database must preserve login/register routes.');
+assert.deepEqual(normalizeDb(null), { users: {}, sessions: {} }, 'Missing account database must fall back to empty users and sessions.');
+assert.deepEqual(normalizeDb({ users: { happycon01: { username: 'happycon01' } } }), { users: { happycon01: { username: 'happycon01' } }, sessions: {} }, 'Existing users must survive account database normalization.');
 assert.ok(classicDataContext.v3JobSkills && typeof classicDataContext.v3JobSkills === 'object', 'V4 skill table must initialize from data.js.');
 assert.equal(Object.keys(classicDataContext.v3SkillAwakenings || {}).length, 6, 'Six V4 awakening configurations must remain available.');
 assert.equal(classicDataContext.getV3CombatSkills('runeKnight').length, 9, 'Rune Knight must inherit Swordman and Knight V4 skills.');
@@ -56,6 +66,10 @@ const assassinSkills = classicDataContext.getV3CombatSkills('assassin');
 assert.equal(assassinSkills.find((entry) => entry.name === '毒性扩散').mechanism.poisonStackAdd, 1, 'Poison Spread must add poison stacks.');
 assert.equal(classicDataContext.getV3CombatSkills('priest').find((entry) => entry.name === '信仰守护').mechanism.extra.cleanseDebuff, undefined, 'Faith Guard must not advertise an unimplemented cleanse.');
 assert.equal(classicDataContext.getV3CombatSkills('blacksmith').find((entry) => entry.name === '武器精炼').mechanism.goldCost, undefined, 'Weapon Refinement must not invent an unspecified gold cost.');
+assert.ok(classicDataContext.HARD_MAP_TIER_SCALE.grass.recommendedPower < classicDataContext.mapLevelRanges.sky.recommendedPower, 'Hard grass must not be harder than normal sky after map difficulty V2.');
+assert.ok(classicDataContext.ABYSS_MAP_TIER_SCALE.grass.recommendedPower < classicDataContext.mapLevelRanges.sky.recommendedPower, 'Abyss grass must not be harder than normal sky after map difficulty V2.');
+assert.ok(classicDataContext.HARD_MAP_TIER_SCALE.grass.recommendedPower >= classicDataContext.mapLevelRanges.sewer.recommendedPower, 'Hard grass should roughly start around the next-map challenge band.');
+assert.ok(classicDataContext.ABYSS_MAP_TIER_SCALE.grass.recommendedPower >= classicDataContext.mapLevelRanges.orc_village.recommendedPower, 'Abyss grass should roughly start around a later normal-map challenge band.');
 
 const requiredLegacyFunctions = [
   'createDefaultState',
@@ -79,6 +93,11 @@ assert.match(html, /id="skillCastBanner"/, 'Adventure battle UI must expose a vi
 assert.match(html, /class="page-tabs[^"]*ro-main-tabs/, 'main tabs should opt into RO navigation styling');
 assert.match(html, /class="adventure-grid[^"]*ro-adventure-workspace/, 'Adventure workspace class should exist');
 assert.match(html, /class="stage-panel[^"]*ro-surface-card[^"]*ro-stage-card/, 'stage panel should use RO surface styling');
+assert.match(html, /class="ro-battle-frame"[\s\S]*class="panel-heading[^"]*ro-battle-topline/, 'Battle HUD should wrap the stage header in a compact top line.');
+assert.match(html, /class="scene-wrap[^"]*ro-battle-canvas"[\s\S]*id="sceneCanvas"/, 'Battle HUD canvas wrapper should preserve the scene canvas.');
+assert.match(html, /class="combat-layout[^"]*ro-hp-hud-layer"[\s\S]*class="combat-unit-card[^"]*ro-player-hud"[\s\S]*id="playerHpBar"[\s\S]*class="combat-unit-card[^"]*ro-enemy-hud"[\s\S]*id="enemyHpBar"/, 'Battle HUD should expose player and enemy HP as edge HUD cards.');
+assert.match(html, /id="skillBarV3"[^>]*class="[^"]*ro-skill-dock/, 'Battle HUD should turn the skill bar into a dock.');
+assert.match(html, /class="action-row[^"]*ro-battle-action-strip/, 'Battle actions should use the HUD action strip.');
 assert.match(html, /id="bossButton"[^>]*class="[^"]*ro-wood-button/, 'Boss action should use the wooden primary button');
 assert.match(html, /class="summary-panel[^"]*ro-command-sidebar/, 'sidebar should use compact command styling');
 for (const id of [
@@ -119,6 +138,10 @@ assert.match(equipmentStyles, /var\(--ro-vnext-line\)/, 'Equipment override shou
 assert.match(styles, /\.ro-main-tabs\s*\{/, 'RO main tab styling should exist');
 assert.match(styles, /\.ro-adventure-workspace\s*\{/, 'RO Adventure workspace layout should exist');
 assert.match(styles, /\.ro-stage-card\s*\{/, 'RO stage card styling should exist');
+assert.match(styles, /\.ro-battle-frame\s*\{/, 'RO battle frame styling should exist');
+assert.match(styles, /\.ro-hp-hud-layer\s*\{/, 'RO HP HUD layer styling should exist');
+assert.match(styles, /\.ro-skill-dock\s*\{/, 'RO skill dock styling should exist');
+assert.match(styles, /\.ro-battle-action-strip\s*\{/, 'RO battle action strip styling should exist');
 assert.match(styles, /\.ro-command-sidebar\s*\{/, 'RO sidebar styling should exist');
 assert.match(styles, /\.ro-boss-action\s*\{/, 'Boss action hierarchy should exist');
 assert.match(
@@ -135,6 +158,11 @@ assert.match(
   styles,
   /@media\s*\(max-width:\s*820px\)[\s\S]*\.ro-boss-action/,
   'mobile Boss action should fit the control row'
+);
+assert.match(
+  styles,
+  /@media\s*\(max-width:\s*640px\)[\s\S]*\.ro-hp-hud-layer/,
+  'phone battle HUD should stack HP under the canvas instead of overlaying it'
 );
 assert.match(encounterSource, /resetEnemySkillStatuses\(state,\s*'spawn'\)/, 'Fresh encounters must clear target-bound skill statuses.');
 assert.match(encounterSource, /resetEnemySkillStatuses\(state,\s*'target-change'\)/, 'Encounter member changes must clear target-bound skill statuses.');
@@ -219,6 +247,7 @@ assert.match(game, /runtime\.updateCombat/, 'Online combat rounds must forward t
 assert.match(game, /runtime\.updateMonsterAttack/, 'Monster counterattacks must forward to the combat runtime.');
 assert.match(game, /runtime\.updateRecovery/, 'Recovery ticks must forward to the combat runtime.');
 assert.match(game, /runtime\.rollActiveSkill/, 'Active-skill execution must forward to the combat runtime.');
+assert.match(game, /resetUnsafeEarlyEncounter,/, 'Combat runtime context must expose the fresh-start encounter reset hook.');
 assert.match(game, /const FAST_RENDER_INTERVAL_MS\s*=\s*100/, 'Fast HUD rendering must remain throttled.');
 assert.match(game, /const PASSIVE_PAGE_REFRESH_INTERVAL_MS\s*=\s*2000/, 'Background combat updates must not continuously rebuild heavy pages.');
 assert.match(game, /const SCENE_RENDER_INTERVAL_MS\s*=\s*33/, 'Visible battle scene rendering must remain frame-capped.');
@@ -229,6 +258,8 @@ assert.match(game, /estimateGoldPerSecond\(stats\)/, 'Fast HUD updates must reus
 assert.match(game, /activePage\s*===\s*"adventure"[\s\S]*drawScene\(now\s*\/\s*1000\)/, 'Hidden pages must not continue drawing the battle canvas.');
 assert.match(game, /runtime\.normalizeDamage/, 'Damage normalization must forward to the combat runtime.');
 assert.equal((game.match(/requestAnimationFrame\(loop\);/g) || []).length, 2, 'Loop registration shape changed unexpectedly.');
+assert.match(game, /const elapsedDt = Math\.max\(0,\s*\(now - lastTick\) \/ 1000\);[\s\S]*const dt = Math\.min\(0\.12,\s*elapsedDt\);/, 'The main loop must keep uncapped elapsed time for page-background recovery.');
+assert.match(game, /updateRecovery\(elapsedDt\);/, 'Recovery ticks must receive uncapped elapsed time so hidden-tab time is not lost.');
 
 const onboardingModule = await importSource(onboardingSource);
 assert.deepEqual(onboardingModule.defaultOnboardingState(), {
@@ -465,6 +496,64 @@ const crossJobTags = itemArchetype.getEquipmentFitTags({ archetype: 'magic', mat
 assert.match(currentJobTags, /\u9002\u5408\u5f53\u524d\u804c\u4e1a/, 'Current-job fit tags must identify suitable equipment.');
 assert.match(crossJobTags, /\u53ef\u7559\u7ed9\u5176\u4ed6\u804c\u4e1a|\u5176\u4ed6\u804c\u4e1a/, 'Cross-archetype tags must identify equipment for other jobs.');
 
+let itemProgressionSource = '';
+assert.doesNotThrow(() => {
+  itemProgressionSource = read('src/systems/equipment/itemProgression.js');
+}, 'Equipment progression module must exist.');
+for (const name of [
+  'MAP_EQUIPMENT_PROGRESSION',
+  'EQUIPMENT_LINE_MATERIALS',
+  'PROGRESSION_EQUIPMENT_SLOTS',
+  'getMapEquipmentProgression',
+  'getEquipmentLineMaterials',
+  'getProgressionEquipmentTemplates',
+  'getProgressionEquipmentDropTable',
+  'getEquipmentLineFilterOptions',
+  'getProgressionMaterialDrops',
+  'getEquipmentUpgradeCost',
+]) {
+  assert.match(itemProgressionSource, new RegExp(`\\b${name}\\b`), `Equipment progression module must define ${name}.`);
+}
+const itemProgression = await importSource(itemProgressionSource);
+const grassHardProgression = itemProgression.getMapEquipmentProgression('grass', 'hard');
+assert.equal(grassHardProgression.targetMapOffset, 2, 'Hard maps should point at a +2 normal-map equipment target.');
+assert.ok((grassHardProgression.materialSeries || []).includes('ancientHero'), 'Hard grass should start dropping Ancient Hero line materials.');
+const grassAbyssProgression = itemProgression.getMapEquipmentProgression('grass', 'abyss');
+assert.equal(grassAbyssProgression.targetMapOffset, 4, 'Abyss maps should point at a +4 normal-map equipment target.');
+assert.ok((grassAbyssProgression.series || []).includes('ancientHero'), 'Abyss grass should expose the next equipment-line embryo.');
+const ancientHeroMaterials = itemProgression.getEquipmentLineMaterials('ancientHero');
+assert.equal(ancientHeroMaterials.advanced.id, 'heroReformInscription', 'Ancient Hero advanced material id changed.');
+assert.equal(ancientHeroMaterials.advanced.name, '\u82f1\u96c4\u6539\u826f\u94ed\u6587', 'Ancient Hero advanced material must be line-level, not boot-specific.');
+assert.ok(itemProgression.getProgressionMaterialDrops('grass', 'hard', { boss: false }).some((drop) => drop.materialId === 'ancientHeroShard'), 'Hard grass should drop basic Ancient Hero upgrade material.');
+assert.ok(itemProgression.getProgressionMaterialDrops('grass', 'abyss', { boss: true }).some((drop) => drop.materialId === 'mythicHeroCore'), 'Abyss grass Boss should drop Ancient Hero core material.');
+const ancientHeroUpgradeCost = itemProgression.getEquipmentUpgradeCost({ series: 'ancientHero', growthTier: 'T2', upgradeStage: 0, slot: 'weapon' });
+assert.ok(ancientHeroUpgradeCost.materials.heroReformInscription > 0, 'Ancient Hero upgrades should consume Hero Reform Inscription.');
+assert.ok(ancientHeroUpgradeCost.gold > 0, 'Equipment progression upgrade should include a gold cost.');
+const progressionTemplates = itemProgression.getProgressionEquipmentTemplates();
+assert.ok(progressionTemplates.length >= 100, 'Progression equipment pool should cover all lines, slots, and physical/magic variants.');
+const ancientHeroWeapon = progressionTemplates.find((template) => template.id === 'prog_ancientHero_base_physical_weapon');
+assert.ok(ancientHeroWeapon, 'Progression equipment pool must include Ancient Hero physical weapon.');
+assert.match(ancientHeroWeapon.name, /古代英雄/, 'Progression equipment names should expose the equipment line, not old map-template names.');
+assert.equal(ancientHeroWeapon.series, 'ancientHero', 'Progression templates must carry series metadata.');
+assert.equal(ancientHeroWeapon.archetype, 'physical', 'Progression templates must carry archetype metadata.');
+const sewerProgressionRows = itemProgression.getProgressionEquipmentDropTable('sewer', 'normal');
+assert.ok(sewerProgressionRows.length > 0, 'Sewer normal should have a generated progression equipment table.');
+assert.ok(sewerProgressionRows.every((row) => String(row.equipmentId).startsWith('prog_')), 'Progression map tables must not rely on old one-hand-sword rows.');
+assert.ok(sewerProgressionRows.some((row) => row.series === 'ancientHero' && row.growthTier === 'T2'), 'Sewer normal should drop Ancient Hero line equipment.');
+const skyAbyssRows = itemProgression.getProgressionEquipmentDropTable('sky', 'abyss');
+assert.ok(skyAbyssRows.some((row) => row.series === 'dimensional' && row.growthTier === 'T10'), 'Sky abyss should expose Dimensional top-line equipment.');
+const lineFilters = itemProgression.getEquipmentLineFilterOptions();
+assert.ok(lineFilters.some((entry) => entry.id === 'line:ancientHero' && entry.label === '古代英雄'), 'Equipment filters should expose Ancient Hero line filtering.');
+assert.match(game, /heroReformInscription:\s*"\u82f1\u96c4\u6539\u826f\u94ed\u6587"/, 'Classic material names must expose Hero Reform Inscription.');
+assert.match(game, /const EQUIPMENT_SYSTEM_VERSION\s*=\s*4/, 'Equipment V4 must define a save-breaking system version.');
+assert.match(game, /equipmentSystemVersion:\s*EQUIPMENT_SYSTEM_VERSION/, 'Fresh saves must mark the active equipment system version.');
+assert.match(game, /saved\.equipmentSystemVersion\s*!==\s*EQUIPMENT_SYSTEM_VERSION[\s\S]*createDefaultState\(\)/, 'Old saves must be reset at the Equipment V4 version gate.');
+assert.match(game, /getProgressionEquipmentDropTable/, 'Classic runtime must route map equipment drops through the progression equipment pool.');
+assert.doesNotMatch(game, /查看完整属性|收起完整属性/, 'Equipment cards should not expose full stats as a prominent primary action.');
+assert.match(game, /equipment-primary-actions/, 'Equipment cards should render a compact primary action row.');
+assert.match(game, /equipment-more-actions/, 'Equipment cards should move low-frequency actions into a More section.');
+assert.match(game, /equipment-detail-summary[^>]*>明细</, 'Equipment stat details should be a lightweight detail entry, not a large primary CTA.');
+
 assert.match(
   itemFactorySource,
   /from\s+['"]\.\/itemArchetype\.js['"]|\b(?:rollEquipmentArchetype|normalizeEquipmentArchetype|inferEquipmentArchetype)\b/,
@@ -473,8 +562,36 @@ assert.match(
 
 const itemArchetypeModuleUrl = `data:text/javascript;base64,${Buffer.from(itemArchetypeSource).toString('base64')}`;
 const withItemArchetypeImport = (source) => source.replace(/from\s+['"]\.\/itemArchetype\.js['"]/g, `from '${itemArchetypeModuleUrl}'`);
+const itemProgressionModuleUrl = `data:text/javascript;base64,${Buffer.from(itemProgressionSource).toString('base64')}`;
+const withEquipmentProgressionImports = (source) => withItemArchetypeImport(source)
+  .replace(/from\s+['"]\.\/itemProgression\.js['"]/g, `from '${itemProgressionModuleUrl}'`);
 
-const itemFactory = await importSource(withItemArchetypeImport(itemFactorySource));
+let progressionUpgradeSource = '';
+assert.doesNotThrow(() => {
+  progressionUpgradeSource = read('src/systems/equipment/progressionUpgrade.js');
+}, 'Equipment progression upgrade module must exist.');
+assert.match(progressionUpgradeSource, /\bupgradeEquipmentProgression\b/, 'Progression upgrade module must expose upgradeEquipmentProgression.');
+const progressionUpgrade = await importSource(progressionUpgradeSource.replace(/from\s+['"]\.\/itemProgression\.js['"]/g, `from '${itemProgressionModuleUrl}'`));
+const upgradeState = {
+  gold: 10000,
+  materials: { heroReformInscription: 4 },
+  inventory: [{ id: 'upgrade-me', name: 'Hero Blade', slot: 'weapon', series: 'ancientHero', growthTier: 'T2', upgradeStage: 0, rarity: 'rare', level: 30, dropLevel: 30 }],
+};
+let upgradeSaved = 0;
+let upgradeRendered = 0;
+const upgradeResult = progressionUpgrade.upgradeEquipmentProgression('upgrade-me', {
+  getState: () => upgradeState,
+  save: () => { upgradeSaved += 1; },
+  renderAll: () => { upgradeRendered += 1; },
+  showToast: () => {},
+});
+assert.equal(upgradeResult.ok, true, 'Progression upgrade should complete when enough materials exist.');
+assert.equal(upgradeState.inventory[0].upgradeStage, 1, 'Progression upgrade should advance the item stage.');
+assert.ok(upgradeState.materials.heroReformInscription < 4, 'Progression upgrade should consume line-specific material.');
+assert.equal(upgradeSaved, 1, 'Progression upgrade should save state once.');
+assert.equal(upgradeRendered, 1, 'Progression upgrade should rerender once.');
+
+const itemFactory = await importSource(withEquipmentProgressionImports(itemFactorySource));
 const factoryContext = {
   getEquipmentTiers: () => [{ id: 'normal', scale: 1, rolls: [1, 1] }],
   getItemTierForLevel: () => ({ id: 'starter', scale: 1 }),
@@ -496,6 +613,26 @@ assert.equal(generated.id, 'generated-item', 'Module-owned item creation did not
 assert.equal(generated.atk, 10, 'Module-owned item creation changed base equipment output.');
 assert.deepEqual(generated.cardSlots, [], 'New equipment must retain the existing empty socket behavior.');
 assert.equal(generated.archetype, 'physical', 'Created equipment must record its archetype.');
+const progressedItem = itemFactory.createItem(
+  { name: 'Hero Blade', slot: 'weapon', atk: 10 },
+  20,
+  'normal',
+  { currentJobId: 'swordman', dropMapId: 'sewer', difficulty: 'normal', rng: () => 0 },
+  {
+    ...factoryContext,
+    resolveItemProgression: () => ({
+      growthTier: 'T2',
+      series: 'ancientHero',
+      upgradeStage: 0,
+      grade: 'base',
+      upgradePathId: 'ancientHero',
+    }),
+  },
+);
+assert.equal(progressedItem.growthTier, 'T2', 'Created equipment must record its progression tier.');
+assert.equal(progressedItem.series, 'ancientHero', 'Created equipment must record its progression series.');
+assert.equal(progressedItem.upgradeStage, 0, 'Created equipment must record its upgrade stage.');
+assert.equal(progressedItem.upgradePathId, 'ancientHero', 'Created equipment must record its upgrade path id.');
 assert.equal(itemFactory.createItem({ name: 'Rod', slot: 'weapon', matk: 10 }, 1, 'normal', { currentJobId: 'mage', rng: () => 0 }, factoryContext).archetype, 'magic', 'Created mage equipment must record magic archetype.');
 assert.equal(itemFactory.createItem({ name: 'Blade', slot: 'weapon', atk: 10 }, 1, 'normal', { targetArchetype: undefined, archetype: 'physical', currentJobId: 'mage', rng: () => 0 }, factoryContext).archetype, 'physical', 'Undefined directed archetype must not override the explicit item archetype.');
 assert.equal(itemFactory.normalizeItem({ atk: 100 }, factoryContext).archetype, 'physical', 'Legacy ATK equipment normalization must infer physical archetype.');
@@ -503,6 +640,9 @@ assert.equal(itemFactory.normalizeItem({ matk: 100 }, factoryContext).archetype,
 assert.equal(itemFactory.normalizeItem({ atk: 100, matk: 100 }, factoryContext).archetype, 'general', 'Mixed legacy equipment normalization must infer general archetype.');
 assert.equal(itemFactory.normalizeItem({}, factoryContext).archetype, 'general', 'Empty legacy equipment normalization must infer general archetype.');
 assert.equal(itemFactory.normalizeItem({ archetype: 'unknown' }, factoryContext).archetype, 'general', 'Unknown legacy archetypes must normalize to general.');
+assert.equal(itemFactory.normalizeItem({ growthTier: 'T3', series: 'os', upgradeStage: 1 }, factoryContext).growthTier, 'T3', 'Normalization must preserve progression tier.');
+assert.equal(itemFactory.normalizeItem({ growthTier: 'T3', series: 'os', upgradeStage: 1 }, factoryContext).series, 'os', 'Normalization must preserve progression series.');
+assert.equal(itemFactory.normalizeItem({ growthTier: 'T3', series: 'os', upgradeStage: 1 }, factoryContext).upgradeStage, 1, 'Normalization must preserve progression stage.');
 const rerolledV2 = itemFactory.resetItemForStatV2({
   id: 'legacy-gear',
   templateId: 'blade',
@@ -563,6 +703,9 @@ assert.match(game, /魔法评分/, 'Equipment UI must display magic score.');
 assert.match(game, /通用评分/, 'Equipment UI must display general score.');
 assert.match(game, /可打造成胚子/, 'Equipment UI must expose craft-base fit tags.');
 assert.match(game, /适合当前职业/, 'Equipment UI must expose current-job fit tags.');
+assert.match(game, /renderEquipmentProgressionTags/, 'Equipment UI must display progression-line tags.');
+assert.match(game, /data-upgrade-progression-item/, 'Equipment progression upgrades must have a clickable action.');
+assert.match(game, /\u88c5\u5907\u8fdb\u9636/, 'Smithy must expose the equipment progression upgrade panel.');
 
 const scoreStandaloneSource = withItemArchetypeImport(itemScoreSource)
   .replace("import { getEffectiveItemStats } from './itemStats.js';", 'const getEffectiveItemStats = (item) => item;')
@@ -620,8 +763,13 @@ assert.equal(protectedItem.added, true, 'Set equipment must remain protected fro
 assert.equal(dismantle.shouldAutoSalvage({ rarity: 'normal', abyssForged: true }, mutationContext), false, 'Abyss equipment must remain protected unless explicitly enabled.');
 assert.equal(dismantle.shouldAutoSalvage({ rarity: 'normal' }, { ...mutationContext, shouldProtectEquipment: () => true }), false, 'Protected equipment must not be auto-salvaged.');
 const batchState = {
-  inventory: [{ id: 'keep', rarity: 'normal', level: 1 }, { id: 'trash', rarity: 'normal', level: 1 }],
-  equipped: {},
+  inventory: [
+    { id: 'keep', rarity: 'normal', level: 1 },
+    { id: 'trash', rarity: 'normal', level: 1 },
+    { id: 'equipped', rarity: 'normal', level: 1 },
+    { id: 'locked', rarity: 'normal', level: 1, locked: true },
+  ],
+  equipped: { weapon: 'equipped' },
   materials: {},
 };
 let batchSalvageDialog = null;
@@ -636,9 +784,9 @@ const batchMutationContext = {
   save: () => {},
 };
 dismantle.salvageAllUnequipped(batchMutationContext);
-assert.deepEqual(batchState.inventory.map((item) => item.id), ['keep'], 'Batch dismantle must leave protected equipment in inventory.');
-assert.equal(batchState.materials.dust, 1, 'Batch dismantle must still reward unprotected equipment.');
-assert.deepEqual(batchSalvageDialog, ['\u6279\u91cf\u5206\u89e3\u5b8c\u6210', 1, { dust: 1 }], 'Batch dismantle dialog must count only unprotected equipment.');
+assert.deepEqual(batchState.inventory.map((item) => item.id), ['equipped', 'locked'], 'Batch dismantle must remove all unlocked unequipped equipment.');
+assert.equal(batchState.materials.dust, 2, 'Batch dismantle must reward all unlocked unequipped equipment.');
+assert.deepEqual(batchSalvageDialog, ['\u6279\u91cf\u5206\u89e3\u5b8c\u6210', 2, { dust: 2 }], 'Batch dismantle dialog must count all unlocked unequipped equipment.');
 const fullInventory = dismantle.addEquipmentToInventory({ id: 'second', rarity: 'legend' }, {}, mutationContext);
 assert.equal(fullInventory.skipped, true, 'Inventory capacity behavior changed.');
 mutationState.inventory = [{ id: 'manual', rarity: 'normal', level: 1 }];
@@ -736,6 +884,7 @@ assert.equal(lootState.recentLoot[0].id, 'new-loot', 'Most recent loot should be
 
 const equipmentDrops = await importSource(equipmentDropsSource);
 const accepted = [];
+let createdDropContext = null;
 const dropContext = {
   currentMap: () => ({ id: 'grass' }),
   getDropTableId: (id) => id,
@@ -752,11 +901,17 @@ const dropContext = {
   randomInt: (min) => min,
   getDarkGoldUpgradeRate: () => 0,
   currentDifficulty: () => 'normal',
-  createItem: (_template, _level, rarity) => ({ id: 'table-drop', rarity }),
+  resolveEquipmentProgressionContext: () => ({ growthTier: 'T1', series: 'oldWorld', upgradeStage: 0, grade: 'field', upgradePathId: 'oldWorld' }),
+  createItem: (_template, _level, rarity, context) => {
+    createdDropContext = context;
+    return { id: 'table-drop', rarity, growthTier: context.growthTier, series: context.series };
+  },
   addEquipmentToInventory: (item) => accepted.push(item),
 };
 assert.equal(equipmentDrops.rollEquipmentTableDrops({}, {}, dropContext), 1, 'Online equipment table drop count changed.');
 assert.equal(accepted[0].id, 'table-drop', 'Online equipment table drops must enter the module acceptance path.');
+assert.equal(createdDropContext.growthTier, 'T1', 'Equipment drops must pass map progression tier into item creation.');
+assert.equal(createdDropContext.series, 'oldWorld', 'Equipment drops must pass map progression series into item creation.');
 const hardDropContext = {
   ...dropContext,
   currentDifficulty: () => 'hard',
@@ -795,6 +950,18 @@ const materialContext = {
 };
 assert.equal(materialDrops.rollMapMaterialDrops({ dropBonus: 0 }, {}, materialContext), 2, 'Online map material quantity changed.');
 assert.equal(materialState.materials.ore, 2, 'Map material grants must update inventory once.');
+const progressionMaterialState = { currentMap: 0, materials: {} };
+const progressionMaterialContext = {
+  ...materialContext,
+  getState: () => progressionMaterialState,
+  currentDifficulty: () => 'hard',
+  getMaterialDropTable: () => [],
+  getProgressionMaterialDrops: () => [{ materialId: 'heroReformInscription', dropRate: 1, minQty: 3, maxQty: 3, rarity: 'epic' }],
+  recordSessionReward: () => {},
+  recordRecentLoot: () => {},
+};
+assert.equal(materialDrops.rollMapMaterialDrops({ dropBonus: 0 }, { boss: true }, progressionMaterialContext), 3, 'Progression material drops must be rolled even when old map materials are empty.');
+assert.equal(progressionMaterialState.materials.heroReformInscription, 3, 'Progression material grants must update inventory.');
 assert.equal(materialDrops.maybeDropDarkGoldFragments({}, { boss: true }, materialContext), 2, 'Boss dark-gold fragment quantity changed.');
 assert.equal(materialState.materials.darkGoldFragment, 2, 'Dark-gold fragments must be granted through material service.');
 assert.equal(materialDrops.maybeDropMythicEssence({}, {}, materialContext), 1, 'Abyss mythic essence routing changed.');
@@ -1622,6 +1789,42 @@ const normalStandaloneSource = normalCombatSource
   )
   .replace("import { resolveActiveSkillCast } from './skills.js';", 'const resolveActiveSkillCast = () => ({ cast: false });');
 const normalCombat = await importSource(normalStandaloneSource);
+const tabRecoveryState = { hero: { currentHp: 20 }, regenTimer: 0 };
+let tabRecoveryFeedback = 0;
+normalCombat.configureNormalCombatContext({
+  getState: () => tabRecoveryState,
+  computeStats: () => ({ maxHp: 100, hpRegen: 10 }),
+  getHpRegenInterval: () => 5,
+  showDamageNumber: (_target, amount, kind) => {
+    if (kind === 'heal') tabRecoveryFeedback = amount;
+  },
+  random: () => 0.9,
+});
+assert.equal(normalCombat.updateRecovery(16), true, 'Recovery must catch up after the browser throttles hidden pages.');
+assert.equal(tabRecoveryState.hero.currentHp, 50, 'Recovery catch-up must apply every elapsed regen tick.');
+assert.equal(tabRecoveryState.regenTimer, 1, 'Recovery catch-up must keep leftover partial interval time.');
+assert.equal(tabRecoveryFeedback, 30, 'Recovery catch-up feedback must show the total healed amount.');
+
+const unsafeFreshEncounterState = { enemyHp: 500, enemyMaxHp: 800, hero: { currentHp: 0 }, playerAttackTimer: 0, enemyAttackTimer: 0, currentMap: 0, paused: false };
+let unsafeEncounterResetMaxHp = 0;
+normalCombat.configureNormalCombatContext({
+  getState: () => unsafeFreshEncounterState,
+  computeStats: () => ({ attackSpeed: 1, crit: 0, dps: 1, maxHp: 120 }),
+  currentMonsterStats: () => ({ damageReduction: 0 }),
+  getPlayerCritRateCap: () => 1,
+  random: () => 0.9,
+  tryAutoChallengeBoss: () => false,
+  resetUnsafeEarlyEncounter: (stats) => {
+    unsafeEncounterResetMaxHp = stats.maxHp;
+    unsafeFreshEncounterState.hero.currentHp = 54;
+    unsafeFreshEncounterState.enemyHp = 120;
+    return true;
+  },
+});
+assert.equal(normalCombat.updateCombat(1), true, 'Unsafe opening encounters must be reset before the death pause is applied.');
+assert.equal(unsafeEncounterResetMaxHp, 120, 'Unsafe encounter reset must receive the current stat snapshot.');
+assert.equal(unsafeFreshEncounterState.paused, false, 'Unsafe opening encounter reset must not leave the player paused at 0 HP.');
+
 const roundState = { enemyHp: 10, enemyMaxHp: 10, hero: { currentHp: 100 }, playerAttackTimer: 0, enemyAttackTimer: 0, currentMap: 0 };
 let settledRounds = 0;
 normalCombat.configureNormalCombatContext({
@@ -1726,6 +1929,48 @@ normalCombat.updateCombat(0);
 assert.equal(angelGuardState.shieldHp, 10, 'Angel Guard must not stack repeated shields while on cooldown.');
 globalThis.window = angelGuardWindow;
 
+const monsterModuleUrl = `data:text/javascript;base64,${Buffer.from(monsterSource).toString('base64')}`;
+const monster = await importSource(monsterSource);
+const grassStarterMap = {
+  id: 'grass',
+  minLevel: 1,
+  maxLevel: 10,
+  baseHp: 120,
+  baseExp: 8,
+  jobExp: 5,
+  gold: 4,
+  monsters: [
+    { id: 'grass_poring', name: 'Poring', type: 'normal', levelRange: [1, 5], hpRange: [120, 260], attackRange: [3, 8], defenseRange: [1, 3], baseExpRange: [8, 15], jobExpRange: [5, 10], goldRange: [4, 8] },
+    { id: 'grass_lunatic', name: 'Lunatic', type: 'elite', levelRange: [5, 10], hpRange: [260, 520], attackRange: [8, 14], defenseRange: [3, 8], baseExpRange: [18, 35], jobExpRange: [12, 22], goldRange: [10, 18] },
+  ],
+};
+const freshGrassState = { currentDifficulty: 'normal', totalKills: 0, areaKills: 0, hero: { currentHp: 100, rebirths: 0 } };
+const earlyMonsterContext = {
+  getState: () => freshGrassState,
+  currentMap: () => grassStarterMap,
+  random: () => 0,
+  randomInt: (_min, max) => max,
+  getMapLevelRanges: () => ({ grass: { minLevel: 1, maxLevel: 10, attackRange: [3, 14], recommendedPower: 80 }, beginner_field: { minLevel: 1, maxLevel: 1, attackRange: [1, 10] } }),
+  getDifficultyConfigs: () => ({ normal: { hp: 1, attack: 1, defense: 1, exp: 1, jobExp: 1, gold: 1, mutationChance: 1 } }),
+  getMutations: () => [{ id: 'elite', prefix: 'Elite', hp: 2, attack: 2, defense: 1, exp: 1, jobExp: 1, gold: 1 }],
+  getMonsterDifficultyModifiers: () => ({ normal: { hp: 1, atk: 1, def: 1, critDamage: 1.5 }, elite: { hp: 1.6, atk: 1.35, def: 1.12, critDamage: 1.5 } }),
+  getDifficultyTierModifiers: () => ({ normal: {} }),
+  getDropTableAlias: (mapId) => mapId,
+};
+monster.configureMonsterContext(earlyMonsterContext);
+assert.equal(monster.pickMonsterTemplate(grassStarterMap, false).type, 'normal', 'Fresh grass encounters must not open with an elite monster.');
+
+const encounterStandaloneSource = encounterSource
+  .replace(/from\s+['"]\.\/monster\.js['"]/g, `from '${monsterModuleUrl}'`)
+  .replace("import { normalizeDamage } from './damage.js';", 'const normalizeDamage = (value) => Math.max(1, Math.round(Number(value) || 0));')
+  .replace("import { resetEnemySkillStatuses } from './skillMechanics.js';", 'const resetEnemySkillStatuses = () => {};');
+const encounter = await importSource(encounterStandaloneSource);
+encounter.configureEncounterContext(earlyMonsterContext);
+assert.equal(encounter.getEncounterSize(false), 1, 'Fresh grass encounters must stay solo during the opening kills.');
+const earlyGrassMonster = encounter.createEncounterMonster(grassStarterMap, false);
+assert.equal(earlyGrassMonster.type, 'normal', 'Fresh grass generated monsters must stay in the normal pool.');
+assert.equal(earlyGrassMonster.mutationId, '', 'Fresh grass generated monsters must not roll mutations before the player has footing.');
+
 const reviveAwakeningState = {
   enemyHp: 100,
   enemyMaxHp: 100,
@@ -1827,6 +2072,27 @@ const cardMap = codex.buildMonsterCardDropMap();
 assert.ok(cardMap.poring.length >= 2, 'Card drop map must collect all cards for a monster.');
 assert.equal(codex.getMonsterTypeLabel('poring'), '普通', 'Monster type label must detect normal monsters.');
 assert.ok(codex.getMonsterTypeLabel('grass_boss').includes('Boss'), 'Monster type label must detect bosses.');
+
+const codexClaimState = { monsterCodex: { poring: { killCount: 1, rewardsClaimed: {} } }, codexRewardsClaimed: { card: {} } };
+let codexClaimGranted = null;
+let codexClaimRendered = 0;
+let codexClaimSaved = 0;
+codex.claimCodexReward('monster', 'poring', '1', {
+  getState: () => codexClaimState,
+  getMapMonsterConfig: () => mockConfig,
+  getCodexKillMilestones: () => [1],
+  getCodexKillRewards: () => ({ normal: [{ items: { gold: 10 } }] }),
+  grantGenericReward: (reward) => { codexClaimGranted = reward; },
+  getMonsterName: () => 'Poring',
+  addLog: () => {},
+  showToast: () => {},
+  renderAll: () => { codexClaimRendered += 1; },
+  save: () => { codexClaimSaved += 1; },
+});
+assert.equal(codexClaimState.monsterCodex.poring.rewardsClaimed[1], true, 'Monster codex claim must accept DOM string milestones.');
+assert.deepEqual(codexClaimGranted, { gold: 10 }, 'Monster codex claim must grant the matching milestone item reward.');
+assert.equal(codexClaimRendered, 1, 'Monster codex claim must rerender once.');
+assert.equal(codexClaimSaved, 1, 'Monster codex claim must save once.');
 
 // Shop module tests
 const shopSource = read('src/systems/shop.js');

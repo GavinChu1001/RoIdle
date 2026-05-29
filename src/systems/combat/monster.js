@@ -1,4 +1,5 @@
 let monsterContext = {};
+const EARLY_GRASS_SAFE_KILLS = 5;
 
 function finite(value) {
   return Number.isFinite(Number(value || 0)) ? Number(value || 0) : 0;
@@ -31,6 +32,16 @@ function monsterImage(id, ctx = monsterContext) {
 
 function monsterTemplate(id, name, hpRange, attackRange, defenseRange, expRange, jobExpRange, goldRange, type, ctx) {
   return { id, name, type, hpRange, attackRange, defenseRange, baseExpRange: expRange, jobExpRange, goldRange };
+}
+
+export function isEarlyGrassProtectionActive(map, context = monsterContext) {
+  const state = context.getState?.() || {};
+  if (!map || map.id !== 'grass') return false;
+  if ((state.currentDifficulty || 'normal') !== 'normal') return false;
+  if (state.enemyBoss) return false;
+  if (state.rebirthMode && finite(state.hero?.rebirths) > 0) return false;
+  const progressKills = Math.max(finite(state.totalKills), finite(state.areaKills));
+  return progressKills < EARLY_GRASS_SAFE_KILLS;
 }
 
 export function configureMonsterContext(context = {}) {
@@ -75,7 +86,7 @@ export function pickMonsterTemplate(map, isBoss = false, context = monsterContex
     monsterTemplate(`${map.id}_monster`, map.enemy || '未知', [map.minLevel || 1, map.maxLevel || 1], [map.baseHp || 1, (map.baseHp || 1) * 2], getMapLevelRange(map, context).attackRange, [1, 10], [map.baseExp || 1, (map.baseExp || 1) * 2], [map.jobExp || map.baseExp || 1, (map.jobExp || map.baseExp || 1) * 2], [map.gold || 1, (map.gold || 1) * 2], 'monster', context),
   ];
   const elite = monsters.filter((entry) => entry.type === 'elite');
-  if (elite.length && random(context) < 0.1) return elite[Math.floor(random(context) * elite.length)];
+  if (!isEarlyGrassProtectionActive(map, context) && elite.length && random(context) < 0.1) return elite[Math.floor(random(context) * elite.length)];
   const normal = monsters.filter((entry) => entry.type !== 'elite');
   const pool = normal.length ? normal : monsters;
   return pool[Math.floor(random(context) * pool.length)];
