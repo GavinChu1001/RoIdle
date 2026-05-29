@@ -1495,6 +1495,9 @@ assert.match(offlineSource, /rollOfflineEquipmentDrops,/, 'Legacy Offline roll a
 assert.doesNotMatch(offlineSource, /rollOfflineTransitionSetDrops/, 'Offline transition-set routing should be removed.');
 assert.match(offlineSource, /rollOfflineMutationExtraDrops,/, 'Offline mutation routing must be exported.');
 assert.match(game, /RuneFrontierLegacyOfflineContext[\s\S]*rollEquipmentDropsFromTable/, 'Offline LegacyContext must provide equipment drop table routing.');
+assert.match(game, /function\s+tickMvpInscription\s*\(/, 'Game runtime must expose a foreground MVP inscription tick.');
+assert.match(game, /tickMvpInscription\(elapsedDt\)/, 'Main loop must advance MVP inscription from real foreground elapsed time.');
+assert.match(game, /gainMvpInscriptionExp/, 'Game runtime must expose MVP inscription exp gain.');
 assert.equal(offline.shouldSettleBackgroundOffline(14999), false, 'Short background pauses should resume normal combat without offline settlement.');
 assert.equal(offline.shouldSettleBackgroundOffline(15000), true, 'Background pauses at the threshold should settle through offline rewards.');
 const backgroundOfflineState = {
@@ -1702,6 +1705,7 @@ const killState = {
   mapDifficultyProgress: {},
 };
 const killCalls = { drop: 0, next: 0, spawn: 0, daily: 0, quest: 0 };
+let killInscriptionPayload = null;
 const baseCombatContext = {
   getState: () => killState,
   currentMap: () => ({ id: 'grass', name: 'Grass' }),
@@ -1720,6 +1724,7 @@ const baseCombatContext = {
   rollDrops: () => { killCalls.drop += 1; return 1; },
   rollMutationExtraDrops: () => 0,
   grantPassiveSkillKillExp: () => {},
+  grantMvpInscriptionKillExp: (payload) => { killInscriptionPayload = payload; },
   updateQuestProgress: () => { killCalls.quest += 1; },
   explorationGainForKill: () => 1,
   gainMapExploration: () => {},
@@ -1738,6 +1743,9 @@ assert.equal(killState.areaKills, 1, 'Regular kill Boss gauge progress changed.'
 assert.equal(killCalls.drop, 1, 'Regular kill must invoke drops exactly once.');
 assert.equal(killCalls.next, 1, 'Regular encounter progression changed.');
 assert.equal(killCalls.spawn, 0, 'Regular encounter must not respawn while members remain.');
+assert.equal(killInscriptionPayload.monster.id, 'poring', 'Regular kill must grant MVP inscription exp for the defeated monster.');
+assert.equal(killInscriptionPayload.isBoss, false, 'Regular kill MVP inscription payload must not be flagged as Boss.');
+assert.equal(killInscriptionPayload.firstBossClear, false, 'Regular kill MVP inscription payload must not be flagged as first Boss clear.');
 
 const bossState = {
   hero: { jobId: 'knight' },
@@ -1770,6 +1778,7 @@ const bossContext = {
   rollDrops: () => 0,
   spawnEnemy: () => {},
 };
+killInscriptionPayload = null;
 const firstBoss = settlement.settleDefeatedEnemy({
   map: { id: 'grass', name: 'Grass' },
   monster: { id: 'boss', gold: 10, exp: 5, jobExp: 3 },
@@ -1777,6 +1786,8 @@ const firstBoss = settlement.settleDefeatedEnemy({
   difficulty: 'normal',
 }, bossContext);
 assert.equal(firstBoss.firstBossClear, true, 'First Boss clear reward must be recorded once.');
+assert.equal(killInscriptionPayload.isBoss, true, 'Boss kill MVP inscription payload must be flagged as Boss.');
+assert.equal(killInscriptionPayload.firstBossClear, true, 'First Boss kill MVP inscription payload must include first-clear state.');
 assert.equal(bossState.materials.grassEssence, 1, 'Boss essence quantity changed.');
 assert.equal(bossState.areaKills, 0, 'Boss victory must reset Boss gauge.');
 assert.equal(bossState.mapDifficultyProgress.grass.hard.unlocked, true, 'Normal Boss victory must unlock hard difficulty.');

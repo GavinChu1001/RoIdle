@@ -207,3 +207,18 @@ export function getMvpInscriptionView(inscription = {}, context = {}) {
     bonuses: getMvpInscriptionBonuses(normalized),
   };
 }
+
+export function installMvpInscriptionRuntime(target = globalThis) {
+  target.RuneFrontierMvpInscriptionRuntime = {
+    defaultMvpInscription,
+    normalizeMvpInscription,
+    getMvpInscriptionStage,
+    getMvpInscriptionLevelRequirement,
+    addMvpInscriptionExp,
+    calculateMvpInscriptionOnlinePerMinute,
+    calculateMvpInscriptionMonsterExp,
+    getMvpInscriptionBonuses,
+    getMvpInscriptionView,
+  };
+  return target.RuneFrontierMvpInscriptionRuntime;
+}

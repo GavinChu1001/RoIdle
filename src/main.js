@@ -26,6 +26,7 @@ import { installDropsRuntime } from './systems/drops/index.js';
 import { installCombatRuntime } from './systems/combat/index.js';
 import { installRebirthRuntime } from './systems/rebirth.js';
 import { installOfflineRuntime } from './systems/offline.js';
+import { installMvpInscriptionRuntime } from './systems/mvpInscription/mvpInscriptionSystem.js';
 import { installVipRuntime } from './systems/vip.js';
 import { installCodexRuntime } from './systems/codex.js';
 import { installShopRuntime } from './systems/shop.js';
@@ -75,6 +76,7 @@ const rebirthContext = typeof window.RuneFrontierLegacyRebirthContext === 'funct
   ? window.RuneFrontierLegacyRebirthContext()
   : {};
 installRebirthRuntime(rebirthContext);
+installMvpInscriptionRuntime(window);
 const combatContext = typeof window.RuneFrontierLegacyCombatContext === 'function'
   ? window.RuneFrontierLegacyCombatContext()
   : {};

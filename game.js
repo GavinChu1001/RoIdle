@@ -2027,6 +2027,7 @@ function createDefaultState() {
     lastLootUpdatedAt: 0,
     dailyGoals: defaultDailyGoals(),
     vip: defaultVipState(),
+    mvpInscription: defaultMvpInscriptionState(),
     quests: defaultQuestState(),
     onboarding: defaultOnboardingState(),
     skillGrowth: defaultSkillGrowth(),
@@ -3090,6 +3091,7 @@ function sanitizeProgression() {
   normalizeSkillGrowthSpecializations();
   if (!rarityOrder.includes(state.autoSalvage.maxRarity) || ["ancient", "legend", "darkGold", "mythic"].includes(state.autoSalvage.maxRarity)) state.autoSalvage.maxRarity = "normal";
   state.vip = normalizeVip(state.vip);
+  state.mvpInscription = normalizeMvpInscriptionState(state.mvpInscription);
   state.quests = normalizeQuests(state.quests);
   state.onboarding = normalizeOnboarding(state.onboarding);
   ensureQuestLists();
@@ -3125,6 +3127,105 @@ function normalizeVip(vip = {}) {
     onlineSecondsToday: Math.max(0, Number(vip.onlineSecondsToday || 0)),
     onlineRewardClaimed: typeof vip.onlineRewardClaimed === "string" ? vip.onlineRewardClaimed : "",
   };
+}
+
+function defaultMvpInscriptionState() {
+  const runtime = window.RuneFrontierMvpInscriptionRuntime;
+  if (runtime && typeof runtime.defaultMvpInscription === "function") return runtime.defaultMvpInscription(() => Date.now());
+  return {
+    level: 1,
+    exp: 0,
+    totalExp: 0,
+    breakthroughLevel: 0,
+    unlockedMarks: ["kingPoring"],
+    bossFirstExpClaims: {},
+    lastOnlineTickAt: Date.now(),
+  };
+}
+
+function normalizeMvpInscriptionState(value) {
+  const runtime = window.RuneFrontierMvpInscriptionRuntime;
+  if (runtime && typeof runtime.normalizeMvpInscription === "function") {
+    return runtime.normalizeMvpInscription(value || {}, () => Date.now());
+  }
+  const base = defaultMvpInscriptionState();
+  const source = value && typeof value === "object" ? value : {};
+  const level = clampNumber(Math.floor(source.level || base.level), 1, 100);
+  const breakthroughCap = Math.max(0, Math.min(90, Math.floor(level / 10) * 10));
+  return {
+    ...base,
+    ...source,
+    level,
+    exp: Math.max(0, Number(source.exp || 0)),
+    totalExp: Math.max(0, Number(source.totalExp || 0)),
+    breakthroughLevel: clampNumber(Math.floor(source.breakthroughLevel || 0), 0, breakthroughCap),
+    unlockedMarks: Array.isArray(source.unlockedMarks) && source.unlockedMarks.length ? source.unlockedMarks.filter(Boolean) : ["kingPoring"],
+    bossFirstExpClaims: source.bossFirstExpClaims && typeof source.bossFirstExpClaims === "object" ? source.bossFirstExpClaims : {},
+    lastOnlineTickAt: Math.max(0, Number(source.lastOnlineTickAt || base.lastOnlineTickAt)),
+  };
+}
+
+function gainMvpInscriptionExp(amount, options = {}) {
+  const gain = Math.max(0, Number(amount || 0));
+  state.mvpInscription = normalizeMvpInscriptionState(state.mvpInscription);
+  if (!gain) return { gained: 0, levelsGained: 0, blocked: false, reachedMax: state.mvpInscription.level >= 100 };
+  const beforeLevel = state.mvpInscription.level;
+  const runtime = window.RuneFrontierMvpInscriptionRuntime;
+  let result = null;
+  if (runtime && typeof runtime.addMvpInscriptionExp === "function") {
+    result = runtime.addMvpInscriptionExp(state.mvpInscription, gain, options);
+  } else {
+    state.mvpInscription.exp += gain;
+    state.mvpInscription.totalExp += gain;
+    result = { gained: gain, levelsGained: 0, blocked: false, reachedMax: false };
+  }
+  if ((result?.levelsGained || 0) > 0 || state.mvpInscription.level > beforeLevel) {
+    addLog(`MVP铭刻提升到 Lv.${state.mvpInscription.level}。`);
+  }
+  if (result?.blocked && !options.silentBlocked) {
+    addLog("MVP铭刻已达到突破节点，请完成突破。");
+  }
+  return result;
+}
+
+function getMvpInscriptionView() {
+  state.mvpInscription = normalizeMvpInscriptionState(state.mvpInscription);
+  const runtime = window.RuneFrontierMvpInscriptionRuntime;
+  const context = { mapIndex: state.currentMap || 0, difficulty: state.currentDifficulty || "normal", rebirths: state.hero?.rebirths || 0 };
+  if (runtime && typeof runtime.getMvpInscriptionView === "function") return runtime.getMvpInscriptionView(state.mvpInscription, context);
+  return { stageName: "波利王铭刻", level: 1, exp: 0, nextRequirement: 120, progress: 0, bonuses: {} };
+}
+
+function tickMvpInscription(elapsedSeconds) {
+  if (backgroundStartedAt || document.hidden || state.paused || Number(state.hero?.currentHp || 0) <= 0) return;
+  const dt = Math.min(60, Math.max(0, Number(elapsedSeconds || 0)));
+  if (!dt) return;
+  state.mvpInscription = normalizeMvpInscriptionState(state.mvpInscription);
+  const runtime = window.RuneFrontierMvpInscriptionRuntime;
+  const perMinute = runtime?.calculateMvpInscriptionOnlinePerMinute?.({
+    mapIndex: state.currentMap || 0,
+    difficulty: state.currentDifficulty || "normal",
+    rebirths: state.hero?.rebirths || 0,
+  }) || 0;
+  if (perMinute > 0) gainMvpInscriptionExp((perMinute * dt) / 60, { source: "online", silentBlocked: true });
+  state.mvpInscription.lastOnlineTickAt = Date.now();
+}
+
+function grantMvpInscriptionKillExp(payload = {}) {
+  state.mvpInscription = normalizeMvpInscriptionState(state.mvpInscription);
+  const runtime = window.RuneFrontierMvpInscriptionRuntime;
+  const amount = runtime?.calculateMvpInscriptionMonsterExp?.({
+    ...payload,
+    heroLevel: state.hero?.baseLevel || 1,
+    currentMapIndex: state.currentMap || 0,
+    bestMapIndex: state.bestMap || 0,
+  }) || 0;
+  return gainMvpInscriptionExp(amount, {
+    source: payload.isBoss ? "boss" : "monster",
+    monster: payload.monster,
+    map: payload.map,
+    difficulty: payload.difficulty,
+  });
 }
 
 function normalizeZodiacCollection(collection = {}) {
@@ -3661,6 +3762,7 @@ function loop(now) {
   simulateCombatElapsed(elapsedDt);
   updateFloatTexts(dt);
   updateOnlinePlaytime(dt);
+  tickMvpInscription(elapsedDt);
 
   saveTimer += dt;
   if (saveTimer >= 4) {
@@ -13914,9 +14016,7 @@ window.RuneFrontierLegacyOfflineContext = () => Object.freeze({
   canOfflineFullSalvage,
   mergeMaterialReward: mergeMaterialRewardIntoList,
   gainExp,
-  gainMvpInscriptionExp(amount, options) {
-    return window.RuneFrontierMvpInscriptionRuntime?.gainMvpInscriptionExp?.(amount, options);
-  },
+  gainMvpInscriptionExp,
   grantCards(cards) {
     (cards || []).forEach((card) => {
       state.cards[card.cardId] = (state.cards[card.cardId] || 0) + (card.qty || 0);
@@ -14048,6 +14148,7 @@ window.RuneFrontierLegacyCombatContext = () => Object.freeze({
   bossDisplayName,
   gainExp,
   gainVipExp,
+  grantMvpInscriptionKillExp,
   getAutoBossEnabled,
   bossRequirement,
   updateDailyGoalProgress,

@@ -151,6 +151,15 @@ export function settleDefeatedEnemy(payload = {}, context = runtimeContext) {
   } else {
     state.areaKills = Math.min(finite(context.bossRequirement?.()), finite(state.areaKills) + 1);
   }
+  context.grantMvpInscriptionKillExp?.({
+    monster,
+    map,
+    difficulty,
+    isBoss,
+    isMutated: Boolean(monster.mutation),
+    isElite: Boolean(monster.type === 'elite' || monster.mutation),
+    firstBossClear: Boolean(bossResult.firstBossClear),
+  });
 
   const groupHasMoreMonsters = !isBoss && Boolean(context.hasLivingEncounterMembers?.());
   const shouldAutoBossAfterKill = !isBoss && !groupHasMoreMonsters && Boolean(context.isBossChallengeReady?.()) && Boolean(context.getAutoBossEnabled?.());
