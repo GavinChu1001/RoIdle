@@ -1,4 +1,5 @@
 let runtimeContext = {};
+export const BACKGROUND_OFFLINE_THRESHOLD_MS = 15000;
 
 function finite(value) {
   const number = Number(value || 0);
@@ -141,6 +142,34 @@ export function buildOfflineReward(seconds, context = runtimeContext) {
     return { seconds: 0, gold: 0, baseExp: 0, jobExp: 0, equipments: [], cards: [], materials: [] };
   }
   return calculateOfflineRewards(state.hero, Math.max(0, seconds) * 1000, currentMapFn().id, context);
+}
+
+export function shouldSettleBackgroundOffline(elapsedMs, thresholdMs = BACKGROUND_OFFLINE_THRESHOLD_MS) {
+  return Math.max(0, Math.floor(elapsedMs || 0)) >= Math.max(0, Math.floor(thresholdMs || 0));
+}
+
+export function buildBackgroundOfflineReward(
+  startedAt,
+  now = Date.now(),
+  context = runtimeContext,
+  thresholdMs = BACKGROUND_OFFLINE_THRESHOLD_MS,
+) {
+  const elapsedMs = Math.max(0, Math.floor(finite(now) - finite(startedAt)));
+  const seconds = Math.floor(elapsedMs / 1000);
+  if (!shouldSettleBackgroundOffline(elapsedMs, thresholdMs)) {
+    return {
+      settled: false,
+      elapsedMs,
+      seconds: 0,
+      rewards: context.createEmptyRewards?.() || { seconds: 0, gold: 0, baseExp: 0, jobExp: 0, equipments: [], cards: [], materials: [] },
+    };
+  }
+  return {
+    settled: true,
+    elapsedMs,
+    seconds,
+    rewards: buildOfflineReward(seconds, context),
+  };
 }
 
 export function getPendingOfflineRewards(context = runtimeContext) {
@@ -450,6 +479,9 @@ export function installOfflineRuntime(context = {}) {
   const runtime = Object.freeze({
     calculateOfflineRewards,
     buildOfflineReward,
+    buildBackgroundOfflineReward,
+    shouldSettleBackgroundOffline,
+    backgroundOfflineThresholdMs: BACKGROUND_OFFLINE_THRESHOLD_MS,
     buildOfflineMonsterStats,
     estimateMapAverageMonsterHp,
     claimOffline: claimOfflineRewards,

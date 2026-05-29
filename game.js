@@ -1543,9 +1543,11 @@ const FAST_RENDER_INTERVAL_MS = 100;
 const COMBAT_PAGE_REFRESH_INTERVAL_MS = 300;
 const PASSIVE_PAGE_REFRESH_INTERVAL_MS = 2000;
 const SCENE_RENDER_INTERVAL_MS = 33;
+const BACKGROUND_OFFLINE_THRESHOLD_MS = 15000;
 let lastFastRenderAt = 0;
 let lastCombatPageRenderAt = 0;
 let lastSceneRenderAt = 0;
+let backgroundStartedAt = 0;
 let equipmentFilter = "all";
 let equipmentSort = "score";
 let equipmentShowAll = false;
@@ -2044,6 +2046,7 @@ function createDefaultState() {
     playerAttackTimer: 0,
     damageCarry: 0,
     regenTimer: 0,
+    potionCooldown: 0,
     offlinePending: null,
     offlineRewards: defaultOfflineRewards(),
     hero: {
@@ -2089,7 +2092,7 @@ function createDefaultState() {
     shopState: { dailyPurchases: {}, weeklyPurchases: {}, totalPurchases: {}, lastDailyRefresh: "", lastWeeklyRefresh: "" },
     autoSalvage: { enabled: false, maxRarity: "normal", autoDismantleAbyss: false },
     autoDismantleAbyss: false,
-    settings: { autoBoss: false, autoBossCooldownUntil: 0, soundEnabled: false, soundVolume: 0.55 },
+    settings: { autoBoss: false, autoBossCooldownUntil: 0, autoPotion: false, soundEnabled: false, soundVolume: 0.55 },
     zodiacCollection: {},
     costumes: { owned: [], equipped: { back: null } },
     mapExploration: {},
@@ -2157,7 +2160,9 @@ function cacheElements() {
     "midHero",
     "backHero",
     "bossButton",
+    "potionButton",
     "autoBossToggle",
+    "autoPotionToggle",
     "claimButton",
     "offlineEntry",
     "offlineEntryTitle",
@@ -2260,9 +2265,19 @@ function bindEvents() {
   els.bossButton.addEventListener("click", () => {
     challengeBoss({ auto: false });
   });
+  if (els.potionButton) {
+    els.potionButton.addEventListener("click", () => {
+      useHealingPotion({ auto: false });
+    });
+  }
   if (els.autoBossToggle) {
     els.autoBossToggle.addEventListener("change", (event) => {
       setAutoBossEnabled(event.target.checked);
+    });
+  }
+  if (els.autoPotionToggle) {
+    els.autoPotionToggle.addEventListener("change", (event) => {
+      setAutoPotionEnabled(event.target.checked);
     });
   }
 
@@ -2711,16 +2726,29 @@ els.vipPanel.addEventListener("click", (event) => {
     }
   });
 
-  window.addEventListener("beforeunload", save);
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+  window.addEventListener("blur", handleBackgroundStart);
+  window.addEventListener("focus", handleForegroundResume);
+  window.addEventListener("pagehide", handlePageHide);
+  window.addEventListener("beforeunload", handleBeforeUnload);
 }
 
+const HEALING_POTION_HEAL_PCT = 0.30;
+const HEALING_POTION_COOLDOWN = 8;
+const AUTO_POTION_HP_RATIO = 0.35;
+
 function ensureSettings() {
-  state.settings = { autoBoss: false, autoBossCooldownUntil: 0, soundEnabled: false, soundVolume: 0.55, ...(state.settings || {}) };
+  state.settings = { autoBoss: false, autoBossCooldownUntil: 0, autoPotion: false, soundEnabled: false, soundVolume: 0.55, ...(state.settings || {}) };
   if (typeof state.autoBoss !== "undefined") {
     state.settings.autoBoss = Boolean(state.settings.autoBoss || state.autoBoss);
     delete state.autoBoss;
   }
+  if (typeof state.autoPotion !== "undefined") {
+    state.settings.autoPotion = Boolean(state.settings.autoPotion || state.autoPotion);
+    delete state.autoPotion;
+  }
   state.settings.autoBoss = Boolean(state.settings.autoBoss);
+  state.settings.autoPotion = Boolean(state.settings.autoPotion);
   state.settings.autoBossCooldownUntil = Math.max(0, Number(state.settings.autoBossCooldownUntil) || 0);
   state.settings.soundEnabled = Boolean(state.settings.soundEnabled);
   state.settings.soundVolume = clampNumber(Number(state.settings.soundVolume) || 0.55, 0, 1);
@@ -2748,6 +2776,89 @@ function setAutoBossEnabled(enabled) {
 
 function toggleAutoBoss() {
   setAutoBossEnabled(!getAutoBossEnabled());
+}
+
+function getHealingPotionCost() {
+  const level = Math.max(1, Number(state.hero?.baseLevel || 1));
+  const mapIndex = Math.max(0, Number(state.currentMap || 0));
+  const difficultyScale = { normal: 1, hard: 2.2, abyss: 4 }[state.currentDifficulty] || 1;
+  return Math.max(10, Math.round((10 + level * 2 + mapIndex * 8) * difficultyScale));
+}
+
+function getHealingPotionInfo(stats = null) {
+  const maxHp = Math.max(1, Math.round(Number(stats?.maxHp || state.hero?.maxHp || 1)));
+  const currentHp = clampNumber(Number(state.hero?.currentHp || 0), 0, maxHp);
+  const missingHp = Math.max(0, maxHp - currentHp);
+  const healAmount = Math.max(1, Math.round(maxHp * HEALING_POTION_HEAL_PCT));
+  const cooldown = Math.max(0, Number(state.potionCooldown || 0));
+  const cost = getHealingPotionCost();
+  return {
+    maxHp,
+    currentHp,
+    hpRatio: currentHp / maxHp,
+    missingHp,
+    healAmount,
+    effectiveHeal: Math.min(healAmount, missingHp),
+    cooldown,
+    cost,
+    canUse: missingHp > 0 && cooldown <= 0 && Number(state.gold || 0) >= cost,
+  };
+}
+
+function getAutoPotionEnabled() {
+  return Boolean(ensureSettings().autoPotion);
+}
+
+function setAutoPotionEnabled(enabled) {
+  const next = Boolean(enabled);
+  const settings = ensureSettings();
+  if (settings.autoPotion === next) {
+    renderFast(true);
+    return;
+  }
+  settings.autoPotion = next;
+  showToast(settings.autoPotion ? "自动补给已开启" : "自动补给已关闭");
+  addLog(settings.autoPotion ? "已开启自动红药水补给。" : "已关闭自动红药水补给。");
+  renderFast(true);
+  save();
+}
+
+function updatePotionCooldown(dt) {
+  state.potionCooldown = Math.max(0, Number(state.potionCooldown || 0) - Math.max(0, Number(dt || 0)));
+}
+
+function useHealingPotion({ auto = false, stats = null } = {}) {
+  const info = getHealingPotionInfo(stats || computeStats());
+  if (!info.canUse) {
+    if (!auto) {
+      if (info.missingHp <= 0) showToast("生命值已满");
+      else if (info.cooldown > 0) showToast(`红药水冷却中：${Math.ceil(info.cooldown)} 秒`);
+      else showToast(`金币不足，需要 ${formatNumber(info.cost)} 金币`);
+    }
+    return false;
+  }
+  const wasDefeated = info.currentHp <= 0;
+  state.gold = Math.max(0, Number(state.gold || 0) - info.cost);
+  state.hero.currentHp = Math.min(info.maxHp, info.currentHp + info.effectiveHeal);
+  state.potionCooldown = HEALING_POTION_COOLDOWN;
+  if (wasDefeated) state.paused = false;
+  showDamageNumber("player", info.effectiveHeal, "heal");
+  if (els.playerHpBar) {
+    els.playerHpBar.classList.add("player-hp-flash");
+    window.setTimeout(() => els.playerHpBar && els.playerHpBar.classList.remove("player-hp-flash"), 200);
+  }
+  addLog(`${auto ? "自动补给" : "红药水"}：消耗 ${formatNumber(info.cost)} 金币，恢复 ${formatNumber(info.effectiveHeal)} HP。`);
+  renderFast(true);
+  if (!auto) save();
+  return true;
+}
+
+function maybeAutoUsePotion(stats = null) {
+  if (!getAutoPotionEnabled()) return false;
+  const info = getHealingPotionInfo(stats);
+  if (info.hpRatio > AUTO_POTION_HP_RATIO && info.currentHp > 0) return false;
+  if (!info.canUse) return false;
+  return useHealingPotion({ auto: true, stats });
 }
 
 function loadAuth() {
@@ -2944,7 +3055,7 @@ function mergeState(base, saved) {
     codexRewardsClaimed: { monster: { ...(base.codexRewardsClaimed?.monster || {}), ...(saved.codexRewardsClaimed?.monster || {}) }, card: { ...(base.codexRewardsClaimed?.card || {}), ...(saved.codexRewardsClaimed?.card || {}) } },
     autoSalvage: { ...base.autoSalvage, ...(saved.autoSalvage || {}), autoDismantleAbyss: Boolean(saved.autoSalvage?.autoDismantleAbyss || saved.autoDismantleAbyss) },
     autoDismantleAbyss: Boolean(saved.autoDismantleAbyss || saved.autoSalvage?.autoDismantleAbyss),
-    settings: { ...base.settings, ...(saved.settings || {}), autoBoss: Boolean(saved.settings?.autoBoss || saved.autoBoss) },
+    settings: { ...base.settings, ...(saved.settings || {}), autoBoss: Boolean(saved.settings?.autoBoss || saved.autoBoss), autoPotion: Boolean(saved.settings?.autoPotion || saved.autoPotion) },
     zodiacCollection: normalizeZodiacCollection(saved.zodiacCollection || base.zodiacCollection),
     costumes: normalizeCostumes(saved.costumes || base.costumes),
     mapExploration: normalizeMapExploration(saved.mapExploration || base.mapExploration),
@@ -2966,6 +3077,7 @@ function mergeState(base, saved) {
     offlineRewards: normalizeOfflineRewards(saved.offlineRewards || saved.offlinePending || base.offlineRewards),
     floatTexts: [],
     skillLog: Array.isArray(saved.skillLog) ? saved.skillLog.slice(0, 8) : [],
+    potionCooldown: Math.max(0, Number(saved.potionCooldown || 0)),
     equipmentSystemVersion: EQUIPMENT_SYSTEM_VERSION,
     equipmentStatVersion: EQUIPMENT_STAT_VERSION,
     inventory: normalizedInventory,
@@ -3031,6 +3143,7 @@ function sanitizeProgression() {
   state.playerAttackTimer = state.playerAttackTimer || 0;
   state.damageCarry = Math.max(0, Number(state.damageCarry) || 0);
   state.regenTimer = state.regenTimer || 0;
+  state.potionCooldown = Math.max(0, Number(state.potionCooldown || 0));
   ["body", "bodyArmor", "headTop", "accessory"].forEach((slot) => {
     const mapped = normalizeEquipmentSlot(slot);
     if (state.equipped?.[slot] && !state.equipped[mapped]) state.equipped[mapped] = state.equipped[slot];
@@ -3481,11 +3594,12 @@ function gainVipExp(amount) {
   }
 }
 
-function save() {
+function save(options = {}) {
   const runtime = window.RuneFrontierStateRuntime;
-  if (runtime && typeof runtime.save === "function") return runtime.save();
+  if (runtime && typeof runtime.save === "function") return runtime.save(options);
+  const shouldUpdateLastActive = options.updateLastActive !== false;
   state.lastSavedAt = Date.now();
-  state.lastActiveAt = state.lastSavedAt;
+  if (shouldUpdateLastActive) state.lastActiveAt = state.lastSavedAt;
   localStorage.setItem(SAVE_KEY, JSON.stringify(state));
   els.saveState.textContent = auth.token ? "同步中" : "已存档";
   queueRemoteSave();
@@ -3517,13 +3631,88 @@ async function flushRemoteSave() {
   }
 }
 
+function buildBackgroundOfflineReward(startedAt, now = Date.now()) {
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.buildBackgroundOfflineReward === "function") {
+    return runtime.buildBackgroundOfflineReward(startedAt, now);
+  }
+  const elapsedMs = Math.max(0, Math.floor(now - startedAt));
+  const seconds = Math.floor(elapsedMs / 1000);
+  const settled = elapsedMs >= BACKGROUND_OFFLINE_THRESHOLD_MS;
+  return {
+    settled,
+    elapsedMs,
+    seconds: settled ? seconds : 0,
+    rewards: settled ? buildOfflineReward(seconds) : defaultOfflineRewards(),
+  };
+}
+
+function handleBackgroundStart() {
+  if (backgroundStartedAt) return;
+  backgroundStartedAt = Date.now();
+  save({ updateLastActive: false });
+}
+
+function handleForegroundResume() {
+  if (!backgroundStartedAt) return false;
+  const startedAt = backgroundStartedAt;
+  backgroundStartedAt = 0;
+  const result = buildBackgroundOfflineReward(startedAt, Date.now());
+  const elapsedSec = Math.max(0, result.elapsedMs || 0) / 1000;
+  if (result.settled) {
+    state.offlinePending = mergeOfflineRewards(state.offlineRewards, result.rewards);
+    state.offlineRewards = state.offlinePending;
+    showToast("后台挂机收益已结算");
+  }
+  updateRecovery(elapsedSec);
+  updatePotionCooldown(elapsedSec);
+  maybeAutoUsePotion();
+  lastTick = performance.now();
+  save();
+  renderAll();
+  return Boolean(result.settled);
+}
+
+function handleVisibilityChange() {
+  if (document.hidden) {
+    handleBackgroundStart();
+    return;
+  }
+  handleForegroundResume();
+}
+
+function handlePageHide() {
+  if (backgroundStartedAt || document.hidden) {
+    handleBackgroundStart();
+    save({ updateLastActive: false });
+    return;
+  }
+  save();
+}
+
+function handleBeforeUnload() {
+  if (backgroundStartedAt || document.hidden) {
+    save({ updateLastActive: false });
+    return;
+  }
+  save();
+}
+
 function loop(now) {
   const elapsedDt = Math.max(0, (now - lastTick) / 1000);
   const dt = Math.min(0.12, elapsedDt);
   lastTick = now;
   loopDt = dt;
 
+  if (backgroundStartedAt) {
+    loopDt = 0;
+    requestAnimationFrame(loop);
+    return;
+  }
+
   updateRecovery(elapsedDt);
+  updatePotionCooldown(elapsedDt);
+  maybeAutoUsePotion();
   if (!state.paused) updateCombat(dt);
   updateFloatTexts(dt);
   updateOnlinePlaytime(dt);
@@ -7804,6 +7993,35 @@ function renderFast(force = false) {
     els.playerHpBar.classList.toggle("danger", hpRatio < 0.3);
   }
   if (els.playerHpRegen) els.playerHpRegen.textContent = `每 ${HP_REGEN_INTERVAL} 秒恢复 ${formatNumber(stats.hpRegen)} HP`;
+  const potionInfo = getHealingPotionInfo(stats);
+  if (els.potionButton) {
+    els.potionButton.disabled = !potionInfo.canUse;
+    els.potionButton.textContent = potionInfo.cooldown > 0
+      ? `补给 ${Math.ceil(potionInfo.cooldown)}s`
+      : potionInfo.missingHp <= 0
+        ? "补给 已满"
+        : `补给 ${formatNumber(potionInfo.cost)}G`;
+    els.potionButton.title = `红药水：消耗 ${formatNumber(potionInfo.cost)} 金币，恢复 ${formatNumber(potionInfo.healAmount)} HP`;
+    els.potionButton.classList.toggle("is-ready", potionInfo.canUse);
+    els.potionButton.classList.toggle("is-warning", potionInfo.canUse && potionInfo.hpRatio <= 0.4);
+  }
+  if (els.autoPotionToggle) {
+    els.autoPotionToggle.checked = getAutoPotionEnabled();
+    const line = els.autoPotionToggle.closest(".toggle-line");
+    if (line) {
+      const status = getAutoPotionEnabled()
+        ? potionInfo.cooldown > 0
+          ? `冷却 ${Math.ceil(potionInfo.cooldown)}s`
+          : potionInfo.canUse
+            ? "低血量触发"
+            : "待命"
+        : "关闭";
+      [...line.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).forEach((node) => {
+        node.textContent = ` 自动补给：${status}`;
+      });
+      line.classList.toggle("is-on", getAutoPotionEnabled());
+    }
+  }
   els.bossButton.disabled = state.enemyBoss || !isBossChallengeReady();
   if (els.autoBossToggle) {
     els.autoBossToggle.checked = getAutoBossEnabled();

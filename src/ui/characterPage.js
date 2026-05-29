@@ -23,47 +23,85 @@ export function renderHeroes(ctx = charCtx) {
   const prestigeBonus = ctx.getRebirthPrestigeBonuses?.() || {};
   const ratingScores = ctx.calculatePlayerRatingScores?.(stats) || {};
   const critSummary = ctx.formatCritRateSummary?.(stats) || '';
+  const attrKeys = ctx.getAttributeKeys?.() || [];
+  const jobProgress = Math.min(1, F(state.hero?.jobExp) / jobExpCost) * 100;
+  const nextSkillText = nextSkill ? `\u4e0b\u4e2a Job ${nextSkill.level}` : '\u6280\u80fd\u5b8c\u6210';
+  const portraitBg = ctx.imageBackgroundList?.(ctx.classImageCandidates?.(job.id)) || '';
+  const rebirthModeHtml = F(state.hero?.rebirths) > 0 ? `
+        <div class="rebirth-mode-section ro-character-mode">
+          <label class="rebirth-toggle">
+            <input type="checkbox" data-rebirth-mode ${state.rebirthMode ? 'checked' : ''} />
+            <span>\u8f6e\u56de\u6a21\u5f0f</span>
+          </label>
+          <span class="rebirth-seal-count">\u8f6e\u56de\u5370\u8bb0\uff1a${fmtn(state.rebirthSeals || 0)}</span>
+        </div>` : '';
 
-  els.heroList.innerHTML = `<article class="hero-card">
-    <div class="hero-portrait" style="background-image:${ctx.imageBackgroundList?.(ctx.classImageCandidates?.(job.id)) || ''}">
-      <div class="avatar ${job.id}" aria-hidden="true"></div>
-    </div>
-    <div class="hero-info">
-      <div class="hero-title">
+  els.heroList.innerHTML = `<article class="hero-card ro-character-workbench">
+    <section class="ro-character-identity">
+      <div class="hero-portrait ro-character-portrait-card" style="background-image:${portraitBg}">
+        <div class="avatar ${job.id || 'novice'}" aria-hidden="true"></div>
+      </div>
+      <div class="hero-title ro-character-nameplate">
         <strong>${esc(state.hero?.name || '')} \xb7 ${esc(job.name || '')} ${!state.hero?.renameUsed ? '<button class="rename-icon" type="button" data-rename-hero title="\u4fee\u6539\u540d\u5b57">&#9998;</button>' : ''}</strong>
-        <span>BASE ${fmtn(state.hero?.baseLevel || 0)}/${fmtn(maxLevel)} / JOB ${fmtn(state.hero?.jobLevel || 0)} / \u8f6c\u751f ${fmtn(state.hero?.rebirths || 0)}</span>
+        <span>BASE ${fmtn(state.hero?.baseLevel || 0)}/${fmtn(maxLevel)} \xb7 JOB ${fmtn(state.hero?.jobLevel || 0)} \xb7 \u8f6c\u751f ${fmtn(state.hero?.rebirths || 0)}</span>
       </div>
-      <div class="hero-stats">
-        <span>\u6218\u529b ${fmtn(stats.power)}</span><span>\u8f93\u51fa ${fmtn(stats.dps)}</span>
-        <span>\u751f\u547d ${fmtn(state.hero?.currentHp || 0)}/${fmtn(stats.maxHp)}</span><span>\u9632\u5fa1 ${fmtn(stats.defense)}</span>
+      <div class="hero-stats ro-character-stat-strip">
+        <span><small>\u6218\u529b</small>${fmtn(stats.power)}</span>
+        <span><small>\u8f93\u51fa</small>${fmtn(stats.dps)}</span>
+        <span><small>\u751f\u547d</small>${fmtn(state.hero?.currentHp || 0)}/${fmtn(stats.maxHp)}</span>
+        <span><small>\u9632\u5fa1</small>${fmtn(stats.defense)}</span>
       </div>
-      <div class="stat-grid">
+      <div class="ro-character-job-progress">
+        <div class="ro-character-job-meta">
+          <span>JOB EXP</span>
+          <strong>${fmtn(F(state.hero?.jobExp))}/${fmtn(jobExpCost)}</strong>
+        </div>
+        <div class="meter ro-character-job-meter"><div style="width:${jobProgress}%"></div></div>
+      </div>
+    </section>
+
+    <section class="ro-character-growth">
+      <div class="ro-character-section-title">
+        <strong>\u6210\u957f\u5de5\u4f5c\u53f0</strong>
+        <span>${nextSkillText}</span>
+      </div>
+      <div class="hero-actions-inline ro-character-actions">
+        <button class="ro-wood-button" type="button" data-upgrade="base" ${atBaseCap ? 'disabled' : ''}>\u8bad\u7ec3 ${fmtn(ctx.heroTrainCost?.() || 0)}</button>
+        <button class="ro-light-control" type="button" data-batch-upgrade="base" ${atBaseCap ? 'disabled' : ''}>\u6279\u91cf\u8bad\u7ec3</button>
+        <button class="ghost ro-light-control" type="button" data-rebirth ${atBaseCap ? '' : 'disabled'}>\u8f6c\u751f</button>
+      </div>
+      ${rebirthModeHtml}
+      <p class="ro-character-growth-note">${ctx.describeJobGrowth?.() || ''}</p>
+    </section>
+
+    <section class="ro-character-stats-panel">
+      <div class="ro-character-section-title">
+        <strong>\u6218\u6597\u8bfb\u6570</strong>
+        <span>\u6838\u5fc3\u8bc4\u5206</span>
+      </div>
+      <div class="stat-grid ro-character-combat-grid">
         <span>\u653b\u901f ${F(stats.aspd).toFixed(2)}</span><span>\u7269\u653b ${fmtn(stats.atkPower)}</span>
         <span>\u9b54\u653b ${fmtn(stats.matkPower)}</span><span>\u751f\u547d\u6062\u590d \u6bcf ${ctx.getHpRegenInterval?.() || 5} \u79d2 +${fmtn(stats.hpRegen)}</span>
         <span>\u95ea\u907f ${pct(stats.dodgeRate)}</span><span>${critSummary}</span>
-        <span>\u66b4\u51fb\u4f24\u5bb3 ${pct(stats.critDamage || (1.85 + F(stats.critDamageBonus)))}</span>
-        <span>${nextSkill ? `\u4e0b\u4e2a Job ${nextSkill.level}` : '\u6280\u80fd\u5b8c\u6210'}</span>
+        <span>\u66b4\u51fb\u4f24\u5bb3 ${pct(stats.critDamage || (1.85 + F(stats.critDamageBonus)))}</span><span>${nextSkillText}</span>
       </div>
-      <div class="hero-stat-section"><strong>\u6838\u5fc3\u8bc4\u5206</strong><div class="stat-grid">
+      <div class="stat-grid ro-character-rating-grid">
         <span>\u7efc\u5408 ${fmtn(stats.power)}</span><span>\u8f93\u51fa ${fmtn(ratingScores.output)}</span>
         <span>\u751f\u5b58 ${fmtn(ratingScores.survival)}</span><span>Boss ${fmtn(ratingScores.boss)}</span>
         <span>\u6df1\u6e0a ${fmtn(ratingScores.abyss)}</span><span>\u6253\u5b9d ${fmtn(ratingScores.treasure || 0)}</span>
-      </div></div>
-      <div class="attribute-grid">${(ctx.getAttributeKeys?.() || []).map((stat) => `<span>${stat.toUpperCase()} ${attrs[stat]} (${stats.baseAttrs?.[stat] || 0} +${F(attrs[stat]) - F(stats.baseAttrs?.[stat])})<small>\u8bad\u7ec3 ${fsv(stat+'Pct', stats.trainingPct?.[stat] || 0)}</small></span>`).join('')}</div>
-      <div class="hero-actions-inline">
-        <button type="button" data-upgrade="base" ${atBaseCap ? 'disabled' : ''}>\u8bad\u7ec3 ${fmtn(ctx.heroTrainCost?.() || 0)}</button>
-        <button type="button" data-batch-upgrade="base" ${atBaseCap ? 'disabled' : ''}>\u6279\u91cf\u8bad\u7ec3</button>
-        <button class="ghost" type="button" data-rebirth ${atBaseCap ? '' : 'disabled'}>\u8f6c\u751f</button>
       </div>
-      ${F(state.hero?.rebirths) > 0 ? `
-      <div class="rebirth-mode-section">
-        <label class="rebirth-toggle">
-          <input type="checkbox" data-rebirth-mode ${state.rebirthMode ? 'checked' : ''} />
-          <span>\u8f6e\u56de\u6a21\u5f0f</span>
-        </label>
-        <span class="rebirth-seal-count">\u26a1 \u8f6e\u56de\u5370\u8bb0\uff1a${fmtn(state.rebirthSeals || 0)}</span>
-      </div>` : ''}
-      <details class="hero-details" ${state.heroDetailsOpen !== false ? 'open' : ''}>
+      <div class="attribute-grid ro-character-attribute-grid">${attrKeys.map((stat) => `<span>${stat.toUpperCase()} ${attrs[stat]} (${stats.baseAttrs?.[stat] || 0} +${F(attrs[stat]) - F(stats.baseAttrs?.[stat])})<small>\u8bad\u7ec3 ${fsv(stat+'Pct', stats.trainingPct?.[stat] || 0)}</small></span>`).join('')}</div>
+    </section>
+
+    <section class="ro-character-skill-board">
+      <div class="ro-character-section-title">
+        <strong>\u6280\u80fd\u724c\u7ec4</strong>
+        <span>\u788e\u7247\u5347\u7ea7\u4e0e\u88ab\u52a8\u673a\u5236</span>
+      </div>
+      <section class="skill-panel">${ctx.renderSkillPanel?.() || ''}</section>
+    </section>
+
+    <details class="hero-details ro-character-detail-drawer" ${state.heroDetailsOpen !== false ? 'open' : ''}>
         <summary>\u5c5e\u6027\u6765\u6e90 \xb7 \u5957\u88c5 \xb7 \u79f0\u53f7</summary>
         ${ctx.renderCharacterStatSections?.(stats) || ''}
         ${ctx.renderCharacterStatBreakdown?.(stats) || ''}
@@ -76,11 +114,7 @@ export function renderHeroes(ctx = charCtx) {
           <small>\u7a00\u6709+ +${pct(prestigeBonus.rarePlusWeightBonus)} \xb7 \u53f2\u8bd7+ +${pct(prestigeBonus.epicPlusWeightBonus)} \xb7 \u4f20\u8bf4+ +${pct(prestigeBonus.legendPlusWeightBonus)} \xb7 \u6697\u91d1+ +${pct(prestigeBonus.darkGoldPlusWeightBonus)} \xb7 \u795e\u8bdd +${pct(prestigeBonus.mythicWeightBonus)}</small>
         </section>
         ${renderRebirthResearchPanel(state, fmtn)}
-        <p class="job-growth">${ctx.describeJobGrowth?.() || ''}</p>
       </details>
-      <section class="skill-panel">${ctx.renderSkillPanel?.() || ''}</section>
-      <div class="meter"><div style="width:${Math.min(1, F(state.hero?.jobExp) / jobExpCost) * 100}%"></div></div>
-    </div>
   </article>`;
 }
 

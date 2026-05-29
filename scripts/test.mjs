@@ -43,6 +43,7 @@ const monsterSource = read('src/systems/combat/monster.js');
 const taskPageSource = read('src/ui/taskPage.js');
 const cardPageSource = read('src/ui/cardPage.js');
 const equipmentPageSource = read('src/ui/equipmentPage.js');
+const characterPageSource = read('src/ui/characterPage.js');
 const onboardingSource = read('src/systems/onboarding.js');
 const onboardingGuideSource = read('src/ui/onboardingGuide.js');
 
@@ -102,7 +103,7 @@ assert.match(html, /id="bossButton"[^>]*class="[^"]*ro-wood-button/, 'Boss actio
 assert.match(html, /class="summary-panel[^"]*ro-command-sidebar/, 'sidebar should use compact command styling');
 for (const id of [
   "pauseButton", "sceneCanvas", "playerHpBar", "enemyHpBar", "enemyStatusBar",
-  "skillCastBanner", "skillBarV3", "autoBossToggle", "claimButton",
+  "skillCastBanner", "skillBarV3", "autoBossToggle", "potionButton", "autoPotionToggle", "claimButton",
   "offlineViewButton", "combatSidebar", "questList", "townTips"
 ]) {
   assert.match(html, new RegExp(`id="${id}"`), `${id} must remain available to the active runtime`);
@@ -144,6 +145,27 @@ assert.match(styles, /\.ro-skill-dock\s*\{/, 'RO skill dock styling should exist
 assert.match(styles, /\.ro-battle-action-strip\s*\{/, 'RO battle action strip styling should exist');
 assert.match(styles, /\.ro-command-sidebar\s*\{/, 'RO sidebar styling should exist');
 assert.match(styles, /\.ro-boss-action\s*\{/, 'Boss action hierarchy should exist');
+assert.match(characterPageSource, /class="hero-card[^"]*ro-character-workbench/, 'Character page should render the hero card as an RO workbench.');
+assert.match(characterPageSource, /ro-character-identity[\s\S]*ro-character-growth[\s\S]*ro-character-stats-panel[\s\S]*ro-character-skill-board[\s\S]*ro-character-detail-drawer/, 'Character workbench should expose identity, growth, stats, skills, and details zones.');
+for (const attr of [
+  'data-upgrade="base"',
+  'data-batch-upgrade="base"',
+  'data-rebirth',
+  'data-rebirth-mode',
+  'data-rename-hero',
+  'data-skill-upgrade',
+  'data-stat-panel-toggle',
+]) {
+  assert.match(characterPageSource, new RegExp(attr), `Character workbench must preserve ${attr}.`);
+}
+assert.match(styles, /\.ro-character-workbench\s*\{/, 'Character workbench styling should exist.');
+assert.match(styles, /\.ro-character-identity\s*\{/, 'Character identity styling should exist.');
+assert.match(styles, /\.ro-character-growth\s*\{/, 'Character growth panel styling should exist.');
+assert.match(styles, /\.ro-character-stats-panel\s*\{/, 'Character stats panel styling should exist.');
+assert.match(styles, /\.ro-character-skill-board\s*\{/, 'Character skill board styling should exist.');
+assert.match(styles, /\.ro-character-detail-drawer\s*\{/, 'Character detail drawer styling should exist.');
+assert.match(styles, /@media\s*\(max-width:\s*820px\)[\s\S]*\.ro-character-workbench/, 'Character workbench should have tablet/mobile layout rules.');
+assert.match(styles, /@media\s*\(max-width:\s*640px\)[\s\S]*\.ro-character-skill-board/, 'Character skill board should have phone-safe layout rules.');
 assert.match(
   styles,
   /@media\s*\(max-width:\s*820px\)[\s\S]*\.ro-mobile-nav/,
@@ -248,6 +270,10 @@ assert.match(game, /runtime\.updateMonsterAttack/, 'Monster counterattacks must 
 assert.match(game, /runtime\.updateRecovery/, 'Recovery ticks must forward to the combat runtime.');
 assert.match(game, /runtime\.rollActiveSkill/, 'Active-skill execution must forward to the combat runtime.');
 assert.match(game, /resetUnsafeEarlyEncounter,/, 'Combat runtime context must expose the fresh-start encounter reset hook.');
+assert.match(game, /function\s+useHealingPotion\s*\(/, 'Gold potion healing must expose a manual action.');
+assert.match(game, /function\s+maybeAutoUsePotion\s*\(/, 'Gold potion healing must expose an automatic combat check.');
+assert.match(game, /potionCooldown:\s*0/, 'Default state must track potion cooldown.');
+assert.match(game, /autoPotion:\s*false/, 'Settings must track automatic potion usage.');
 assert.match(game, /const FAST_RENDER_INTERVAL_MS\s*=\s*100/, 'Fast HUD rendering must remain throttled.');
 assert.match(game, /const PASSIVE_PAGE_REFRESH_INTERVAL_MS\s*=\s*2000/, 'Background combat updates must not continuously rebuild heavy pages.');
 assert.match(game, /const SCENE_RENDER_INTERVAL_MS\s*=\s*33/, 'Visible battle scene rendering must remain frame-capped.');
@@ -257,7 +283,7 @@ assert.match(game, /function updateOnlinePlaytime\s*\(dt\)/, 'Online-time reward
 assert.match(game, /estimateGoldPerSecond\(stats\)/, 'Fast HUD updates must reuse the already computed stat snapshot.');
 assert.match(game, /activePage\s*===\s*"adventure"[\s\S]*drawScene\(now\s*\/\s*1000\)/, 'Hidden pages must not continue drawing the battle canvas.');
 assert.match(game, /runtime\.normalizeDamage/, 'Damage normalization must forward to the combat runtime.');
-assert.equal((game.match(/requestAnimationFrame\(loop\);/g) || []).length, 2, 'Loop registration shape changed unexpectedly.');
+assert.equal((game.match(/requestAnimationFrame\(loop\);/g) || []).length, 3, 'Loop registration shape changed unexpectedly.');
 assert.match(game, /const elapsedDt = Math\.max\(0,\s*\(now - lastTick\) \/ 1000\);[\s\S]*const dt = Math\.min\(0\.12,\s*elapsedDt\);/, 'The main loop must keep uncapped elapsed time for page-background recovery.');
 assert.match(game, /updateRecovery\(elapsedDt\);/, 'Recovery ticks must receive uncapped elapsed time so hidden-tab time is not lost.');
 
@@ -1109,6 +1135,54 @@ assert.match(offlineSource, /rollOfflineEquipmentDrops,/, 'Legacy Offline roll a
 assert.match(offlineSource, /rollOfflineTransitionSetDrops,/, 'Offline transition-set routing must be exported.');
 assert.match(offlineSource, /rollOfflineMutationExtraDrops,/, 'Offline mutation routing must be exported.');
 assert.match(game, /RuneFrontierLegacyOfflineContext[\s\S]*rollEquipmentDropsFromTable/, 'Offline LegacyContext must provide equipment drop table routing.');
+assert.equal(offline.shouldSettleBackgroundOffline(14999), false, 'Short background pauses should resume normal combat without offline settlement.');
+assert.equal(offline.shouldSettleBackgroundOffline(15000), true, 'Background pauses at the threshold should settle through offline rewards.');
+const backgroundOfflineState = {
+  hero: { currentHp: 100 },
+  inventory: [],
+  currentDifficulty: 'normal',
+};
+const backgroundOfflineContext = {
+  getState: () => backgroundOfflineState,
+  createEmptyRewards: () => ({ seconds: 0, gold: 0, baseExp: 0, jobExp: 0, equipments: [], cards: [], materials: [], autoSalvagedMaterials: {}, skippedEquipment: 0 }),
+  currentMap: () => ({ id: 'grass', minLevel: 1, maxLevel: 1, monsters: [{ id: 'poring', levelRange: [1, 1] }] }),
+  getMaps: () => [{ id: 'grass', minLevel: 1, maxLevel: 1, monsters: [{ id: 'poring', levelRange: [1, 1] }] }],
+  computeStats: () => ({
+    dps: 20,
+    maxHp: 100,
+    goldMultiplier: 1,
+    monsterGoldMultiplier: 1,
+    baseExpMultiplier: 1,
+    jobExpMultiplier: 1,
+    offlineEfficiencyBonus: 0,
+  }),
+  getDifficultyConfig: () => ({ cardDrop: 0, materialDrop: 0 }),
+  getVipMilestoneBonuses: () => ({}),
+  getOfflineEfficiency: () => 1,
+  getOfflineMaxKills: () => 999,
+  getMaxOfflineSeconds: () => 3600,
+  buildMonsterStats: () => ({ maxHp: 10, gold: 2, exp: 3, jobExp: 1 }),
+  pickMonsterTemplate: () => ({ id: 'poring', levelRange: [1, 1] }),
+  rollMonsterLevel: () => 1,
+  rollMonsterMutation: () => null,
+  getCardDropTable: () => [],
+  getMaterialDropTable: () => [],
+  getZodiacSetIds: () => [],
+  getTransitionSetIds: () => [],
+  getMythicDropRates: () => ({ abyssNormal: 0 }),
+  getMutationExtraDrops: () => ({ materialBonusRate: 0, rareMaterialBonusRate: 0 }),
+  gainMapExploration: () => {},
+};
+const shortBackgroundReward = offline.buildBackgroundOfflineReward(100000, 114999, backgroundOfflineContext);
+assert.equal(shortBackgroundReward.settled, false, 'Background reward builder should ignore short tab switches.');
+const settledBackgroundReward = offline.buildBackgroundOfflineReward(100000, 130000, backgroundOfflineContext);
+assert.equal(settledBackgroundReward.settled, true, 'Background reward builder should settle longer hidden time.');
+assert.equal(settledBackgroundReward.rewards.killCount, 60, 'Background settlement should reuse the offline DPS-to-kill formula.');
+assert.equal(settledBackgroundReward.rewards.gold, 120, 'Background settlement should include offline gold rewards.');
+assert.match(game, /function\s+handleBackgroundStart\s*\(/, 'Runtime must track when the page enters the background.');
+assert.match(game, /save\(\{\s*updateLastActive:\s*false\s*\}\)/, 'Background saves must preserve lastActiveAt for offline accounting.');
+assert.match(game, /function\s+handleForegroundResume\s*\(/, 'Runtime must settle hidden time when the page returns to the foreground.');
+assert.match(game, /if\s*\(backgroundStartedAt\)\s*\{[\s\S]*requestAnimationFrame\(loop\);[\s\S]*return;[\s\S]*\}/, 'The main loop must not run throttled combat frames while backgrounded.');
 const generatedRewards = { equipments: [], materials: [] };
 const generatedMaterials = [];
 const generatedContext = {
