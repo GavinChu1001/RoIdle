@@ -10496,129 +10496,104 @@ details > summary::marker {
     0 0 8px rgba(90, 230, 116, 0.46);
 }
 
-.combat-impact {
+.ro-vfx {
+  --vfx-x: 0px;
+  --vfx-y: 0px;
+  --vfx-rotate: 0deg;
+  --vfx-scale: 1;
+  --vfx-hue: 0deg;
+  --vfx-sat: 1;
+  --vfx-bright: 1;
   position: absolute;
-  z-index: 6;
+  z-index: 7;
+  display: block;
   pointer-events: none;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
   image-rendering: pixelated;
-  transform: translate(-50%, -50%);
+  filter:
+    hue-rotate(var(--vfx-hue))
+    saturate(var(--vfx-sat))
+    brightness(var(--vfx-bright))
+    drop-shadow(0 0 7px rgba(255, 221, 111, 0.58));
+  transform: translate(-50%, -50%) rotate(var(--vfx-rotate)) scale(var(--vfx-scale));
+  will-change: opacity, transform;
+}
+
+.combat-impact {
+  z-index: 6;
 }
 
 .combat-spark {
-  --spark-x: 18px;
-  --spark-y: -12px;
-  --spark-rotate: 0deg;
-  --spark-color: #fff0b4;
-  position: absolute;
-  z-index: 7;
-  width: 7px;
-  height: 7px;
-  pointer-events: none;
-  background: var(--spark-color);
-  box-shadow:
-    0 0 0 1px rgba(72, 35, 12, 0.42),
-    0 0 10px rgba(255, 219, 97, 0.68);
-  image-rendering: pixelated;
-  transform: translate(-50%, -50%) rotate(var(--spark-rotate));
-  animation: roImpactSpark 620ms steps(4, end) forwards;
+  z-index: 8;
 }
 
-.combat-spark-strike {
-  width: 6px;
-  height: 6px;
+.ro-vfx-slash {
+  width: 156px;
+  height: 132px;
+  background-image: url("assets/ui/fx/hit-slash.png");
+  animation: roVfxSlash 720ms steps(5, end) forwards;
 }
 
-.combat-spark-crit {
-  --spark-color: #ff6a35;
-  width: 10px;
-  height: 10px;
-  box-shadow:
-    0 0 0 1px rgba(86, 24, 8, 0.54),
-    0 0 14px rgba(255, 93, 39, 0.78);
-  animation-duration: 760ms;
+.ro-vfx-crit {
+  width: 178px;
+  height: 178px;
+  background-image: url("assets/ui/fx/hit-crit.png");
+  animation: roVfxCrit 860ms steps(5, end) forwards;
 }
 
-.combat-spark-skill {
-  --spark-color: #fff4a8;
-  width: 8px;
-  height: 8px;
+.ro-vfx-spark {
+  width: 82px;
+  height: 82px;
+  background-image: url("assets/ui/fx/hit-spark.png");
+  animation: roVfxSpark 680ms steps(4, end) forwards;
 }
 
-.combat-impact-strike {
-  width: 116px;
-  height: 28px;
-  border-top: 8px solid rgba(255, 250, 218, 0.98);
-  border-bottom: 4px solid rgba(255, 188, 65, 0.95);
-  box-shadow:
-    0 0 0 1px rgba(94, 46, 18, 0.16),
-    0 0 14px rgba(255, 221, 111, 0.78);
-  animation: roStrikeFlash 620ms steps(4, end) forwards;
+.ro-vfx-skill {
+  width: 164px;
+  height: 148px;
+  background-image: url("assets/ui/fx/hit-skill.png");
+  animation: roVfxSkill 780ms steps(5, end) forwards;
 }
 
-.combat-impact-crit {
-  width: 108px;
-  height: 108px;
-  background:
-    radial-gradient(circle, rgba(255, 255, 224, 0.98) 0 11%, transparent 12%),
-    radial-gradient(circle, rgba(255, 149, 54, 0.48) 0 28%, transparent 29%),
-    repeating-conic-gradient(from 0deg, rgba(255, 72, 28, 0.95) 0 10deg, transparent 10deg 22deg);
-  filter: drop-shadow(0 0 16px rgba(255, 96, 42, 0.74));
-  animation: roCritBurst 780ms steps(5, end) forwards;
-}
-
-.combat-impact-skill {
-  width: 126px;
-  height: 88px;
-  border: 2px solid rgba(255, 236, 154, 0.86);
-  border-radius: 50%;
-  background:
-    radial-gradient(circle, rgba(255, 248, 204, 0.64) 0 10%, transparent 11%),
-    repeating-conic-gradient(from 0deg, rgba(255, 230, 128, 0.48) 0 8deg, transparent 8deg 22deg);
-  box-shadow: 0 0 16px rgba(255, 221, 111, 0.42);
-  animation: roSkillRing 720ms cubic-bezier(0.15, 0.78, 0.27, 1) forwards;
-}
-
-.combat-impact-player-hit {
-  width: 72px;
-  height: 58px;
-  background:
-    linear-gradient(24deg, transparent 0 41%, rgba(255, 240, 218, 0.9) 42% 48%, rgba(255, 91, 63, 0.82) 49% 56%, transparent 57%),
-    linear-gradient(-28deg, transparent 0 39%, rgba(255, 188, 140, 0.82) 40% 50%, transparent 51%);
-  animation: roPlayerHit 420ms steps(3, end) forwards;
+.combat-impact-player-hit.ro-vfx-spark {
+  width: 92px;
+  height: 92px;
+  --vfx-hue: -12deg;
+  --vfx-sat: 1.08;
 }
 
 .combat-impact-tone-fire {
-  border-color: rgba(255, 178, 91, 0.9);
-  box-shadow: 0 0 18px rgba(255, 105, 54, 0.45);
+  --vfx-hue: -10deg;
+  --vfx-sat: 1.18;
+  --vfx-bright: 1.04;
 }
 
 .combat-impact-tone-ice {
-  border-color: rgba(177, 237, 255, 0.9);
-  box-shadow: 0 0 18px rgba(104, 185, 255, 0.42);
+  --vfx-hue: 165deg;
+  --vfx-sat: 1.15;
+  --vfx-bright: 1.04;
 }
 
 .combat-impact-tone-shadow {
-  border-color: rgba(210, 180, 255, 0.88);
-  box-shadow: 0 0 18px rgba(119, 76, 185, 0.48);
+  --vfx-hue: 64deg;
+  --vfx-sat: 1.08;
+  --vfx-bright: 0.96;
 }
 
 .combat-impact-tone-holy,
 .combat-impact-tone-support {
-  border-color: rgba(255, 250, 198, 0.92);
-  box-shadow: 0 0 18px rgba(255, 240, 150, 0.48);
+  --vfx-hue: 10deg;
+  --vfx-sat: 0.9;
+  --vfx-bright: 1.12;
 }
 
 .combat-impact-tone-storm {
-  border-color: rgba(191, 218, 255, 0.9);
-  box-shadow: 0 0 18px rgba(120, 158, 255, 0.45);
+  --vfx-hue: 185deg;
+  --vfx-sat: 1.08;
+  --vfx-bright: 1.02;
 }
-
-.combat-spark.combat-impact-tone-fire { --spark-color: #ff9a45; }
-.combat-spark.combat-impact-tone-ice { --spark-color: #bfeeff; }
-.combat-spark.combat-impact-tone-shadow { --spark-color: #d8c0ff; }
-.combat-spark.combat-impact-tone-holy,
-.combat-spark.combat-impact-tone-support { --spark-color: #fff8cf; }
-.combat-spark.combat-impact-tone-storm { --spark-color: #cce0ff; }
 
 .skill-cast-feedback {
   z-index: 8;
@@ -10668,68 +10643,51 @@ details > summary::marker {
   100% { filter: brightness(1); }
 }
 
-@keyframes roImpactSpark {
+@keyframes roVfxSlash {
+  0% { opacity: 0; transform: translate(-50%, -50%) rotate(var(--vfx-rotate)) scale(0.7); }
+  22% { opacity: 1; transform: translate(-50%, -50%) rotate(var(--vfx-rotate)) scale(var(--vfx-scale)); }
+  72% { opacity: 0.9; transform: translate(-50%, -50%) rotate(var(--vfx-rotate)) scale(var(--vfx-scale)); }
+  100% { opacity: 0; transform: translate(-50%, -50%) rotate(var(--vfx-rotate)) scale(1.08); }
+}
+
+@keyframes roVfxCrit {
+  0% { opacity: 0; transform: translate(-50%, -50%) rotate(var(--vfx-rotate)) scale(0.45); }
+  34% { opacity: 1; transform: translate(-50%, -50%) rotate(var(--vfx-rotate)) scale(1.05); }
+  78% { opacity: 0.94; transform: translate(-50%, -50%) rotate(var(--vfx-rotate)) scale(var(--vfx-scale)); }
+  100% { opacity: 0; transform: translate(-50%, -50%) rotate(var(--vfx-rotate)) scale(1.12); }
+}
+
+@keyframes roVfxSkill {
+  0% { opacity: 0; transform: translate(-50%, -50%) rotate(var(--vfx-rotate)) scale(0.58); }
+  26% { opacity: 1; transform: translate(-50%, -50%) rotate(var(--vfx-rotate)) scale(1.02); }
+  76% { opacity: 0.9; transform: translate(-50%, -50%) rotate(var(--vfx-rotate)) scale(var(--vfx-scale)); }
+  100% { opacity: 0; transform: translate(-50%, -50%) rotate(var(--vfx-rotate)) scale(1.08); }
+}
+
+@keyframes roVfxSpark {
   0% {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(0.45) rotate(var(--spark-rotate));
+    transform: translate(-50%, -50%) rotate(var(--vfx-rotate)) scale(0.65);
   }
-  25% {
+  26% {
     opacity: 1;
-    transform: translate(calc(-50% + var(--spark-x) * 0.38), calc(-50% + var(--spark-y) * 0.38)) scale(1) rotate(var(--spark-rotate));
+    transform: translate(calc(-50% + var(--vfx-x) * 0.25), calc(-50% + var(--vfx-y) * 0.25)) rotate(var(--vfx-rotate)) scale(var(--vfx-scale));
   }
   100% {
     opacity: 0;
-    transform: translate(calc(-50% + var(--spark-x)), calc(-50% + var(--spark-y))) scale(0.35) rotate(var(--spark-rotate));
+    transform: translate(calc(-50% + var(--vfx-x)), calc(-50% + var(--vfx-y))) rotate(var(--vfx-rotate)) scale(0.82);
   }
 }
 
-@keyframes roStrikeFlash {
-  0% { opacity: 0; transform: translate(-50%, -50%) rotate(-18deg) scaleX(0.45); }
-  38% { opacity: 1; transform: translate(-50%, -50%) rotate(-18deg) scaleX(1); }
-  100% { opacity: 0; transform: translate(-50%, -50%) rotate(-18deg) scaleX(1.12); }
-}
-
-@keyframes roCritBurst {
-  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.35) rotate(0deg); }
-  42% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(8deg); }
-  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.2) rotate(18deg); }
-}
-
-@keyframes roSkillRing {
-  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.42); }
-  34% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.18); }
-}
-
-@keyframes roPlayerHit {
-  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.68); }
-  35% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.08); }
-}
-
-@keyframes roReducedCombatFlash {
+@keyframes roVfxReducedHold {
   0%,
   96% {
-    opacity: 0.92;
-    filter: brightness(1.12);
-    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.94;
+    transform: translate(-50%, -50%) rotate(var(--vfx-rotate)) scale(var(--vfx-scale));
   }
   100% {
     opacity: 0;
-    filter: brightness(1);
-    transform: translate(-50%, -50%) scale(1);
-  }
-}
-
-@keyframes roReducedCombatSpark {
-  0%,
-  96% {
-    opacity: 0.95;
-    transform: translate(-50%, -50%) rotate(var(--spark-rotate));
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-50%, -50%) rotate(var(--spark-rotate));
+    transform: translate(-50%, -50%) rotate(var(--vfx-rotate)) scale(var(--vfx-scale));
   }
 }
 
@@ -10755,29 +10713,30 @@ details > summary::marker {
     font-size: 1.22rem;
   }
 
-  .combat-impact-skill {
-    width: 104px;
-    height: 74px;
+  .ro-vfx-slash {
+    width: 124px;
+    height: 108px;
   }
 
-  .combat-spark {
-    width: 5px;
-    height: 5px;
+  .ro-vfx-crit {
+    width: 138px;
+    height: 138px;
   }
 
-  .combat-spark-crit {
-    width: 7px;
-    height: 7px;
+  .ro-vfx-spark {
+    width: 66px;
+    height: 66px;
+  }
+
+  .ro-vfx-skill {
+    width: 132px;
+    height: 118px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .combat-impact {
-    animation: roReducedCombatFlash 860ms steps(1, end) forwards !important;
-  }
-
-  .combat-spark {
-    animation: roReducedCombatSpark 840ms steps(1, end) forwards !important;
+  .ro-vfx {
+    animation: roVfxReducedHold 880ms steps(1, end) forwards !important;
   }
 
   .damage-float.damage-number {

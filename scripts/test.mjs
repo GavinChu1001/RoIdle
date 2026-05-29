@@ -1,11 +1,24 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
 import { createContext, runInContext } from 'node:vm';
 
 const root = new URL('../', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 const read = (file) => readFileSync(join(root, file), 'utf8');
+const readPngInfo = (file) => {
+  const fullPath = join(root, file);
+  assert.ok(existsSync(fullPath), `${file} must exist`);
+  const buffer = readFileSync(fullPath);
+  assert.deepEqual(Array.from(buffer.subarray(0, 8)), [137, 80, 78, 71, 13, 10, 26, 10], `${file} must be a PNG asset`);
+  assert.equal(buffer.subarray(12, 16).toString('ascii'), 'IHDR', `${file} must have a valid PNG IHDR chunk`);
+  return {
+    width: buffer.readUInt32BE(16),
+    height: buffer.readUInt32BE(20),
+    colorType: buffer[25],
+    size: statSync(fullPath).size,
+  };
+};
 const importSource = async (source) => import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 const require = createRequire(import.meta.url);
 const game = read('game.js');
@@ -114,19 +127,30 @@ assert.match(styles, /\.skill-bar-icon\.cooldown\.casting/, 'Casting feedback mu
 assert.match(styles, /\.scene-wrap\.skill-cast-active::after/, 'Skill casts must create a visible battle-scene impact pulse.');
 assert.match(game, /function\s+spawnCombatSparks\s*\(/, 'Combat impacts should spawn lightweight pixel spark accents.');
 assert.match(game, /spawnCombatSparks\(wrap,\s*target,\s*type,\s*tone\)/, 'Slash and critical impacts should trigger pixel sparks through the shared combat impact hook.');
-assert.match(styles, /\.combat-spark\s*\{/, 'Combat sparks should have a dedicated pixel effect class.');
-assert.match(styles, /@keyframes\s+roImpactSpark\s*\{/, 'Combat sparks should animate with a short pixel-style keyframe.');
-assert.match(html, /styles\.css\?v=20260529-battle-effects-v2/, 'Battle effect CSS should use a fresh cache-busting version.');
-assert.match(html, /game\.js\?v=20260529-battle-effects-v1/, 'Battle effect runtime should use a fresh cache-busting version.');
-assert.match(styles, /\.combat-impact-strike\s*\{[\s\S]*width:\s*116px[\s\S]*animation:\s*roStrikeFlash\s+620ms/, 'Slash impact should be visible long enough for player inspection.');
-assert.match(styles, /\.combat-impact-crit\s*\{[\s\S]*width:\s*108px[\s\S]*animation:\s*roCritBurst\s+780ms/, 'Critical impact should be larger and longer-lived than normal hits.');
-assert.match(styles, /\.combat-spark-crit\s*\{[\s\S]*animation-duration:\s*760ms/, 'Critical sparks should linger enough to read as a burst.');
+assert.match(game, /const\s+COMBAT_VFX_ASSET_TYPES\s*=/, 'Combat impact routing should choose generated VFX asset types explicitly.');
+assert.match(game, /ro-vfx\s+ro-vfx-\$\{vfxType\}/, 'Combat impacts should render generated VFX sprites instead of CSS-only shapes.');
+assert.match(styles, /\.ro-vfx\s*\{[\s\S]*background-repeat:\s*no-repeat/, 'Generated combat VFX should share a sprite display primitive.');
+assert.match(styles, /\.ro-vfx-slash\s*\{[\s\S]*assets\/ui\/fx\/hit-slash\.png/, 'Slash hits should use the generated slash asset.');
+assert.match(styles, /\.ro-vfx-crit\s*\{[\s\S]*assets\/ui\/fx\/hit-crit\.png/, 'Critical hits should use the generated crit burst asset.');
+assert.match(styles, /\.ro-vfx-spark\s*\{[\s\S]*assets\/ui\/fx\/hit-spark\.png/, 'Small impacts should use the generated spark asset.');
+assert.match(styles, /\.ro-vfx-skill\s*\{[\s\S]*assets\/ui\/fx\/hit-skill\.png/, 'Skill hits should use the generated skill arc asset.');
+assert.match(html, /styles\.css\?v=20260529-battle-effects-v3/, 'Battle effect CSS should use a fresh cache-busting version.');
+assert.match(html, /game\.js\?v=20260529-battle-effects-v2/, 'Battle effect runtime should use a fresh cache-busting version.');
+for (const file of [
+  'assets/ui/fx/hit-slash.png',
+  'assets/ui/fx/hit-crit.png',
+  'assets/ui/fx/hit-spark.png',
+  'assets/ui/fx/hit-skill.png',
+]) {
+  const png = readPngInfo(file);
+  assert.equal(png.colorType, 6, `${file} must be RGBA so the generated effect has transparency.`);
+  assert.ok(png.width >= 48 && png.height >= 48, `${file} must remain readable at battle scale.`);
+  assert.ok(png.size > 1024, `${file} must contain real generated effect data.`);
+}
+assert.doesNotMatch(styles, /\.combat-impact-strike\s*\{[\s\S]*border-top:/, 'Slash hits should not fall back to the hard-edged CSS border line.');
 assert.doesNotMatch(styles, /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?\.combat-impact,[\s\S]*?\.combat-spark,[\s\S]*?\.damage-float\.damage-number\s*\{[\s\S]*?animation-duration:\s*1ms\s*!important;[\s\S]*?\}/, 'Reduced-motion combat feedback must not collapse to an invisible final frame.');
-assert.match(styles, /@keyframes\s+roReducedCombatFlash\s*\{/, 'Reduced-motion combat impacts should use a static visible flash keyframe.');
-assert.match(styles, /@keyframes\s+roReducedCombatSpark\s*\{/, 'Reduced-motion combat sparks should use a static visible spark keyframe.');
 assert.match(styles, /@keyframes\s+roReducedDamageFloat\s*\{/, 'Reduced-motion damage numbers should use a readable static keyframe.');
-assert.match(styles, /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?\.combat-impact\s*\{[\s\S]*?animation:\s*roReducedCombatFlash\s+860ms/, 'Reduced-motion combat impacts should remain visible until the runtime removes them.');
-assert.match(styles, /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?\.combat-spark\s*\{[\s\S]*?animation:\s*roReducedCombatSpark\s+840ms/, 'Reduced-motion combat sparks should remain visible until the runtime removes them.');
+assert.match(styles, /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?\.ro-vfx\s*\{[\s\S]*?animation:\s*roVfxReducedHold\s+880ms/, 'Reduced-motion generated VFX should hold a static visible sprite until the runtime removes it.');
 assert.match(styles, /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?\.damage-float\.damage-number\s*\{[\s\S]*?animation:\s*roReducedDamageFloat\s+920ms/, 'Reduced-motion damage numbers should remain readable until the runtime removes them.');
 assert.match(styles, /--ro-parchment:/, 'RO parchment token should exist');
 assert.match(styles, /--ro-wood-top:/, 'RO wood button token should exist');

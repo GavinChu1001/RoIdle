@@ -3846,27 +3846,33 @@ function combatDamageText(value, type, options = {}) {
   return `-${formatNumber(value)}`;
 }
 
+const COMBAT_VFX_ASSET_TYPES = {
+  strike: "slash",
+  crit: "crit",
+  skill: "skill",
+  "player-hit": "spark",
+  spark: "spark",
+};
+
 function spawnCombatSparks(wrap, target, type = "normal", tone = "physical") {
   if (!wrap || type === "heal" || type === "miss") return;
   const sparks = wrap.querySelectorAll(".combat-spark");
-  if (sparks.length > 24) sparks[0].remove();
-  const isCrit = type === "crit";
-  const count = isCrit ? 7 : type === "skill" ? 5 : 3;
+  if (sparks.length > 8) sparks[0].remove();
+  const vfxType = COMBAT_VFX_ASSET_TYPES.spark;
   const baseLeft = target === "monster" ? (type === "skill" ? 70 : 73) : 23;
   const baseTop = target === "monster" ? (type === "skill" ? 43 : 50) : 49;
-  for (let i = 0; i < count; i += 1) {
-    const spark = document.createElement("span");
-    const angle = -70 + (140 / Math.max(1, count - 1)) * i + randomFloat(-12, 12);
-    const distance = isCrit ? randomFloat(22, 42) : randomFloat(12, 26);
-    spark.className = `combat-spark combat-spark-${isCrit ? "crit" : type === "skill" ? "skill" : "strike"} combat-impact-tone-${tone}`;
-    spark.style.left = `${baseLeft + randomFloat(-4, 4)}%`;
-    spark.style.top = `${baseTop + randomFloat(-5, 5)}%`;
-    spark.style.setProperty("--spark-x", `${Math.cos(angle * Math.PI / 180) * distance}px`);
-    spark.style.setProperty("--spark-y", `${Math.sin(angle * Math.PI / 180) * distance}px`);
-    spark.style.setProperty("--spark-rotate", `${randomFloat(-35, 35)}deg`);
-    wrap.appendChild(spark);
-    window.setTimeout(() => spark.remove(), isCrit ? 820 : type === "skill" ? 680 : 640);
-  }
+  const spark = document.createElement("span");
+  const angle = randomFloat(-80, 80);
+  const distance = type === "crit" ? randomFloat(18, 32) : randomFloat(8, 20);
+  spark.className = `ro-vfx ro-vfx-${vfxType} combat-spark combat-impact-tone-${tone}`;
+  spark.style.left = `${baseLeft + randomFloat(-4, 4)}%`;
+  spark.style.top = `${baseTop + randomFloat(-5, 5)}%`;
+  spark.style.setProperty("--vfx-x", `${Math.cos(angle * Math.PI / 180) * distance}px`);
+  spark.style.setProperty("--vfx-y", `${Math.sin(angle * Math.PI / 180) * distance}px`);
+  spark.style.setProperty("--vfx-rotate", `${randomFloat(-24, 24)}deg`);
+  spark.style.setProperty("--vfx-scale", type === "crit" ? "1.05" : type === "skill" ? "0.92" : "0.86");
+  wrap.appendChild(spark);
+  window.setTimeout(() => spark.remove(), type === "crit" ? 820 : type === "skill" ? 720 : 680);
 }
 
 function spawnCombatImpact(wrap, target, type = "normal", tone = "physical") {
@@ -3881,14 +3887,17 @@ function spawnCombatImpact(wrap, target, type = "normal", tone = "physical") {
         ? "skill"
         : "strike"
     : "player-hit";
-  el.className = `combat-impact combat-impact-${impactType} combat-impact-tone-${tone}`;
+  const vfxType = COMBAT_VFX_ASSET_TYPES[impactType] || COMBAT_VFX_ASSET_TYPES.strike;
+  el.className = `ro-vfx ro-vfx-${vfxType} combat-impact combat-impact-${impactType} combat-impact-tone-${tone}`;
   const baseLeft = target === "monster" ? (type === "skill" ? 70 : 73) : 23;
   const baseTop = target === "monster" ? (type === "skill" ? 43 : 50) : 49;
   el.style.left = `${baseLeft + randomFloat(-3, 3)}%`;
   el.style.top = `${baseTop + randomFloat(-5, 5)}%`;
+  el.style.setProperty("--vfx-rotate", type === "crit" ? `${randomFloat(-5, 5)}deg` : type === "skill" ? `${randomFloat(-8, 8)}deg` : `${randomFloat(-10, 4)}deg`);
+  el.style.setProperty("--vfx-scale", type === "crit" ? "1.03" : type === "skill" ? "0.98" : target === "monster" ? "0.92" : "0.82");
   wrap.appendChild(el);
   spawnCombatSparks(wrap, target, type, tone);
-  window.setTimeout(() => el.remove(), type === "skill" ? 820 : type === "crit" ? 840 : 680);
+  window.setTimeout(() => el.remove(), type === "skill" ? 860 : type === "crit" ? 880 : 760);
 }
 
 function showDamageNumber(target, amount, type = "player", options = {}) {
