@@ -6,6 +6,10 @@ function finite(value) {
   return Number.isFinite(number) ? number : 0;
 }
 
+function roundExp(value) {
+  return Number(finite(value).toFixed(3));
+}
+
 function list(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
 }
@@ -113,9 +117,16 @@ export function calculateOfflineRewards(character, offlineMs, mapId, context = r
   const vipEff = vipBonuses ? (vipBonuses().offlineEfficiencyBonus || 0) : 0;
   const equipmentSynergyCombatEffects = stats?.equipmentSynergyCombatEffects || context.getEquipmentSynergyEffects?.()?.combatEffects || {};
   const autoStrikeBonus = Math.min(0.25, finite(equipmentSynergyCombatEffects.autoStrikePct) * 0.5);
-  let killCount = Math.min(offlineMaxKills, Math.floor(onlineKills * Math.min(1, offlineEfficiency + vipEff + (stats.offlineEfficiencyBonus || 0))));
+  const effectiveOfflineEfficiency = Math.min(1, offlineEfficiency + vipEff + finite(stats.offlineEfficiencyBonus));
+  let killCount = Math.min(offlineMaxKills, Math.floor(onlineKills * effectiveOfflineEfficiency));
   if (autoStrikeBonus > 0) killCount = Math.min(offlineMaxKills, Math.floor(killCount * (1 + autoStrikeBonus)));
   rewards.killCount = killCount;
+  const mvpInscriptionRate = context.calculateMvpInscriptionOnlinePerMinute?.({
+    mapIndex,
+    difficulty: state.currentDifficulty || 'normal',
+    rebirths: state.hero?.rebirths || 0,
+  });
+  rewards.mvpInscriptionExp = finite(rewards.mvpInscriptionExp) + roundExp(finite(mvpInscriptionRate) * seconds / 60 * effectiveOfflineEfficiency);
   if (killCount <= 0) return rewards;
 
   let mutationKills = 0;
@@ -125,7 +136,18 @@ export function calculateOfflineRewards(character, offlineMs, mapId, context = r
     rewards.gold += Math.round(finite(monster.gold) * finite(stats.goldMultiplier) * finite(stats.monsterGoldMultiplier));
     rewards.baseExp += Math.round(finite(monster.exp) * finite(stats.baseExpMultiplier));
     rewards.jobExp += Math.round(finite(monster.jobExp) * finite(stats.jobExpMultiplier));
+    rewards.mvpInscriptionExp += finite(context.calculateMvpInscriptionMonsterExp?.({
+      monster,
+      heroLevel: state.hero?.baseLevel || 1,
+      currentMapIndex: mapIndex,
+      bestMapIndex: state.bestMap || mapIndex,
+      difficulty: state.currentDifficulty || 'normal',
+      isBoss: false,
+      isMutated: Boolean(monster.mutation),
+      firstBossClear: false,
+    }));
   }
+  rewards.mvpInscriptionExp = roundExp(rewards.mvpInscriptionExp);
 
   rollOfflineEquipmentDrops(rewards, stats, map, mapIndex, killCount, context);
   rollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills, context);
@@ -186,6 +208,7 @@ export function hasPendingOfflineRewards(context = runtimeContext) {
     finite(pending.gold) > 0 ||
     finite(pending.baseExp) > 0 ||
     finite(pending.jobExp) > 0 ||
+    finite(pending.mvpInscriptionExp) > 0 ||
     list(pending.equipments).length ||
     list(pending.cards).length ||
     list(pending.materials).length ||
@@ -244,6 +267,7 @@ export function claimOfflineRewards(context = runtimeContext) {
 
   state.gold = finite(state.gold) + finite(pending.gold);
   context.gainExp?.(finite(pending.baseExp), finite(pending.jobExp));
+  context.gainMvpInscriptionExp?.(finite(pending.mvpInscriptionExp), { source: 'offline' });
 
   const claimedEquipment = [];
   const unclaimedEquipment = [];

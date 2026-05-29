@@ -1355,12 +1355,22 @@ assert.equal(normalizedLoot.equipment.length, 1, 'Claimed equipment should remai
 assert.equal(normalizedLoot.pendingEquipment[0].id, 'pending', 'Legacy pending-equipment inference changed.');
 assert.equal(normalizedLoot.materials[0].materialId, 'dust', 'Legacy material-object normalization changed.');
 assert.equal(normalizedLoot.autoSalvaged, 1, 'Auto-salvage material totals must be safe in loot views.');
+assert.equal(
+  lootModel.normalizeLootRewards({ mvpInscriptionExp: 12.5 }, lootModelContext).mvpInscriptionExp,
+  12.5,
+  'MVP inscription exp should survive loot reward normalization.',
+);
 const mergedLoot = lootModel.mergeLootRewards([
   { equipment: [{ id: 'old' }], materials: [{ materialId: 'dust', qty: 1 }] },
   { pendingEquipment: [{ id: 'new-pending' }], skippedEquipment: 1, materials: [{ materialId: 'dust', qty: 2 }] },
 ], lootModelContext);
 assert.equal(mergedLoot.materials[0].qty, 3, 'Merged loot material counts changed.');
 assert.equal(mergedLoot.pendingEquipment.length, 1, 'Merged pending equipment should be preserved.');
+assert.equal(
+  lootModel.mergeLootRewards([{ mvpInscriptionExp: 2 }, { mvpInscriptionExp: 3.5 }], lootModelContext).mvpInscriptionExp,
+  5.5,
+  'Merged loot should sum MVP inscription exp.',
+);
 const recentView = lootModel.getLatestRecentLootRewards({
   recentLoot: [
     { time: 100, rewards: { equipment: [{ id: 'older' }] } },
@@ -1520,6 +1530,8 @@ const backgroundOfflineContext = {
   getZodiacSetIds: () => [],
   getMythicDropRates: () => ({ abyssNormal: 0 }),
   getMutationExtraDrops: () => ({ materialBonusRate: 0, rareMaterialBonusRate: 0 }),
+  calculateMvpInscriptionOnlinePerMinute: () => 10,
+  calculateMvpInscriptionMonsterExp: ({ monster }) => monster.mutation ? 0.45 : 0.2,
   gainMapExploration: () => {},
 };
 const shortBackgroundReward = offline.buildBackgroundOfflineReward(100000, 114999, backgroundOfflineContext);
@@ -1528,6 +1540,9 @@ const settledBackgroundReward = offline.buildBackgroundOfflineReward(100000, 130
 assert.equal(settledBackgroundReward.settled, true, 'Background reward builder should settle longer hidden time.');
 assert.equal(settledBackgroundReward.rewards.killCount, 60, 'Background settlement should reuse the offline DPS-to-kill formula.');
 assert.equal(settledBackgroundReward.rewards.gold, 120, 'Background settlement should include offline gold rewards.');
+assert.equal(settledBackgroundReward.rewards.mvpInscriptionExp, 17, 'Background settlement should include MVP inscription offline rewards.');
+assert.match(offlineSource, /mvpInscriptionExp/, 'Offline reward runtime must preserve MVP inscription exp.');
+assert.match(game, /mvpInscriptionExp/, 'Classic runtime must preserve MVP inscription exp.');
 assert.match(game, /function\s+handleBackgroundStart\s*\(/, 'Runtime must track when the page enters the background.');
 assert.match(game, /save\(\{\s*updateLastActive:\s*false\s*\}\)/, 'Background saves must preserve lastActiveAt for offline accounting.');
 assert.match(game, /function\s+handleForegroundResume\s*\(/, 'Runtime must settle hidden time when the page returns to the foreground.');
@@ -1564,6 +1579,7 @@ const offlineState = {
     gold: 7,
     baseExp: 3,
     jobExp: 2,
+    mvpInscriptionExp: 9,
     equipments: [{ id: 'accepted' }, { id: 'waiting' }],
     materials: [{ materialId: 'dust', qty: 4 }],
     cards: [{ cardId: 'card-a', qty: 1 }],
@@ -1571,6 +1587,7 @@ const offlineState = {
   },
 };
 let offlineExpGranted = 0;
+let offlineMvpInscriptionGranted = 0;
 let allowWaiting = false;
 const offlineSummaries = [];
 const claimContext = {
@@ -1581,6 +1598,7 @@ const claimContext = {
     gold: Number(input.gold || 0),
     baseExp: Number(input.baseExp || 0),
     jobExp: Number(input.jobExp || 0),
+    mvpInscriptionExp: Number(input.mvpInscriptionExp || 0),
     equipments: input.equipments || [],
     cards: input.cards || [],
     materials: input.materials || [],
@@ -1591,6 +1609,7 @@ const claimContext = {
     addEquipmentToInventory: (item) => item.id === 'waiting' && !allowWaiting ? { skipped: true } : { added: true },
   }),
   gainExp: (base, job) => { offlineExpGranted += base + job; },
+  gainMvpInscriptionExp: (amount) => { offlineMvpInscriptionGranted += amount; },
   grantCards: (cards) => cards.forEach((card) => { offlineState.cards[card.cardId] = (offlineState.cards[card.cardId] || 0) + card.qty; }),
   grantMaterials: (materials) => materials.forEach((material) => { offlineState.materials[material.materialId] = (offlineState.materials[material.materialId] || 0) + material.qty; }),
   recordRecentLoot: (summary) => offlineSummaries.push(summary),
@@ -1599,6 +1618,7 @@ const claimContext = {
 assert.equal(offline.claimOfflineRewards(claimContext), true, 'Offline reward claim should run through the module.');
 assert.equal(offlineState.gold, 7, 'Offline gold award changed.');
 assert.equal(offlineExpGranted, 5, 'Offline experience award changed.');
+assert.equal(offlineMvpInscriptionGranted, 9, 'Offline MVP inscription exp award changed.');
 assert.equal(offlineState.materials.dust, 4, 'Offline material award changed.');
 assert.equal(offlineState.offlinePending.equipments[0].id, 'waiting', 'Unclaimed equipment must remain pending.');
 assert.equal(offlineSummaries[0].equipments.length, 1, 'Claim summaries must not duplicate pending equipment after save normalization.');
@@ -1607,6 +1627,7 @@ allowWaiting = true;
 assert.equal(offline.claimOfflineRewards(claimContext), true, 'Pending-only equipment should be claimable later.');
 assert.equal(offlineState.gold, 7, 'Pending equipment retries must not duplicate gold awards.');
 assert.equal(offlineExpGranted, 5, 'Pending equipment retries must not duplicate experience awards.');
+assert.equal(offlineMvpInscriptionGranted, 9, 'Pending equipment retries must not duplicate MVP inscription exp.');
 assert.equal(offlineState.materials.dust, 4, 'Pending equipment retries must not duplicate material awards.');
 assert.equal(offlineState.offlinePending.equipments.length, 0, 'Pending equipment should clear after a successful retry.');
 assert.equal(offlineSummaries.length, 2, 'Each explicit offline claim should produce a viewable summary.');

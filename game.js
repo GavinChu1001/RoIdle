@@ -1510,6 +1510,7 @@ function defaultOfflineRewards() {
     gold: 0,
     baseExp: 0,
     jobExp: 0,
+    mvpInscriptionExp: 0,
     items: [],
     equipments: [],
     cards: [],
@@ -6451,6 +6452,7 @@ function normalizeOfflineRewards(rewards = {}) {
     gold: Number(source.gold || 0),
     baseExp: Number(source.baseExp || 0),
     jobExp: Number(source.jobExp || 0),
+    mvpInscriptionExp: Number(source.mvpInscriptionExp || 0),
     items: Array.isArray(source.items) ? source.items : [],
     equipments: [...equipmentList, ...pendingEquipment].filter(Boolean).map(normalizeItem),
     cards: cardList.filter((card) => Number(card.qty || 0) > 0),
@@ -6629,6 +6631,7 @@ function mergeOfflineRewards(existing, fresh) {
     gold: a.gold + b.gold,
     baseExp: a.baseExp + b.baseExp,
     jobExp: a.jobExp + b.jobExp,
+    mvpInscriptionExp: a.mvpInscriptionExp + b.mvpInscriptionExp,
     equipments: [...a.equipments, ...b.equipments],
     cards: mergeCountEntries([...a.cards, ...b.cards], "cardId"),
     materials: mergeCountEntries([...a.materials, ...b.materials], "materialId"),
@@ -6821,7 +6824,7 @@ function normalizeLootRewards(input = {}) {
 }
 
 function renderLootSummaryCard(rewards) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderLootSummaryCard === "function") return runtime.renderLootSummaryCard(rewards);
-  const hasAny = rewards.seconds > 0 || rewards.gold > 0 || rewards.baseExp > 0 || rewards.jobExp > 0 || rewards.materials.length || rewards.cards.length || rewards.equipment.length || rewards.pendingEquipment.length || offlineObjectTotal(rewards.salvagedMaterials) > 0;
+  const hasAny = rewards.seconds > 0 || rewards.gold > 0 || rewards.baseExp > 0 || rewards.jobExp > 0 || rewards.mvpInscriptionExp > 0 || rewards.materials.length || rewards.cards.length || rewards.equipment.length || rewards.pendingEquipment.length || offlineObjectTotal(rewards.salvagedMaterials) > 0;
   if (!hasAny) {
     return `<article class="loot-modal"><div class="loot-empty"><h3>暂无战利品</h3><p>如果你刚上线，请等待离线收益结算完成。</p></div></article>`;
   }
@@ -6841,6 +6844,7 @@ function renderLootSummaryCard(rewards) { const runtime = window.RuneFrontierRen
         ${renderLootSummaryMini("金币", rewards.gold)}
         ${renderLootSummaryMini("BASE经验", rewards.baseExp)}
         ${renderLootSummaryMini("JOB经验", rewards.jobExp)}
+        ${renderLootSummaryMini("铭刻经验", rewards.mvpInscriptionExp)}
         ${renderLootSummaryMini("材料", offlineListTotal(rewards.materials))}
         ${renderLootSummaryMini("装备", rewards.equipment.length)}
         ${renderLootSummaryMini("待领取装备", rewards.pendingEquipment.length)}
@@ -6905,6 +6909,7 @@ function renderOfflineOverview(rewards, claimedEquipment, pendingEquipment) { co
       ${renderOfflineOverviewCard("金币", rewards.gold, "gold")}
       ${renderOfflineOverviewCard("BASE经验", rewards.baseExp, "base")}
       ${renderOfflineOverviewCard("JOB经验", rewards.jobExp, "job")}
+      ${renderOfflineOverviewCard("铭刻经验", rewards.mvpInscriptionExp, "mvp-inscription")}
       ${renderOfflineOverviewCard("材料", materialTotal, "material")}
       ${renderOfflineOverviewCard("卡片", cardTotal, "card")}
       ${renderOfflineOverviewCard("装备", claimedEquipment.length, "equipment")}
@@ -6931,6 +6936,7 @@ function renderOfflineGoldExpSection(rewards) { const runtime = window.RuneFront
         <div class="offline-gain offline-gain-gold"><span>金币</span><strong class="offline-number">+${formatNumber(rewards.gold)}</strong></div>
         <div class="offline-gain offline-gain-base"><span>BASE EXP</span><strong class="offline-number">+${formatNumber(rewards.baseExp)}</strong></div>
         <div class="offline-gain offline-gain-job"><span>JOB EXP</span><strong class="offline-number">+${formatNumber(rewards.jobExp)}</strong></div>
+        <div class="offline-gain offline-gain-mvp-inscription"><span>铭刻经验</span><strong class="offline-number">+${formatNumber(rewards.mvpInscriptionExp)}</strong></div>
       </div>
       <p class="offline-source-note">离线效率 ${Math.round(OFFLINE_EFFICIENCY * 100)}% · 最大离线时间 ${formatDuration(MAX_OFFLINE_SECONDS)} · VIP 与套装收益已计入本次真实结算</p>
     </section>
@@ -13881,6 +13887,12 @@ window.RuneFrontierLegacyOfflineContext = () => Object.freeze({
   getOfflineMaxKills() {
     return OFFLINE_MAX_KILLS;
   },
+  calculateMvpInscriptionOnlinePerMinute(options) {
+    return window.RuneFrontierMvpInscriptionRuntime?.calculateMvpInscriptionOnlinePerMinute?.(options) || 0;
+  },
+  calculateMvpInscriptionMonsterExp(options) {
+    return window.RuneFrontierMvpInscriptionRuntime?.calculateMvpInscriptionMonsterExp?.(options) || 0;
+  },
   getEquipmentPityThreshold,
   getInventoryLimit,
   random() {
@@ -13902,6 +13914,9 @@ window.RuneFrontierLegacyOfflineContext = () => Object.freeze({
   canOfflineFullSalvage,
   mergeMaterialReward: mergeMaterialRewardIntoList,
   gainExp,
+  gainMvpInscriptionExp(amount, options) {
+    return window.RuneFrontierMvpInscriptionRuntime?.gainMvpInscriptionExp?.(amount, options);
+  },
   grantCards(cards) {
     (cards || []).forEach((card) => {
       state.cards[card.cardId] = (state.cards[card.cardId] || 0) + (card.qty || 0);
