@@ -1054,20 +1054,48 @@ assert.equal(
   1.5,
   'Progression growth should use quality only for creation stat scaling.',
 );
+for (const [rarity, range] of Object.entries({
+  normal: [0.96, 1.04],
+  fine: [0.98, 1.06],
+  rare: [1.00, 1.08],
+  epic: [1.03, 1.12],
+  ancient: [1.06, 1.15],
+  legend: [1.08, 1.18],
+  darkGold: [1.10, 1.22],
+  mythic: [1.14, 1.28],
+})) {
+  assert.deepEqual(
+    equipmentGrowth.getProgressionRarityQualityRange(rarity),
+    range,
+    `Progression ${rarity} quality should use the configured light base-stat modifier.`,
+  );
+}
+assert.deepEqual(
+  equipmentGrowth.getProgressionRarityQualityRange('unknown'),
+  [0.96, 1.04],
+  'Unknown progression rarity quality should fall back to normal.',
+);
+const progressionQualityRangeCopy = equipmentGrowth.getProgressionRarityQualityRange('rare');
+progressionQualityRangeCopy[0] = 9;
 assert.deepEqual(
   equipmentGrowth.getProgressionRarityQualityRange('rare'),
   [1.00, 1.08],
-  'Progression rare quality should be a light base-stat modifier.',
-);
-assert.deepEqual(
-  equipmentGrowth.getProgressionRarityQualityRange('mythic'),
-  [1.14, 1.28],
-  'Progression mythic quality should stay far below the old 7x-9x base-stat multiplier.',
+  'Progression quality ranges should be returned as copies.',
 );
 assert.equal(
   equipmentGrowth.rollProgressionQuality({ id: 'legend' }, (min, max) => max),
   1.18,
   'Progression legend quality should use the configured max roll.',
+);
+assert.equal(
+  equipmentGrowth.rollProgressionQuality({ rarity: 'epic' }, (min, max) => min),
+  1.03,
+  'Progression quality rolls should use tier.rarity when tier.id is absent.',
+);
+assert.equal(
+  equipmentGrowth.rollProgressionQuality({ id: 'epic' }, () => 1.12345),
+  1.123,
+  'Progression quality rolls should round to 3 decimal places.',
 );
 assert.equal(
   equipmentGrowth.calculateCreationStatScale({
