@@ -1,4 +1,8 @@
 import { getEquipmentUpgradeCost } from './itemProgression.js';
+import {
+  EQUIPMENT_GROWTH_MODEL,
+  rebuildGrowthStatsFromTemplate,
+} from './equipmentGrowth.js';
 
 const RARITY_ORDER = ['normal', 'fine', 'rare', 'epic', 'legend', 'darkGold', 'mythic'];
 const SCALE_KEYS = [
@@ -83,7 +87,17 @@ export function upgradeEquipmentProgression(itemId, context = {}) {
   const baseLevel = Math.max(finite(item.level, 1), finite(item.dropLevel, 1));
   item.level = Math.round(baseLevel + finite(next.levelBonus));
   item.dropLevel = Math.max(finite(item.dropLevel, 1), item.level);
-  scaleItemStats(item, next.statMultiplier);
+  const templateId = `prog_${next.series}_${next.grade}_${item.archetype || 'general'}_${item.slot || item.equipSlot || 'weapon'}`;
+  const targetTemplate = context.getProgressionEquipmentTemplate?.(templateId);
+  const tier = (context.getEquipmentTiers?.() || []).find((entry) => entry.id === item.rarity) || { id: item.rarity, scale: 1, rolls: [1, 1] };
+  const quality = context.randomFloat?.(tier.rolls?.[0] || 1, tier.rolls?.[1] || 1) || 1;
+  if (targetTemplate) {
+    rebuildGrowthStatsFromTemplate(item, targetTemplate, tier, quality);
+  } else {
+    scaleItemStats(item, next.statMultiplier);
+    item.growthModel = EQUIPMENT_GROWTH_MODEL.PROGRESSION_V2;
+  }
+  context.applyRarityUpgradeRewards?.(item, item.rarity);
 
   context.addLog?.(`${item.name || '装备'} 进阶为 ${next.label}。`);
   context.showToast?.(`进阶成功：${next.label}`);

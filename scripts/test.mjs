@@ -1176,7 +1176,9 @@ assert.doesNotThrow(() => {
   progressionUpgradeSource = read('src/systems/equipment/progressionUpgrade.js');
 }, 'Equipment progression upgrade module must exist.');
 assert.match(progressionUpgradeSource, /\bupgradeEquipmentProgression\b/, 'Progression upgrade module must expose upgradeEquipmentProgression.');
-const progressionUpgrade = await importSource(progressionUpgradeSource.replace(/from\s+['"]\.\/itemProgression\.js['"]/g, `from '${itemProgressionModuleUrl}'`));
+const progressionUpgrade = await importSource(
+  withEquipmentGrowthImports(progressionUpgradeSource.replace(/from\s+['"]\.\/itemProgression\.js['"]/g, `from '${itemProgressionModuleUrl}'`))
+);
 const upgradeState = {
   gold: 10000,
   materials: { heroReformInscription: 4 },
@@ -1195,6 +1197,55 @@ assert.equal(upgradeState.inventory[0].upgradeStage, 1, 'Progression upgrade sho
 assert.ok(upgradeState.materials.heroReformInscription < 4, 'Progression upgrade should consume line-specific material.');
 assert.equal(upgradeSaved, 1, 'Progression upgrade should save state once.');
 assert.equal(upgradeRendered, 1, 'Progression upgrade should rerender once.');
+const recompositionState = {
+  gold: 10000,
+  materials: { heroReformInscription: 4 },
+  inventory: [{
+    id: 'legacy-upgrade',
+    name: 'Legacy Hero Blade',
+    slot: 'weapon',
+    archetype: 'physical',
+    series: 'ancientHero',
+    growthTier: 'T2',
+    upgradeStage: 0,
+    rarity: 'rare',
+    level: 120,
+    dropLevel: 120,
+    atk: 9999,
+    refine: 7,
+    empower: 3,
+    locked: true,
+    cardSlots: [{ cardId: 'card-a' }],
+  }],
+};
+const recompositionResult = progressionUpgrade.upgradeEquipmentProgression('legacy-upgrade', {
+  getState: () => recompositionState,
+  getProgressionEquipmentTemplate: () => ({
+    id: 'prog_ancientHero_reform_physical_weapon',
+    name: 'Hero Reform Blade',
+    slot: 'weapon',
+    atk: 20,
+    source: 'progression_drop',
+    series: 'ancientHero',
+    growthTier: 'T2',
+    upgradeStage: 1,
+    grade: 'reform',
+    archetype: 'physical',
+  }),
+  getEquipmentTiers: () => [{ id: 'epic', scale: 2, rolls: [1, 1] }],
+  randomFloat: (min) => min,
+  applyRarityUpgradeRewards: (item, rarity) => {
+    item.rarityRewardHistory = [...(item.rarityRewardHistory || []), rarity];
+    return item;
+  },
+});
+assert.equal(recompositionResult.ok, true, 'Legacy progression upgrade should succeed.');
+assert.equal(recompositionState.inventory[0].growthModel, 'progression-v2', 'Upgraded legacy equipment should enter growth-v2.');
+assert.equal(recompositionState.inventory[0].atk, 40, 'Upgrade should rebuild base growth stats from the target template instead of multiplying legacy stats.');
+assert.equal(recompositionState.inventory[0].refine, 7, 'Upgrade should preserve refine investment.');
+assert.equal(recompositionState.inventory[0].empower, 3, 'Upgrade should preserve empower investment.');
+assert.equal(recompositionState.inventory[0].cardSlots[0].cardId, 'card-a', 'Upgrade should preserve socketed cards.');
+assert.ok(recompositionState.inventory[0].rarityRewardHistory.includes('epic'), 'Upgrade should complete target rarity rewards.');
 let abyssTemperingSource = '';
 assert.doesNotThrow(() => {
   abyssTemperingSource = read('src/systems/equipment/abyssTempering.js');
