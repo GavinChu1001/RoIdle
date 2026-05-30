@@ -1363,17 +1363,18 @@ const MVP_INSCRIPTION_AURA_FRAME_SIZE = 256;
 const MVP_INSCRIPTION_AURA_FRAME_RATE = 14;
 const MVP_INSCRIPTION_AURA_SPRITE_SHEETS = Object.freeze({
   default: "assets/ui/fx/mvp-aura-early.png",
-  kingPoring: "assets/ui/fx/mvp-aura-early.png",
+  kingPoring: "assets/ui/fx/mvp-aura-king-poring.png",
   goldenThiefBug: "assets/ui/fx/mvp-aura-early.png",
   moonlightFlower: "assets/ui/fx/mvp-aura-early.png",
   drake: "assets/ui/fx/mvp-aura-early.png",
   phreeoni: "assets/ui/fx/mvp-aura-early.png",
-  orcHero: "assets/ui/fx/mvp-aura-early.png",
+  orcHero: "assets/ui/fx/mvp-aura-orc-hero.png",
   turtleGeneral: "assets/ui/fx/mvp-aura-advanced.png",
   doppelganger: "assets/ui/fx/mvp-aura-advanced.png",
-  darkLord: "assets/ui/fx/mvp-aura-advanced.png",
-  baphomet: "assets/ui/fx/mvp-aura-advanced.png",
+  darkLord: "assets/ui/fx/mvp-aura-dark-lord.png",
+  baphomet: "assets/ui/fx/mvp-aura-baphomet.png",
 });
+const MVP_INSCRIPTION_AURA_ADVANCED_STAGE_IDS = new Set(["turtleGeneral", "doppelganger", "darkLord", "baphomet"]);
 const mvpInscriptionAuraSpriteCache = {};
 
 const affixPool = [
@@ -6555,11 +6556,29 @@ function closeOfflineRewardModal() {
   renderOfflineRewardModal();
 }
 
+function releaseFocusBeforeHiding(container) {
+  if (!container || !container.contains(document.activeElement)) return;
+  if (document.activeElement && typeof document.activeElement.blur === "function") {
+    document.activeElement.blur();
+  }
+  if (container.contains(document.activeElement) && document.body && typeof document.body.focus === "function") {
+    document.body.focus({ preventScroll: true });
+  }
+}
+
+function setModalVisibility(modal, visible) {
+  if (!modal) return;
+  if (!visible) releaseFocusBeforeHiding(modal);
+  if (visible) modal.removeAttribute("inert");
+  modal.classList.toggle("hidden", !visible);
+  modal.setAttribute("aria-hidden", visible ? "false" : "true");
+  if (!visible) modal.setAttribute("inert", "");
+}
+
 function renderOfflineRewardModal() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderOfflineRewardModal === "function") return runtime.renderOfflineRewardModal();
   if (!els.offlineRewardModal || !els.offlineRewardBody) return;
   const visible = offlineRewardModalOpen;
-  els.offlineRewardModal.classList.toggle("hidden", !visible);
-  els.offlineRewardModal.setAttribute("aria-hidden", visible ? "false" : "true");
+  setModalVisibility(els.offlineRewardModal, visible);
   if (!visible) {
     els.offlineRewardBody.innerHTML = "";
     return;
@@ -6597,8 +6616,7 @@ function getRefineMilestone(level) {
 function renderRefineResultModal() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderRefineResultModal === "function") return runtime.renderRefineResultModal();
   if (!els.refineResultModal || !els.refineResultBody || !els.refineResultTitle) return;
   const visible = Boolean(refineResultState);
-  els.refineResultModal.classList.toggle("hidden", !visible);
-  els.refineResultModal.setAttribute("aria-hidden", visible ? "false" : "true");
+  setModalVisibility(els.refineResultModal, visible);
   if (!visible) {
     els.refineResultBody.innerHTML = "";
     return;
@@ -7436,6 +7454,8 @@ function computeStats() {
   if (isAbyss && setBonuses.abyssAttackSpeedPct) equip.attackSpeedPct = (equip.attackSpeedPct || 0) + setBonuses.abyssAttackSpeedPct;
   if (isAbyss && setBonuses.abyssCritRatePct) equip.crit = (equip.crit || 0) + setBonuses.abyssCritRatePct;
   if (isAbyss && setBonuses.abyssMagicDamageBonus) equip.matkPct = (equip.matkPct || 0) + setBonuses.abyssMagicDamageBonus;
+  const hpRatioForLowHpEffects = Number(state.hero.maxHp || 0) > 0 ? Number(state.hero.currentHp || 0) / Math.max(1, Number(state.hero.maxHp || 1)) : 1;
+  if (hpRatioForLowHpEffects <= 0.35 && equip.lowHpAtkPct) equip.atkPct = (equip.atkPct || 0) + equip.lowHpAtkPct;
   const battleStats = calculateBattleStats({ attrs, equip, passive, cardStats, job, level, jobLevel, setBonuses });
   syncHeroHp({ maxHp: battleStats.maxHp }, false);
   const dps = battleStats.dps;
@@ -11861,7 +11881,7 @@ function drawMvpInscriptionAura(ctx, heroX, heroY, time) {
   const frame = Math.floor(time * MVP_INSCRIPTION_AURA_FRAME_RATE) % MVP_INSCRIPTION_AURA_FRAME_COUNT;
   const sx = (frame % MVP_INSCRIPTION_AURA_COLUMNS) * MVP_INSCRIPTION_AURA_FRAME_SIZE;
   const sy = Math.floor(frame / MVP_INSCRIPTION_AURA_COLUMNS) * MVP_INSCRIPTION_AURA_FRAME_SIZE;
-  const isAdvanced = MVP_INSCRIPTION_AURA_SPRITE_SHEETS[stageId] === MVP_INSCRIPTION_AURA_SPRITE_SHEETS.baphomet;
+  const isAdvanced = MVP_INSCRIPTION_AURA_ADVANCED_STAGE_IDS.has(stageId);
   const width = isAdvanced ? 204 : 182;
   const height = isAdvanced ? 126 : 112;
   const footY = heroY + 58;
@@ -12250,7 +12270,7 @@ function computeEquipmentFullStats() {
         sum.gold += effective.gold || 0;
         sum.crit += effective.crit || 0;
         sum.drop += effective.drop || 0;
-        ["atkPct", "matkPct", "hpPct", "defPct", "attackSpeedPct", "critRatePct", "critDamageBonus", "skillDamageBonus", "monsterDamageBonus", "bossDamageBonus", "bossDamageReduction", "damageReductionPct", "damageReduction", "lifeSteal", "blockRate", "dodgeRatePct", "hpRegenPct", "ignoreDefense", "baseExpBonus", "jobExpBonus", "equipmentDrop", "cardDrop", "materialQuantityBonus", "powerPct", "combatPaceBonus", "patrolEfficiency", "hitRate", "statusResist", "echoChance", "mutationMaterialDoubleChance", "thornVitMultiplier", "abyssDamageBonus", "abyssBossDamageBonus", "abyssDamageReduction", "abyssPower", "abyssResist", "abyssMaterialDropBonus", "abyssSkillDamageBonus", "mythicWeightBonus", "mythicEssenceDropBonus", "rebirthPrestigeWeightBonus", "abyssExecuteDamageBonus", "setPowerBonus", "finalDamageBonus", "physicalFinalDamageBonus", "eliteDamageBonus", "rareDropBonus", "normalAttackDamageBonus", "higherLevelDamageBonus", "offlineEfficiencyBonus", "magicDamageReduction", "skillDamageReduction", "skillCooldownPenalty", "skillHitHealPct", "splashTargets", "splashDamagePct", "fireBurstChance", "fireBurstAtkPct", "meteorCounterChance", "meteorCounterMatkPct"].forEach((stat) => {
+        ["atkPct", "matkPct", "hpPct", "defPct", "attackSpeedPct", "critRatePct", "critDamageBonus", "skillDamageBonus", "monsterDamageBonus", "bossDamageBonus", "bossDamageReduction", "damageReductionPct", "damageReduction", "lifeSteal", "blockRate", "dodgeRatePct", "hpRegenPct", "ignoreDefense", "baseExpBonus", "jobExpBonus", "equipmentDrop", "cardDrop", "materialQuantityBonus", "powerPct", "combatPaceBonus", "patrolEfficiency", "hitRate", "statusResist", "echoChance", "mutationMaterialDoubleChance", "thornVitMultiplier", "abyssDamageBonus", "abyssBossDamageBonus", "abyssDamageReduction", "abyssPower", "abyssResist", "abyssMaterialDropBonus", "abyssSkillDamageBonus", "mythicWeightBonus", "mythicEssenceDropBonus", "rebirthPrestigeWeightBonus", "abyssExecuteDamageBonus", "setPowerBonus", "finalDamageBonus", "physicalFinalDamageBonus", "eliteDamageBonus", "rareDropBonus", "normalAttackDamageBonus", "higherLevelDamageBonus", "offlineEfficiencyBonus", "magicDamageReduction", "skillDamageReduction", "skillCooldownPenalty", "skillHitHealPct", "splashTargets", "splashDamagePct", "fireBurstChance", "fireBurstAtkPct", "meteorCounterChance", "meteorCounterMatkPct", "lowHpAtkPct"].forEach((stat) => {
           sum[stat] += effective[stat] || 0;
         });
         return sum;
@@ -12331,6 +12351,7 @@ function computeEquipmentFullStats() {
         fireBurstAtkPct: 0,
         meteorCounterChance: 0,
         meteorCounterMatkPct: 0,
+        lowHpAtkPct: 0,
       },
     );
 }

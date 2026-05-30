@@ -17,7 +17,7 @@ const PERCENT_STATS = new Set([
   'combatPaceBonus', 'offlineEfficiencyBonus', 'statusResist', 'echoChance',
   'magicDamageReduction', 'skillDamageReduction', 'skillCooldownPenalty', 'skillHitHealPct', 'splashDamagePct',
   'fireBurstChance', 'fireBurstAtkPct', 'meteorCounterChance', 'meteorCounterMatkPct',
-  'mutationMaterialDoubleChance', 'strPct', 'agiPct', 'vitPct', 'intPct', 'dexPct', 'lukPct', 'dps',
+  'mutationMaterialDoubleChance', 'strPct', 'agiPct', 'vitPct', 'intPct', 'dexPct', 'lukPct', 'lowHpAtkPct', 'dps',
 ]);
 const HIGH_VALUE_STATS = new Set([
   'finalDamageBonus', 'bossDamageBonus', 'eliteDamageBonus', 'abyssDamageBonus',
@@ -32,6 +32,9 @@ let runtimeContext = Object.freeze({
   computeCardSocketBonuses: () => ({}),
   getLineMasteryBonus: () => ({ statMultiplier: 1, bonusStats: {}, abyssAffixMultiplier: 1 }),
   getAbyssTemperingBonus: () => ({}),
+  getEnhanceMilestoneLevels: () => [],
+  getEnhanceMilestoneBonuses: () => ({}),
+  getEnhancePassiveDb: () => ({}),
 });
 
 export function configureItemStatsContext(context = {}) {
@@ -42,6 +45,9 @@ export function configureItemStatsContext(context = {}) {
       ? context.getLineMasteryBonus
       : () => ({ statMultiplier: 1, bonusStats: {}, abyssAffixMultiplier: 1 }),
     getAbyssTemperingBonus: typeof context.getAbyssTemperingBonus === 'function' ? context.getAbyssTemperingBonus : () => ({}),
+    getEnhanceMilestoneLevels: typeof context.getEnhanceMilestoneLevels === 'function' ? context.getEnhanceMilestoneLevels : () => [],
+    getEnhanceMilestoneBonuses: typeof context.getEnhanceMilestoneBonuses === 'function' ? context.getEnhanceMilestoneBonuses : () => ({}),
+    getEnhancePassiveDb: typeof context.getEnhancePassiveDb === 'function' ? context.getEnhancePassiveDb : () => ({}),
   });
 }
 
@@ -64,6 +70,57 @@ function normalizeEquipmentSlot(slot) {
 
 function equipmentSlot(item = {}) {
   return item.equipSlot || normalizeEquipmentSlot(item.slot || 'trinket');
+}
+
+function enhanceLevel(item = {}) {
+  return Math.max(0, number(item.enhanceLevel));
+}
+
+function enhanceMainStatFactor(item = {}, stat = '') {
+  const level = enhanceLevel(item);
+  if (!level) return 1;
+  const slot = equipmentSlot(item);
+  if (slot === 'weapon' && (stat === 'atk' || stat === 'matk')) return 1 + level * 0.03;
+  if (slot === 'armor' && stat === 'def') return 1 + level * 0.025;
+  if (slot === 'armor' && stat === 'hp') return 1 + level * 0.015;
+  if (slot === 'headgear' && stat === 'hp') return 1 + level * 0.02;
+  if (slot === 'trinket' && ATTRIBUTE_KEYS.includes(stat)) return 1 + level * 0.007;
+  return 1;
+}
+
+function enhanceFlatStatBonus(item = {}, stat = '') {
+  const level = enhanceLevel(item);
+  if (!level) return 0;
+  return equipmentSlot(item) === 'shoes' && stat === 'attackSpeedPct' ? level * 0.006 : 0;
+}
+
+function enhanceMilestoneBonuses(item = {}, context = runtimeContext) {
+  const level = enhanceLevel(item);
+  if (!level) return {};
+  const slot = equipmentSlot(item);
+  const levels = context.getEnhanceMilestoneLevels?.() || [];
+  const table = context.getEnhanceMilestoneBonuses?.() || {};
+  const tier = table[slot] || [];
+  const bonuses = {};
+  levels.forEach((milestone, index) => {
+    if (level < milestone || !tier[index]) return;
+    Object.entries(tier[index]).forEach(([stat, value]) => {
+      bonuses[stat] = number(bonuses[stat]) + number(value);
+    });
+  });
+  return bonuses;
+}
+
+function enhancePassiveBonuses(item = {}, context = runtimeContext) {
+  const db = context.getEnhancePassiveDb?.() || {};
+  const bonuses = {};
+  (Array.isArray(item.specialPassives) ? item.specialPassives : []).forEach((id) => {
+    Object.entries(db[id]?.effect || {}).forEach(([stat, value]) => {
+      const key = stat === 'lifeStealPct' ? 'lifeSteal' : stat;
+      bonuses[key] = number(bonuses[key]) + number(value);
+    });
+  });
+  return bonuses;
 }
 
 function refineMultiplier(star) {
@@ -94,35 +151,39 @@ export function getEffectiveItemStats(item = {}, includeRandom = true, context =
   item = item && typeof item === 'object' ? item : {};
   const multiplier = refineMultiplier(item.refine || 0);
   const empowerMultiplier = 1 + number(item.empower) * 0.04;
-  const scaleFlat = (value) => Math.round(number(value) * multiplier * empowerMultiplier);
-  const scalePercent = (value, stat = '') => Number((number(value) * (refineGrowthFactorForStat(stat, item.refine || 0) + number(item.empower) * 0.012)).toFixed(3));
+  const scaleFlat = (value, stat = '') => Math.round(number(value) * multiplier * empowerMultiplier * enhanceMainStatFactor(item, stat));
+  const scalePercent = (value, stat = '') => Number((number(value) * (refineGrowthFactorForStat(stat, item.refine || 0) + number(item.empower) * 0.012) + enhanceFlatStatBonus(item, stat)).toFixed(3));
   const addScaledStat = (target, stat, value, { applyRefine = true } = {}) => {
     const numeric = number(value);
     if (!numeric) return;
     const key = canonicalEquipmentStat(stat);
     if (DEPRECATED_EQUIPMENT_STATS.has(key)) return;
+    if (key === 'allStats') {
+      ATTRIBUTE_KEYS.forEach((attribute) => addScaledStat(target, attribute, numeric, { applyRefine }));
+      return;
+    }
     const factor = applyRefine ? refineGrowthFactorForStat(key, item.refine || 0) : 1;
     const decimals = statIsPercent(key) || key.endsWith('Bonus') || key.endsWith('Pct') || key === 'thornVitMultiplier' ? 3 : 0;
     const scaled = decimals ? Number((numeric * factor).toFixed(decimals)) : Math.round(numeric * factor);
     target[key] = Number((number(target[key]) + scaled).toFixed(decimals));
   };
   const stats = {
-    atk: scaleFlat(item.atk),
-    matk: scaleFlat(item.matk),
-    def: scaleFlat(item.def),
-    hp: scaleFlat(item.hp),
+    atk: scaleFlat(item.atk, 'atk'),
+    matk: scaleFlat(item.matk, 'matk'),
+    def: scaleFlat(item.def, 'def'),
+    hp: scaleFlat(item.hp, 'hp'),
     luck: 0,
-    str: scaleFlat(item.str),
-    agi: scaleFlat(item.agi),
-    vit: scaleFlat(item.vit),
-    int: scaleFlat(item.int),
-    dex: scaleFlat(item.dex),
-    luk: scaleFlat(item.luk) + scaleFlat(item.luck),
+    str: scaleFlat(item.str, 'str'),
+    agi: scaleFlat(item.agi, 'agi'),
+    vit: scaleFlat(item.vit, 'vit'),
+    int: scaleFlat(item.int, 'int'),
+    dex: scaleFlat(item.dex, 'dex'),
+    luk: scaleFlat(item.luk, 'luk') + scaleFlat(item.luck, 'luk'),
     aspd: scalePercent(item.aspd, 'aspd'),
     crit: scalePercent(number(item.crit) + number(item.critRatePct), 'crit'),
     drop: scalePercent(item.drop, 'drop'),
     gold: scalePercent(item.gold, 'gold'),
-    hpRegen: scaleFlat(item.hpRegen),
+    hpRegen: scaleFlat(item.hpRegen, 'hpRegen'),
     dodgeRate: scalePercent(number(item.dodgeRate) + number(item.dodgeRatePct), 'dodgeRate'),
     atkPct: scalePercent(item.atkPct, 'atkPct'),
     matkPct: scalePercent(item.matkPct, 'matkPct'),
@@ -155,6 +216,12 @@ export function getEffectiveItemStats(item = {}, includeRandom = true, context =
     abyssDamageReduction: scalePercent(item.abyssDamageReduction, 'abyssDamageReduction'),
     highTierFind: scalePercent(number(item.highTierFind) + number(item.mythicWeightBonus) + number(item.mythicEssenceDropBonus) + number(item.rebirthPrestigeWeightBonus), 'highTierFind'),
   };
+  Object.entries(enhanceMilestoneBonuses(item, context)).forEach(([stat, value]) => {
+    addScaledStat(stats, stat, value, { applyRefine: false });
+  });
+  Object.entries(enhancePassiveBonuses(item, context)).forEach(([stat, value]) => {
+    addScaledStat(stats, stat, value, { applyRefine: false });
+  });
   const itemLine = item.series || item.upgradePathId || '';
   const masteryProvider = typeof context.getLineMasteryBonus === 'function'
     ? context.getLineMasteryBonus
@@ -195,7 +262,7 @@ export function getEffectiveItemStats(item = {}, includeRandom = true, context =
   if (includeRandom) {
     const randomStats = normalizeRandomStats(item.randomStats);
     ATTRIBUTE_KEYS.forEach((stat) => {
-      stats[stat] += Math.round(number(randomStats[stat]) * multiplier);
+      stats[stat] += Math.round(number(randomStats[stat]) * multiplier * enhanceMainStatFactor(item, stat));
     });
   }
   Object.entries(star15Bonus(item)).forEach(([stat, value]) => {

@@ -484,6 +484,7 @@
 }
 
 .page-view[data-view="equipment"] .equipment-sort-control {
+  min-width: 224px;
   border: 1px solid var(--ro-vnext-line-soft);
   background: rgba(255, 244, 216, 0.74);
   color: var(--ro-vnext-muted);
@@ -557,8 +558,17 @@
 
 .page-view[data-view="equipment"] .equipment-action-row button:disabled,
 .page-view[data-view="equipment"] .equip-actions button:disabled {
-  filter: saturate(0.45);
-  opacity: 0.55;
+  border-color: rgba(64, 44, 28, 0.72);
+  background-image:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, #e5d7bc 0%, #aa9878 100%);
+  color: #51402e;
+  opacity: 0.86;
+  filter: grayscale(0.18) saturate(0.72);
+  text-shadow: 0 1px 0 rgba(255, 250, 230, 0.78);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 229, 0.48),
+    0 1px 0 rgba(70, 43, 23, 0.14) !important;
 }
 
 .page-view[data-view="equipment"] .equipment-batch-card .equipment-action-row,
@@ -583,4 +593,34 @@
     flex: 0 0 auto;
     min-width: 68px;
   }
+}
+
+.page-view[data-view="equipment"] .material-bag-filter {
+  min-height: 31px;
+  padding: 5px 10px;
+  font-size: 0.76rem;
+  line-height: 1.1;
+}
+
+.page-view[data-view="equipment"] .equipment-more-summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid rgba(92, 70, 35, 0.2);
+  border-radius: 7px;
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    rgba(255, 246, 221, 0.68);
+  color: var(--ro-vnext-ink);
+  font-size: 0.76rem;
+  line-height: 1.1;
+}
+
+.page-view[data-view="equipment"] .equipment-more-summary:hover {
+  border-color: rgba(92, 70, 35, 0.34);
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    rgba(255, 239, 207, 0.88);
 }

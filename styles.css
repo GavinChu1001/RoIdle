@@ -11580,7 +11580,7 @@ details > summary::marker {
   width: 176px;
   height: 170px;
   z-index: 4;
-  background-image: url("assets/ui/fx/boss-cast.png");
+  background-image: url("/assets/ui/fx/boss-cast.png");
   filter:
     drop-shadow(0 0 8px rgba(255, 103, 54, 0.32))
     drop-shadow(0 0 10px rgba(119, 42, 180, 0.18));
@@ -11591,7 +11591,7 @@ details > summary::marker {
   width: 132px;
   height: 124px;
   z-index: 9;
-  background-image: url("assets/ui/fx/boss-impact.png");
+  background-image: url("/assets/ui/fx/boss-impact.png");
   filter:
     drop-shadow(0 0 9px rgba(255, 80, 42, 0.52))
     drop-shadow(0 0 10px rgba(255, 209, 92, 0.3));
@@ -11602,7 +11602,7 @@ details > summary::marker {
   width: 84px;
   height: 96px;
   z-index: 9;
-  background-image: url("assets/ui/fx/danger-mark.png");
+  background-image: url("/assets/ui/fx/danger-mark.png");
   filter: drop-shadow(0 0 8px rgba(255, 82, 54, 0.48));
   animation: roDangerMark 820ms steps(4, end) forwards;
 }
@@ -13261,4 +13261,183 @@ body {
   .ro-resource-hud > div {
     transition-duration: 1ms !important;
   }
+}
+
+/* Button legibility pass: keep disabled controls visibly disabled without washing out their labels. */
+button:disabled {
+  color: #5b4935;
+  opacity: 0.78;
+  filter: grayscale(0.2) saturate(0.72);
+  text-shadow: 0 1px 0 rgba(255, 248, 225, 0.72);
+}
+
+.ro-wood-button:disabled,
+.ro-light-control:disabled,
+.map-actions button:disabled,
+.quest-claim-btn:disabled,
+.achievement-claim-btn:disabled,
+.shop-card button:disabled,
+.card-item button:disabled,
+.codex-card button:disabled,
+.academy-card button:disabled,
+.hero-actions-inline button:disabled,
+.smithy-category button:disabled,
+.enhance-panel button:disabled,
+.smithy-item button:disabled,
+button[data-change-job]:disabled,
+button[data-map]:disabled {
+  border-color: rgba(64, 44, 28, 0.72) !important;
+  background-image:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, #e5d7bc 0%, #aa9878 100%) !important;
+  color: #51402e !important;
+  opacity: 0.86 !important;
+  filter: grayscale(0.18) saturate(0.72) !important;
+  text-shadow: 0 1px 0 rgba(255, 250, 230, 0.78) !important;
+  -webkit-text-stroke: 0 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 229, 0.48),
+    0 1px 0 rgba(70, 43, 23, 0.14) !important;
+}
+
+.ro-character-actions {
+  grid-template-columns: repeat(3, minmax(112px, auto));
+}
+
+.ro-character-actions :where(.ro-wood-button, .ro-light-control) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 7px 12px;
+  font-size: 0.82rem;
+  font-weight: 920;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.ro-character-actions .ro-light-control:not(:disabled) {
+  border: 2px solid rgba(64, 39, 20, 0.62);
+  background-image:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, #fff1cc 0%, #d4ad70 100%);
+  color: #342111;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 249, 226, 0.7),
+    0 1px 0 rgba(70, 43, 23, 0.12);
+}
+
+.page-view[data-view="tasks"] .panel-heading button,
+.task-toggle-btn {
+  min-width: 172px;
+  max-width: min(100%, 380px);
+  min-height: 36px;
+  padding: 6px 12px;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.18;
+}
+
+.loot-src-tag,
+.loot-kind-tag,
+.encounter-tag {
+  min-height: 17px;
+  padding: 2px 5px;
+  font-size: 0.66rem;
+  line-height: 1.15;
+}
+
+.skill-bar-icon .skill-bar-name {
+  font-size: 0.66rem;
+}
+
+.page-view[data-view="codex"] .codex-milestone small {
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+/* Follow-up legibility pass for wood-text controls on dense management pages. */
+.page-view[data-view="smithy"] .smithy-tab,
+.page-view[data-view="smithy"] .smithy-category button:not(:disabled),
+.page-view[data-view="smithy"] .enhance-panel > button:not(:disabled),
+.page-view[data-view="smithy"] .smithy-item button:not(:disabled),
+.page-view[data-view="smithy"] .material-goal-card > button:not(:disabled),
+.page-view[data-view="smithy"] .material-goal-action-row button:not(:disabled),
+.page-view[data-view="maps"] .map-actions button:not(:disabled),
+.page-view[data-view="shop"] .codex-tab-btn,
+.page-view[data-view="shop"] .shop-card button:not(:disabled) {
+  color: var(--ro-button-text-strong) !important;
+  -webkit-text-stroke: 0.2px var(--ro-button-text-outline);
+  text-shadow:
+    1px 0 0 var(--ro-button-text-outline),
+    -1px 0 0 var(--ro-button-text-outline),
+    0 1px 0 var(--ro-button-text-outline),
+    0 -1px 0 var(--ro-button-text-outline),
+    0 2px 0 rgba(36, 18, 8, 0.72) !important;
+}
+
+.page-view[data-view="smithy"] .smithy-category h3 {
+  color: var(--ro-button-text-strong);
+  -webkit-text-stroke: 0.18px var(--ro-button-text-outline);
+  text-shadow:
+    1px 0 0 var(--ro-button-text-outline),
+    -1px 0 0 var(--ro-button-text-outline),
+    0 1px 0 var(--ro-button-text-outline),
+    0 -1px 0 var(--ro-button-text-outline);
+}
+
+.page-view[data-view="smithy"] .enhance-select strong {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 4px 8px;
+  border: 2px solid rgba(55, 33, 18, 0.42);
+  border-radius: 5px;
+  background:
+    url("assets/ui/button-wood.png"),
+    linear-gradient(180deg, rgba(218, 160, 84, 0.95), rgba(143, 86, 43, 0.9));
+  background-size: 32px 16px, auto;
+  color: var(--ro-button-text-strong);
+  -webkit-text-stroke: 0.16px var(--ro-button-text-outline);
+  text-shadow:
+    1px 0 0 var(--ro-button-text-outline),
+    -1px 0 0 var(--ro-button-text-outline),
+    0 1px 0 var(--ro-button-text-outline),
+    0 -1px 0 var(--ro-button-text-outline);
+}
+
+.page-view[data-view="shop"] > .panel-heading .eyebrow,
+.page-view[data-view="shop"] .shop-desc {
+  color: #3d2616;
+  font-weight: 900;
+  text-shadow: 0 1px 0 rgba(255, 244, 204, 0.76);
+}
+
+.page-view[data-view="shop"] .shop-head small {
+  border-color: rgba(56, 34, 18, 0.6);
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 239, 191, 0.92), rgba(218, 174, 100, 0.86));
+  color: #3b2414;
+  font-weight: 950;
+  text-shadow: 0 1px 0 rgba(255, 245, 212, 0.78);
+}
+
+.page-view[data-view="smithy"] .smithy-category button:disabled,
+.page-view[data-view="smithy"] .enhance-panel > button:disabled,
+.page-view[data-view="smithy"] .smithy-item button:disabled,
+.page-view[data-view="smithy"] .material-goal-card > button:disabled,
+.page-view[data-view="smithy"] .material-goal-action-row button:disabled,
+.page-view[data-view="maps"] .map-actions button:disabled,
+.page-view[data-view="shop"] .shop-card button:disabled {
+  border-color: rgba(55, 36, 22, 0.86) !important;
+  background-image:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, #927759 0%, #5f4a36 100%) !important;
+  color: #f7ead0 !important;
+  opacity: 0.84 !important;
+  filter: grayscale(0.34) saturate(0.68) !important;
+  -webkit-text-stroke: 0 !important;
+  text-shadow: 0 1px 0 rgba(38, 22, 12, 0.9) !important;
 }

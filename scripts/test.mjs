@@ -89,6 +89,11 @@ assert.ok(classicDataContext.HARD_MAP_TIER_SCALE.grass.recommendedPower < classi
 assert.ok(classicDataContext.ABYSS_MAP_TIER_SCALE.grass.recommendedPower < classicDataContext.mapLevelRanges.sky.recommendedPower, 'Abyss grass must not be harder than normal sky after map difficulty V2.');
 assert.ok(classicDataContext.HARD_MAP_TIER_SCALE.grass.recommendedPower >= classicDataContext.mapLevelRanges.sewer.recommendedPower, 'Hard grass should roughly start around the next-map challenge band.');
 assert.ok(classicDataContext.ABYSS_MAP_TIER_SCALE.grass.recommendedPower >= classicDataContext.mapLevelRanges.orc_village.recommendedPower, 'Abyss grass should roughly start around a later normal-map challenge band.');
+for (const mapId of classicDataContext.mapOrder || []) {
+  const rows = classicDataContext.materialDropTables?.[mapId] || [];
+  assert.ok(rows.some((row) => row.materialId === 'oridecon' && row.dropRate > 0), `${mapId} must drop oridecon for early refine access.`);
+  assert.ok(rows.some((row) => row.materialId === 'elunium' && row.dropRate > 0), `${mapId} must drop elunium for early refine access.`);
+}
 
 const requiredLegacyFunctions = [
   'createDefaultState',
@@ -186,8 +191,16 @@ assert.match(html, /id="enemyStatusVfxLayer"[\s\S]*class="enemy-status-vfx-layer
 assert.match(styles, /\.ro-vfx-spark\s*\{[\s\S]*width:\s*64px[\s\S]*height:\s*64px/, 'Generated spark VFX should stay compact enough to avoid covering the hero.');
 assert.match(styles, /\.combat-impact-player-hit\.ro-vfx-spark\s*\{[\s\S]*width:\s*74px[\s\S]*height:\s*74px/, 'Player-hit generated spark should be smaller than the first preview implementation.');
 assert.match(styles, /@media\s*\(max-width:\s*640px\)[\s\S]*\.combat-impact-player-hit\.ro-vfx-spark\s*\{[\s\S]*width:\s*60px[\s\S]*height:\s*60px/, 'Mobile player-hit generated spark should be compact on 390px screens.');
+for (const bossAction of ['boss-cast', 'boss-impact', 'danger-mark']) {
+  assert.match(styles, new RegExp(`url\\("/assets/ui/fx/${bossAction}\\.png"\\)`), `${bossAction} should use an absolute asset URL to avoid short-path 404s.`);
+}
 assert.match(html, /styles\.css\?v=20260529-battle-effects-v11/, 'Battle effect CSS should use a fresh cache-busting version.');
-assert.match(html, /game\.js\?v=20260530-mvp-aura-v1/, 'MVP aura runtime should use a fresh cache-busting version.');
+assert.match(html, /game\.js\?v=20260530-mvp-aura-v2/, 'MVP aura runtime should use a fresh cache-busting version.');
+assert.match(game, /function\s+releaseFocusBeforeHiding\s*\(/, 'Modal close flow should release focus before hiding the active modal.');
+assert.match(game, /setModalVisibility\(els\.offlineRewardModal,\s*visible\)/, 'Offline reward modal should use the shared focus-safe visibility helper.');
+assert.match(game, /setModalVisibility\(els\.refineResultModal,\s*visible\)/, 'Refine result modal should use the shared focus-safe visibility helper.');
+assert.match(html, /id="offlineRewardModal"[^>]*inert/, 'Offline reward modal should start inert while hidden.');
+assert.match(html, /id="refineResultModal"[^>]*inert/, 'Refine result modal should start inert while hidden.');
 assert.match(main, /getMvpInscriptionView:\s*window\.getMvpInscriptionView/, 'Character page runtime must receive the live MVP inscription view helper.');
 assert.match(main, /canGainMvpInscriptionOnCurrentMap:\s*window\.canGainMvpInscriptionOnCurrentMap/, 'Character page runtime must receive the live MVP inscription map eligibility helper.');
 assert.match(html, /src="\.\/src\/main\.js\?v=20260529-mvp-inscription-v2"/, 'MVP inscription runtime must use a fresh module cache-busting version.');
@@ -244,6 +257,10 @@ for (const file of ['hit-slash.png', 'hit-crit.png', 'hit-spark.png', 'hit-skill
 const mvpAuraAssets = [
   'assets/ui/fx/mvp-aura-early.png',
   'assets/ui/fx/mvp-aura-advanced.png',
+  'assets/ui/fx/mvp-aura-king-poring.png',
+  'assets/ui/fx/mvp-aura-orc-hero.png',
+  'assets/ui/fx/mvp-aura-dark-lord.png',
+  'assets/ui/fx/mvp-aura-baphomet.png',
 ];
 for (const file of mvpAuraAssets) {
   const png = readPngInfo(file);
@@ -257,6 +274,15 @@ assert.match(game, /const\s+MVP_INSCRIPTION_AURA_FRAME_COUNT\s*=\s*16/, 'MVP ins
 assert.match(game, /const\s+MVP_INSCRIPTION_AURA_SPRITE_SHEETS\s*=\s*Object\.freeze\(/, 'MVP inscription aura stages should map to generated sprite sheet assets.');
 assert.match(game, /mvp-aura-early\.png/, 'Early MVP inscription stages should use the generated early aura sprite sheet.');
 assert.match(game, /mvp-aura-advanced\.png/, 'Advanced MVP inscription stages should use the generated advanced aura sprite sheet.');
+for (const [stageId, file] of [
+  ['kingPoring', 'mvp-aura-king-poring.png'],
+  ['orcHero', 'mvp-aura-orc-hero.png'],
+  ['darkLord', 'mvp-aura-dark-lord.png'],
+  ['baphomet', 'mvp-aura-baphomet.png'],
+]) {
+  assert.match(game, new RegExp(`${stageId}:\\s*"assets/ui/fx/${file}"`), `${stageId} should use its own boss-themed MVP inscription aura sample.`);
+}
+assert.match(game, /MVP_INSCRIPTION_AURA_ADVANCED_STAGE_IDS/, 'High MVP inscription stages should have an explicit advanced draw profile instead of relying on shared asset equality.');
 assert.match(game, /function\s+getMvpInscriptionAuraSprite\s*\(/, 'MVP inscription aura rendering should load the generated sprite sheet through a cache.');
 assert.match(game, /function\s+drawMvpInscriptionAura\s*\(/, 'MVP inscription aura rendering should have a dedicated canvas draw helper.');
 assert.match(game, /getMvpInscriptionView\(\)\?\.stage\?\.id/, 'MVP inscription aura should follow the current breakthrough stage.');
@@ -635,6 +661,34 @@ assert.equal(effective.abyssDamageBonus, 0.103, 'Abyss bonus scaling changed.');
 assert.equal(effective.bossDamageBonus, 0.052, 'Abyss affix scaling changed.');
 assert.equal(effective.lifeSteal, 0.03, 'Socket bonus merge changed.');
 assert.equal(JSON.stringify(itemFixture), frozenFixture, 'Read-only equipment calculation mutated the item.');
+itemStats.configureItemStatsContext({
+  getMechanicAffixEffects: () => ({}),
+  computeCardSocketBonuses: () => ({}),
+  getEnhanceMilestoneLevels: () => [7, 10, 15],
+  getEnhanceMilestoneBonuses: () => ({
+    weapon: [
+      { monsterDamageBonus: 0.02 },
+      { skillDamageBonus: 0.03 },
+      { finalDamageBonus: 0.05 },
+    ],
+  }),
+  getEnhancePassiveDb: () => ({
+    bossHunter: { effect: { bossDamageBonus: 0.06 } },
+  }),
+});
+const enhancedWeaponStats = itemStats.getEffectiveItemStats({
+  name: 'Enhanced Blade',
+  slot: 'weapon',
+  atk: 100,
+  matk: 50,
+  enhanceLevel: 10,
+  specialPassives: ['bossHunter'],
+});
+assert.equal(enhancedWeaponStats.atk, 130, 'Weapon refine must increase effective attack.');
+assert.equal(enhancedWeaponStats.matk, 65, 'Weapon refine must increase effective magic attack.');
+assert.equal(enhancedWeaponStats.monsterDamageBonus, 0.02, 'Enhance +7 weapon milestone must affect combat stats.');
+assert.equal(enhancedWeaponStats.skillDamageBonus, 0.03, 'Enhance +10 weapon milestone must affect combat stats.');
+assert.equal(enhancedWeaponStats.bossDamageBonus, 0.06, 'Enhance special passives must affect combat stats.');
 assert.equal(itemNaming.getEquipmentDisplayName(itemFixture), '\u6df1\u6e0a Test Blade', 'Abyss display prefix changed.');
 assert.equal(itemNaming.getEquipmentDisplayName({ name: '\u6df1\u6e0a Blade', abyssForged: true }), '\u6df1\u6e0a Blade', 'Abyss prefix must not duplicate.');
 assert.equal(itemNaming.getEquipmentDisplayName(null), '\u672a\u77e5\u88c5\u5907', 'Missing items must display safely.');

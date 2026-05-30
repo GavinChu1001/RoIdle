@@ -230,6 +230,46 @@
       "frames": 16,
       "tone": "mvp-aura-advanced",
       "usage": ["mvp-inscription-foot-aura", "advanced-breakthrough-aura"]
+    },
+    {
+      "id": "mvp-aura-king-poring",
+      "path": "assets/ui/fx/mvp-aura-king-poring.png",
+      "generated": true,
+      "spriteSheet": true,
+      "frameSize": 256,
+      "frames": 16,
+      "tone": "mvp-aura-king-poring",
+      "usage": ["mvp-inscription-foot-aura", "king-poring-breakthrough-aura"]
+    },
+    {
+      "id": "mvp-aura-orc-hero",
+      "path": "assets/ui/fx/mvp-aura-orc-hero.png",
+      "generated": true,
+      "spriteSheet": true,
+      "frameSize": 256,
+      "frames": 16,
+      "tone": "mvp-aura-orc-hero",
+      "usage": ["mvp-inscription-foot-aura", "orc-hero-breakthrough-aura"]
+    },
+    {
+      "id": "mvp-aura-dark-lord",
+      "path": "assets/ui/fx/mvp-aura-dark-lord.png",
+      "generated": true,
+      "spriteSheet": true,
+      "frameSize": 256,
+      "frames": 16,
+      "tone": "mvp-aura-dark-lord",
+      "usage": ["mvp-inscription-foot-aura", "dark-lord-breakthrough-aura"]
+    },
+    {
+      "id": "mvp-aura-baphomet",
+      "path": "assets/ui/fx/mvp-aura-baphomet.png",
+      "generated": true,
+      "spriteSheet": true,
+      "frameSize": 256,
+      "frames": 16,
+      "tone": "mvp-aura-baphomet",
+      "usage": ["mvp-inscription-foot-aura", "baphomet-breakthrough-aura"]
     }
   ],
   "plannedElements": [

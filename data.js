@@ -1187,24 +1187,32 @@ var materialDropTables = {
   grass: [
     { materialId: "dust", dropRate: 0.08, minQty: 1, maxQty: 3 },
     { materialId: "ore", dropRate: 0.018, minQty: 1, maxQty: 1 },
+    { materialId: "oridecon", dropRate: 0.001, minQty: 1, maxQty: 1 },
+    { materialId: "elunium", dropRate: 0.001, minQty: 1, maxQty: 1 },
     { materialId: "enhanceProtect", dropRate: 0.0003, minQty: 1, maxQty: 1 },
   ],
   forest: [
     { materialId: "dust", dropRate: 0.06, minQty: 1, maxQty: 3 },
     { materialId: "ore", dropRate: 0.035, minQty: 1, maxQty: 2 },
     { materialId: "crystal", dropRate: 0.01, minQty: 1, maxQty: 1 },
+    { materialId: "oridecon", dropRate: 0.0015, minQty: 1, maxQty: 1 },
+    { materialId: "elunium", dropRate: 0.0015, minQty: 1, maxQty: 1 },
     { materialId: "enhanceProtect", dropRate: 0.0004, minQty: 1, maxQty: 1 },
   ],
   sewer: [
     { materialId: "dust", dropRate: 0.05, minQty: 1, maxQty: 3 },
     { materialId: "ore", dropRate: 0.045, minQty: 1, maxQty: 2 },
     { materialId: "crystal", dropRate: 0.018, minQty: 1, maxQty: 1 },
+    { materialId: "oridecon", dropRate: 0.002, minQty: 1, maxQty: 1 },
+    { materialId: "elunium", dropRate: 0.002, minQty: 1, maxQty: 1 },
     { materialId: "enhanceProtect", dropRate: 0.00055, minQty: 1, maxQty: 1 },
   ],
   desert: [
     { materialId: "ore", dropRate: 0.055, minQty: 1, maxQty: 3 },
     { materialId: "crystal", dropRate: 0.024, minQty: 1, maxQty: 2 },
     { materialId: "rune", dropRate: 0.006, minQty: 1, maxQty: 1 },
+    { materialId: "oridecon", dropRate: 0.003, minQty: 1, maxQty: 1 },
+    { materialId: "elunium", dropRate: 0.003, minQty: 1, maxQty: 1 },
     { materialId: "enhanceProtect", dropRate: 0.0007, minQty: 1, maxQty: 1 },
   ],
   orc_village: [
