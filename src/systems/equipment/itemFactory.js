@@ -3,6 +3,7 @@ import {
   EQUIPMENT_GROWTH_MODEL,
   calculateCreationStatScale,
   growthModelFor,
+  rollProgressionQuality,
   snapshotLegacyPower,
   usesProgressionGrowth,
 } from './equipmentGrowth.js';
@@ -83,8 +84,10 @@ export function createItem(template = {}, level, forcedTierId = null, context = 
     ? { id: context.itemTier, ...(runtime.getItemTierConfig?.(context.itemTier) || {}) }
     : runtime.getItemTierForLevel?.(dropLevel) || { id: 'starter', scale: 1 };
   const slotGrowth = runtime.getSlotLevelGrowth?.(template.slot) || 0;
-  const quality = runtime.randomFloat?.(safeTier.rolls[0], safeTier.rolls[1]) ?? safeTier.rolls[0];
   const progressionGrowth = usesProgressionGrowth(template, context);
+  const quality = progressionGrowth
+    ? rollProgressionQuality(safeTier, runtime.randomFloat)
+    : runtime.randomFloat?.(safeTier.rolls[0], safeTier.rolls[1]) ?? safeTier.rolls[0];
   const statScale = calculateCreationStatScale({
     template,
     context,

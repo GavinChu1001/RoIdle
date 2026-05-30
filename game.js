@@ -1469,6 +1469,11 @@ let recentSkillExpGains = {};
 let recentLootFeedback = [];
 let skillFeedbackTimer = 0;
 let recentCombatSkillCast = { id: "", name: "", startedAt: 0, until: 0 };
+let combatFeedbackSuppressionDepth = 0;
+let lastSkillFeedbackAt = 0;
+let lastSkillFeedbackName = "";
+let lastHitFeedbackAt = 0;
+const pendingDamageFloats = new Map();
 let sessionStatsLastRenderAt = 0;
 let sessionStatsMapId = "";
 const FAST_RENDER_INTERVAL_MS = 100;
@@ -1479,6 +1484,9 @@ const BACKGROUND_OFFLINE_THRESHOLD_MS = 15000;
 const COMBAT_SIMULATION_STEP_SECONDS = 0.12;
 const COMBAT_CATCHUP_MAX_SECONDS = BACKGROUND_OFFLINE_THRESHOLD_MS / 1000;
 const BOSS_BACKGROUND_CATCHUP_MAX_SECONDS = 5 * 60;
+const DAMAGE_FLOAT_BATCH_WINDOW_MS = 140;
+const SKILL_FEEDBACK_MIN_INTERVAL_MS = 600;
+const HIT_FEEDBACK_MIN_INTERVAL_MS = 140;
 let lastFastRenderAt = 0;
 let lastCombatPageRenderAt = 0;
 let lastSceneRenderAt = 0;
@@ -3793,16 +3801,20 @@ function simulateCombatElapsed(elapsedSeconds, options = {}) {
   const maxSeconds = Math.max(0, Number(options.maxSeconds ?? COMBAT_CATCHUP_MAX_SECONDS) || 0);
   const total = Math.min(maxSeconds, Math.max(0, Number(elapsedSeconds) || 0));
   if (total <= 0 || state.paused) return;
-  let remaining = total;
-  let steps = 0;
-  const maxSteps = Math.ceil(maxSeconds / COMBAT_SIMULATION_STEP_SECONDS) + 1;
-  while (remaining > 0 && steps < maxSteps && !state.paused) {
-    if (options.stopWhenBossEnds && !state.enemyBoss) break;
-    const combatStep = Math.min(COMBAT_SIMULATION_STEP_SECONDS, remaining);
-    updateCombat(combatStep);
-    remaining -= combatStep;
-    steps += 1;
-  }
+  const runSimulation = () => {
+    let remaining = total;
+    let steps = 0;
+    const maxSteps = Math.ceil(maxSeconds / COMBAT_SIMULATION_STEP_SECONDS) + 1;
+    while (remaining > 0 && steps < maxSteps && !state.paused) {
+      if (options.stopWhenBossEnds && !state.enemyBoss) break;
+      const combatStep = Math.min(COMBAT_SIMULATION_STEP_SECONDS, remaining);
+      updateCombat(combatStep);
+      remaining -= combatStep;
+      steps += 1;
+    }
+  };
+  if (options.silentFeedback || document.hidden || total > COMBAT_SIMULATION_STEP_SECONDS * 2) return withSuppressedCombatFeedback(runSimulation);
+  return runSimulation();
 }
 
 function loop(now) {
@@ -4003,6 +4015,7 @@ function noteSkillCast(name, damage) {
 }
 
 function addFloatText(text, x, y, color) {
+  if (combatFeedbackSuppressed()) return;
   state.floatTexts.unshift({
     text,
     x: x + Math.random() * 44 - 22,
@@ -4032,11 +4045,12 @@ function trimCombatLabel(label, max = 5) {
 }
 
 function combatDamageText(value, type, options = {}) {
-  if (type === "miss") return "MISS";
-  if (type === "heal") return `+${formatNumber(value)}`;
-  if (type === "skill") return `${trimCombatLabel(options.skillName) || "技能"} -${formatNumber(value)}`;
-  if (type === "crit") return `暴击 -${formatNumber(value)}`;
-  return `-${formatNumber(value)}`;
+  const suffix = options.suffix || "";
+  if (type === "miss") return `MISS${suffix}`;
+  if (type === "heal") return `+${formatNumber(value)}${suffix}`;
+  if (type === "skill") return `${trimCombatLabel(options.skillName) || "技能"} -${formatNumber(value)}${suffix}`;
+  if (type === "crit") return `暴击 -${formatNumber(value)}${suffix}`;
+  return `-${formatNumber(value)}${suffix}`;
 }
 
 const COMBAT_VFX_ASSET_TYPES = {
@@ -4208,6 +4222,7 @@ function spawnEnemyActionVfx(wrap, type = "enemy-warning", options = {}) {
 }
 
 function showEnemyAttackWarning(payload = {}) {
+  if (combatFeedbackSuppressed()) return;
   const wrap = document.querySelector(".scene-wrap");
   if (!wrap) return;
   const boss = Boolean(payload.boss);
@@ -4228,6 +4243,7 @@ function showEnemyAttackWarning(payload = {}) {
 }
 
 function showEnemyAttackImpact(payload = {}) {
+  if (combatFeedbackSuppressed()) return;
   const wrap = document.querySelector(".scene-wrap");
   if (!wrap) return;
   const boss = Boolean(payload.boss);
@@ -4243,7 +4259,21 @@ function showEnemyAttackImpact(payload = {}) {
   window.setTimeout(() => wrap.classList.remove("boss-impact-flash"), 360);
 }
 
-function showDamageNumber(target, amount, type = "player", options = {}) {
+function combatFeedbackSuppressed() {
+  return combatFeedbackSuppressionDepth > 0 || document.hidden;
+}
+
+function withSuppressedCombatFeedback(fn) {
+  combatFeedbackSuppressionDepth += 1;
+  try { return fn(); }
+  finally { combatFeedbackSuppressionDepth = Math.max(0, combatFeedbackSuppressionDepth - 1); }
+}
+
+function damageBatchKey(target, type, options = {}) {
+  return [target, type, options.skillName || "", options.batchKey || ""].join("|");
+}
+
+function renderDamageNumberNow(target, amount, type = "player", options = {}) {
   const wrap = document.querySelector(".scene-wrap");
   if (type !== "miss" && (!Number.isFinite(Number(amount)) || Number(amount) <= 0)) return;
   const value = type === "heal" ? normalizeDamage(amount, { allowZero: true }) : normalizeDamage(amount, { allowZero: type === "miss" });
@@ -4271,9 +4301,46 @@ function showDamageNumber(target, amount, type = "player", options = {}) {
   window.setTimeout(() => el.remove(), 900);
 }
 
+function showDamageNumber(target, amount, type = "player", options = {}) {
+  if (combatFeedbackSuppressed() || options.silentFeedback) return;
+  if (type !== "miss" && (!Number.isFinite(Number(amount)) || Number(amount) <= 0)) return;
+  const shouldBatch = target === "monster" && (type === "skill" || type === "player" || type === "crit");
+  if (!shouldBatch) {
+    renderDamageNumberNow(target, amount, type, options);
+    return;
+  }
+  const key = damageBatchKey(target, type, options);
+  const value = normalizeDamage(amount);
+  const pending = pendingDamageFloats.get(key);
+  if (pending) {
+    pending.amount += value;
+    pending.count += 1;
+    pending.options = { ...pending.options, ...options };
+    return;
+  }
+  const entry = {
+    target,
+    type,
+    amount: value,
+    count: 1,
+    options: { ...options },
+  };
+  entry.timer = window.setTimeout(() => {
+    pendingDamageFloats.delete(key);
+    if (combatFeedbackSuppressed()) return;
+    const suffix = entry.count > 1 ? `${entry.options.suffix || ""} ×${entry.count}` : entry.options.suffix;
+    renderDamageNumberNow(entry.target, entry.amount, entry.type, { ...entry.options, suffix });
+  }, DAMAGE_FLOAT_BATCH_WINDOW_MS);
+  pendingDamageFloats.set(key, entry);
+}
+
 function showHitFeedback(kind = "normal") {
+  if (combatFeedbackSuppressed()) return;
+  const now = Date.now();
+  if (now - lastHitFeedbackAt < HIT_FEEDBACK_MIN_INTERVAL_MS) return;
   const wrap = document.querySelector(".scene-wrap");
   if (!wrap) return;
+  lastHitFeedbackAt = now;
   const className = state.enemyBoss ? "boss-hit-shake" : kind === "crit" ? "hit-crit-shake" : kind === "skill" ? "hit-skill-shake" : "hit-shake";
   wrap.classList.remove("hit-shake", "hit-crit-shake", "hit-skill-shake", "boss-hit-shake");
   void wrap.offsetWidth;
@@ -4283,17 +4350,22 @@ function showHitFeedback(kind = "normal") {
 }
 
 function showSkillCastFeedback(skill) {
-  const wrap = document.querySelector(".scene-wrap");
   const name = typeof skill === "string" ? skill : skill?.name;
   if (!name) return;
+  if (combatFeedbackSuppressed()) return;
+  const wrap = document.querySelector(".scene-wrap");
+  const now = Date.now();
   recentCombatSkillCast = {
     id: skill && typeof skill === "object" && skill.id ? skill.id : "",
     name,
-    startedAt: Date.now(),
-    until: Date.now() + 850
+    startedAt: now,
+    until: now + 850
   };
   renderSkillCastBanner();
+  if (name === lastSkillFeedbackName && now - lastSkillFeedbackAt < SKILL_FEEDBACK_MIN_INTERVAL_MS) return;
   if (!wrap) return;
+  lastSkillFeedbackAt = now;
+  lastSkillFeedbackName = name;
   window.clearTimeout(skillFeedbackTimer);
   const existing = wrap.querySelectorAll(".skill-cast-feedback");
   existing.forEach((node) => node.remove());
@@ -4312,6 +4384,7 @@ function showSkillCastFeedback(skill) {
 }
 
 function showMonsterDeathFeedback(monster = currentMonsterStats()) {
+  if (combatFeedbackSuppressed()) return;
   const wrap = document.querySelector(".scene-wrap");
   if (!wrap) return;
   const isAbyssBoss = state.enemyBoss && state.currentDifficulty === "abyss";
@@ -5168,6 +5241,7 @@ function shouldAutoSalvage(item) {
   const setting = state.autoSalvage || {};
   if (!setting.enabled || item.locked || item.setId || item.rarity === "mythic" || item.rarity === "darkGold") return false;
   if (isAbyssEquipment(item) && !(setting.autoDismantleAbyss || state.autoDismantleAbyss)) return false;
+  if (shouldProtectEquipment(item)) return false;
   return rarityRank(item.rarity) >= 0 && rarityRank(item.rarity) <= rarityRank(setting.maxRarity || "normal");
 }
 
@@ -6155,10 +6229,10 @@ function equipItem(id) {
 }
 
 function salvageItem(id, options = {}) {
-  const runtime = window.RuneFrontierEquipmentRuntime;
-  if (runtime && typeof runtime.salvageItem === "function") return runtime.salvageItem(id, options);
   const item = state.inventory.find((entry) => entry.id === id);
   if (!item) return { ok: false };
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.salvageItem === "function") return runtime.salvageItem(id, options);
   if (item.locked) {
     if (!options.silent) showToast("已锁定的装备不能分解");
     return { ok: false };
@@ -6195,14 +6269,16 @@ function getSalvageRewards(item) {
 }
 
 function salvageAllUnequipped() {
-  const runtime = window.RuneFrontierEquipmentRuntime;
-  if (runtime && typeof runtime.salvageAllUnequipped === "function") return runtime.salvageAllUnequipped();
   const equippedIds = new Set(Object.values(state.equipped).filter(Boolean));
-  const targets = state.inventory.filter((item) => !equippedIds.has(item.id) && !item.locked);
+  const hasProtectedTargets = state.inventory.some((item) => !equippedIds.has(item.id) && !item.locked && shouldProtectEquipment(item));
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.salvageAllUnequipped === "function" && !hasProtectedTargets) return runtime.salvageAllUnequipped();
+  const targets = state.inventory.filter((item) => !equippedIds.has(item.id) && !item.locked && !shouldProtectEquipment(item));
   if (!targets.length) {
     showToast("没有可分解的未穿戴装备");
     return;
   }
+  const targetIds = new Set(targets.map((item) => item.id));
   const totals = {};
   targets.forEach((item) => {
     const rewards = getSalvageRewards(item);
@@ -6211,7 +6287,7 @@ function salvageAllUnequipped() {
       state.materials[material] = (state.materials[material] || 0) + amount;
     });
   });
-  state.inventory = state.inventory.filter((item) => equippedIds.has(item.id) || item.locked);
+  state.inventory = state.inventory.filter((item) => !targetIds.has(item.id));
   addLog(`批量分解 ${targets.length} 件未穿戴装备，获得 ${materialText(totals)}。`);
   showSalvageResultModal("批量分解完成", targets.length, totals);
   renderAll();
@@ -6914,6 +6990,7 @@ function rollOfflineEquipmentDrops(rewards, stats, map, mapIndex, killCount) {
 }
 
 function canOfflineFullSalvage(item) {
+  if (shouldProtectEquipment(item)) return false;
   return !item.setId && !["darkGold", "mythic"].includes(item.rarity) && rarityRank(item.rarity) <= rarityRank("epic");
 }
 
@@ -9776,7 +9853,7 @@ function renderEquipment() { const runtime = window.RuneFrontierRenderRuntime; i
     ${renderCostumePanel()}
     <div class="slot-card auto-salvage-card">
       <span class="slot-name">自动分解</span>
-      <p class="slot-meta">仅对新获得装备生效，不会默认分解传说/暗金/神话/套装。</p>
+      <p class="slot-meta">仅对新获得装备生效，不会默认分解传说/暗金/神话/套装/成长装备。</p>
       <label class="setting-line"><input type="checkbox" data-auto-salvage-enabled ${state.autoSalvage?.enabled ? "checked" : ""}> 开启自动分解</label>
       <select data-auto-salvage-rarity>
         ${["normal", "fine", "rare", "epic"].map((rarity) => `<option value="${rarity}" ${state.autoSalvage?.maxRarity === rarity ? "selected" : ""}>${rarityName(rarity)}及以下</option>`).join("")}
@@ -10016,7 +10093,30 @@ function isHighValueEquipment(item) {
   );
 }
 
+function isProgressionLineEquipment(item = {}) {
+  return Boolean(
+    item &&
+      typeof item === "object" &&
+      ((item.series && item.series !== "oldWorld") ||
+        (item.upgradePathId && item.upgradePathId !== "oldWorld") ||
+        (item.growthTier && item.growthTier !== "T1")),
+  );
+}
+
+function equipmentGrowthTierRank(item = {}) {
+  const match = String(item.growthTier || "T1").match(/^T(\d+)$/i);
+  return match ? Number(match[1]) : 1;
+}
+
+function renderEquipmentPotentialBadge(item = {}) {
+  if (!isProgressionLineEquipment(item)) return "";
+  const tier = escapeHtml(item.growthTier || "T1");
+  const stage = Math.max(0, Number(item.upgradeStage || 0));
+  return `<span class="equipment-badge equipment-potential-badge">成长潜力 ${tier}${stage ? ` · 阶段${stage + 1}` : ""}</span>`;
+}
+
 function shouldProtectEquipment(item) {
+  if (isProgressionLineEquipment(item)) return true;
   const runtime = equipmentArchetypeRuntime();
   if (runtime && typeof runtime.shouldProtectEquipmentByArchetype === "function") {
     try {
@@ -10187,7 +10287,7 @@ function renderEquipmentBadges(item) { const runtime = window.RuneFrontierRender
   if (item.rarity === "mythic") badges.push({ text: "神话", cls: "equipment-badge-mythic" });
   if (item.rarity === "darkGold") badges.push({ text: "暗金", cls: "equipment-badge-mythic" });
   if (item.setId) badges.push({ text: "套装", cls: "equipment-badge-set" });
-  return `<div class="equipment-badge-row">${renderEquipmentArchetypeBadge(item)}${badges.map((badge) => `<span class="equipment-badge ${badge.cls}">${escapeHtml(badge.text)}</span>`).join("")}</div>`;
+  return `<div class="equipment-badge-row">${renderEquipmentArchetypeBadge(item)}${renderEquipmentPotentialBadge(item)}${badges.map((badge) => `<span class="equipment-badge ${badge.cls}">${escapeHtml(badge.text)}</span>`).join("")}</div>`;
 }
 
 function renderMaps() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderMaps === "function") return runtime.renderMaps();

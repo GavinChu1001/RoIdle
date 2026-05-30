@@ -3,6 +3,7 @@ import {
   EQUIPMENT_GROWTH_MODEL,
   GROWTH_STAT_KEYS,
   rebuildGrowthStatsFromTemplate,
+  rollProgressionQuality,
 } from './equipmentGrowth.js';
 
 const RARITY_ORDER = ['normal', 'fine', 'rare', 'epic', 'ancient', 'legend', 'darkGold', 'mythic'];
@@ -111,7 +112,7 @@ export function upgradeEquipmentProgression(itemId, context = {}) {
   const templateId = `prog_${next.series}_${next.grade}_${item.archetype || 'general'}_${item.slot || item.equipSlot || 'weapon'}`;
   const targetTemplate = context.getProgressionEquipmentTemplate?.(templateId);
   const tier = (context.getEquipmentTiers?.() || []).find((entry) => entry.id === item.rarity) || { id: item.rarity, scale: 1, rolls: [1, 1] };
-  const quality = context.randomFloat?.(tier.rolls?.[0] || 1, tier.rolls?.[1] || 1) || 1;
+  const quality = rollProgressionQuality(tier, context.randomFloat);
   if (targetTemplate) {
     rebuildGrowthStatsFromTemplate(item, targetTemplate, tier, quality);
   } else {

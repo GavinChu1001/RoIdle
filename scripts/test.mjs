@@ -101,6 +101,8 @@ assert.match(skillMechanicsSource, /getUnlockedSkillCircuits/, 'Skill mechanics 
 assert.match(skillMechanicsSource, /extraHit/, 'Skill mechanics must support extraHit circuit effect.');
 assert.match(skillMechanicsSource, /armorBreak/, 'Skill mechanics must support armorBreak circuit effect.');
 assert.match(skillMechanicsSource, /finalCircuitBoost/, 'Skill mechanics must support final circuit boost.');
+assert.match(skillMechanicsSource, /MIN_ACTIVE_SKILL_COOLDOWN/, 'V3 active skills should have a minimum effective cooldown.');
+assert.match(skillMechanicsSource, /Math\.max\(MIN_ACTIVE_SKILL_COOLDOWN,\s*cd\)/, 'V3 cooldown reductions should be floored after all refunds.');
 assert.doesNotMatch(game, /\bgetSkillSpecializationOptions\b/, 'Legacy skill specialization option helper should be removed.');
 assert.doesNotMatch(game, /\bselectSkillSpecialization\b/, 'Legacy skill specialization setter should be removed.');
 assert.doesNotMatch(game, /data-skill-spec/, 'Legacy skill specialization buttons should be removed from game.js.');
@@ -161,6 +163,24 @@ for (const id of [
 }
 assert.match(game, /bar\.dataset\.skillComposition/, 'The RO skill bar must update existing nodes instead of rebuilding on every fast render.');
 assert.match(game, /renderSkillCastBanner\(\)/, 'Skill casts must update their visible combat banner.');
+assert.match(game, /DAMAGE_FLOAT_BATCH_WINDOW_MS/, 'Combat feedback should batch frequent damage floats.');
+assert.match(game, /SKILL_FEEDBACK_MIN_INTERVAL_MS/, 'Skill cast banners should be throttled.');
+assert.match(game, /HIT_FEEDBACK_MIN_INTERVAL_MS/, 'Hit feedback should be throttled.');
+assert.match(game, /withSuppressedCombatFeedback/, 'Combat catch-up should suppress heavy visual feedback.');
+assert.match(game, /renderDamageNumberNow/, 'Damage number rendering should have a single immediate renderer behind the batcher.');
+assert.match(game, /pendingDamageFloats\.set/, 'Damage float batching should retain pending batches before rendering.');
+assert.match(game, /options\.suffix\s*\|\|\s*""/, 'Combat damage text should append an optional batch suffix.');
+assert.match(game, /const\s+runSimulation\s*=\s*\(\)\s*=>\s*\{[\s\S]*updateCombat\(combatStep\)[\s\S]*withSuppressedCombatFeedback\(runSimulation\)/, 'Combat catch-up should wrap the simulation loop when visual feedback is suppressed.');
+assert.match(skillMechanicsSource, /function\s+applyDamage\s*\([^)]*skillOrName[\s\S]*showDamageNumber\?\.\('monster',\s*damage,\s*'skill',\s*\{\s*skillName\s*\}/, 'Skill damage batching should key damage numbers by the current skill name.');
+assert.doesNotMatch(skillMechanicsSource, /applyDamage\([^,\n]+,\s*state,\s*ctx\)/, 'Skill damage callers should pass skill context into applyDamage.');
+{
+  const skillFeedbackSource = game.match(/function\s+showSkillCastFeedback\s*\([^)]*\)\s*\{[\s\S]*?\n\}/)?.[0] || '';
+  assert.ok(
+    skillFeedbackSource.indexOf('if (combatFeedbackSuppressed()) return;') >= 0 &&
+      skillFeedbackSource.indexOf('if (combatFeedbackSuppressed()) return;') < skillFeedbackSource.indexOf('recentCombatSkillCast ='),
+    'Suppressed skill cast feedback must return before updating the visible cast banner state.',
+  );
+}
 assert.match(styles, /\.skill-bar-icon\.cooldown\.casting/, 'Casting feedback must remain visible when a skill immediately enters cooldown.');
 assert.match(styles, /\.scene-wrap\.skill-cast-active::after/, 'Skill casts must create a visible battle-scene impact pulse.');
 assert.match(game, /function\s+spawnCombatSparks\s*\(/, 'Combat impacts should spawn lightweight pixel spark accents.');
@@ -938,6 +958,13 @@ assert.ok(ancientHeroWeapon, 'Progression equipment pool must include Ancient He
 assert.match(ancientHeroWeapon.name, /古代英雄/, 'Progression equipment names should expose the equipment line, not old map-template names.');
 assert.equal(ancientHeroWeapon.series, 'ancientHero', 'Progression templates must carry series metadata.');
 assert.equal(ancientHeroWeapon.archetype, 'physical', 'Progression templates must carry archetype metadata.');
+const ancientHeroPhysicalWeapon = itemProgression.getProgressionEquipmentTemplate('prog_ancientHero_base_physical_weapon');
+const osPhysicalWeapon = itemProgression.getProgressionEquipmentTemplate('prog_os_os_physical_weapon');
+const osAdPhysicalWeapon = itemProgression.getProgressionEquipmentTemplate('prog_os_osAd_physical_weapon');
+assert.equal(ancientHeroPhysicalWeapon.atk, 18, 'T2 Ancient Hero physical weapon base ATK should use the new T2 tier power.');
+assert.equal(osPhysicalWeapon.atk, 27, 'T3 OS physical weapon base ATK should use the new T3 tier power.');
+assert.ok(osPhysicalWeapon.atk >= ancientHeroPhysicalWeapon.atk * 1.35, 'T3 base weapon should clearly beat T2 base weapon before rarity/affixes.');
+assert.ok(osAdPhysicalWeapon.atk > osPhysicalWeapon.atk, 'T4 OS-AD should be a visible upgrade over T3 OS.');
 assert.deepEqual(
   itemProgression.getEquipmentProgressionTags({ series: 'ancientHero', growthTier: 'T3', upgradeStage: 2, grade: 'lt' }),
   ['古代英雄', '英雄-LT'],
@@ -1051,8 +1078,77 @@ assert.equal(
     level: 20,
     slotGrowth: 0.1,
   }),
-  3,
-  'Progression growth should ignore legacy item tier and level scaling.',
+  1.5,
+  'Progression growth should use quality only for creation stat scaling.',
+);
+for (const [rarity, range] of Object.entries({
+  normal: [0.96, 1.04],
+  fine: [0.98, 1.06],
+  rare: [1.00, 1.08],
+  epic: [1.03, 1.12],
+  ancient: [1.06, 1.15],
+  legend: [1.08, 1.18],
+  darkGold: [1.10, 1.22],
+  mythic: [1.14, 1.28],
+})) {
+  assert.deepEqual(
+    equipmentGrowth.getProgressionRarityQualityRange(rarity),
+    range,
+    `Progression ${rarity} quality should use the configured light base-stat modifier.`,
+  );
+}
+assert.deepEqual(
+  equipmentGrowth.getProgressionRarityQualityRange('unknown'),
+  [0.96, 1.04],
+  'Unknown progression rarity quality should fall back to normal.',
+);
+const progressionQualityRangeCopy = equipmentGrowth.getProgressionRarityQualityRange('rare');
+progressionQualityRangeCopy[0] = 9;
+assert.deepEqual(
+  equipmentGrowth.getProgressionRarityQualityRange('rare'),
+  [1.00, 1.08],
+  'Progression quality ranges should be returned as copies.',
+);
+assert.equal(
+  equipmentGrowth.rollProgressionQuality({ id: 'legend' }, (min, max) => max),
+  1.18,
+  'Progression legend quality should use the configured max roll.',
+);
+assert.equal(
+  equipmentGrowth.rollProgressionQuality({ rarity: 'epic' }, (min, max) => min),
+  1.03,
+  'Progression quality rolls should use tier.rarity when tier.id is absent.',
+);
+assert.equal(
+  equipmentGrowth.rollProgressionQuality({ id: 'epic' }, () => 1.12345),
+  1.123,
+  'Progression quality rolls should round to 3 decimal places.',
+);
+assert.equal(
+  equipmentGrowth.calculateCreationStatScale({
+    template: { source: 'progression_drop', series: 'os', growthTier: 'T3' },
+    context: {},
+    tier: { id: 'legend', scale: 2.94 },
+    itemTier: { id: 'tier9', scale: 12 },
+    quality: 1.18,
+    level: 150,
+    slotGrowth: 0.045,
+  }),
+  1.18,
+  'Progression equipment creation should not multiply base stats by rarity scale, item tier, or level growth.',
+);
+assert.equal(
+  Number(equipmentGrowth.calculateCreationStatScale({
+    template: { source: 'monster_drop' },
+    context: {},
+    tier: { id: 'legend', scale: 2.94 },
+    itemTier: { id: 'tier3', scale: 2.1 },
+    quality: 1.2,
+    level: 20,
+    slotGrowth: 0.045,
+  }).toFixed(3)),
+  14.077,
+  'Legacy equipment creation should keep the old rarity/item-tier/level growth formula.',
 );
 assert.equal(
   equipmentGrowth.calculateCreationStatScale({
@@ -1512,6 +1608,44 @@ assert.equal(recompositionState.inventory[0].refine, 7, 'Upgrade should preserve
 assert.equal(recompositionState.inventory[0].empower, 3, 'Upgrade should preserve empower investment.');
 assert.equal(recompositionState.inventory[0].cardSlots[0].cardId, 'card-a', 'Upgrade should preserve socketed cards.');
 assert.ok(recompositionState.inventory[0].rarityRewardHistory.includes('epic'), 'Upgrade should complete target rarity rewards.');
+const progressionQualityRebuildState = {
+  gold: 10000,
+  materials: { heroReformInscription: 4 },
+  inventory: [{
+    id: 'quality-rebuild',
+    name: 'Quality Hero Blade',
+    slot: 'weapon',
+    archetype: 'physical',
+    series: 'ancientHero',
+    growthTier: 'T2',
+    upgradeStage: 0,
+    rarity: 'rare',
+    level: 30,
+    dropLevel: 30,
+    atk: 1,
+  }],
+};
+const progressionQualityRebuildResult = progressionUpgrade.upgradeEquipmentProgression('quality-rebuild', {
+  getState: () => progressionQualityRebuildState,
+  getProgressionEquipmentTemplate: () => ({
+    id: 'prog_ancientHero_reform_physical_weapon',
+    name: 'Quality Reform Blade',
+    slot: 'weapon',
+    atk: 100,
+    source: 'progression_drop',
+    series: 'ancientHero',
+    growthTier: 'T2',
+    upgradeStage: 1,
+    grade: 'reform',
+    archetype: 'physical',
+  }),
+  getEquipmentTiers: () => [{ id: 'epic', scale: 2, rolls: [7, 9] }],
+  randomFloat: (min, max) => max,
+  applyRarityUpgradeRewards: () => {},
+});
+assert.equal(progressionQualityRebuildResult.ok, true, 'Progression upgrade quality rebuild should succeed.');
+assert.equal(progressionQualityRebuildState.inventory[0].quality, 112, 'Progression upgrade rebuild should roll quality from the light rarity range.');
+assert.equal(progressionQualityRebuildState.inventory[0].atk, 224, 'Progression upgrade rebuild should not use the legacy tier.rolls quality multiplier.');
 const ancientRarityUpgradeState = {
   gold: 10000,
   materials: { heroReformInscription: 4 },
@@ -1690,6 +1824,44 @@ assert.equal(lowLevelProgressionItem.drop, highLevelProgressionItem.drop, 'Progr
 assert.equal(lowLevelProgressionItem.dodgeRate, highLevelProgressionItem.dodgeRate, 'Progression-v2 drops must not scale dodge from hidden item level.');
 assert.equal(lowLevelProgressionItem.gold, highLevelProgressionItem.gold, 'Progression-v2 drops must not scale gold from hidden item level.');
 assert.equal(highLevelProgressionItem.growthModel, 'progression-v2', 'Progression drops should record the new growth model.');
+const qualityRollContext = {
+  ...factoryContext,
+  getEquipmentTiers: () => [{ id: 'rare', scale: 2, rolls: [7, 9] }],
+  randomFloat: (min, max) => max,
+};
+const progressionQualityRollItem = itemFactory.createItem(
+  { name: 'Quality Hero Blade', source: 'progression_drop', slot: 'weapon', atk: 100, growthTier: 'T2', series: 'ancientHero' },
+  20,
+  'rare',
+  { dropLevel: 20, rng: () => 0 },
+  qualityRollContext,
+);
+assert.equal(progressionQualityRollItem.quality, 108, 'Progression createItem should use the light rarity quality range.');
+assert.equal(progressionQualityRollItem.atk, 108, 'Progression createItem should not use legacy tier.rolls for base stats.');
+const legacyQualityRollItem = itemFactory.createItem(
+  { name: 'Legacy Quality Blade', source: 'monster_drop', slot: 'weapon', atk: 10 },
+  1,
+  'rare',
+  { dropLevel: 1, rng: () => 0 },
+  qualityRollContext,
+);
+assert.equal(legacyQualityRollItem.quality, 900, 'Legacy createItem should keep using tier.rolls quality.');
+assert.equal(legacyQualityRollItem.atk, 180, 'Legacy createItem should keep old rarity scale and tier.rolls base stat scaling.');
+const scalingFactoryContext = {
+  ...factoryContext,
+  getEquipmentTiers: () => [
+    { id: 'rare', scale: 1.42, rolls: [0.98, 1.16], affixes: 2 },
+    { id: 'legend', scale: 2.94, rolls: [1.12, 1.42], affixes: 5 },
+  ],
+  randomFloat: (min, max) => min,
+  applyRandomAffixes: () => {},
+  applyRarityPerk: () => {},
+};
+const createdT2 = itemFactory.createItem(ancientHeroPhysicalWeapon, 100, 'rare', { dropLevel: 100 }, scalingFactoryContext);
+const createdT3 = itemFactory.createItem(osPhysicalWeapon, 130, 'rare', { dropLevel: 130 }, scalingFactoryContext);
+const createdT3Legend = itemFactory.createItem(osPhysicalWeapon, 130, 'legend', { dropLevel: 130 }, scalingFactoryContext);
+assert.ok(createdT3.atk > createdT2.atk, 'New T3 rare progression equipment should beat same-slot T2 rare progression equipment.');
+assert.ok(createdT3Legend.atk < createdT3.atk * 1.25, 'Legend rarity should not multiply progression base stats by several times.');
 const scalingProbeCalls = [];
 const scalingProbeContext = {
   ...factoryContext,
@@ -1836,6 +2008,25 @@ assert.match(game, /适合当前职业/, 'Equipment UI must expose current-job f
 assert.match(game, /renderEquipmentProgressionTags/, 'Equipment UI must display progression-line tags.');
 assert.match(game, /data-upgrade-progression-item/, 'Equipment progression upgrades must have a clickable action.');
 assert.match(game, /\u88c5\u5907\u8fdb\u9636/, 'Smithy must expose the equipment progression upgrade panel.');
+assert.match(game, /function\s+isProgressionLineEquipment\s*\(/, 'Equipment UI must identify progression line gear.');
+assert.match(game, /function\s+renderEquipmentPotentialBadge\s*\(/, 'Equipment cards must render progression growth potential.');
+assert.match(game, /成长潜力/, 'Equipment cards should label progression potential in Chinese.');
+assert.match(game, /item\.series\s*!==\s*["']oldWorld["']/, 'Progression line equipment should be protected from broad salvage flows.');
+assert.doesNotMatch(game, /function\s+equipmentPotentialScore\s*\(/, 'Unused progression potential score helper should not remain in game.js.');
+const progressionProtectionSource = game.slice(game.indexOf('function shouldProtectEquipment'), game.indexOf('function equipmentProgressionRuntime'));
+assert.match(progressionProtectionSource, /isProgressionLineEquipment\(item\)/, 'Equipment protection must keep progression-line gear out of broad salvage flows.');
+const equipmentBadgeSource = game.slice(game.indexOf('function renderEquipmentBadges'), game.indexOf('function renderMaps'));
+assert.match(equipmentBadgeSource, /renderEquipmentPotentialBadge\(item\)/, 'Equipment badge row must include progression potential.');
+const salvageAllSource = game.slice(game.indexOf('function salvageAllUnequipped'), game.indexOf('function showSalvageResultModal'));
+assert.match(salvageAllSource, /shouldProtectEquipment\(item\)/, 'Batch unequipped salvage must respect protected progression gear.');
+const manualSalvageSource = game.slice(game.indexOf('function salvageItem'), game.indexOf('function getSalvageRewards'));
+assert.doesNotMatch(manualSalvageSource, /isProgressionLineEquipment\(item\)|shouldProtectEquipment\(item\)/, 'Manual salvage must not hard-block progression-line gear.');
+const equipmentCardSource = game.slice(game.indexOf('data-salvage-item'), game.indexOf('function renderEquipmentFilterBar'));
+assert.doesNotMatch(equipmentCardSource, /data-salvage-item[\s\S]{0,240}isProgressionLineEquipment/, 'Manual salvage action must remain available for progression-line gear.');
+const offlineFullSalvageSource = game.slice(game.indexOf('function canOfflineFullSalvage'), game.indexOf('function processOfflineGeneratedEquipment'));
+assert.match(offlineFullSalvageSource, /shouldProtectEquipment\(item\)|isProgressionLineEquipment\(item\)/, 'Offline full-inventory salvage must protect progression-line gear.');
+const moduleBatchSalvageSource = dismantleSource.slice(dismantleSource.indexOf('export function salvageAllUnequipped'), dismantleSource.indexOf('export function equipBest'));
+assert.match(moduleBatchSalvageSource, /ctx\.shouldProtectEquipment\?\.\(item\)/, 'Modular batch dismantle must respect protected equipment.');
 
 const scoreStandaloneSource = withItemArchetypeImport(itemScoreSource)
   .replace("import { getEffectiveItemStats } from './itemStats.js';", 'const getEffectiveItemStats = (item) => item;')
@@ -1923,9 +2114,9 @@ const batchMutationContext = {
   save: () => {},
 };
 dismantle.salvageAllUnequipped(batchMutationContext);
-assert.deepEqual(batchState.inventory.map((item) => item.id), ['equipped', 'locked'], 'Batch dismantle must remove all unlocked unequipped equipment.');
-assert.equal(batchState.materials.dust, 2, 'Batch dismantle must reward all unlocked unequipped equipment.');
-assert.deepEqual(batchSalvageDialog, ['\u6279\u91cf\u5206\u89e3\u5b8c\u6210', 2, { dust: 2 }], 'Batch dismantle dialog must count all unlocked unequipped equipment.');
+assert.deepEqual(batchState.inventory.map((item) => item.id), ['keep', 'equipped', 'locked'], 'Batch dismantle must keep protected unlocked unequipped equipment.');
+assert.equal(batchState.materials.dust, 1, 'Batch dismantle must only reward unprotected unlocked unequipped equipment.');
+assert.deepEqual(batchSalvageDialog, ['\u6279\u91cf\u5206\u89e3\u5b8c\u6210', 1, { dust: 1 }], 'Batch dismantle dialog must count only unprotected unlocked unequipped equipment.');
 const fullInventory = dismantle.addEquipmentToInventory({ id: 'second', rarity: 'legend' }, {}, mutationContext);
 assert.equal(fullInventory.skipped, true, 'Inventory capacity behavior changed.');
 mutationState.inventory = [{ id: 'manual', rarity: 'normal', level: 1 }];
@@ -1935,6 +2126,7 @@ let manualSalvageRenders = 0;
 let manualSalvageSaves = 0;
 const manualMutationContext = {
   ...mutationContext,
+  shouldProtectEquipment: () => true,
   addLog: () => {},
   materialText: () => 'Dust x1',
   getDisplayItemName: () => 'Blade',
@@ -3071,6 +3263,27 @@ skillMechanics.tickSkillSystem(0, {
 });
 assert.equal(synergySkillState.enemyHp, 880, 'Equipment synergy should increase matching V3 skill damage.');
 assert.equal(synergySkillState.skillCooldowns.synergy_fire, 5, 'Equipment synergy should reduce matching V3 skill cooldown.');
+
+const floorSkill = {
+  id: 'floor_skill',
+  name: 'Floor Skill',
+  kind: mageSkill.kind,
+  cooldown: 3,
+  levelScaling: { cooldownPerLevel: 0.25 },
+  mechanism: { type: 'singleHit', multiplier: 1, stat: 'matk' },
+};
+const floorSkillState = { hero: { currentHp: 100 }, enemyHp: 1000, enemyMaxHp: 1000, skillCooldowns: {}, activeZones: [], activeBuffs: [], enemyMarks: {} };
+globalThis.window = { ...(priorSkillWindow || {}), v3JobSkills: { mage: [floorSkill] } };
+skillMechanics.configureSkillMechanicsContext({
+  getState: () => floorSkillState,
+  currentJob: () => ({ id: 'mage' }),
+  getSkillGrowthEntry: () => ({ level: 20 }),
+  currentMonsterStats: () => ({ damageReduction: 0 }),
+  normalizeDamage: Math.round,
+  random: () => 0.5,
+});
+skillMechanics.tickSkillSystem(0, { matkPower: 100, atkPower: 0, crit: 0, maxHp: 100 });
+assert.ok(floorSkillState.skillCooldowns.floor_skill >= 2.2, 'V3 active skill cooldowns must keep a runtime floor after scaling.');
 
 const bonusSkill = { id: 'bonus_skill', name: 'Bonus Skill', kind: '主动', cooldown: 5, mechanism: { type: 'singleHit', multiplier: 1, stat: 'matk' } };
 const bonusSkillState = { hero: { currentHp: 100 }, enemyHp: 1000, enemyMaxHp: 1000, skillCooldowns: {}, activeZones: [], activeBuffs: [], enemyMarks: {} };

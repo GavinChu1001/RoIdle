@@ -144,7 +144,7 @@ export function salvageAllUnequipped(ctx = mutationCtx) {
   const state = ctx.getState?.();
   if (!state) return;
   const equippedIds = new Set(Object.values(state.equipped || {}).filter(Boolean));
-  const targets = (state.inventory || []).filter((item) => !equippedIds.has(item.id) && !item.locked);
+  const targets = (state.inventory || []).filter((item) => !equippedIds.has(item.id) && !item.locked && !ctx.shouldProtectEquipment?.(item));
   if (!targets.length) { ctx.showToast?.('没有可分解的未穿戴装备'); return; }
   const targetIds = new Set(targets.map((item) => item.id));
   const totals = {};
