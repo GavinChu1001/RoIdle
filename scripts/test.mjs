@@ -899,6 +899,16 @@ assert.doesNotMatch(game, /查看完整属性|收起完整属性/, 'Equipment ca
 assert.match(game, /equipment-primary-actions/, 'Equipment cards should render a compact primary action row.');
 assert.match(game, /equipment-more-actions/, 'Equipment cards should move low-frequency actions into a More section.');
 assert.match(game, /equipment-detail-summary[^>]*>明细</, 'Equipment stat details should be a lightweight detail entry, not a large primary CTA.');
+const equipmentFilterBarSource = game.slice(game.indexOf('function renderEquipmentFilterBar'), game.indexOf('function filterEquipmentList'));
+const compactSortSource = game.slice(game.indexOf('function getEquipmentCompactSortOptions'), game.indexOf('function normalizeEquipmentSort'));
+const equipmentStatSectionsSource = game.slice(game.indexOf('function renderEquipmentStatSections'), game.indexOf('function renderSalvagePreviewSection'));
+assert.match(equipmentFilterBarSource, /equipment-filter-primary/, 'Equipment filters should keep common filters in a primary row.');
+assert.match(equipmentFilterBarSource, /equipment-filter-more/, 'Equipment filters should collapse low-frequency filters behind a More control.');
+assert.doesNotMatch(compactSortSource, /physicalScore|magicScore|generalScore|sockets|abyss/, 'Equipment sort options should stay compact and avoid specialist score tabs.');
+assert.doesNotMatch(equipmentStatSectionsSource, /renderEquipmentScores\(item\)/, 'Equipment detail sections should not render the full equipment score block.');
+assert.match(equipmentStatSectionsSource, /equipment-stat-group-compact/, 'Equipment detail stats should use compact collapsible groups.');
+assert.match(equipmentStyles, /equipment-filter-more/, 'Equipment filter More control should have dedicated styles.');
+assert.match(equipmentStyles, /equipment-stat-group-compact/, 'Compact equipment stat groups should have dedicated styles.');
 
 assert.match(
   itemFactorySource,
@@ -1044,9 +1054,10 @@ assert.match(game, /getReforgeCost\(item,\s*normalizedTarget/, 'Directed reforge
 for (const marker of ['getArchetypeStatPools', 'targetArchetype', 'getReforgeCost', 'equipmentAutoEquipScore', 'shouldProtectEquipment']) {
   assert.match(game, new RegExp(marker), `Equipment V3 game runtime must expose ${marker}.`);
 }
-assert.match(game, /物理评分/, 'Equipment UI must display physical score.');
-assert.match(game, /魔法评分/, 'Equipment UI must display magic score.');
-assert.match(game, /通用评分/, 'Equipment UI must display general score.');
+const equipmentCardScoreSource = game.slice(game.indexOf('function renderEquipmentCardScore'), game.indexOf('function renderEquipmentStateBadges'));
+assert.match(equipmentCardScoreSource, /physicalScore/, 'Equipment card score must still read physical archetype scores.');
+assert.match(equipmentCardScoreSource, /magicScore/, 'Equipment card score must still read magic archetype scores.');
+assert.match(equipmentCardScoreSource, /generalScore/, 'Equipment card score must still read general archetype scores.');
 assert.match(game, /可打造成胚子/, 'Equipment UI must expose craft-base fit tags.');
 assert.match(game, /适合当前职业/, 'Equipment UI must expose current-job fit tags.');
 assert.match(game, /renderEquipmentProgressionTags/, 'Equipment UI must display progression-line tags.');

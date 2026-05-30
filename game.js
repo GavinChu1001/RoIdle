@@ -9651,8 +9651,6 @@ function renderEquipment() { const runtime = window.RuneFrontierRenderRuntime; i
             <div class="equipment-name-main">
               <span class="equip-name equipment-name-row">${renderItemName(item, `Lv.${item.level} ${refineText(item)} ${empowerText(item)}`)}</span>
               ${renderEquipmentBadges(item)}
-              ${renderEquipmentProgressionTags(item)}
-              ${renderEquipmentUsageTags(item)}
               ${renderEquipmentStateBadges(item, equipped, nextStar)}
             </div>
           </div>
@@ -9685,6 +9683,8 @@ function renderEquipment() { const runtime = window.RuneFrontierRenderRuntime; i
               </div>
               <details class="equipment-detail-toggle equipment-detail-compact">
                 <summary class="equipment-detail-summary">明细</summary>
+                ${renderEquipmentProgressionTags(item)}
+                ${renderEquipmentUsageTags(item)}
                 ${renderCardSocketSection(item)}
                 ${renderEquipmentStatSections(item)}
                 ${renderSalvagePreviewSection(item)}
@@ -9719,17 +9719,21 @@ function equipmentMissingProgressionMaterials(item) {
 
 function renderEquipmentFilterBar(count) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentFilterBar === "function") return runtime.renderEquipmentFilterBar(count);
   const lineFilters = getEquipmentLineFilterOptions().map((entry) => [entry.id, entry.label]);
-  const filters = [
+  const primaryFilters = [
     ["all", "全部"],
     ["equipped", "已装备"],
     ["weapon", "武器"],
     ["armor", "防具"],
+    ["jobFit", "职业适配"],
+    ["upgradeable", "可进阶"],
+    ["salvageable", "可分解"],
+  ];
+  const extraFilters = [
     ["headgear", "头饰"],
     ["shoes", "鞋子"],
     ["trinket", "饰品"],
     ["physical", "物理"],
     ["magic", "魔法"],
-    ["jobFit", "职业适配"],
     ["craftBase", "可打造成胚子"],
     ["currentTarget", "当前地图目标"],
     ["missingMaterial", "缺进阶材料"],
@@ -9742,33 +9746,42 @@ function renderEquipmentFilterBar(count) { const runtime = window.RuneFrontierRe
     ["darkGold", "暗金"],
     ["legend", "传说"],
     ["locked", "已锁定"],
-    ["upgradeable", "可进阶"],
     ["refinable", "可星炼"],
-    ["salvageable", "可分解"],
   ];
+  const activeExtraFilter = extraFilters.find(([id]) => equipmentFilter === id);
+  const filterButton = ([id, label]) => `<button type="button" data-equipment-filter="${id}" class="eq-filter-btn${equipmentFilter === id ? " active" : ""}">${label}</button>`;
+  const sortOptions = getEquipmentCompactSortOptions();
+  const effectiveSort = normalizeEquipmentSort(equipmentSort);
   return `<div class="equipment-filter-bar">
-    ${filters.map(([id, label]) => `<button type="button" data-equipment-filter="${id}" class="eq-filter-btn${equipmentFilter === id ? " active" : ""}">${label}</button>`).join("")}
+    <div class="equipment-filter-primary">${primaryFilters.map(filterButton).join("")}</div>
+    <details class="equipment-filter-more"${activeExtraFilter ? " open" : ""}>
+      <summary class="equipment-filter-summary">更多筛选${activeExtraFilter ? ` · ${activeExtraFilter[1]}` : ""}</summary>
+      <div class="equipment-filter-extra">${extraFilters.map(filterButton).join("")}</div>
+    </details>
     <label class="equipment-sort-control">排序
       <select data-equipment-sort>
-        ${[
-          ["score", "综合评分"],
-          ["level", "装备等级"],
-          ["rarity", "品质"],
-          ["refine", "星炼等级"],
-          ["sockets", "孔位数量"],
-          ["recent", "最近获得"],
-          ["output", "输出评分"],
-          ["survival", "生存评分"],
-          ["abyss", "深渊评分"],
-          ["treasure", "打宝评分"],
-          ["physicalScore", "物理评分"],
-          ["magicScore", "魔法评分"],
-          ["generalScore", "通用评分"],
-        ].map(([id, label]) => `<option value="${id}" ${equipmentSort === id ? "selected" : ""}>${label}</option>`).join("")}
+        ${sortOptions.map(([id, label]) => `<option value="${id}" ${effectiveSort === id ? "selected" : ""}>${label}</option>`).join("")}
       </select>
     </label>
     <button type="button" data-equipment-show-all class="eq-filter-btn">${equipmentShowAll ? "收起" : `显示全部（${count}）`}</button>
   </div>`;
+}
+
+function getEquipmentCompactSortOptions() {
+  return [
+    ["score", "综合"],
+    ["level", "等级"],
+    ["rarity", "品质"],
+    ["refine", "星炼"],
+    ["recent", "最近"],
+    ["output", "输出"],
+    ["survival", "生存"],
+    ["treasure", "打宝"],
+  ];
+}
+
+function normalizeEquipmentSort(sort) {
+  return getEquipmentCompactSortOptions().some(([id]) => id === sort) ? sort : "score";
 }
 
 function filterEquipmentList(items) {
@@ -9802,6 +9815,7 @@ function filterEquipmentList(items) {
 
 function sortEquipmentList(items) {
   const indexed = items.map((item, index) => ({ item, index }));
+  const activeSort = normalizeEquipmentSort(equipmentSort);
   const scoreOf = (item, key) => {
     const scores = calculateEquipmentScores(item, currentJob());
     if (key === "output") return scores.output || 0;
@@ -9812,12 +9826,11 @@ function sortEquipmentList(items) {
     return scores.comprehensive || itemScore(item);
   };
   indexed.sort((a, b) => {
-    if (equipmentSort === "recent") return a.index - b.index;
-    if (equipmentSort === "level") return (b.item.level || 0) - (a.item.level || 0);
-    if (equipmentSort === "rarity") return rarityRank(b.item.rarity) - rarityRank(a.item.rarity);
-    if (equipmentSort === "refine") return (b.item.refine || 0) - (a.item.refine || 0);
-    if (equipmentSort === "sockets") return getEquipmentCardSlotCount(b.item) - getEquipmentCardSlotCount(a.item);
-    return scoreOf(b.item, equipmentSort) - scoreOf(a.item, equipmentSort);
+    if (activeSort === "recent") return a.index - b.index;
+    if (activeSort === "level") return (b.item.level || 0) - (a.item.level || 0);
+    if (activeSort === "rarity") return rarityRank(b.item.rarity) - rarityRank(a.item.rarity);
+    if (activeSort === "refine") return (b.item.refine || 0) - (a.item.refine || 0);
+    return scoreOf(b.item, activeSort) - scoreOf(a.item, activeSort);
   });
   return indexed.map((entry) => entry.item);
 }
@@ -9993,13 +10006,11 @@ function equipmentVisualClass(item) {
 
 function renderEquipmentBadges(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentBadges === "function") return runtime.renderEquipmentBadges(item);
   const subTypeName = equipmentSubTypeName(item);
-  const badges = [
-    { text: rarityName(item.rarity), cls: "equipment-badge-rarity" },
-    { text: slotName(item.slot), cls: "equipment-badge-slot" },
-  ];
+  const badges = [];
   if (subTypeName) badges.push({ text: subTypeName, cls: "equipment-badge-slot" });
   if (isAbyssEquipment(item)) badges.push({ text: "深渊", cls: "equipment-badge-abyss" });
   if (item.rarity === "mythic") badges.push({ text: "神话", cls: "equipment-badge-mythic" });
+  if (item.rarity === "darkGold") badges.push({ text: "暗金", cls: "equipment-badge-mythic" });
   if (item.setId) badges.push({ text: "套装", cls: "equipment-badge-set" });
   return `<div class="equipment-badge-row">${renderEquipmentArchetypeBadge(item)}${badges.map((badge) => `<span class="equipment-badge ${badge.cls}">${escapeHtml(badge.text)}</span>`).join("")}</div>`;
 }
@@ -12857,12 +12868,11 @@ function mergeStatEntries(effective, statKeys) {
 function groupEquipmentStats(item) {
   const effective = getEffectiveItemStats(item, false);
   var groups = [
-    { title: "基础属性", stats: ["atk", "matk", "def", "hp"] },
-    { title: "职业属性", stats: ["str", "agi", "vit", "int", "dex", "luk"] },
-    { title: "输出属性", stats: ["aspd", "attackSpeedPct", "crit", "critDamageBonus", "ignoreDefense", "atkPct", "matkPct", "skillDamageBonus", "bossDamageBonus", "finalDamageBonus"] },
-    { title: "生存属性", stats: ["hpPct", "defPct", "damageReductionPct", "dodgeRate", "blockRate", "lifeSteal", "hpRegen", "hpRegenPct"] },
+    { title: "基础属性", stats: ["atk", "matk", "def", "hp", "str", "agi", "vit", "int", "dex", "luk"] },
+    { title: "输出属性", stats: ["aspd", "attackSpeedPct", "crit", "critDamageBonus", "ignoreDefense", "atkPct", "matkPct", "skillDamageBonus", "monsterDamageBonus", "bossDamageBonus", "finalDamageBonus", "physicalFinalDamageBonus", "eliteDamageBonus"] },
+    { title: "生存属性", stats: ["hpPct", "defPct", "damageReductionPct", "dodgeRate", "blockRate", "lifeSteal", "hpRegen", "hpRegenPct", "bossDamageReduction"] },
     { title: "收益属性", stats: ["gold", "drop", "rareDropBonus", "equipmentDrop", "cardDrop", "materialQuantityBonus", "expBonus", "highTierFind"] },
-    { title: "深渊属性", stats: ["abyssDamageBonus", "abyssDamageReduction"] },
+    { title: "深渊属性", stats: ["abyssDamageBonus", "abyssBossDamageBonus", "abyssDamageReduction", "abyssMaterialDropBonus", "abyssSkillDamageBonus", "mythicWeightBonus"] },
   ];
   return groups
     .map(function (group) {
@@ -12897,11 +12907,13 @@ function renderEquipmentStatSections(item) { const runtime = window.RuneFrontier
     .filter(Boolean);
   const refineStats = item.refine ? statObjectText(star15Bonus(item)) : "";
   const setText = item.setId ? renderEquipmentSetProgress(item) : "";
+  const renderedStatGroups = statGroups.map((group, index) => index === 0
+    ? `<div class="equip-section equipment-stat-section equipment-stat-group-primary"><strong class="equipment-section-title">${group.title}</strong>${renderStatChipGrid(group.entries)}</div>`
+    : `<details class="equip-section equipment-stat-section equipment-stat-group-compact"><summary class="equipment-stat-group-summary">${group.title}</summary>${renderStatChipGrid(group.entries)}</details>`).join("");
   return `
-    ${renderEquipmentScores(item)}
     ${renderEquipmentScoreComparison(item)}
     ${renderRarityPerk(item)}
-    ${statGroups.map((group) => `<div class="equip-section equipment-stat-section"><strong class="equipment-section-title">${group.title}</strong>${renderStatChipGrid(group.entries)}</div>`).join("")}
+    ${renderedStatGroups}
     ${randomStatsHtml(item)}
     ${mechanicStats.length ? `<div class="equip-section equipment-stat-section"><strong class="equipment-section-title">特殊效果</strong><div class="equipment-mechanic-tags">${mechanicStats.map((text) => `<span>${escapeHtml(text)}</span>`).join("")}</div></div>` : ""}
     ${(abyssStats.length || abyssAffixStats.length) ? `<div class="equip-section equipment-stat-section equipment-abyss-section"><strong class="equipment-section-title">深渊加成</strong>${renderStatChipGrid(abyssStats, "equipment-special-chip")}${renderStatChipGrid(abyssAffixStats, "equipment-special-chip abyss-affix-chip")}</div>` : ""}

@@ -189,8 +189,61 @@
 
 /* --- Page spacing tidy ------------------------------------------------- */
 .equipment-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
   margin-bottom: 10px;
+}
+
+.equipment-filter-primary,
+.equipment-filter-extra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.equipment-filter-primary {
+  flex: 1 1 auto;
+}
+
+.equipment-filter-more {
+  flex: 0 0 auto;
+}
+
+.equipment-filter-more[open] {
+  flex-basis: 100%;
+}
+
+.equipment-filter-summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(102, 86, 58, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #5d5142;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 850;
+  line-height: 1;
+  list-style: none;
+  white-space: nowrap;
+}
+
+.equipment-filter-summary::-webkit-details-marker {
+  display: none;
+}
+
+.equipment-filter-extra {
+  margin-top: 6px;
+  padding: 7px;
+  border: 1px solid rgba(110, 93, 61, 0.14);
+  border-radius: 9px;
+  background: rgba(255, 248, 226, 0.74);
 }
 
 .equipment-card-score {
@@ -281,8 +334,31 @@
 .equipment-detail-toggle > .equipment-refine-section,
 .equipment-detail-toggle > .equipment-set-section,
 .equipment-detail-toggle > .equipment-enchant-section,
+.equipment-detail-toggle > .equipment-badge-row,
 .equipment-detail-toggle > .equip-meta {
   margin: 6px 8px;
+}
+
+.equipment-stat-group-compact {
+  padding: 0;
+}
+
+.equipment-stat-group-compact > summary {
+  cursor: pointer;
+  min-height: 28px;
+  padding: 7px 9px;
+  color: #5d5142;
+  font-size: 0.78rem;
+  font-weight: 900;
+  list-style-position: inside;
+}
+
+.equipment-stat-group-compact[open] > summary {
+  border-bottom: 1px solid rgba(110, 93, 61, 0.12);
+}
+
+.equipment-stat-group-compact > .equipment-stat-grid {
+  margin: 7px;
 }
 
 .equipment-action-row,
@@ -367,6 +443,35 @@
     0 2px 0 rgba(71, 43, 22, 0.18) !important;
 }
 
+.page-view[data-view="equipment"] .equipment-filter-summary {
+  min-height: 32px;
+  border: 2px solid rgba(48, 28, 15, 0.84);
+  border-radius: var(--ro-vnext-radius-control);
+  background-image:
+    url("assets/ui/button-wood.png"),
+    linear-gradient(180deg, var(--ro-vnext-wood-top), var(--ro-vnext-wood-bottom));
+  background-size: 32px 16px, auto;
+  color: #fff1c9;
+  text-shadow: 0 1px 0 rgba(38, 18, 8, 0.86);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 232, 154, 0.46),
+    0 2px 0 rgba(71, 43, 22, 0.18);
+}
+
+.page-view[data-view="equipment"] .equipment-filter-more[open] .equipment-filter-summary {
+  background-image:
+    url("assets/ui/button-wood.png"),
+    linear-gradient(180deg, #ffda75, #b75e32);
+  color: #fff8dc;
+}
+
+.page-view[data-view="equipment"] .equipment-filter-extra {
+  border: 1px solid var(--ro-vnext-line-soft);
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    rgba(255, 244, 216, 0.78);
+}
+
 .page-view[data-view="equipment"] .equipment-filter-bar button.eq-filter-btn.active {
   border-color: rgba(48, 28, 15, 0.95);
   background-image:
@@ -430,6 +535,10 @@
 }
 
 .page-view[data-view="equipment"] .equipment-detail-toggle summary {
+  color: var(--ro-vnext-ink);
+}
+
+.page-view[data-view="equipment"] .equipment-stat-group-compact > summary {
   color: var(--ro-vnext-ink);
 }
 
