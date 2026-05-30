@@ -12770,37 +12770,202 @@ function materialInventoryText() {
 }
 
 function renderMaterialGroups() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderMaterialGroups === "function") return runtime.renderMaterialGroups();
+  return `<section class="material-page">
+    ${renderEquipmentLineMaterialBoard()}
+    ${renderGeneralMaterialBoard()}
+  </section>`;
+}
+
+function renderEquipmentLineMaterialBoard() {
+  const runtime = equipmentProgressionRuntime();
+  const overviews = runtime?.getAllEquipmentLineMaterialOverviews?.() || [];
+  if (!overviews.length) return "";
+  const priorityOverviews = overviews.filter((overview, index) => shouldExpandMaterialLine(overview, index));
+  const futureOverviews = overviews.filter((overview) => !priorityOverviews.includes(overview));
+  return `<section class="material-line-inventory-board">
+    <div class="material-board-heading">
+      <div>
+        <h4 class="material-group-title">装备线材料</h4>
+        <p class="slot-meta">优先展开近期路线，后续路线先收起。</p>
+      </div>
+      <span class="equipment-badge equipment-badge-progression">${formatNumber(priorityOverviews.length)}/${formatNumber(overviews.length)} 条</span>
+    </div>
+    <div class="material-line-inventory-grid">
+      ${priorityOverviews.map(renderMaterialLineInventoryCard).join("")}
+    </div>
+    ${futureOverviews.length ? renderFutureMaterialLines(futureOverviews) : ""}
+  </section>`;
+}
+
+function shouldExpandMaterialLine(overview, index) {
+  if (index < 3) return true;
+  if ((state.inventory || []).some((item) => (item.series || item.upgradePathId) === overview.series)) return true;
+  return Object.values(overview.materials || {}).some((material) => Number((state.materials || {})[material.id] || 0) > 0);
+}
+
+function renderFutureMaterialLines(overviews) {
+  return `<details class="material-line-future-board">
+    <summary>后续装备线 <span>${formatNumber(overviews.length)} 条</span></summary>
+    <div class="material-line-future-grid">
+      ${overviews.map(renderFutureMaterialLineChip).join("")}
+    </div>
+  </details>`;
+}
+
+function renderFutureMaterialLineChip(overview) {
+  const materialNamesText = Object.values(overview.materials || {})
+    .map((material) => material.name || materialNames[material.id] || material.id)
+    .join(" / ");
+  return `<span class="material-line-future-chip">
+    <strong>${escapeHtml(overview.label)}线</strong>
+    <small>${escapeHtml(materialNamesText)}</small>
+  </span>`;
+}
+
+function renderMaterialLineInventoryCard(overview) {
+  const runtime = equipmentProgressionRuntime();
+  const level = runtime?.getLineMasteryLevel?.(state, overview.series) || 0;
+  const goals = collectMaterialLineGoals(overview.series);
+  const materialRows = Object.entries(overview.materials || {})
+    .map(([kind, material]) => renderMaterialLineInventoryRow(kind, material, goals))
+    .join("");
+  const sourceRows = (overview.sources || [])
+    .slice(0, 4)
+    .map((source) => `${mapNameById(source.mapId)} ${DIFFICULTY_CONFIG[source.difficulty]?.label || source.difficulty}`)
+    .join(" / ");
+  return `<article class="material-line-inventory-card">
+    <div class="material-line-card-head">
+      <strong>${escapeHtml(overview.label)}线</strong>
+      <span>精通 Lv.${formatNumber(level)}</span>
+    </div>
+    <div class="material-line-material-list">${materialRows}</div>
+    <p class="material-source-line">来源：${escapeHtml(sourceRows || "暂无来源")}</p>
+  </article>`;
+}
+
+function collectMaterialLineGoals(series) {
+  const runtime = equipmentProgressionRuntime();
+  const goals = [];
+  const level = runtime?.getLineMasteryLevel?.(state, series) || 0;
+  addMaterialCostGoals(goals, "精通升级", runtime?.getLineMasteryCost?.(series, level));
+  const candidates = (state.inventory || [])
+    .filter((item) => (item.series || item.upgradePathId) === series)
+    .sort((a, b) => Number(Boolean(state.equipped?.[equipmentSlot(b)] === b.id)) - Number(Boolean(state.equipped?.[equipmentSlot(a)] === a.id)));
+  const upgradeTarget = candidates.find((item) => getEquipmentUpgradeCost(item));
+  addMaterialCostGoals(goals, "装备进阶", upgradeTarget ? getEquipmentUpgradeCost(upgradeTarget) : null);
+  const temperTarget = candidates.find((item) => runtime?.canTemperAbyssItem?.(item));
+  if (temperTarget) {
+    const temperMode = temperTarget.abyssTempered ? "reroll" : "infuse";
+    addMaterialCostGoals(goals, temperTarget.abyssTempered ? "重洗深渊" : "深渊淬炼", runtime?.getAbyssTemperingCost?.(temperTarget, temperMode));
+    if (temperTarget.abyssTempered) addMaterialCostGoals(goals, "强化淬炼", runtime?.getAbyssTemperingCost?.(temperTarget, "empower"));
+  }
+  return goals;
+}
+
+function addMaterialCostGoals(goals, label, cost) {
+  Object.entries(cost?.materials || {}).forEach(([materialId, amount]) => {
+    const need = Math.max(0, Number(amount || 0));
+    if (need > 0) goals.push({ label, materialId, amount: need });
+  });
+}
+
+function renderMaterialLineInventoryRow(kind, material, goals) {
+  const materialId = material.id;
+  const current = Number((state.materials || {})[materialId] || 0);
+  const matches = goals.filter((goal) => goal.materialId === materialId);
+  const primary = matches.find((goal) => current < goal.amount) || matches[0] || null;
+  const need = primary ? primary.amount : 0;
+  const missing = Math.max(0, need - current);
+  const stateClass = missing > 0 ? "material-missing" : need > 0 ? "material-ready" : "material-idle";
+  const useText = matches.length
+    ? [...new Set(matches.map((goal) => goal.label))].join(" / ")
+    : defaultLineMaterialUse(kind);
+  const countText = need > 0 ? `${formatNumber(current)} / ${formatNumber(need)}` : `×${formatNumber(current)}`;
+  const statusText = missing > 0 ? `缺 ${formatNumber(missing)}` : need > 0 ? "够用" : current > 0 ? "库存" : "未持有";
+  const rarity = MATERIAL_DB[materialId]?.rarity || material.rarity || "normal";
+  return `<div class="material-line-material-row ${stateClass}">
+    <div>
+      <span class="material-kind-label">${lineMaterialKindLabel(kind)}</span>
+      <strong class="${getRarityClass({ rarity })}">${escapeHtml(material.name || materialNames[materialId] || materialId)}</strong>
+      <small>${escapeHtml(useText)}</small>
+    </div>
+    <div class="material-line-need">
+      <strong>${countText}</strong>
+      <span>${statusText}</span>
+    </div>
+  </div>`;
+}
+
+function lineMaterialKindLabel(kind) {
+  return { basic: "基础", advanced: "进阶", core: "核心" }[kind] || "材料";
+}
+
+function defaultLineMaterialUse(kind) {
+  return {
+    basic: "精通升级 / 基础进阶",
+    advanced: "装备进阶 / 深渊淬炼",
+    core: "高阶进阶 / 强化淬炼",
+  }[kind] || "装备成长";
+}
+
+function equipmentLineMaterialIds() {
+  const runtime = equipmentProgressionRuntime();
+  const ids = new Set();
+  (runtime?.getAllEquipmentLineMaterialOverviews?.() || []).forEach((overview) => {
+    Object.values(overview.materials || {}).forEach((material) => {
+      if (material?.id) ids.add(material.id);
+    });
+  });
+  return ids;
+}
+
+function renderGeneralMaterialBoard() {
+  const lineIds = equipmentLineMaterialIds();
   const groups = [
-    { title: "基础材料", ids: ["dust", "ore", "crystal", "rune"] },
-    { title: "精炼 / 星炼材料", ids: ["ancientCore", "starShard", "mythicEssence", "oridecon", "elunium", "enhanceProtect"] },
-    { title: "打孔 / 镶嵌材料", ids: ["socketStone", "advancedSocketStone", "mythicSocketStone", "cardRemover"] },
-    { title: "深渊材料", ids: ["abyssShard", "abyssCore"] },
-    { title: "首领魂", ids: [...bossEssenceByMap, "bossSoul"] },
-    { title: "卡片材料", ids: ["bossCardShard"] },
-    { title: "星座圣卡", ids: Object.values(ZODIAC_CARD_BY_SET) },
+    { title: "精炼 / 星炼", ids: ["oridecon", "elunium", "enhanceProtect", "ancientCore", "starShard", "mythicEssence"] },
+    { title: "打孔 / 卡片", ids: ["socketStone", "advancedSocketStone", "mythicSocketStone", "cardRemover", "bossCardShard"] },
+    { title: "深渊通用", ids: ["abyssShard", "abyssCore", "abyssEssence"] },
+    { title: "首领 / 星座", ids: [...bossEssenceByMap, "bossSoul", ...Object.values(ZODIAC_CARD_BY_SET)] },
+    { title: "基础库存", ids: ["dust", "ore", "crystal", "rune"] },
   ];
   const used = new Set(groups.flatMap((group) => group.ids));
-  const specialIds = Object.keys(materialNames).filter((id) => !used.has(id));
-  if (specialIds.length) groups.push({ title: "特殊材料", ids: specialIds });
-  return `<section class="material-page">
-    ${groups
-      .map((group) => {
-        const rows = group.ids
-          .filter((id) => (state.materials[id] || 0) > 0 || group.title === "星座圣卡" || group.title === "打孔 / 镶嵌材料" || ["rune", "ancientCore", "starShard"].includes(id))
-          .map((id) => {
-            const material = MATERIAL_DB[id] || {};
-            return `<article class="material-card">
-              <span class="material-name ${getRarityClass({ rarity: material.rarity || "normal" })}">${escapeHtml(materialNames[id] || id)}</span>
-              <strong class="material-count">×${formatNumber(state.materials[id] || 0)}</strong>
-              <small class="material-desc">${escapeHtml(material.description || "材料")}</small>
-            </article>`;
-          })
-          .join("");
-        if (!rows) return "";
-        return `<div class="material-group"><h4 class="material-group-title">${group.title}</h4><div class="material-grid">${rows}</div></div>`;
-      })
-      .join("")}
-  </section>`;
+  const groupHtml = groups
+    .map((group) => renderGeneralMaterialGroup(group, lineIds))
+    .filter(Boolean)
+    .join("");
+  const extraIds = Object.keys(materialNames)
+    .filter((id) => !lineIds.has(id) && !used.has(id) && (state.materials[id] || 0) > 0);
+  const extraHtml = extraIds.length ? renderGeneralMaterialGroup({ title: "其他库存", ids: extraIds }, lineIds) : "";
+  const totalOwned = Object.keys(materialNames)
+    .filter((id) => !lineIds.has(id))
+    .reduce((sum, id) => sum + Number(state.materials[id] || 0), 0);
+  return `<details class="material-general-board">
+    <summary>通用材料 <span>总计 ×${formatNumber(totalOwned)}</span></summary>
+    <div class="material-general-content">
+      ${groupHtml}${extraHtml}
+    </div>
+  </details>`;
+}
+
+function renderGeneralMaterialGroup(group, lineIds) {
+  const rows = group.ids
+    .filter((id) => !lineIds.has(id))
+    .filter((id) => (state.materials[id] || 0) > 0 || ["oridecon", "elunium", "starShard", "socketStone", "abyssShard", "abyssCore"].includes(id))
+    .map(renderGeneralMaterialChip)
+    .join("");
+  if (!rows) return "";
+  return `<div class="material-general-group">
+    <h5>${escapeHtml(group.title)}</h5>
+    <div class="material-general-grid">${rows}</div>
+  </div>`;
+}
+
+function renderGeneralMaterialChip(id) {
+  const material = MATERIAL_DB[id] || {};
+  return `<span class="material-general-chip ${getRarityClass({ rarity: material.rarity || "normal" })}">
+    <strong>${escapeHtml(materialNames[id] || id)}</strong>
+    <em>×${formatNumber(state.materials[id] || 0)}</em>
+  </span>`;
 }
 
 function renderZodiacCollectionPanel() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderZodiacCollectionPanel === "function") return runtime.renderZodiacCollectionPanel();

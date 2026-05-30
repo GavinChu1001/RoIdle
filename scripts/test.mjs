@@ -1001,6 +1001,13 @@ assert.match(game, /getAllEquipmentLineMaterialOverviews/, 'Material page should
 assert.match(game, /data-upgrade-line-mastery/, 'Material page should offer line mastery upgrades.');
 assert.match(game, /data-temper-abyss-item/, 'Material page should offer abyss tempering actions.');
 assert.match(game, /material-goal-layout/, 'Material goal page should have dedicated layout classes.');
+assert.match(game, /renderEquipmentLineMaterialBoard/, 'Equipment material page should render an equipment-line material board.');
+assert.match(game, /renderMaterialLineInventoryCard/, 'Equipment material page should render compact line material cards.');
+assert.match(game, /renderGeneralMaterialBoard/, 'Equipment material page should keep non-line materials in a compact general board.');
+assert.match(game, /material-line-inventory-card/, 'Equipment material page should expose compact line-card classes.');
+assert.match(game, /material-missing/, 'Equipment material page should show material shortages.');
+assert.match(styles, /\.material-line-inventory-board\s*\{/, 'Equipment material board should have dedicated layout styles.');
+assert.match(styles, /\.material-line-material-row\s*\{/, 'Equipment material rows should have compact dedicated styles.');
 
 assert.match(
   itemFactorySource,
