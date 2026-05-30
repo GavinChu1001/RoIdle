@@ -938,6 +938,13 @@ assert.ok(ancientHeroWeapon, 'Progression equipment pool must include Ancient He
 assert.match(ancientHeroWeapon.name, /古代英雄/, 'Progression equipment names should expose the equipment line, not old map-template names.');
 assert.equal(ancientHeroWeapon.series, 'ancientHero', 'Progression templates must carry series metadata.');
 assert.equal(ancientHeroWeapon.archetype, 'physical', 'Progression templates must carry archetype metadata.');
+const ancientHeroPhysicalWeapon = itemProgression.getProgressionEquipmentTemplate('prog_ancientHero_base_physical_weapon');
+const osPhysicalWeapon = itemProgression.getProgressionEquipmentTemplate('prog_os_os_physical_weapon');
+const osAdPhysicalWeapon = itemProgression.getProgressionEquipmentTemplate('prog_os_osAd_physical_weapon');
+assert.equal(ancientHeroPhysicalWeapon.atk, 18, 'T2 Ancient Hero physical weapon base ATK should use the new T2 tier power.');
+assert.equal(osPhysicalWeapon.atk, 27, 'T3 OS physical weapon base ATK should use the new T3 tier power.');
+assert.ok(osPhysicalWeapon.atk >= ancientHeroPhysicalWeapon.atk * 1.35, 'T3 base weapon should clearly beat T2 base weapon before rarity/affixes.');
+assert.ok(osAdPhysicalWeapon.atk > osPhysicalWeapon.atk, 'T4 OS-AD should be a visible upgrade over T3 OS.');
 assert.deepEqual(
   itemProgression.getEquipmentProgressionTags({ series: 'ancientHero', growthTier: 'T3', upgradeStage: 2, grade: 'lt' }),
   ['古代英雄', '英雄-LT'],
@@ -1820,6 +1827,21 @@ const legacyQualityRollItem = itemFactory.createItem(
 );
 assert.equal(legacyQualityRollItem.quality, 900, 'Legacy createItem should keep using tier.rolls quality.');
 assert.equal(legacyQualityRollItem.atk, 180, 'Legacy createItem should keep old rarity scale and tier.rolls base stat scaling.');
+const scalingFactoryContext = {
+  ...factoryContext,
+  getEquipmentTiers: () => [
+    { id: 'rare', scale: 1.42, rolls: [0.98, 1.16], affixes: 2 },
+    { id: 'legend', scale: 2.94, rolls: [1.12, 1.42], affixes: 5 },
+  ],
+  randomFloat: (min, max) => min,
+  applyRandomAffixes: () => {},
+  applyRarityPerk: () => {},
+};
+const createdT2 = itemFactory.createItem(ancientHeroPhysicalWeapon, 100, 'rare', { dropLevel: 100 }, scalingFactoryContext);
+const createdT3 = itemFactory.createItem(osPhysicalWeapon, 130, 'rare', { dropLevel: 130 }, scalingFactoryContext);
+const createdT3Legend = itemFactory.createItem(osPhysicalWeapon, 130, 'legend', { dropLevel: 130 }, scalingFactoryContext);
+assert.ok(createdT3.atk > createdT2.atk, 'New T3 rare progression equipment should beat same-slot T2 rare progression equipment.');
+assert.ok(createdT3Legend.atk < createdT3.atk * 1.25, 'Legend rarity should not multiply progression base stats by several times.');
 const scalingProbeCalls = [];
 const scalingProbeContext = {
   ...factoryContext,

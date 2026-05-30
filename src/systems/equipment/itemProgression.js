@@ -263,16 +263,16 @@ let progressionEquipmentTemplatesCache = null;
 
 function tierPower(tier) {
   return ({
-    T1: 1,
-    T2: 1.55,
-    T3: 2.05,
-    T4: 2.55,
-    T5: 3.05,
-    T6: 3.55,
-    T7: 4.05,
-    T8: 4.55,
-    T9: 5.05,
-    T10: 5.55,
+    T1: 1.00,
+    T2: 1.80,
+    T3: 2.70,
+    T4: 3.70,
+    T5: 4.90,
+    T6: 6.30,
+    T7: 7.90,
+    T8: 9.70,
+    T9: 11.80,
+    T10: 14.20,
   }[normalizeGrowthTier(tier)] || 1);
 }
 
