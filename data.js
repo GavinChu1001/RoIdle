@@ -5,6 +5,13 @@ var API_BASE = "";
 var MAX_OFFLINE_SECONDS = 12 * 60 * 60;
 function v3SkillId(name) { return `v3_skill_${String(name).replace(/\s+/g, "_")}`; }
 function mech(type, params) { return { type: type || '', ...(params || {}) }; }
+function circuit(level, id, label, config) {
+  return { level, id, label, ...(config || {}) };
+}
+function withCircuits(skill, circuits) {
+  skill.circuits = circuits || [];
+  return skill;
+}
 function v3Skill(name, kind, cooldown, mechanism, description) {
   var skill = { id: v3SkillId(name), name, kind, cooldown: cooldown || 0, mechanism: mechanism || null, description };
   if (kind === '主动') {
@@ -145,6 +152,126 @@ var V3_SKILL_ROUTE_BY_JOB = {
   assassinCross: ["thief", "assassin"],
   guillotineCross: ["thief", "assassin", "guillotineCross"],
 };
+
+var V3_CIRCUIT_PROFILE_BY_JOB = {
+  novice: "balanced",
+  swordman: "bossBreaker",
+  knight: "bossBreaker",
+  lordKnight: "bossBreaker",
+  runeKnight: "bossBreaker",
+  mage: "elemental",
+  wizard: "elemental",
+  highWizard: "elemental",
+  warlock: "elemental",
+  archer: "marksman",
+  hunter: "marksman",
+  sniper: "marksman",
+  ranger: "marksman",
+  acolyte: "sanctuary",
+  priest: "sanctuary",
+  highPriest: "sanctuary",
+  archbishop: "sanctuary",
+  merchant: "forge",
+  blacksmith: "forge",
+  whiteSmith: "forge",
+  mechanic: "forge",
+  thief: "shadow",
+  assassin: "shadow",
+  assassinCross: "shadow",
+  guillotineCross: "shadow",
+};
+
+var V3_CIRCUIT_PROFILES = {
+  balanced: {
+    base: { skillDamageBonus: 0.02 },
+    identity: { finalDamageBonus: 0.02 },
+    long: { bossDamageBonus: 0.03 },
+    final: { type: "finalCircuitBoost", multiplier: 0.10 },
+  },
+  bossBreaker: {
+    base: { bossDamageBonus: 0.03 },
+    identity: { damageReductionPct: 0.02 },
+    long: { bossDamageBonus: 0.05 },
+    final: { type: "armorBreak", duration: 4, ignoreDefense: 0.08 },
+  },
+  elemental: {
+    base: { skillDamageBonus: 0.03 },
+    identity: { abyssDamageBonus: 0.04 },
+    long: { skillDamageBonus: 0.05 },
+    final: { type: "finalCircuitBoost", multiplier: 0.12 },
+  },
+  marksman: {
+    base: { skillDamageBonus: 0.03 },
+    identity: { rareDropBonus: 0.02 },
+    long: { highTierFind: 0.015 },
+    final: { type: "finalCircuitBoost", multiplier: 0.12 },
+  },
+  sanctuary: {
+    base: { hpPct: 0.03 },
+    identity: { damageReductionPct: 0.02 },
+    long: { skillDamageBonus: 0.04 },
+    final: { type: "finalCircuitBoost", multiplier: 0.10 },
+  },
+  forge: {
+    base: { skillDamageBonus: 0.025 },
+    identity: { materialQuantityBonus: 0.025 },
+    long: { bossDamageBonus: 0.04 },
+    final: { type: "finalCircuitBoost", multiplier: 0.12 },
+  },
+  shadow: {
+    base: { skillDamageBonus: 0.03 },
+    identity: { critDamageBonus: 0.04 },
+    long: { rareDropBonus: 0.025 },
+    final: { type: "finalCircuitBoost", multiplier: 0.14 },
+  },
+};
+
+function getV3SkillMaxLevel(jobId) {
+  var route = V3_SKILL_ROUTE_BY_JOB[jobId] || [jobId];
+  if (route.length >= 3) return 30;
+  if (route.length >= 2) return 20;
+  return 10;
+}
+
+function getV3CircuitProfile(jobId) {
+  return V3_CIRCUIT_PROFILES[V3_CIRCUIT_PROFILE_BY_JOB[jobId] || "balanced"] || V3_CIRCUIT_PROFILES.balanced;
+}
+
+function activeSkillCircuitsFor(jobId, skill) {
+  var profile = getV3CircuitProfile(jobId);
+  return [
+    circuit(5, "base_identity", "基础强化", { stats: profile.base }),
+    circuit(10, "auto_trigger", "自动触发强化", { effect: { type: "extraHit", chance: 0.06, multiplier: 0.40 } }),
+    circuit(15, "job_identity", "职业机制", { stats: profile.identity }),
+    circuit(20, "state_link", "状态联动", { effect: { type: "cooldownRefund", ratio: 0.08 } }),
+    circuit(25, "long_goal", "长期目标", { stats: profile.long }),
+    circuit(30, "final_mutation", "最终回路", { effect: profile.final }),
+  ];
+}
+
+function passiveSkillCircuitsFor(jobId, skill) {
+  var profile = getV3CircuitProfile(jobId);
+  return [
+    circuit(5, "passive_base", "被动强化", { stats: profile.base }),
+    circuit(10, "passive_reliable", "稳定生效", { effect: { type: "passiveStatBoost", multiplier: 0.05 } }),
+    circuit(15, "passive_identity", "职业被动", { stats: profile.identity }),
+    circuit(20, "passive_state", "状态联动", { effect: { type: "passiveStatBoost", multiplier: 0.08 } }),
+    circuit(25, "passive_long_goal", "长期收益", { stats: profile.long }),
+    circuit(30, "passive_final", "最终回路", { effect: { type: "finalCircuitBoost", multiplier: 0.10 } }),
+  ];
+}
+
+function applyV3SkillCircuits() {
+  Object.entries(v3JobSkills).forEach(([jobId, skills]) => {
+    skills.forEach((skill) => {
+      if (Array.isArray(skill.circuits) && skill.circuits.length) return;
+      withCircuits(skill, skill.kind === "主动" ? activeSkillCircuitsFor(jobId, skill) : passiveSkillCircuitsFor(jobId, skill));
+    });
+  });
+}
+
+applyV3SkillCircuits();
+
 function getV3CombatSkills(jobId) {
   return (V3_SKILL_ROUTE_BY_JOB[jobId] || [jobId])
     .flatMap((routeJobId) => v3JobSkills[routeJobId] || []);

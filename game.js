@@ -263,16 +263,16 @@ const ITEM_TIER_CONFIG = {
 
 const ITEM_TIER_LIST = Object.entries(ITEM_TIER_CONFIG).map(([id, config]) => ({ id, ...config }));
 
-var SKILL_FRAGMENT_COST = [0, 0, 10, 15, 22, 30, 40, 52, 66, 82, 100, 120, 142, 166, 192, 220];
-var SKILL_FRAGMENT_COST_PASSIVE = [0, 0, 8, 12, 18, 25, 34, 44, 56, 70, 86, 104, 124];
-var SKILL_MAX_LEVEL_BY_RANK = { novice: 5, first: 5, second: 10, third: 15 };
+var SKILL_FRAGMENT_COST = [0, 0, 10, 15, 22, 30, 40, 52, 66, 82, 100, 120, 142, 166, 192, 220, 250, 285, 324, 367, 414, 466, 524, 588, 658, 735, 820, 914, 1018, 1133, 1260];
+var SKILL_FRAGMENT_COST_PASSIVE = [0, 0, 8, 12, 18, 25, 34, 44, 56, 70, 86, 104, 124, 145, 168, 194, 224, 258, 296, 339, 388, 443, 505, 575, 653, 741, 840, 950, 1075, 1215, 1370];
 
 function getSkillMaxLevel(jobId) {
+  if (typeof getV3SkillMaxLevel === "function") return getV3SkillMaxLevel(jobId);
   var route = typeof V3_SKILL_ROUTE_BY_JOB !== 'undefined' ? (V3_SKILL_ROUTE_BY_JOB[jobId] || [jobId]) : [jobId];
   var len = route.length;
-  if (len >= 3) return SKILL_MAX_LEVEL_BY_RANK.third;
-  if (len >= 2) return SKILL_MAX_LEVEL_BY_RANK.second;
-  return SKILL_MAX_LEVEL_BY_RANK.first;
+  if (len >= 3) return 30;
+  if (len >= 2) return 20;
+  return 10;
 }
 
 function getSkillFragmentCost(skill) {
@@ -1684,7 +1684,8 @@ function gainSkillExp(skillOrId, amount, reason = "") {
   const entry = ensureSkillGrowthEntry(skillOrId);
   if (!entry) return;
   const gain = Math.max(0, Number(amount) || 0);
-  if (!gain || entry.level >= SKILL_MAX_LEVEL) return;
+  const maxLevel = Math.min(SKILL_MAX_LEVEL, getSkillMaxLevel(state.hero?.jobId));
+  if (!gain || entry.level >= maxLevel) return;
   const skillId = typeof skillOrId === "string" ? skillOrId : skillOrId?.id;
   entry.exp += gain;
   entry.totalExp += gain;
@@ -1695,7 +1696,7 @@ function gainSkillExp(skillOrId, amount, reason = "") {
       time: Date.now(),
     };
   }
-  while (entry.level < SKILL_MAX_LEVEL) {
+  while (entry.level < maxLevel) {
     const need = getSkillExpRequirement(entry.level);
     if (entry.exp < need) break;
     entry.exp -= need;
@@ -1705,7 +1706,7 @@ function gainSkillExp(skillOrId, amount, reason = "") {
     showToast(`技能升级：${name} Lv.${entry.level}`);
     addLog(`技能升级：${name} Lv.${entry.level}${reason ? `（${reason}）` : ""}。`);
   }
-  if (entry.level >= SKILL_MAX_LEVEL) entry.exp = 0;
+  if (entry.level >= maxLevel) entry.exp = 0;
 }
 
 function isSkillRecentlyLeveled(skillId) {
@@ -1720,6 +1721,15 @@ function getRecentSkillExpGain(skillId) {
 
 function getSkillLevel(skillOrId) {
   return getSkillGrowthEntry(skillOrId).level;
+}
+
+function getUnlockedSkillCircuits(skillOrId) {
+  const skill = typeof skillOrId === "string"
+    ? getV3CombatSkills(state.hero.jobId).find((entry) => entry.id === skillOrId)
+    : skillOrId;
+  if (!skill) return [];
+  const level = getSkillGrowthEntry(skill).level;
+  return (skill.circuits || []).filter((entry) => level >= Number(entry.level || 0));
 }
 
 function getSkillJob(skillOrId) {
@@ -14869,6 +14879,7 @@ window.RuneFrontierLegacyCombatContext = () => Object.freeze({
   getUnlockedSkills,
   getV3CombatSkills,
   getSkillGrowthEntry,
+  getUnlockedSkillCircuits,
   getSkillMilestoneBonuses,
   getSkillLevelMultiplier,
   noteSkillCast,
@@ -15061,6 +15072,7 @@ Object.assign(window, {
   getUnlockedSkills,
   getPassiveSkillTotals,
   getSkillGrowthEntry,
+  getUnlockedSkillCircuits,
   getSkillMilestoneBonuses,
   describeSkillMilestone,
   getSkillMilestoneEntries,

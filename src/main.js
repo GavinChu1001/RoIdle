@@ -225,6 +225,7 @@ const characterRenderContext = {
   getSkillFragmentCost: window.getSkillFragmentCost,
   getPassiveSkillTotals: window.getPassiveSkillTotals,
   getSkillGrowthEntry: window.getSkillGrowthEntry,
+  getUnlockedSkillCircuits: window.getUnlockedSkillCircuits,
   getSkillMilestoneBonuses: window.getSkillMilestoneBonuses,
   describeSkillMilestone: window.describeSkillMilestone,
   getSkillMilestoneEntries: window.getSkillMilestoneEntries,
