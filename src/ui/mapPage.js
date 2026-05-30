@@ -59,7 +59,7 @@ export function renderMaps(ctx = mapCtx) {
       <p class="map-meta">\u63a8\u8350\u8bc4\u5206\uff1a\u8f93\u51fa ${fmtn(recommendedScores.output)} \xb7 \u751f\u5b58 ${fmtn(recommendedScores.survival)}${recommendedScores.abyss ? ` \xb7 \u6df1\u6e0a ${fmtn(recommendedScores.abyss)}` : ''}</p>
       <p class="map-meta">\u96be\u5ea6\u500d\u7387\uff1aHP x${preview.difficulty?.hp} / ATK x${preview.difficulty?.attack} / EXP x${preview.difficulty?.exp}</p>
       ${equipmentProgression ? `<p class="map-meta map-equipment-progression">\u88c5\u5907\u76ee\u6807\uff1a${esc(equipmentProgression)}</p>` : ''}
-      ${previewDifficulty === 'abyss' ? '<p class="map-meta map-abyss-preview">\u6df1\u6e0a\u4e3b\u8981\u6389\u843d\uff1a\u6df1\u6e0a\u524d\u7f00\u88c5\u5907 / \u6df1\u6e0a\u5316\u5957\u88c5 / \u795e\u8bdd\u88c5\u5907\u3002\u795e\u8bdd\u6389\u7387\u6781\u4f4e\uff0c\u53d8\u5f02\u602a\u4e0e Boss \u673a\u4f1a\u66f4\u9ad8\u3002</p>' : ''}
+      ${previewDifficulty === 'abyss' ? '<p class="map-meta map-abyss-preview">深渊用于深化当前装备线：掉落深渊淬炼材料、进阶核心材料和少量深渊前缀装备；它不是普通推图必刷路线。</p>' : ''}
       <p class="map-boss">${esc(bossName)} \xb7 ${esc(map.bossSkill || '')}</p>
       <p class="map-meta">\u8fdb\u5ea6 ${esc(progress)} \xb7 BASE ${fmtn(map.baseExp)} \xb7 JOB ${fmtn(map.jobExp)}</p>
       <div class="map-exploration">

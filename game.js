@@ -10193,7 +10193,7 @@ function renderMaps() { const runtime = window.RuneFrontierRenderRuntime; if (ru
             ${equipmentProgression ? `<p class="map-meta map-equipment-progression">装备目标：${escapeHtml(equipmentProgression)}</p>` : ""}
             ${
               previewDifficulty === "abyss"
-                ? `<p class="map-meta map-abyss-preview">深渊主要掉落：深渊前缀装备 / 深渊化套装 / 神话装备。神话掉率极低，变异怪与 Boss 机会更高。</p>`
+                ? `<p class="map-meta map-abyss-preview">深渊用于深化当前装备线：掉落深渊淬炼材料、进阶核心材料和少量深渊前缀装备；它不是普通推图必刷路线。</p>`
                 : ""
             }
             <p class="map-boss">${bossName} · ${map.bossSkill}</p>
