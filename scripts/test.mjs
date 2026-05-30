@@ -425,7 +425,7 @@ assert.match(game, /resetUnsafeEarlyEncounter,/, 'Combat runtime context must ex
 assert.match(game, /function\s+useHealingPotion\s*\(/, 'Gold potion healing must expose a manual action.');
 assert.match(game, /function\s+maybeAutoUsePotion\s*\(/, 'Gold potion healing must expose an automatic combat check.');
 assert.match(game, /potionCooldown:\s*0/, 'Default state must track potion cooldown.');
-assert.match(game, /autoPotion:\s*false/, 'Settings must track automatic potion usage.');
+assert.match(game, /autoPotion:\s*true/, 'New saves must start with automatic potion usage enabled.');
 assert.match(game, /const FAST_RENDER_INTERVAL_MS\s*=\s*100/, 'Fast HUD rendering must remain throttled.');
 assert.match(game, /const PASSIVE_PAGE_REFRESH_INTERVAL_MS\s*=\s*2000/, 'Background combat updates must not continuously rebuild heavy pages.');
 assert.match(game, /const SCENE_RENDER_INTERVAL_MS\s*=\s*33/, 'Visible battle scene rendering must remain frame-capped.');
@@ -2814,6 +2814,35 @@ normalCombat.configureNormalCombatContext({
 normalCombat.updateMonsterAttack(1, { maxHp: 100, dodgeRate: 0, blockRate: 0.5, statusResist: 0 });
 assert.equal(blockedEnemyState.hero.currentHp, 97, 'Blocked monster attacks must use the reduced blocked damage.');
 assert.equal(blockedAttackFeedback, 'block', 'Blocked monster attacks must show block feedback.');
+
+const lethalAutoPotionState = {
+  enemyHp: 10,
+  enemyMaxHp: 10,
+  hero: { currentHp: 4 },
+  enemyAttackTimer: 9,
+  currentMap: 0,
+  enemyMarks: {},
+};
+let lethalAutoPotionStatsMaxHp = 0;
+let lethalAutoPotionFailureLogged = false;
+normalCombat.configureNormalCombatContext({
+  getState: () => lethalAutoPotionState,
+  getMonsterAttackInterval: () => 1,
+  currentMonsterStats: () => ({ attack: 100, critChance: 0 }),
+  random: () => 0.9,
+  maybeAutoUsePotion: (stats) => {
+    lethalAutoPotionStatsMaxHp = stats.maxHp;
+    if (lethalAutoPotionState.hero.currentHp > 0) return false;
+    lethalAutoPotionState.hero.currentHp = 55;
+    return true;
+  },
+  addLog: () => { lethalAutoPotionFailureLogged = true; },
+});
+normalCombat.updateMonsterAttack(1, { maxHp: 100, dodgeRate: 0, blockRate: 0, statusResist: 0 });
+assert.equal(lethalAutoPotionState.hero.currentHp, 55, 'Automatic potion usage must be allowed to rescue a lethal monster hit before combat pauses.');
+assert.equal(lethalAutoPotionState.paused, undefined, 'Automatic potion rescue must not leave combat paused.');
+assert.equal(lethalAutoPotionFailureLogged, false, 'Automatic potion rescue must not log the defeat failure message.');
+assert.equal(lethalAutoPotionStatsMaxHp, 100, 'Automatic potion rescue must receive the active stat snapshot.');
 
 const enemyWarningState = {
   enemyHp: 10,

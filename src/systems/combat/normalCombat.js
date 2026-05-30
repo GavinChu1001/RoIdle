@@ -255,6 +255,7 @@ export function updateMonsterAttack(dt, stats = {}, context = runtimeContext, v3
     context.showDamageNumber?.('monster', meteorDamage, 'skill', { skillName: '陨石反击' });
     context.showSkillCastFeedback?.('陨石反击');
   }
+  if (state.hero.currentHp <= 0 && context.maybeAutoUsePotion?.(stats)) return true;
   if (state.hero.currentHp <= 0) {
     // V3 霸体
     if (v3Passive.deathDefyReady && finite(state.deathDefyCooldown) <= 0) {

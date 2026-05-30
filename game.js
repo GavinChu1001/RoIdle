@@ -2029,7 +2029,7 @@ function createDefaultState() {
     shopState: { dailyPurchases: {}, weeklyPurchases: {}, totalPurchases: {}, lastDailyRefresh: "", lastWeeklyRefresh: "" },
     autoSalvage: { enabled: false, maxRarity: "normal", autoDismantleAbyss: false },
     autoDismantleAbyss: false,
-    settings: { autoBoss: false, autoBossCooldownUntil: 0, autoPotion: false, soundEnabled: false, soundVolume: 0.55 },
+    settings: { autoBoss: false, autoBossCooldownUntil: 0, autoPotion: true, soundEnabled: false, soundVolume: 0.55 },
     zodiacCollection: {},
     costumes: { owned: [], equipped: { back: null } },
     mapExploration: {},
@@ -2699,7 +2699,7 @@ const HEALING_POTION_COOLDOWN = 8;
 const AUTO_POTION_HP_RATIO = 0.35;
 
 function ensureSettings() {
-  state.settings = { autoBoss: false, autoBossCooldownUntil: 0, autoPotion: false, soundEnabled: false, soundVolume: 0.55, ...(state.settings || {}) };
+  state.settings = { autoBoss: false, autoBossCooldownUntil: 0, autoPotion: true, soundEnabled: false, soundVolume: 0.55, ...(state.settings || {}) };
   if (typeof state.autoBoss !== "undefined") {
     state.settings.autoBoss = Boolean(state.settings.autoBoss || state.autoBoss);
     delete state.autoBoss;
@@ -3016,7 +3016,16 @@ function mergeState(base, saved) {
     codexRewardsClaimed: { monster: { ...(base.codexRewardsClaimed?.monster || {}), ...(saved.codexRewardsClaimed?.monster || {}) }, card: { ...(base.codexRewardsClaimed?.card || {}), ...(saved.codexRewardsClaimed?.card || {}) } },
     autoSalvage: { ...base.autoSalvage, ...(saved.autoSalvage || {}), autoDismantleAbyss: Boolean(saved.autoSalvage?.autoDismantleAbyss || saved.autoDismantleAbyss) },
     autoDismantleAbyss: Boolean(saved.autoDismantleAbyss || saved.autoSalvage?.autoDismantleAbyss),
-    settings: { ...base.settings, ...(saved.settings || {}), autoBoss: Boolean(saved.settings?.autoBoss || saved.autoBoss), autoPotion: Boolean(saved.settings?.autoPotion || saved.autoPotion) },
+    settings: {
+      ...base.settings,
+      ...(saved.settings || {}),
+      autoBoss: Boolean(saved.settings?.autoBoss || saved.autoBoss),
+      autoPotion: typeof saved.settings?.autoPotion !== "undefined"
+        ? Boolean(saved.settings.autoPotion)
+        : typeof saved.autoPotion !== "undefined"
+          ? Boolean(saved.autoPotion)
+          : Boolean(base.settings?.autoPotion),
+    },
     zodiacCollection: normalizeZodiacCollection(saved.zodiacCollection || base.zodiacCollection),
     costumes: normalizeCostumes(saved.costumes || base.costumes),
     mapExploration: normalizeMapExploration(saved.mapExploration || base.mapExploration),
@@ -14660,6 +14669,7 @@ window.RuneFrontierLegacyCombatContext = () => Object.freeze({
   challengeBoss,
   defeatEnemy,
   resetUnsafeEarlyEncounter,
+  maybeAutoUsePotion,
   syncActiveEnemyFromGroup,
   spawnEnemy,
   render: renderCombatSettlementUi,
