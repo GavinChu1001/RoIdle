@@ -1581,6 +1581,44 @@ assert.equal(recompositionState.inventory[0].refine, 7, 'Upgrade should preserve
 assert.equal(recompositionState.inventory[0].empower, 3, 'Upgrade should preserve empower investment.');
 assert.equal(recompositionState.inventory[0].cardSlots[0].cardId, 'card-a', 'Upgrade should preserve socketed cards.');
 assert.ok(recompositionState.inventory[0].rarityRewardHistory.includes('epic'), 'Upgrade should complete target rarity rewards.');
+const progressionQualityRebuildState = {
+  gold: 10000,
+  materials: { heroReformInscription: 4 },
+  inventory: [{
+    id: 'quality-rebuild',
+    name: 'Quality Hero Blade',
+    slot: 'weapon',
+    archetype: 'physical',
+    series: 'ancientHero',
+    growthTier: 'T2',
+    upgradeStage: 0,
+    rarity: 'rare',
+    level: 30,
+    dropLevel: 30,
+    atk: 1,
+  }],
+};
+const progressionQualityRebuildResult = progressionUpgrade.upgradeEquipmentProgression('quality-rebuild', {
+  getState: () => progressionQualityRebuildState,
+  getProgressionEquipmentTemplate: () => ({
+    id: 'prog_ancientHero_reform_physical_weapon',
+    name: 'Quality Reform Blade',
+    slot: 'weapon',
+    atk: 100,
+    source: 'progression_drop',
+    series: 'ancientHero',
+    growthTier: 'T2',
+    upgradeStage: 1,
+    grade: 'reform',
+    archetype: 'physical',
+  }),
+  getEquipmentTiers: () => [{ id: 'epic', scale: 2, rolls: [7, 9] }],
+  randomFloat: (min, max) => max,
+  applyRarityUpgradeRewards: () => {},
+});
+assert.equal(progressionQualityRebuildResult.ok, true, 'Progression upgrade quality rebuild should succeed.');
+assert.equal(progressionQualityRebuildState.inventory[0].quality, 112, 'Progression upgrade rebuild should roll quality from the light rarity range.');
+assert.equal(progressionQualityRebuildState.inventory[0].atk, 224, 'Progression upgrade rebuild should not use the legacy tier.rolls quality multiplier.');
 const ancientRarityUpgradeState = {
   gold: 10000,
   materials: { heroReformInscription: 4 },
@@ -1759,6 +1797,29 @@ assert.equal(lowLevelProgressionItem.drop, highLevelProgressionItem.drop, 'Progr
 assert.equal(lowLevelProgressionItem.dodgeRate, highLevelProgressionItem.dodgeRate, 'Progression-v2 drops must not scale dodge from hidden item level.');
 assert.equal(lowLevelProgressionItem.gold, highLevelProgressionItem.gold, 'Progression-v2 drops must not scale gold from hidden item level.');
 assert.equal(highLevelProgressionItem.growthModel, 'progression-v2', 'Progression drops should record the new growth model.');
+const qualityRollContext = {
+  ...factoryContext,
+  getEquipmentTiers: () => [{ id: 'rare', scale: 2, rolls: [7, 9] }],
+  randomFloat: (min, max) => max,
+};
+const progressionQualityRollItem = itemFactory.createItem(
+  { name: 'Quality Hero Blade', source: 'progression_drop', slot: 'weapon', atk: 100, growthTier: 'T2', series: 'ancientHero' },
+  20,
+  'rare',
+  { dropLevel: 20, rng: () => 0 },
+  qualityRollContext,
+);
+assert.equal(progressionQualityRollItem.quality, 108, 'Progression createItem should use the light rarity quality range.');
+assert.equal(progressionQualityRollItem.atk, 108, 'Progression createItem should not use legacy tier.rolls for base stats.');
+const legacyQualityRollItem = itemFactory.createItem(
+  { name: 'Legacy Quality Blade', source: 'monster_drop', slot: 'weapon', atk: 10 },
+  1,
+  'rare',
+  { dropLevel: 1, rng: () => 0 },
+  qualityRollContext,
+);
+assert.equal(legacyQualityRollItem.quality, 900, 'Legacy createItem should keep using tier.rolls quality.');
+assert.equal(legacyQualityRollItem.atk, 180, 'Legacy createItem should keep old rarity scale and tier.rolls base stat scaling.');
 const scalingProbeCalls = [];
 const scalingProbeContext = {
   ...factoryContext,
