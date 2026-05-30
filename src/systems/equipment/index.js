@@ -12,7 +12,7 @@ import { EQUIPMENT_GROWTH_TIERS, EQUIPMENT_SERIES, EQUIPMENT_LINE_MATERIALS, MAP
 import { EQUIPMENT_SYNERGY_LINES, ROUTE_SKILL_ENHANCEMENTS, computeEquipmentSynergies, getEquipmentSynergySummary, getProfessionRoute, getProfessionRouteTier } from './itemSynergy.js';
 import { DEPRECATED_EQUIPMENT_STATS, ORDINARY_EQUIPMENT_AFFIX_STATS, SPECIAL_MECHANIC_STATS, EQUIPMENT_MAIN_STAT_GROUPS, canonicalEquipmentStat, canonicalizeEquipmentStats, applyCanonicalEquipmentStats } from './statCatalog.js';
 import { canUpgradeEquipmentProgression, upgradeEquipmentProgression } from './progressionUpgrade.js';
-import { LINE_MASTERY_MAX_LEVEL, normalizeLineMasteryState, getLineMasteryLevel, getLineMasteryCost, getLineMasteryBonus, canUpgradeLineMastery, upgradeLineMastery } from './lineMastery.js';
+import { LINE_MASTERY_MAX_LEVEL, normalizeLineMasteryState, getLineMasteryLevel, getLineMasteryCost, getLineMasteryBonus, getLineMasteryGlobalBonus, canUpgradeLineMastery, upgradeLineMastery } from './lineMastery.js';
 import { ABYSS_TEMPERING_MAX_LEVEL, canTemperAbyssItem, getAbyssTemperingCost, getAbyssTemperingBonus, temperAbyssItem } from './abyssTempering.js';
 
 export * from './itemFactory.js';
@@ -41,6 +41,7 @@ export function installEquipmentRuntime(context = {}) {
       const state = context.getState?.() || {};
       return getLineMasteryBonus(series, getLineMasteryLevel(state, series));
     },
+    getLineMasteryGlobalBonus: () => getLineMasteryGlobalBonus(context.getState?.() || {}),
     getAbyssTemperingBonus,
   });
   configureItemFactoryContext(context);
@@ -95,6 +96,7 @@ export function installEquipmentRuntime(context = {}) {
     getLineMasteryLevel,
     getLineMasteryCost,
     getLineMasteryBonus,
+    getLineMasteryGlobalBonus,
     canUpgradeLineMastery: (series) => canUpgradeLineMastery(series, context),
     upgradeLineMastery: (series) => upgradeLineMastery(series, context),
     ABYSS_TEMPERING_MAX_LEVEL,

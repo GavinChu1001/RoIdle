@@ -26,11 +26,13 @@ const HIGH_VALUE_STATS = new Set([
   'echoChance',
 ]);
 const FLAT_STATS = new Set(['atk', 'matk', 'def', 'hp', 'hpRegen', 'str', 'agi', 'vit', 'int', 'dex', 'luk', 'luck']);
+const LINE_MASTERY_BASE_STATS = new Set(['atk', 'matk', 'def', 'hp', 'hpRegen', 'str', 'agi', 'vit', 'int', 'dex', 'luk']);
 
 let runtimeContext = Object.freeze({
   getMechanicAffixEffects: () => ({}),
   computeCardSocketBonuses: () => ({}),
   getLineMasteryBonus: () => ({ statMultiplier: 1, bonusStats: {}, abyssAffixMultiplier: 1 }),
+  getLineMasteryGlobalBonus: () => ({ statMultiplier: 1, bonusStats: {} }),
   getAbyssTemperingBonus: () => ({}),
   getEnhanceMilestoneLevels: () => [],
   getEnhanceMilestoneBonuses: () => ({}),
@@ -44,6 +46,9 @@ export function configureItemStatsContext(context = {}) {
     getLineMasteryBonus: typeof context.getLineMasteryBonus === 'function'
       ? context.getLineMasteryBonus
       : () => ({ statMultiplier: 1, bonusStats: {}, abyssAffixMultiplier: 1 }),
+    getLineMasteryGlobalBonus: typeof context.getLineMasteryGlobalBonus === 'function'
+      ? context.getLineMasteryGlobalBonus
+      : () => ({ statMultiplier: 1, bonusStats: {} }),
     getAbyssTemperingBonus: typeof context.getAbyssTemperingBonus === 'function' ? context.getAbyssTemperingBonus : () => ({}),
     getEnhanceMilestoneLevels: typeof context.getEnhanceMilestoneLevels === 'function' ? context.getEnhanceMilestoneLevels : () => [],
     getEnhanceMilestoneBonuses: typeof context.getEnhanceMilestoneBonuses === 'function' ? context.getEnhanceMilestoneBonuses : () => ({}),
@@ -147,6 +152,16 @@ function star15Bonus(item = {}) {
   return { critDamageBonus: 0.04, drop: 0.01, gold: 0.01 };
 }
 
+function applyLineMasteryBaseMultiplier(stats = {}, multiplier = 1) {
+  const valueMultiplier = number(multiplier);
+  if (valueMultiplier <= 1) return;
+  LINE_MASTERY_BASE_STATS.forEach((key) => {
+    const value = number(stats[key]);
+    if (!value) return;
+    stats[key] = Math.round(Number((value * valueMultiplier).toFixed(6)));
+  });
+}
+
 export function getEffectiveItemStats(item = {}, includeRandom = true, context = runtimeContext) {
   item = item && typeof item === 'object' ? item : {};
   const multiplier = refineMultiplier(item.refine || 0);
@@ -227,16 +242,13 @@ export function getEffectiveItemStats(item = {}, includeRandom = true, context =
     ? context.getLineMasteryBonus
     : () => ({ statMultiplier: 1, bonusStats: {}, abyssAffixMultiplier: 1 });
   const mastery = masteryProvider(itemLine) || {};
-  const masteryMultiplier = number(mastery.statMultiplier || 1);
-  if (itemLine && itemLine !== 'oldWorld' && masteryMultiplier > 1) {
-    Object.keys(stats).forEach((key) => {
-      const value = number(stats[key]);
-      if (!value || key === 'luck') return;
-      stats[key] = Math.abs(value) < 1
-        ? Number((value * masteryMultiplier).toFixed(3))
-        : Math.round(value * masteryMultiplier);
-    });
-  }
+  const globalMasteryProvider = typeof context.getLineMasteryGlobalBonus === 'function'
+    ? context.getLineMasteryGlobalBonus
+    : () => ({ statMultiplier: 1, bonusStats: {} });
+  const globalMastery = globalMasteryProvider() || {};
+  const masteryMultiplier = itemLine && itemLine !== 'oldWorld' ? Math.max(1, number(mastery.statMultiplier || 1)) : 1;
+  const globalMultiplier = Math.max(1, number(globalMastery.statMultiplier || 1));
+  applyLineMasteryBaseMultiplier(stats, masteryMultiplier * globalMultiplier);
   Object.entries(mastery.bonusStats || {}).forEach(([stat, value]) => {
     addScaledStat(stats, stat, value, { applyRefine: false });
   });
@@ -249,9 +261,11 @@ export function getEffectiveItemStats(item = {}, includeRandom = true, context =
   (Array.isArray(item.mechanicAffixes) ? item.mechanicAffixes : []).forEach((id) => {
     Object.entries(context.getMechanicAffixEffects(id) || {}).forEach(([stat, value]) => addScaledStat(stats, stat, value));
   });
-  Object.entries(item.abyssBonus || {}).forEach(([stat, value]) => addScaledStat(stats, stat, value));
+  const abyssAffixMultiplier = itemLine && itemLine !== 'oldWorld' ? Math.max(1, number(mastery.abyssAffixMultiplier || 1)) : 1;
+  const scaleAbyssMasteryValue = (value) => Number((number(value) * abyssAffixMultiplier).toFixed(3));
+  Object.entries(item.abyssBonus || {}).forEach(([stat, value]) => addScaledStat(stats, stat, scaleAbyssMasteryValue(value)));
   (Array.isArray(item.abyssAffixes) ? item.abyssAffixes : []).forEach((affix) => {
-    Object.entries(affix?.effects || {}).forEach(([stat, value]) => addScaledStat(stats, stat, value));
+    Object.entries(affix?.effects || {}).forEach(([stat, value]) => addScaledStat(stats, stat, scaleAbyssMasteryValue(value)));
   });
   Object.entries(context.computeCardSocketBonuses(item) || {}).forEach(([stat, value]) => {
     addScaledStat(stats, stat, value, { applyRefine: false });

@@ -5,6 +5,24 @@ import {
 } from './itemProgression.js';
 
 export const LINE_MASTERY_MAX_LEVEL = 20;
+export const LINE_MASTERY_GLOBAL_STAT_PER_LEVEL = 0.0015;
+export const LINE_MASTERY_RESONANCE_STAT_PER_LEVEL = 0.0085;
+export const LINE_MASTERY_GLOBAL_STAT_CAP = 0.25;
+export const LINE_MASTERY_GLOBAL_BONUS_CAP = 0.1;
+
+const LINE_MASTERY_GLOBAL_MILESTONES = Object.freeze({
+  5: Object.freeze({ bossDamageBonus: 0.003 }),
+  10: Object.freeze({ skillDamageBonus: 0.003 }),
+  15: Object.freeze({ abyssDamageBonus: 0.005 }),
+  20: Object.freeze({ highTierFind: 0.005 }),
+});
+
+const LINE_MASTERY_RESONANCE_MILESTONES = Object.freeze({
+  5: Object.freeze({ bossDamageBonus: 0.012 }),
+  10: Object.freeze({ skillDamageBonus: 0.015 }),
+  15: Object.freeze({ abyssDamageBonus: 0.02 }),
+  20: Object.freeze({ highTierFind: 0.015 }),
+});
 
 function finite(value, fallback = 0) {
   const number = Number(value);
@@ -30,6 +48,27 @@ function materialAmountForNextLevel(nextLevel) {
   if (nextLevel <= 10) return 1 + Math.ceil((nextLevel - 5) / 2);
   if (nextLevel <= 15) return 1 + Math.floor((nextLevel - 11) / 2);
   return 2 + Math.floor((nextLevel - 16) / 2);
+}
+
+function milestoneStatsForLevel(level, milestones) {
+  const bonusStats = {};
+  Object.entries(milestones).forEach(([milestone, stats]) => {
+    if (level < Number(milestone)) return;
+    Object.entries(stats).forEach(([stat, value]) => {
+      bonusStats[stat] = Number((finite(bonusStats[stat]) + finite(value)).toFixed(3));
+    });
+  });
+  return bonusStats;
+}
+
+function emptyLineMasteryBonus() {
+  return {
+    statMultiplier: 1,
+    globalStatMultiplier: 1,
+    bonusStats: {},
+    globalBonusStats: {},
+    abyssAffixMultiplier: 1,
+  };
 }
 
 function masteryState(state = {}) {
@@ -84,22 +123,38 @@ export function getLineMasteryBonus(series = '', level = 0) {
   const id = normalizeEquipmentSeries(series, '');
   const safeLevel = clampLevel(level);
   if (!id || id === 'oldWorld' || safeLevel <= 0) {
-    return { statMultiplier: 1, bonusStats: {}, abyssAffixMultiplier: 1 };
+    return emptyLineMasteryBonus();
   }
-
-  const bonusStats = {};
-  if (safeLevel >= 5) bonusStats.bossDamageBonus = 0.005;
-  if (safeLevel >= 10) bonusStats.skillDamageBonus = 0.01;
-  if (safeLevel >= 15) bonusStats.abyssDamageBonus = 0.015;
-  if (safeLevel >= 20) bonusStats.highTierFind = 0.01;
 
   return {
     series: id,
     label: getEquipmentSeriesConfig(id).label,
     level: safeLevel,
-    statMultiplier: Number((1 + safeLevel * 0.006).toFixed(3)),
+    statMultiplier: Number((1 + safeLevel * LINE_MASTERY_RESONANCE_STAT_PER_LEVEL).toFixed(3)),
+    globalStatMultiplier: Number((1 + safeLevel * LINE_MASTERY_GLOBAL_STAT_PER_LEVEL).toFixed(3)),
+    bonusStats: milestoneStatsForLevel(safeLevel, LINE_MASTERY_RESONANCE_MILESTONES),
+    globalBonusStats: milestoneStatsForLevel(safeLevel, LINE_MASTERY_GLOBAL_MILESTONES),
+    abyssAffixMultiplier: safeLevel >= 15 ? 1.05 : 1,
+  };
+}
+
+export function getLineMasteryGlobalBonus(state = {}) {
+  const normalized = normalizeLineMasteryState(state.equipmentLineMastery || state);
+  const bonusStats = {};
+  let totalLevel = 0;
+  Object.entries(normalized).forEach(([series, entry]) => {
+    const level = clampLevel(entryLevel(entry));
+    if (!level) return;
+    totalLevel += level;
+    Object.entries(getLineMasteryBonus(series, level).globalBonusStats || {}).forEach(([stat, value]) => {
+      const total = Math.min(LINE_MASTERY_GLOBAL_BONUS_CAP, finite(bonusStats[stat]) + finite(value));
+      bonusStats[stat] = Number(total.toFixed(3));
+    });
+  });
+  return {
+    totalLevel,
+    statMultiplier: Number((1 + Math.min(LINE_MASTERY_GLOBAL_STAT_CAP, totalLevel * LINE_MASTERY_GLOBAL_STAT_PER_LEVEL)).toFixed(3)),
     bonusStats,
-    abyssAffixMultiplier: Number((1 + Math.floor(safeLevel / 5) * 0.025).toFixed(3)),
   };
 }
 

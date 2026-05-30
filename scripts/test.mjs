@@ -745,6 +745,44 @@ const temperedStats = itemStats.getEffectiveItemStats({
 });
 assert.equal(temperedStats.abyssDamageBonus, 0.012, 'Abyss tempering bonus should apply to effective stats.');
 assert.equal(temperedStats.abyssDamageReduction, 0.003, 'Abyss tempering defensive bonus should apply to effective stats.');
+itemStats.configureItemStatsContext({
+  getMechanicAffixEffects: () => ({}),
+  computeCardSocketBonuses: () => ({}),
+  getLineMasteryBonus: (series) => series === 'ancientHero'
+    ? { statMultiplier: 1.085, bonusStats: { skillDamageBonus: 0.015 }, abyssAffixMultiplier: 1 }
+    : { statMultiplier: 1, bonusStats: {}, abyssAffixMultiplier: 1 },
+  getLineMasteryGlobalBonus: () => ({
+    statMultiplier: 1.015,
+    bonusStats: { bossDamageBonus: 0.003 },
+  }),
+});
+const globalMasteredStats = itemStats.getEffectiveItemStats({
+  series: 'ancientHero',
+  atk: 100,
+  skillDamageBonus: 0.02,
+});
+assert.equal(globalMasteredStats.atk, 110, 'Line mastery should combine global legacy and same-line resonance for base stats.');
+assert.equal(globalMasteredStats.skillDamageBonus, 0.035, 'Same-line mastery should add stronger milestone stats.');
+assert.equal(globalMasteredStats.bossDamageBonus || 0, 0, 'Global mastery milestone stats must not be added per item.');
+const globalOldWorldStats = itemStats.getEffectiveItemStats({
+  series: 'oldWorld',
+  atk: 100,
+});
+assert.equal(globalOldWorldStats.atk, 102, 'Global line mastery legacy should apply to all equipment base stats.');
+itemStats.configureItemStatsContext({
+  getMechanicAffixEffects: () => ({}),
+  computeCardSocketBonuses: () => ({}),
+  getLineMasteryBonus: (series) => series === 'ancientHero'
+    ? { statMultiplier: 1, bonusStats: {}, abyssAffixMultiplier: 1.05 }
+    : { statMultiplier: 1, bonusStats: {}, abyssAffixMultiplier: 1 },
+});
+const masteryAbyssStats = itemStats.getEffectiveItemStats({
+  series: 'ancientHero',
+  abyssBonus: { abyssDamageBonus: 0.1 },
+  abyssAffixes: [{ effects: { bossDamageBonus: 0.05 } }],
+});
+assert.equal(masteryAbyssStats.abyssDamageBonus, 0.105, 'Same-line mastery should strengthen abyss bonus values.');
+assert.equal(masteryAbyssStats.bossDamageBonus, 0.053, 'Same-line mastery should strengthen abyss affix values.');
 
 let itemArchetypeSource = '';
 assert.doesNotThrow(() => {
@@ -1105,11 +1143,13 @@ for (const name of [
   'LINE_MASTERY_MAX_LEVEL',
   'getLineMasteryCost',
   'getLineMasteryBonus',
+  'getLineMasteryGlobalBonus',
   'upgradeLineMastery',
 ]) {
   assert.match(lineMasterySource, new RegExp(`\\b${name}\\b`), `Line mastery module must define ${name}.`);
 }
 assert.match(equipmentIndexSource, /lineMastery/, 'Equipment index should re-export line mastery.');
+assert.match(equipmentIndexSource, /getLineMasteryGlobalBonus/, 'Equipment runtime must expose global line mastery bonuses.');
 const lineMasteryItemProgressionUrl = `data:text/javascript;base64,${Buffer.from(itemProgressionSource).toString('base64')}`;
 const withLineMasteryItemProgressionImport = (source) => source.replace(/from\s+['"]\.\/itemProgression\.js['"]/g, `from '${lineMasteryItemProgressionUrl}'`);
 const lineMastery = await importSource(withLineMasteryItemProgressionImport(lineMasterySource));
@@ -1123,11 +1163,32 @@ assert.deepEqual(masteryCost11.materials, { mythicHeroCore: 1 }, 'Ancient Hero m
 const masteryCost16 = lineMastery.getLineMasteryCost('ancientHero', 15);
 assert.deepEqual(masteryCost16.materials, { mythicHeroCore: 2, abyssCore: 1 }, 'High mastery should create a long-term abyss material sink.');
 const masteryBonus10 = lineMastery.getLineMasteryBonus('ancientHero', 10);
-assert.ok(masteryBonus10.statMultiplier > 1.04, 'Lv.10 mastery should strengthen matching equipment stats.');
-assert.ok(masteryBonus10.bonusStats.skillDamageBonus > 0, 'Lv.10 mastery should grant a visible combat bonus.');
+assert.equal(masteryBonus10.statMultiplier, 1.085, 'Lv.10 mastery should strongly strengthen matching equipment base stats.');
+assert.equal(masteryBonus10.globalStatMultiplier, 1.015, 'Lv.10 mastery should also grant permanent global base-stat legacy.');
+assert.equal(masteryBonus10.bonusStats.skillDamageBonus, 0.015, 'Lv.10 same-line mastery should grant a visible combat bonus.');
+assert.equal(masteryBonus10.globalBonusStats.skillDamageBonus, 0.003, 'Lv.10 global mastery should grant a small permanent combat bonus.');
+const globalMastery = lineMastery.getLineMasteryGlobalBonus({
+  equipmentLineMastery: {
+    ancientHero: { level: 20 },
+    os: { level: 10 },
+    oldWorld: { level: 20 },
+    unknown: { level: 20 },
+  },
+});
+assert.equal(globalMastery.totalLevel, 30, 'Global mastery should total valid non-temporary line levels.');
+assert.equal(globalMastery.statMultiplier, 1.045, 'Global mastery should convert total line levels into all-equipment base stats.');
+assert.deepEqual(globalMastery.bonusStats, {
+  bossDamageBonus: 0.006,
+  skillDamageBonus: 0.006,
+  abyssDamageBonus: 0.005,
+  highTierFind: 0.005,
+}, 'Global mastery should aggregate milestone bonuses once per line.');
 const masteryState = { equipmentLineMastery: { ancientHero: { level: 30 }, unknown: { level: 5 } } };
 assert.deepEqual(lineMastery.normalizeLineMasteryState(masteryState.equipmentLineMastery), { ancientHero: { level: 20 } }, 'Line mastery normalization should clamp levels and drop unknown lines.');
 assert.equal(lineMastery.getLineMasteryCost('oldWorld', 0), null, 'Old-world temporary gear must not have line mastery upgrades.');
+assert.match(game, /applyLineMasteryGlobalBonus/, 'Compute stats should add global line mastery combat bonuses once.');
+assert.match(game, /\u5168\u5c40\u4f20\u627f/, 'Material line mastery UI should explain global legacy.');
+assert.match(game, /\u540c\u7ebf\u5171\u9e23/, 'Material line mastery UI should explain same-line resonance.');
 const affixTierSource = game.slice(game.indexOf('const AFFIX_TIERS'), game.indexOf('const MECHANIC_AFFIXES'));
 const slotAffixPoolSource = game.slice(game.indexOf('const SLOT_AFFIX_POOLS'), game.indexOf('// [DATA->data.js] salvageRewards'));
 for (const stat of ['critRatePct', 'dodgeRatePct', 'baseExpBonus', 'jobExpBonus', 'mutationMaterialDoubleChance', 'statusResist', 'offlineEfficiencyBonus']) {

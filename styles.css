@@ -7022,6 +7022,29 @@ button.pixel-button {
   color: #6a4426;
 }
 
+.line-mastery-bonus-list {
+  display: grid;
+  gap: 4px;
+  padding: 7px 8px;
+  border: 1px solid rgba(82, 50, 24, 0.18);
+  border-radius: 6px;
+  background: rgba(255, 250, 229, 0.55);
+}
+
+.line-mastery-bonus-list p {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr);
+  gap: 8px;
+  margin: 0;
+  color: #5d3a20;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.line-mastery-bonus-list strong {
+  color: #3f2817;
+}
+
 .smithy-action-stack {
   display: grid;
   gap: 6px;

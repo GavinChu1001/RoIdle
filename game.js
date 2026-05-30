@@ -7426,6 +7426,7 @@ function computeStats() {
   Object.entries(equipmentSynergies.stats || {}).forEach(([stat, value]) => {
     equip[stat] = Number(((equip[stat] || 0) + (Number(value) || 0)).toFixed(3));
   });
+  const lineMasteryGlobalBonus = applyLineMasteryGlobalBonus(equip);
   const explorationBonuses = getMapExplorationBonuses(currentMap().id);
   const passive = getPassiveSkillTotals();
   const job = currentJob();
@@ -7495,6 +7496,7 @@ function computeStats() {
     equipmentSynergies,
     equipmentSynergyDropEffects: equipmentSynergies.dropEffects || {},
     equipmentSynergyCombatEffects: equipmentSynergies.combatEffects || {},
+    lineMasteryGlobalBonus,
     monsterDamageBonus: Math.min(2, (cardStats.monsterDamage || 0) + (equip.monsterDamageBonus || 0) + (passive.monsterDamageBonus || 0)),
     bossDamageBonus: bossDamageBonusTotal,
     mutationDamageBonus: setBonuses.mutationDamagePct,
@@ -7553,6 +7555,17 @@ function computeStats() {
     explorationBonuses,
     passive,
   };
+}
+
+function applyLineMasteryGlobalBonus(equip = {}) {
+  const runtime = equipmentProgressionRuntime();
+  const bonus = runtime?.getLineMasteryGlobalBonus?.(state) || { totalLevel: 0, statMultiplier: 1, bonusStats: {} };
+  Object.entries(bonus.bonusStats || {}).forEach(([stat, value]) => {
+    const numeric = Number(value || 0);
+    if (!Number.isFinite(numeric) || !numeric) return;
+    equip[stat] = Number(((equip[stat] || 0) + numeric).toFixed(3));
+  });
+  return bonus;
 }
 
 function getCostumeEffects() {
@@ -9117,11 +9130,36 @@ function renderCurrentMaterialGoal() {
   </article>`;
 }
 
+function formatLineMasteryBonusStats(stats = {}) {
+  const rows = Object.entries(stats || {})
+    .filter(([, value]) => Number(value || 0) > 0)
+    .map(([stat, value]) => `${statLabelName(stat)} +${percent(Number(value || 0))}`);
+  return rows.length ? rows.join(" / ") : "里程碑未解锁";
+}
+
+function formatLineMasteryNextText(currentBonus = {}, nextBonus = null) {
+  if (!nextBonus) return "已满级";
+  const globalGain = Math.max(0, Number(nextBonus.globalStatMultiplier || 1) - Number(currentBonus.globalStatMultiplier || 1));
+  const resonanceGain = Math.max(0, Number(nextBonus.statMultiplier || 1) - Number(currentBonus.statMultiplier || 1));
+  const milestoneGains = [];
+  Object.entries(nextBonus.globalBonusStats || {}).forEach(([stat, value]) => {
+    const gain = Number(value || 0) - Number(currentBonus.globalBonusStats?.[stat] || 0);
+    if (gain > 0) milestoneGains.push(`全局${statLabelName(stat)} +${percent(gain)}`);
+  });
+  Object.entries(nextBonus.bonusStats || {}).forEach(([stat, value]) => {
+    const gain = Number(value || 0) - Number(currentBonus.bonusStats?.[stat] || 0);
+    if (gain > 0) milestoneGains.push(`同线${statLabelName(stat)} +${percent(gain)}`);
+  });
+  return [`全局基础 +${percent(globalGain)}`, `同线基础 +${percent(resonanceGain)}`, ...milestoneGains].join(" · ");
+}
+
 function renderMaterialLineCard(overview) {
   const runtime = equipmentProgressionRuntime();
   const level = runtime?.getLineMasteryLevel?.(state, overview.series) || 0;
   const cost = runtime?.getLineMasteryCost?.(overview.series, level);
   const canUpgrade = runtime?.canUpgradeLineMastery?.(overview.series);
+  const bonus = runtime?.getLineMasteryBonus?.(overview.series, level) || {};
+  const nextBonus = cost ? runtime?.getLineMasteryBonus?.(overview.series, cost.nextLevel) : null;
   const materialRows = Object.entries(overview.materials || {})
     .map(([kind, material]) => {
       const qty = (state.materials || {})[material.id] || 0;
@@ -9143,7 +9181,12 @@ function renderMaterialLineCard(overview) {
     </div>
     <div class="equipment-stat-grid">${materialRows}</div>
     <p class="academy-meta">来源：${escapeHtml(sourceRows || "暂无")}</p>
-    <p class="academy-meta">下级：${escapeHtml(equipmentProgressionCostText(cost))}</p>
+    <div class="line-mastery-bonus-list">
+      <p><strong>全局传承</strong><span>所有装备基础属性 +${percent(Math.max(0, Number(bonus.globalStatMultiplier || 1) - 1))} · ${escapeHtml(formatLineMasteryBonusStats(bonus.globalBonusStats))}</span></p>
+      <p><strong>同线共鸣</strong><span>${escapeHtml(overview.label)}装备基础属性 +${percent(Math.max(0, Number(bonus.statMultiplier || 1) - 1))} · ${escapeHtml(formatLineMasteryBonusStats(bonus.bonusStats))}</span></p>
+      <p><strong>下级收益</strong><span>${escapeHtml(formatLineMasteryNextText(bonus, nextBonus))}</span></p>
+    </div>
+    <p class="academy-meta">消耗：${escapeHtml(equipmentProgressionCostText(cost))}</p>
     <button type="button" data-upgrade-line-mastery="${escapeAttr(overview.series)}" ${!canUpgrade ? "disabled" : ""}>提升精通</button>
   </article>`;
 }
