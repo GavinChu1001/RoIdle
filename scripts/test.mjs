@@ -769,6 +769,8 @@ for (const name of [
   'getEquipmentLineFilterOptions',
   'getProgressionMaterialDrops',
   'getEquipmentUpgradeCost',
+  'getEquipmentLineMaterialOverview',
+  'getAllEquipmentLineMaterialOverviews',
 ]) {
   assert.match(itemProgressionSource, new RegExp(`\\b${name}\\b`), `Equipment progression module must define ${name}.`);
 }
@@ -813,6 +815,17 @@ assert.ok(
 );
 const lineFilters = itemProgression.getEquipmentLineFilterOptions();
 assert.ok(lineFilters.some((entry) => entry.id === 'line:ancientHero' && entry.label === '古代英雄'), 'Equipment filters should expose Ancient Hero line filtering.');
+const ancientHeroOverview = itemProgression.getEquipmentLineMaterialOverview('ancientHero');
+assert.equal(ancientHeroOverview.series, 'ancientHero', 'Material overview should preserve series id.');
+assert.equal(ancientHeroOverview.materials.basic.id, 'ancientHeroShard', 'Overview should include basic material.');
+assert.equal(ancientHeroOverview.materials.advanced.id, 'heroReformInscription', 'Overview should include advanced material.');
+assert.equal(ancientHeroOverview.materials.core.id, 'mythicHeroCore', 'Overview should include core material.');
+assert.ok(ancientHeroOverview.sources.some((source) => source.mapId === 'grass' && source.difficulty === 'hard'), 'Overview should expose hard grass as Ancient Hero source.');
+assert.ok(ancientHeroOverview.sources.some((source) => source.mapId === 'grass' && source.difficulty === 'abyss'), 'Overview should expose abyss grass as Ancient Hero source.');
+assert.ok(ancientHeroOverview.sources.every((source) => Array.isArray(source.materialKinds) && Array.isArray(source.tiers)), 'Material overview sources should normalize list fields.');
+const allLineOverviews = itemProgression.getAllEquipmentLineMaterialOverviews();
+assert.ok(allLineOverviews.length >= 9, 'All material overviews should cover progression lines.');
+assert.ok(!allLineOverviews.some((overview) => overview.series === 'oldWorld'), 'Old-world temporary gear should not appear in material overviews.');
 let lineMasterySource = '';
 assert.doesNotThrow(() => {
   lineMasterySource = read('src/systems/equipment/lineMastery.js');

@@ -454,6 +454,41 @@ export function getEquipmentLineFilterOptions() {
     .map((series) => ({ id: `line:${series.id}`, label: series.label, series: series.id }));
 }
 
+export function getEquipmentLineMaterialOverview(series = '') {
+  const id = normalizeEquipmentSeries(series, '');
+  if (!id || id === 'oldWorld') return null;
+  const config = getEquipmentSeriesConfig(id);
+  const materials = getEquipmentLineMaterials(id);
+  const sources = [];
+  Object.entries(MAP_EQUIPMENT_PROGRESSION).forEach(([mapId, difficulties]) => {
+    Object.entries(difficulties || {}).forEach(([difficulty, progression]) => {
+      const materialSeries = normalizeList(progression.materialSeries, []);
+      const equipmentSeries = normalizeList(progression.series, []);
+      if (!materialSeries.includes(id) && !equipmentSeries.includes(id)) return;
+      sources.push({
+        mapId,
+        difficulty,
+        materialKinds: normalizeList(progression.materialKinds, []),
+        tiers: normalizeList(progression.tiers, []),
+        series: equipmentSeries,
+      });
+    });
+  });
+  return {
+    series: id,
+    label: config.label,
+    materials,
+    sources,
+  };
+}
+
+export function getAllEquipmentLineMaterialOverviews() {
+  return Object.keys(EQUIPMENT_SERIES)
+    .filter((series) => series !== 'oldWorld')
+    .map((series) => getEquipmentLineMaterialOverview(series))
+    .filter(Boolean);
+}
+
 export function formatEquipmentProgressionSummary(mapId, difficulty = 'normal') {
   const progression = getMapEquipmentProgression(mapId, difficulty);
   const seriesText = progression.series.map((id) => getEquipmentSeriesConfig(id).label).join(' / ');

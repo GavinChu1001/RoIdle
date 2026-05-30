@@ -7,7 +7,7 @@ import { configureRefineContext, enhanceItem, getEnhanceCost, getEnhanceMileston
 import { configureStarRefineContext, refineItem, getRefineChance, getRefineCost, snapshotRefineStats, diffRefineStats, star15Bonus, refineMultiplier, refineGrowthFactorForStat, getRefineMilestoneBonuses, getRefineGrowthStats } from './starRefine.js';
 import { configureSocketContext, getMaxEquipmentCardSlots, getEquipmentCardSlotCount, getCardSocketCost, canAffordSocketCost } from './socket.js';
 import { EQUIPMENT_ARCHETYPES, normalizeEquipmentArchetype, getArchetypeLabel, getEquipmentArchetypeLabel, getJobPreferredArchetype, getJobArchetypeRoute, inferEquipmentArchetype, getArchetypeStatPools, rollEquipmentArchetype, calculateArchetypeScores, getEquipmentFitTags, shouldProtectEquipmentByArchetype, getReforgeCost } from './itemArchetype.js';
-import { EQUIPMENT_GROWTH_TIERS, EQUIPMENT_SERIES, EQUIPMENT_LINE_MATERIALS, MAP_EQUIPMENT_PROGRESSION, PROGRESSION_EQUIPMENT_SLOTS, normalizeGrowthTier, normalizeEquipmentSeries, getEquipmentSeriesConfig, getEquipmentLineMaterials, getMapEquipmentProgression, getProgressionEquipmentTemplates, getProgressionEquipmentTemplate, getProgressionEquipmentDropTable, getEquipmentLineFilterOptions, formatEquipmentProgressionSummary, resolveEquipmentProgressionContext, resolveItemProgression, getProgressionMaterialDrops, getNextEquipmentUpgrade, getEquipmentUpgradeCost, getEquipmentProgressionTags } from './itemProgression.js';
+import { EQUIPMENT_GROWTH_TIERS, EQUIPMENT_SERIES, EQUIPMENT_LINE_MATERIALS, MAP_EQUIPMENT_PROGRESSION, PROGRESSION_EQUIPMENT_SLOTS, normalizeGrowthTier, normalizeEquipmentSeries, getEquipmentSeriesConfig, getEquipmentLineMaterials, getMapEquipmentProgression, getProgressionEquipmentTemplates, getProgressionEquipmentTemplate, getProgressionEquipmentDropTable, getEquipmentLineFilterOptions, getEquipmentLineMaterialOverview, getAllEquipmentLineMaterialOverviews, formatEquipmentProgressionSummary, resolveEquipmentProgressionContext, resolveItemProgression, getProgressionMaterialDrops, getNextEquipmentUpgrade, getEquipmentUpgradeCost, getEquipmentProgressionTags } from './itemProgression.js';
 import { EQUIPMENT_SYNERGY_LINES, ROUTE_SKILL_ENHANCEMENTS, computeEquipmentSynergies, getEquipmentSynergySummary, getProfessionRoute, getProfessionRouteTier } from './itemSynergy.js';
 import { DEPRECATED_EQUIPMENT_STATS, ORDINARY_EQUIPMENT_AFFIX_STATS, SPECIAL_MECHANIC_STATS, EQUIPMENT_MAIN_STAT_GROUPS, canonicalEquipmentStat, canonicalizeEquipmentStats, applyCanonicalEquipmentStats } from './statCatalog.js';
 import { canUpgradeEquipmentProgression, upgradeEquipmentProgression } from './progressionUpgrade.js';
@@ -77,6 +77,8 @@ export function installEquipmentRuntime(context = {}) {
     getProgressionEquipmentTemplate,
     getProgressionEquipmentDropTable,
     getEquipmentLineFilterOptions,
+    getEquipmentLineMaterialOverview,
+    getAllEquipmentLineMaterialOverviews,
     formatEquipmentProgressionSummary,
     resolveEquipmentProgressionContext,
     resolveItemProgression,
