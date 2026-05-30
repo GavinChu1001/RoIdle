@@ -2580,6 +2580,16 @@ els.vipPanel.addEventListener("click", (event) => {
       upgradeEquipmentProgression(progressionButton.dataset.upgradeProgressionItem);
       return;
     }
+    const lineMasteryButton = event.target.closest("button[data-upgrade-line-mastery]");
+    if (lineMasteryButton) {
+      upgradeLineMastery(lineMasteryButton.dataset.upgradeLineMastery);
+      return;
+    }
+    const abyssTemperButton = event.target.closest("button[data-temper-abyss-item]");
+    if (abyssTemperButton) {
+      temperAbyssItem(abyssTemperButton.dataset.temperAbyssItem, abyssTemperButton.dataset.temperMode || "infuse");
+      return;
+    }
     const refineButton = event.target.closest("button[data-refine-item]");
     if (refineButton) {
       refineItem(refineButton.dataset.refineItem);
@@ -2628,6 +2638,16 @@ els.vipPanel.addEventListener("click", (event) => {
     const progressionButton = event.target.closest("button[data-upgrade-progression-item]");
     if (progressionButton) {
       upgradeEquipmentProgression(progressionButton.dataset.upgradeProgressionItem);
+      return;
+    }
+    const lineMasteryButton = event.target.closest("button[data-upgrade-line-mastery]");
+    if (lineMasteryButton) {
+      upgradeLineMastery(lineMasteryButton.dataset.upgradeLineMastery);
+      return;
+    }
+    const abyssTemperButton = event.target.closest("button[data-temper-abyss-item]");
+    if (abyssTemperButton) {
+      temperAbyssItem(abyssTemperButton.dataset.temperAbyssItem, abyssTemperButton.dataset.temperMode || "infuse");
       return;
     }
     const refineButton = event.target.closest("button[data-refine-item]");
@@ -8848,7 +8868,7 @@ function renderSmithyContent() { const runtime = window.RuneFrontierRenderRuntim
     ["socket", "装备打孔"],
     ["set", "套装打造"],
     ["costume", "时装打造"],
-    ["materials", "材料说明"],
+    ["materials", "材料目标"],
   ];
   const craftableSets = Object.values(equipmentSets)
     .map((set) => ({
@@ -8916,7 +8936,7 @@ function renderSmithyContent() { const runtime = window.RuneFrontierRenderRuntim
     socket: `<section class="smithy-category"><h3>装备打孔</h3>${renderCardSocketSmithyPanel()}</section>`,
     set: `<section class="smithy-category"><h3>套装打造</h3>${setCraftHtml || `<p class="academy-meta">星座套装通过怪物掉落获得。已穿戴部件可在装备页查看套装进度，未穿戴部件在图鉴页查看全貌。</p>`}</section>`,
     costume: `<section class="smithy-category"><h3>时装打造</h3>${costumeCraftHtml}</section>`,
-    materials: `<section class="smithy-category"><h3>材料说明</h3>${renderSmithyMaterialGuide()}</section>`,
+    materials: `<section class="smithy-category"><h3>材料目标</h3>${renderMaterialGoalPanel()}</section>`,
   };
   if (!panes[smithyActiveTab]) smithyActiveTab = "enhance";
   return `
@@ -8997,6 +9017,92 @@ function renderSmithyMaterialGuide() { const runtime = window.RuneFrontierRender
     <strong class="material-count">×${formatNumber(state.materials[id] || 0)}</strong>
     <small class="material-desc">${escapeHtml(desc)}</small>
   </article>`).join("")}</div>`;
+}
+
+function renderMaterialGoalPanel() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderMaterialGoalPanel === "function") return runtime.renderMaterialGoalPanel();
+  const equipmentRuntime = equipmentProgressionRuntime();
+  const overviews = equipmentRuntime?.getAllEquipmentLineMaterialOverviews?.() || [];
+  if (!overviews.length) return renderSmithyMaterialGuide();
+  return `<div class="material-goal-layout">
+    ${renderCurrentMaterialGoal()}
+    <div class="material-line-grid">
+      ${overviews.map(renderMaterialLineCard).join("")}
+    </div>
+  </div>`;
+}
+
+function equippedItems() {
+  return Object.values(state.equipped || {})
+    .map((id) => state.inventory.find((item) => item.id === id))
+    .filter(Boolean);
+}
+
+function canAffordEquipmentCost(cost) {
+  return Boolean(cost && (state.gold || 0) >= (cost.gold || 0) && hasMaterials(cost.materials || {}));
+}
+
+function renderCurrentMaterialGoal() {
+  const runtime = equipmentProgressionRuntime();
+  const equipped = equippedItems();
+  const upgradeTarget = equipped.find((item) => getEquipmentUpgradeCost(item));
+  const temperTarget = equipped.find((item) => runtime?.canTemperAbyssItem?.(item));
+  if (!upgradeTarget && !temperTarget) {
+    return `<article class="material-goal-card material-current-goal">
+      <div class="material-goal-head"><strong>当前目标</strong><span class="equipment-badge equipment-badge-slot">待定</span></div>
+      <p class="academy-meta">先获取 T2 以上成长装备。</p>
+    </article>`;
+  }
+  const upgradeCost = upgradeTarget ? getEquipmentUpgradeCost(upgradeTarget) : null;
+  const temperMode = temperTarget?.abyssTempered ? "reroll" : "infuse";
+  const temperCost = temperTarget ? runtime?.getAbyssTemperingCost?.(temperTarget, temperMode) : null;
+  const empowerCost = temperTarget ? runtime?.getAbyssTemperingCost?.(temperTarget, "empower") : null;
+  return `<article class="material-goal-card material-current-goal">
+    <div class="material-goal-head"><strong>当前目标</strong><span class="equipment-badge equipment-badge-progression">装备成长</span></div>
+    ${upgradeTarget ? `<div class="material-goal-action-row">
+      <span>${renderItemName(upgradeTarget)}<small>${escapeHtml(equipmentProgressionCostText(upgradeCost))}</small></span>
+      <button type="button" data-upgrade-progression-item="${escapeAttr(upgradeTarget.id)}" ${!canUpgradeEquipmentProgression(upgradeTarget) ? "disabled" : ""}>进阶</button>
+    </div>` : ""}
+    ${temperTarget ? `<div class="material-goal-action-row">
+      <span>${renderItemName(temperTarget)}<small>${escapeHtml(equipmentProgressionCostText(temperCost))}</small></span>
+      <button type="button" data-temper-abyss-item="${escapeAttr(temperTarget.id)}" data-temper-mode="${temperMode}" ${!canAffordEquipmentCost(temperCost) ? "disabled" : ""}>${temperTarget.abyssTempered ? "重洗深渊" : "深渊淬炼"}</button>
+      <button type="button" data-temper-abyss-item="${escapeAttr(temperTarget.id)}" data-temper-mode="empower" ${!temperTarget.abyssTempered || !canAffordEquipmentCost(empowerCost) ? "disabled" : ""}>强化淬炼</button>
+    </div>` : ""}
+  </article>`;
+}
+
+function renderMaterialLineCard(overview) {
+  const runtime = equipmentProgressionRuntime();
+  const level = runtime?.getLineMasteryLevel?.(state, overview.series) || 0;
+  const cost = runtime?.getLineMasteryCost?.(overview.series, level);
+  const canUpgrade = runtime?.canUpgradeLineMastery?.(overview.series);
+  const materialRows = Object.entries(overview.materials || {})
+    .map(([kind, material]) => {
+      const qty = (state.materials || {})[material.id] || 0;
+      const rarity = MATERIAL_DB[material.id]?.rarity || material.rarity || "normal";
+      return `<span class="equipment-stat-chip ${getRarityClass({ rarity })}">
+        <span class="equipment-stat-name">${escapeHtml(material.name || material.id)}</span>
+        <span class="equipment-stat-value">×${formatNumber(qty)}</span>
+      </span>`;
+    })
+    .join("");
+  const sourceRows = (overview.sources || [])
+    .slice(0, 5)
+    .map((source) => `${mapNameById(source.mapId)} ${DIFFICULTY_CONFIG[source.difficulty]?.label || source.difficulty}`)
+    .join(" / ");
+  return `<article class="material-goal-card">
+    <div class="material-goal-head">
+      <strong>${escapeHtml(overview.label)}精通 Lv.${formatNumber(level)}</strong>
+      <span class="equipment-badge equipment-badge-slot">${escapeHtml(overview.series)}</span>
+    </div>
+    <div class="equipment-stat-grid">${materialRows}</div>
+    <p class="academy-meta">来源：${escapeHtml(sourceRows || "暂无")}</p>
+    <p class="academy-meta">下级：${escapeHtml(equipmentProgressionCostText(cost))}</p>
+    <button type="button" data-upgrade-line-mastery="${escapeAttr(overview.series)}" ${!canUpgrade ? "disabled" : ""}>提升精通</button>
+  </article>`;
+}
+
+function mapNameById(mapId) {
+  return maps.find((map) => map.id === mapId)?.name || mapId;
 }
 
 function renderDarkGoldExchangePanel() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderDarkGoldExchangePanel === "function") return runtime.renderDarkGoldExchangePanel();
@@ -9921,25 +10027,47 @@ function upgradeEquipmentProgression(itemId) {
   return runtime.upgradeEquipmentProgression(itemId);
 }
 
+function upgradeLineMastery(series) {
+  const runtime = equipmentProgressionRuntime();
+  if (!runtime || typeof runtime.upgradeLineMastery !== "function") return showToast("装备线精通系统尚未就绪");
+  return runtime.upgradeLineMastery(series);
+}
+
+function temperAbyssItem(itemId, mode = "infuse") {
+  const runtime = equipmentProgressionRuntime();
+  if (!runtime || typeof runtime.temperAbyssItem !== "function") return showToast("深渊淬炼系统尚未就绪");
+  return runtime.temperAbyssItem(itemId, mode);
+}
+
 function renderEquipmentProgressionSmithyPanel() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentProgressionSmithyPanel === "function") return runtime.renderEquipmentProgressionSmithyPanel();
+  const progressionRuntime = equipmentProgressionRuntime();
   const candidates = [...state.inventory]
-    .filter((item) => getEquipmentUpgradeCost(item))
+    .filter((item) => getEquipmentUpgradeCost(item) || progressionRuntime?.canTemperAbyssItem?.(item))
     .sort((a, b) => itemScore(b) - itemScore(a))
     .slice(0, 24);
-  if (!candidates.length) return `<p class="academy-meta">暂无可进阶装备。困难地图主要掉落下一装备线材料，深渊 Boss 会稳定给核心材料。</p>`;
+  if (!candidates.length) return `<p class="academy-meta">暂无可进阶或淬炼装备。困难地图主要掉落下一装备线材料，深渊 Boss 会稳定给核心材料。</p>`;
   return `<div class="smithy-items smithy-progression-list">${candidates.map((item) => {
     const cost = getEquipmentUpgradeCost(item);
     const next = cost?.next;
     const disabled = !canUpgradeEquipmentProgression(item);
+    const temperable = progressionRuntime?.canTemperAbyssItem?.(item);
+    const temperMode = item.abyssTempered ? "reroll" : "infuse";
+    const temperCost = temperable ? progressionRuntime?.getAbyssTemperingCost?.(item, temperMode) : null;
+    const empowerCost = temperable ? progressionRuntime?.getAbyssTemperingCost?.(item, "empower") : null;
     return `<article class="smithy-item smithy-progression-item">
       <span class="item-icon" style="background-image:${imageBackgroundList(itemImageCandidates(item))}"></span>
       <div>
         ${renderItemName(item)}
         ${renderEquipmentProgressionTags(item)}
-        <p class="academy-meta">${slotName(equipmentSlot(item))} · ${rarityName(item.rarity)} · 目标 ${escapeHtml(next?.label || "下一阶段")}</p>
-        <p class="academy-meta">消耗：${equipmentProgressionCostText(cost)}</p>
+        <p class="academy-meta">${slotName(equipmentSlot(item))} · ${rarityName(item.rarity)}${next ? ` · 目标 ${escapeHtml(next.label || "下一阶段")}` : " · 深渊成长"}</p>
+        <p class="academy-meta">进阶：${equipmentProgressionCostText(cost)}</p>
+        ${temperable ? `<p class="academy-meta">淬炼：${equipmentProgressionCostText(temperCost)} · 强化：${equipmentProgressionCostText(empowerCost)}</p>` : ""}
       </div>
-      <button type="button" data-upgrade-progression-item="${item.id}" ${disabled ? "disabled" : ""}>进阶</button>
+      <div class="smithy-action-stack">
+        ${cost ? `<button type="button" data-upgrade-progression-item="${escapeAttr(item.id)}" ${disabled ? "disabled" : ""}>进阶</button>` : ""}
+        ${temperable ? `<button type="button" data-temper-abyss-item="${escapeAttr(item.id)}" data-temper-mode="${temperMode}" ${!canAffordEquipmentCost(temperCost) ? "disabled" : ""}>${item.abyssTempered ? "重洗深渊" : "深渊淬炼"}</button>
+        <button type="button" data-temper-abyss-item="${escapeAttr(item.id)}" data-temper-mode="empower" ${!item.abyssTempered || !canAffordEquipmentCost(empowerCost) ? "disabled" : ""}>强化淬炼</button>` : ""}
+      </div>
     </article>`;
   }).join("")}</div>`;
 }
@@ -14582,6 +14710,9 @@ Object.assign(window, {
   getNextEquipmentUpgrade,
   canUpgradeEquipmentProgression,
   upgradeEquipmentProgression,
+  upgradeLineMastery,
+  temperAbyssItem,
+  renderMaterialGoalPanel,
   renderEquipmentProgressionSmithyPanel,
   formatMapEquipmentProgression,
   groupEquipmentStats,

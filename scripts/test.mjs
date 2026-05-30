@@ -984,6 +984,11 @@ assert.doesNotMatch(equipmentStatSectionsSource, /renderEquipmentScores\(item\)/
 assert.match(equipmentStatSectionsSource, /equipment-stat-group-compact/, 'Equipment detail stats should use compact collapsible groups.');
 assert.match(equipmentStyles, /equipment-filter-more/, 'Equipment filter More control should have dedicated styles.');
 assert.match(equipmentStyles, /equipment-stat-group-compact/, 'Compact equipment stat groups should have dedicated styles.');
+assert.match(game, /renderMaterialGoalPanel/, 'Smithy material tab should render a goal-oriented material panel.');
+assert.match(game, /getAllEquipmentLineMaterialOverviews/, 'Material page should use equipment line overview runtime.');
+assert.match(game, /data-upgrade-line-mastery/, 'Material page should offer line mastery upgrades.');
+assert.match(game, /data-temper-abyss-item/, 'Material page should offer abyss tempering actions.');
+assert.match(game, /material-goal-layout/, 'Material goal page should have dedicated layout classes.');
 
 assert.match(
   itemFactorySource,

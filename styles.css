@@ -6440,6 +6440,57 @@ button.pixel-button {
   padding-left: 34px;
 }
 
+.material-goal-layout {
+  display: grid;
+  gap: 12px;
+}
+
+.material-line-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.material-goal-card {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(62, 38, 21, 0.34);
+  border-radius: 7px;
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 247, 218, 0.9), rgba(231, 199, 142, 0.72));
+}
+
+.material-goal-head,
+.material-goal-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.material-goal-action-row {
+  padding-top: 6px;
+  border-top: 1px solid rgba(75, 44, 21, 0.18);
+}
+
+.material-goal-action-row span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.material-goal-action-row small {
+  color: #6a4426;
+}
+
+.smithy-action-stack {
+  display: grid;
+  gap: 6px;
+  min-width: 86px;
+}
+
 .material-card::before {
   content: "";
   position: absolute;
@@ -6644,7 +6695,8 @@ button.pixel-button {
 
   .equipped-slots,
   .equipment-grid,
-  .material-grid {
+  .material-grid,
+  .material-line-grid {
     grid-template-columns: 1fr;
   }
 
@@ -6658,9 +6710,16 @@ button.pixel-button {
     grid-template-columns: auto minmax(0, 1fr);
   }
 
-  .smithy-item button {
+  .smithy-item button,
+  .material-goal-action-row button {
     grid-column: 1 / -1;
     width: 100%;
+  }
+
+  .material-goal-head,
+  .material-goal-action-row {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 
