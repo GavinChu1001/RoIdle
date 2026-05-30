@@ -120,9 +120,15 @@ export function formatSkillPower(value) {
   return n.toFixed(2).replace(/\.?0+$/, '');
 }
 
-function applyDamage(damage, state, ctx = mechContext) {
+function skillNameForDamage(skillOrName) {
+  if (typeof skillOrName === 'string') return skillOrName;
+  return skillOrName?.skillName || skillOrName?.name || '';
+}
+
+function applyDamage(damage, state, ctx = mechContext, skillOrName = '') {
+  const skillName = skillNameForDamage(skillOrName);
   state.enemyHp -= damage;
-  ctx.showDamageNumber?.('monster', damage, 'skill');
+  ctx.showDamageNumber?.('monster', damage, 'skill', { skillName });
   ctx.showHitFeedback?.('skill');
 }
 
@@ -286,7 +292,7 @@ function tickZones(state, dt, stats, ctx = mechContext) {
       zone.tickTimer = 1.0; // tick every second
       const source = getSkillSource(zone, stats, state);
       const dmg = calcSkillDamage(source, zone.perTick, stats, ctx.currentMonsterStats?.() || {}, ctx, zone);
-      applyDamage(dmg, state, ctx);
+      applyDamage(dmg, state, ctx, zone);
       ctx.showSkillCastFeedback?.({ name: zone.name });
       const defaultMarkDuration = zone.mark === 'burn' ? 5 : zone.mark === 'poison' ? 6 : 3;
       if (zone.mark) applyMark(state, zone.mark, zone.markDuration || defaultMarkDuration, {
@@ -440,7 +446,7 @@ function executeMultihit(mechanism, skill, state, stats, monster, ctx) {
       ctx,
       mechanism,
     );
-    applyDamage(finalDmg, state, ctx);
+    applyDamage(finalDmg, state, ctx, skill);
     if (isCrit) ctx.showHitFeedback?.('crit');
 
     // 伤口叠加（十字斩）
@@ -477,7 +483,7 @@ function executeMultihit(mechanism, skill, state, stats, monster, ctx) {
   if (bounceHits) {
     for (let b = 0; b < bounceHits; b++) {
       const bounceDmg = calcSkillDamage(source, (mechanism.bounceMultiplierPerHit || mechanism.bounceMultiplier || 0.45) * skillEnhancement.multiplier, stats, monster, ctx, mechanism);
-      applyDamage(bounceDmg, state, ctx);
+      applyDamage(bounceDmg, state, ctx, skill);
     }
   }
 
@@ -500,7 +506,7 @@ function executeSingleHit(mechanism, skill, state, stats, monster, ctx) {
   const dmg = calcSkillDamage(stat, (mechanism.multiplier || 1.0) * skillEnhancement.multiplier, stats, monster, ctx, mechanism);
   ctx.showSkillCastFeedback?.(skill);
   ctx.addLog?.(`${skill.name} 造成 ${ctx.formatNumber?.(dmg) || dmg} 点伤害。`);
-  applyDamage(dmg, state, ctx);
+  applyDamage(dmg, state, ctx, skill);
 
   const oppositeMark = mechanism.mark?.type === 'burn' ? 'freeze' : mechanism.mark?.type === 'freeze' ? 'burn' : '';
   const resonanceWasReady = oppositeMark ? hasMark(state, oppositeMark) : false;
@@ -514,7 +520,7 @@ function executeSingleHit(mechanism, skill, state, stats, monster, ctx) {
     if (resonance) {
       if (resonanceWasReady) {
         const resonanceDmg = Math.round(dmg * (resonance.multiplier - 1));
-        applyDamage(resonanceDmg, state, ctx);
+        applyDamage(resonanceDmg, state, ctx, { name: '元素共鸣' });
         ctx.showSkillCastFeedback?.({ name: '元素共鸣' });
         ctx.addLog?.('⚡元素共鸣触发！');
         state.resonanceTriggered = true;
@@ -562,7 +568,7 @@ function executeFinisher(mechanism, skill, state, stats, monster, ctx) {
     // Above threshold: use base multiplier
     const source = getSkillSource(mechanism, stats, state);
     const dmg = calcSkillDamage(source, baseMultiplier * skillEnhancement.multiplier, stats, monster, ctx, mechanism);
-    applyDamage(dmg, state, ctx);
+    applyDamage(dmg, state, ctx, skill);
     ctx.showSkillCastFeedback?.(skill);
     ctx.addLog?.(`${skill.name} 造成 ${ctx.formatNumber?.(dmg) || dmg} 点伤害。`);
     return true;
@@ -595,7 +601,7 @@ function executeFinisher(mechanism, skill, state, stats, monster, ctx) {
     }
   }
 
-  applyDamage(dmg, state, ctx);
+  applyDamage(dmg, state, ctx, skill);
   ctx.showSkillCastFeedback?.(skill);
   ctx.addLog?.(`${skill.name} 终结一击！`);
 
@@ -626,7 +632,7 @@ function executeSelfDamage(mechanism, skill, state, stats, monster, ctx) {
 
   const source = getSkillSource(mechanism, stats, state);
   const dmg = calcSkillDamage(source, mult * skillEnhancement.multiplier, stats, monster, ctx, mechanism);
-  applyDamage(dmg, state, ctx);
+  applyDamage(dmg, state, ctx, skill);
   ctx.showSkillCastFeedback?.(skill);
   ctx.addLog?.(`${skill.name} 消耗生命爆发！`);
   return true;
@@ -655,7 +661,7 @@ function executeStatusExploit(mechanism, skill, state, stats, monster, ctx) {
   const source = getSkillSource(mechanism, stats, state);
   const multiplier = marked ? (mechanism.markedMultiplier || mechanism.multiplier || 2) : (mechanism.baseMultiplier || mechanism.multiplier || 2);
   const dmg = calcSkillDamage(source, multiplier * skillEnhancement.multiplier, stats, monster, ctx, mechanism);
-  applyDamage(dmg, state, ctx);
+  applyDamage(dmg, state, ctx, skill);
   ctx.showSkillCastFeedback?.(skill);
   ctx.addLog?.(`${skill.name} 追击命中！`);
   return true;
@@ -671,7 +677,7 @@ function executeStatusExploitAll(mechanism, skill, state, stats, monster, ctx) {
     (mechanism.baseMultiplier || mechanism.multiplier || 2.5) + statusCount * (mechanism.multiplierPerStatus || 0)
   );
   const dmg = calcSkillDamage(source, multiplier * skillEnhancement.multiplier, stats, monster, ctx, { ...mechanism, stat: 'matk' });
-  applyDamage(dmg, state, ctx);
+  applyDamage(dmg, state, ctx, skill);
   ctx.showSkillCastFeedback?.(skill);
   ctx.addLog?.(`${skill.name} 风暴席卷！`);
   return true;
@@ -681,7 +687,7 @@ function executeLifestealDamage(mechanism, skill, state, stats, monster, ctx) {
   const skillEnhancement = consumeSkillDamageEnhancement(state, skill, ctx);
   const source = finite(stats.matkPower);
   const dmg = calcSkillDamage(source, (mechanism.multiplier || 2) * skillEnhancement.multiplier, stats, monster, ctx, { ...mechanism, stat: 'matk' });
-  applyDamage(dmg, state, ctx);
+  applyDamage(dmg, state, ctx, skill);
   const heal = Math.round(dmg * (mechanism.healRatio || 0.3));
   state.hero.currentHp = Math.min(finite(stats.maxHp), finite(state.hero.currentHp) + heal);
   ctx.showSkillCastFeedback?.(skill);
@@ -699,7 +705,7 @@ function executeGoldCost(mechanism, skill, state, stats, monster, ctx) {
   state.gold = Math.max(0, finite(state.gold) - goldCost);
   const source = getSkillSource(mechanism, stats, state);
   const dmg = calcSkillDamage(source, (mechanism.multiplier || 5) * skillEnhancement.multiplier, stats, monster, ctx, mechanism);
-  applyDamage(dmg, state, ctx);
+  applyDamage(dmg, state, ctx, skill);
   ctx.showSkillCastFeedback?.(skill);
   return true;
 }
@@ -708,7 +714,7 @@ function executeGoldGenerate(mechanism, skill, state, stats, monster, ctx) {
   const skillEnhancement = consumeSkillDamageEnhancement(state, skill, ctx);
   const source = getSkillSource(mechanism, stats, state);
   const dmg = calcSkillDamage(source, (mechanism.multiplier || 2.5) * skillEnhancement.multiplier, stats, monster, ctx, mechanism);
-  applyDamage(dmg, state, ctx);
+  applyDamage(dmg, state, ctx, skill);
   const goldEarned = Math.round(dmg * (mechanism.goldFromDamagePct || mechanism.goldPerDamage || 0.3));
   state.gold = finite(state.gold) + goldEarned;
   ctx.showSkillCastFeedback?.(skill);
@@ -987,7 +993,7 @@ export function tickSkillSystem(dt, stats, ctx = mechContext) {
     if (zone.remaining <= 0 && zone.onExpire) {
       const source = getSkillSource(zone.onExpire, stats, state);
       const dmg = calcSkillDamage(source, (zone.onExpire.multiplier || 5) * (zone.onExpire.damageMultiplier || 1), stats, ctx.currentMonsterStats?.() || {}, ctx, zone.onExpire);
-      applyDamage(dmg, state, ctx);
+      applyDamage(dmg, state, ctx, zone);
       if (zone.onExpire.guaranteedCrit) ctx.showHitFeedback?.('crit');
       ctx.showSkillCastFeedback?.({ name: zone.name.replace('(待爆)', ' 爆炸') });
       if (state.enemyHp <= 0 && zone.onExpire.killCooldownRefundPct > 0) {
@@ -1133,7 +1139,7 @@ export function tickSkillSystem(dt, stats, ctx = mechContext) {
             finite(chain.bounceHits || chain.bounce) * finite(chain.bounceMultiplierPerHit || chain.bounceMultiplier)
           ) * finite(awakenedMech.multiplier || 0.7);
           const echoDamage = calcSkillDamage(finite(stats.matkPower), coefficient, stats, monster, ctx, { stat: 'matk' });
-          applyDamage(echoDamage, state, ctx);
+          applyDamage(echoDamage, state, ctx, { name: '觉醒·连锁闪电' });
           ctx.showSkillCastFeedback?.({ name: '觉醒·连锁闪电' });
           ctx.addLog?.(`元素风暴觉醒：额外触发 ${formatSkillPower(coefficient)}x 连锁闪电。`);
         }

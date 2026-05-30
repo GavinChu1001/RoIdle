@@ -4350,9 +4350,10 @@ function showHitFeedback(kind = "normal") {
 }
 
 function showSkillCastFeedback(skill) {
-  const wrap = document.querySelector(".scene-wrap");
   const name = typeof skill === "string" ? skill : skill?.name;
   if (!name) return;
+  if (combatFeedbackSuppressed()) return;
+  const wrap = document.querySelector(".scene-wrap");
   const now = Date.now();
   recentCombatSkillCast = {
     id: skill && typeof skill === "object" && skill.id ? skill.id : "",
@@ -4361,7 +4362,6 @@ function showSkillCastFeedback(skill) {
     until: now + 850
   };
   renderSkillCastBanner();
-  if (combatFeedbackSuppressed()) return;
   if (name === lastSkillFeedbackName && now - lastSkillFeedbackAt < SKILL_FEEDBACK_MIN_INTERVAL_MS) return;
   if (!wrap) return;
   lastSkillFeedbackAt = now;

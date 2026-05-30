@@ -169,6 +169,16 @@ assert.match(game, /renderDamageNumberNow/, 'Damage number rendering should have
 assert.match(game, /pendingDamageFloats\.set/, 'Damage float batching should retain pending batches before rendering.');
 assert.match(game, /options\.suffix\s*\|\|\s*""/, 'Combat damage text should append an optional batch suffix.');
 assert.match(game, /const\s+runSimulation\s*=\s*\(\)\s*=>\s*\{[\s\S]*updateCombat\(combatStep\)[\s\S]*withSuppressedCombatFeedback\(runSimulation\)/, 'Combat catch-up should wrap the simulation loop when visual feedback is suppressed.');
+assert.match(skillMechanicsSource, /function\s+applyDamage\s*\([^)]*skillOrName[\s\S]*showDamageNumber\?\.\('monster',\s*damage,\s*'skill',\s*\{\s*skillName\s*\}/, 'Skill damage batching should key damage numbers by the current skill name.');
+assert.doesNotMatch(skillMechanicsSource, /applyDamage\([^,\n]+,\s*state,\s*ctx\)/, 'Skill damage callers should pass skill context into applyDamage.');
+{
+  const skillFeedbackSource = game.match(/function\s+showSkillCastFeedback\s*\([^)]*\)\s*\{[\s\S]*?\n\}/)?.[0] || '';
+  assert.ok(
+    skillFeedbackSource.indexOf('if (combatFeedbackSuppressed()) return;') >= 0 &&
+      skillFeedbackSource.indexOf('if (combatFeedbackSuppressed()) return;') < skillFeedbackSource.indexOf('recentCombatSkillCast ='),
+    'Suppressed skill cast feedback must return before updating the visible cast banner state.',
+  );
+}
 assert.match(styles, /\.skill-bar-icon\.cooldown\.casting/, 'Casting feedback must remain visible when a skill immediately enters cooldown.');
 assert.match(styles, /\.scene-wrap\.skill-cast-active::after/, 'Skill casts must create a visible battle-scene impact pulse.');
 assert.match(game, /function\s+spawnCombatSparks\s*\(/, 'Combat impacts should spawn lightweight pixel spark accents.');
