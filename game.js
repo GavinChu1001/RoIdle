@@ -5168,6 +5168,7 @@ function shouldAutoSalvage(item) {
   const setting = state.autoSalvage || {};
   if (!setting.enabled || item.locked || item.setId || item.rarity === "mythic" || item.rarity === "darkGold") return false;
   if (isAbyssEquipment(item) && !(setting.autoDismantleAbyss || state.autoDismantleAbyss)) return false;
+  if (shouldProtectEquipment(item)) return false;
   return rarityRank(item.rarity) >= 0 && rarityRank(item.rarity) <= rarityRank(setting.maxRarity || "normal");
 }
 
@@ -6155,10 +6156,14 @@ function equipItem(id) {
 }
 
 function salvageItem(id, options = {}) {
-  const runtime = window.RuneFrontierEquipmentRuntime;
-  if (runtime && typeof runtime.salvageItem === "function") return runtime.salvageItem(id, options);
   const item = state.inventory.find((entry) => entry.id === id);
   if (!item) return { ok: false };
+  if (isProgressionLineEquipment(item)) {
+    if (!options.silent) showToast("成长装备受保护，不能分解");
+    return { ok: false };
+  }
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.salvageItem === "function") return runtime.salvageItem(id, options);
   if (item.locked) {
     if (!options.silent) showToast("已锁定的装备不能分解");
     return { ok: false };
@@ -6195,14 +6200,16 @@ function getSalvageRewards(item) {
 }
 
 function salvageAllUnequipped() {
-  const runtime = window.RuneFrontierEquipmentRuntime;
-  if (runtime && typeof runtime.salvageAllUnequipped === "function") return runtime.salvageAllUnequipped();
   const equippedIds = new Set(Object.values(state.equipped).filter(Boolean));
-  const targets = state.inventory.filter((item) => !equippedIds.has(item.id) && !item.locked);
+  const hasProtectedTargets = state.inventory.some((item) => !equippedIds.has(item.id) && !item.locked && shouldProtectEquipment(item));
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.salvageAllUnequipped === "function" && !hasProtectedTargets) return runtime.salvageAllUnequipped();
+  const targets = state.inventory.filter((item) => !equippedIds.has(item.id) && !item.locked && !shouldProtectEquipment(item));
   if (!targets.length) {
     showToast("没有可分解的未穿戴装备");
     return;
   }
+  const targetIds = new Set(targets.map((item) => item.id));
   const totals = {};
   targets.forEach((item) => {
     const rewards = getSalvageRewards(item);
@@ -6211,7 +6218,7 @@ function salvageAllUnequipped() {
       state.materials[material] = (state.materials[material] || 0) + amount;
     });
   });
-  state.inventory = state.inventory.filter((item) => equippedIds.has(item.id) || item.locked);
+  state.inventory = state.inventory.filter((item) => !targetIds.has(item.id));
   addLog(`批量分解 ${targets.length} 件未穿戴装备，获得 ${materialText(totals)}。`);
   showSalvageResultModal("批量分解完成", targets.length, totals);
   renderAll();
@@ -9776,7 +9783,7 @@ function renderEquipment() { const runtime = window.RuneFrontierRenderRuntime; i
     ${renderCostumePanel()}
     <div class="slot-card auto-salvage-card">
       <span class="slot-name">自动分解</span>
-      <p class="slot-meta">仅对新获得装备生效，不会默认分解传说/暗金/神话/套装。</p>
+      <p class="slot-meta">仅对新获得装备生效，不会默认分解传说/暗金/神话/套装/成长装备。</p>
       <label class="setting-line"><input type="checkbox" data-auto-salvage-enabled ${state.autoSalvage?.enabled ? "checked" : ""}> 开启自动分解</label>
       <select data-auto-salvage-rarity>
         ${["normal", "fine", "rare", "epic"].map((rarity) => `<option value="${rarity}" ${state.autoSalvage?.maxRarity === rarity ? "selected" : ""}>${rarityName(rarity)}及以下</option>`).join("")}
@@ -9832,7 +9839,7 @@ function renderEquipment() { const runtime = window.RuneFrontierRenderRuntime; i
                 ${progressionCost && nextStar <= 15 ? `<button type="button" data-refine-item="${item.id}" ${!hasMaterials(refineCost) ? "disabled" : ""}>星炼</button>` : ""}
                 <button type="button" data-empower-item="${item.id}" ${nextEmpower > 10 || !hasMaterials(empowerCost) ? "disabled" : ""}>赋能</button>
                 ${isZodiacItem(item) ? `<button class="ghost" type="button" data-collect-zodiac="${item.id}">收藏</button><button class="ghost" type="button" data-zodiac-salvage="${item.id}" ${equipped || item.locked ? "disabled" : ""}>星座分解</button>` : ""}
-                <button class="ghost equipment-danger-action" type="button" data-salvage-item="${item.id}" ${equipped || item.locked || isZodiacItem(item) ? "disabled" : ""}>分解</button>
+                <button class="ghost equipment-danger-action" type="button" data-salvage-item="${item.id}" ${equipped || item.locked || isZodiacItem(item) || isProgressionLineEquipment(item) ? "disabled" : ""}>分解</button>
               </div>
               <details class="equipment-detail-toggle equipment-detail-compact">
                 <summary class="equipment-detail-summary">明细</summary>
@@ -10016,7 +10023,37 @@ function isHighValueEquipment(item) {
   );
 }
 
+function isProgressionLineEquipment(item = {}) {
+  return Boolean(
+    item &&
+      typeof item === "object" &&
+      ((item.series && item.series !== "oldWorld") ||
+        (item.upgradePathId && item.upgradePathId !== "oldWorld") ||
+        (item.growthTier && item.growthTier !== "T1")),
+  );
+}
+
+function equipmentGrowthTierRank(item = {}) {
+  const match = String(item.growthTier || "T1").match(/^T(\d+)$/i);
+  return match ? Number(match[1]) : 1;
+}
+
+function equipmentPotentialScore(item = {}) {
+  const tierRank = equipmentGrowthTierRank(item);
+  const stage = Math.max(0, Number(item.upgradeStage || 0));
+  const lineBonus = isProgressionLineEquipment(item) ? 1200 : 0;
+  return Math.round(lineBonus + tierRank * 1000 + stage * 450 + rarityRank(item.rarity) * 120);
+}
+
+function renderEquipmentPotentialBadge(item = {}) {
+  if (!isProgressionLineEquipment(item)) return "";
+  const tier = escapeHtml(item.growthTier || "T1");
+  const stage = Math.max(0, Number(item.upgradeStage || 0));
+  return `<span class="equipment-badge equipment-potential-badge">成长潜力 ${tier}${stage ? ` · 阶段${stage + 1}` : ""}</span>`;
+}
+
 function shouldProtectEquipment(item) {
+  if (isProgressionLineEquipment(item)) return true;
   const runtime = equipmentArchetypeRuntime();
   if (runtime && typeof runtime.shouldProtectEquipmentByArchetype === "function") {
     try {
@@ -10187,7 +10224,7 @@ function renderEquipmentBadges(item) { const runtime = window.RuneFrontierRender
   if (item.rarity === "mythic") badges.push({ text: "神话", cls: "equipment-badge-mythic" });
   if (item.rarity === "darkGold") badges.push({ text: "暗金", cls: "equipment-badge-mythic" });
   if (item.setId) badges.push({ text: "套装", cls: "equipment-badge-set" });
-  return `<div class="equipment-badge-row">${renderEquipmentArchetypeBadge(item)}${badges.map((badge) => `<span class="equipment-badge ${badge.cls}">${escapeHtml(badge.text)}</span>`).join("")}</div>`;
+  return `<div class="equipment-badge-row">${renderEquipmentArchetypeBadge(item)}${renderEquipmentPotentialBadge(item)}${badges.map((badge) => `<span class="equipment-badge ${badge.cls}">${escapeHtml(badge.text)}</span>`).join("")}</div>`;
 }
 
 function renderMaps() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderMaps === "function") return runtime.renderMaps();

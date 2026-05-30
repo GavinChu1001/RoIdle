@@ -1988,6 +1988,16 @@ assert.match(game, /适合当前职业/, 'Equipment UI must expose current-job f
 assert.match(game, /renderEquipmentProgressionTags/, 'Equipment UI must display progression-line tags.');
 assert.match(game, /data-upgrade-progression-item/, 'Equipment progression upgrades must have a clickable action.');
 assert.match(game, /\u88c5\u5907\u8fdb\u9636/, 'Smithy must expose the equipment progression upgrade panel.');
+assert.match(game, /function\s+isProgressionLineEquipment\s*\(/, 'Equipment UI must identify progression line gear.');
+assert.match(game, /function\s+renderEquipmentPotentialBadge\s*\(/, 'Equipment cards must render progression growth potential.');
+assert.match(game, /成长潜力/, 'Equipment cards should label progression potential in Chinese.');
+assert.match(game, /item\.series\s*!==\s*["']oldWorld["']/, 'Progression line equipment should be protected from broad salvage flows.');
+const progressionProtectionSource = game.slice(game.indexOf('function shouldProtectEquipment'), game.indexOf('function equipmentProgressionRuntime'));
+assert.match(progressionProtectionSource, /isProgressionLineEquipment\(item\)/, 'Equipment protection must keep progression-line gear out of broad salvage flows.');
+const equipmentBadgeSource = game.slice(game.indexOf('function renderEquipmentBadges'), game.indexOf('function renderMaps'));
+assert.match(equipmentBadgeSource, /renderEquipmentPotentialBadge\(item\)/, 'Equipment badge row must include progression potential.');
+const salvageAllSource = game.slice(game.indexOf('function salvageAllUnequipped'), game.indexOf('function showSalvageResultModal'));
+assert.match(salvageAllSource, /shouldProtectEquipment\(item\)/, 'Batch unequipped salvage must respect protected progression gear.');
 
 const scoreStandaloneSource = withItemArchetypeImport(itemScoreSource)
   .replace("import { getEffectiveItemStats } from './itemStats.js';", 'const getEffectiveItemStats = (item) => item;')
