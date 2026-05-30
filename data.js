@@ -410,18 +410,6 @@ var TITLE_DB = {
   mythic_witness: { id: "mythic_witness", name: "神话见证者", source: "获得 1 件神话装备", rarity: "mythic", effects: { powerPct: 0.01 } },
   forge_star: { id: "forge_star", name: "锻造新星", source: "任意装备星炼 +10", rarity: "epic", effects: { powerPct: 0.01 } },
 };
-var ACTIVE_SKILL_SPECIALIZATIONS = {
-  power: { id: "power", name: "猛攻", description: "该技能伤害 +20%" },
-  boss_damage: { id: "boss_damage", name: "首领杀手", description: "该技能对 Boss 伤害 +25%" },
-  frequency: { id: "frequency", name: "迅捷", description: "触发率 +20%，伤害 -8%" },
-  pierce: { id: "pierce", name: "破甲", description: "该技能无视怪物防御 +10%" },
-};
-var PASSIVE_SKILL_SPECIALIZATIONS = {
-  enhance: { id: "enhance", name: "强化", description: "该被动效果 +15%" },
-  utility: { id: "utility", name: "收益", description: "收益类被动额外 +10%" },
-  survival: { id: "survival", name: "生存", description: "生存类被动额外 +10%" },
-  combat: { id: "combat", name: "战斗", description: "战斗类被动额外 +10%" },
-};
 var ZODIAC_CARD_BY_SET = {
   aries_mu: "aries_card",
   taurus_aldbaran: "taurus_card",

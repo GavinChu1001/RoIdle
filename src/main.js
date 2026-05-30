@@ -228,7 +228,6 @@ const characterRenderContext = {
   getSkillMilestoneBonuses: window.getSkillMilestoneBonuses,
   describeSkillMilestone: window.describeSkillMilestone,
   getSkillMilestoneEntries: window.getSkillMilestoneEntries,
-  getSkillSpecializationOptions: window.getSkillSpecializationOptions,
   skillTooltip: window.skillTooltip,
   formatSkillMultiplier: window.formatSkillMultiplier,
   statLabelName: window.statLabelName,

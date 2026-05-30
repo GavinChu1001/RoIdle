@@ -1657,13 +1657,12 @@ function grantGenericReward(reward = {}) {
 
 function getSkillGrowthEntry(skillOrId) {
   const skillId = typeof skillOrId === "string" ? skillOrId : skillOrId?.id;
-  if (!skillId) return { level: 1, exp: 0, totalExp: 0, specialization: "" };
+  if (!skillId) return { level: 1, exp: 0, totalExp: 0 };
   const current = state.skillGrowth?.[skillId] || {};
   return {
     level: clampNumber(Math.floor(current.level || 1), 1, SKILL_MAX_LEVEL),
     exp: Math.max(0, Number(current.exp) || 0),
     totalExp: Math.max(0, Number(current.totalExp) || 0),
-    specialization: current.specialization || "",
   };
 }
 
@@ -1814,51 +1813,13 @@ function formatSkillMilestoneValue(key, value) {
 }
 
 function getSkillLevelMultiplier(skill) {
-  const spec = getSkillGrowthEntry(skill).specialization;
-  const specBonus = spec === "power" ? 0.2 : spec === "frequency" ? -0.08 : 0;
   const ms = getSkillMilestoneBonuses(skill);
-  return 1 + (Math.max(1, getSkillLevel(skill)) - 1) * 0.02 + specBonus + (ms.milestoneMult || 0);
+  return 1 + (Math.max(1, getSkillLevel(skill)) - 1) * 0.02 + (ms.milestoneMult || 0);
 }
 
 function getPassiveSkillMultiplier(skill) {
-  const spec = getSkillGrowthEntry(skill).specialization;
-  const specBonus = passiveSpecApplies(skill, spec) ? (spec === "enhance" ? 0.15 : 0.1) : 0;
   const ms = getSkillMilestoneBonuses(skill);
-  return 1 + (Math.max(1, getSkillLevel(skill)) - 1) * 0.015 + specBonus + (ms.milestoneMult || 0);
-}
-
-function passiveSpecApplies(skill, spec) {
-  if (!spec) return false;
-  if (spec === "enhance") return true;
-  if (spec === "utility") return Boolean(skill.goldPct || skill.dropPct);
-  if (spec === "survival") return Boolean(skill.hpPct || skill.defPct);
-  if (spec === "combat") return Boolean(skill.atkPct || skill.matkPct || skill.aspdPct || skill.critPct || skill.dpsPct);
-  return false;
-}
-
-function getSkillSpecializationOptions(skill) {
-  return Object.values(skill.active ? ACTIVE_SKILL_SPECIALIZATIONS : PASSIVE_SKILL_SPECIALIZATIONS);
-}
-
-function selectSkillSpecialization(skillId, specId) {
-  const skillEntry = allJobSkills().find((entry) => entry.id === skillId);
-  if (!skillEntry) return;
-  const growth = ensureSkillGrowthEntry(skillId);
-  if (growth.level < 15) {
-    showToast("技能 Lv.15 后解锁专精");
-    return;
-  }
-  if (growth.specialization) {
-    showToast("该技能已选择专精");
-    return;
-  }
-  const option = getSkillSpecializationOptions(skillEntry).find((entry) => entry.id === specId);
-  if (!option) return;
-  if (!window.confirm(`选择专精「${option.name}」？本次暂不支持重选。`)) return;
-  growth.specialization = option.id;
-  addLog(`技能专精：${skillEntry.name} 选择 ${option.name}。`);
-  renderAll();
-  save();
+  return 1 + (Math.max(1, getSkillLevel(skill)) - 1) * 0.015 + (ms.milestoneMult || 0);
 }
 
 function allJobSkills() {
@@ -2329,8 +2290,6 @@ function bindEvents() {
     if (mvpInscriptionButton) { breakthroughMvpInscription(); return; }
     const renameButton = event.target.closest("button[data-rename-hero]");
     if (renameButton) renameHero();
-    const specButton = event.target.closest("button[data-skill-spec]");
-    if (specButton) selectSkillSpecialization(specButton.dataset.skillId, specButton.dataset.skillSpec);
     const skillUpgradeButton = event.target.closest("button[data-skill-upgrade]");
     if (skillUpgradeButton) { upgradeSkill(skillUpgradeButton.dataset.skillUpgrade); return; }
     const titleButton = event.target.closest("button[data-equip-title]");
@@ -3139,7 +3098,6 @@ function sanitizeProgression() {
   state.achievementProgress = normalizeAchievementProgress(state.achievementProgress);
   state.titles = normalizeTitles(state.titles);
   state.rebirthPrestige = normalizeRebirthPrestige(state.rebirthPrestige, state.hero.rebirths || 0);
-  normalizeSkillGrowthSpecializations();
   if (!rarityOrder.includes(state.autoSalvage.maxRarity) || ["ancient", "legend", "darkGold", "mythic"].includes(state.autoSalvage.maxRarity)) state.autoSalvage.maxRarity = "normal";
   state.vip = normalizeVip(state.vip);
   state.mvpInscription = normalizeMvpInscriptionState(state.mvpInscription);
@@ -3423,14 +3381,6 @@ function applyRebirthPrestigeDropWeight(drop, weight, stats = computeStats(), co
   if (rank >= rarityRank("darkGold")) multiplier += mapBonus.darkGoldWeightBonus || 0;
   if (rank >= rarityRank("mythic")) multiplier += mapBonus.mythicWeightBonus || 0;
   return weight * multiplier;
-}
-
-function normalizeSkillGrowthSpecializations() {
-  Object.entries(state.skillGrowth || {}).forEach(([skillId, entry]) => {
-    if (!entry || typeof entry !== "object") return;
-    entry.specialization = entry.specialization || "";
-    state.skillGrowth[skillId] = entry;
-  });
 }
 
 function ensureQuestLists() {
@@ -12533,7 +12483,6 @@ function renderJobSkills() { const runtime = window.RuneFrontierRenderRuntime; i
               <span>${unlocked ? (growth.level >= SKILL_MAX_LEVEL ? "已满级" : `下一级需求 ${formatNumber(need)}`) : `Job ${entry.level} 解锁`}</span>
             </div>
             ${renderSkillMilestonePanel(entry, unlocked)}
-            ${renderSkillSpecialization(entry, unlocked, growth)}
           </details>
         </article>
       `;
@@ -12556,23 +12505,6 @@ function renderSkillMilestonePanel(entry, unlocked) { const runtime = window.Run
       <span>Lv.${row.level}</span>
       <small>${row.active ? "已激活" : "未激活"} · ${escapeHtml(row.text)}</small>
     </div>`).join("")}
-  </div>`;
-}
-
-function renderSkillSpecialization(entry, unlocked, growth) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderSkillSpecialization === "function") return runtime.renderSkillSpecialization(entry, unlocked, growth);
-  if (!unlocked) return "";
-  if (growth.level < 15) return `<div class="skill-specialization spec-locked">专精：技能 Lv.15 解锁</div>`;
-  const selected = growth.specialization;
-  const options = getSkillSpecializationOptions(entry);
-  if (selected) {
-    const option = options.find((spec) => spec.id === selected);
-    return `<div class="skill-specialization spec-selected">专精：${escapeHtml(option?.name || selected)}<small>${escapeHtml(option?.description || "")}</small></div>`;
-  }
-  return `<div class="skill-specialization">
-    <strong>选择专精</strong>
-    <div class="spec-option-list">
-      ${options.map((option) => `<button class="ghost spec-option-card" type="button" data-skill-id="${entry.id}" data-skill-spec="${option.id}"><strong>${option.name}</strong><small>${option.description}</small></button>`).join("")}
-    </div>
   </div>`;
 }
 
@@ -15081,7 +15013,6 @@ Object.assign(window, {
   getSkillMilestoneBonuses,
   describeSkillMilestone,
   getSkillMilestoneEntries,
-  getSkillSpecializationOptions,
   skillTooltip,
   formatSkillMultiplier,
   statLine,

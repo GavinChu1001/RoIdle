@@ -26,14 +26,12 @@ export function resolveActiveSkillCast({ dt = 0, stats = {} } = {}, context = ru
   const state = stateFrom(context);
   const activeSkills = (context.getUnlockedSkills?.() || []).filter((entry) => entry.active);
   for (const entry of activeSkills) {
-    const spec = context.getSkillGrowthEntry?.(entry)?.specialization;
     const ms = context.getSkillMilestoneBonuses?.(entry) || {};
     const abyssChance = state.currentDifficulty === 'abyss' ? finite(stats.setBonuses?.abyssSkillChanceBonus) : 0;
     const chance =
       finite(entry.active.chance) *
       finite(dt) *
       (1 + Math.min(0.35, finite(stats.luck) * 0.002) + abyssChance + finite(ms.skillChanceBonus)) *
-      (spec === 'frequency' ? 1.2 : 1) *
       (1 - Math.min(0.35, finite(stats.skillCooldownPenalty)));
     if (context.random?.() >= chance) continue;
 
@@ -59,9 +57,7 @@ export function resolveActiveSkillCast({ dt = 0, stats = {} } = {}, context = ru
           (monster.type === 'elite' || monster.mutation || isBoss ? finite(ms.eliteDamageBonus) : 0) +
           (state.currentDifficulty === 'abyss' ? finite(ms.abyssDamageBonus) + finite(ms.abyssExecuteDamageBonus) : 0) +
           finite(ms.monsterDamageBonus) +
-          finite(ms.finalDamageBonus) +
-          (spec === 'boss_damage' && isBoss ? 0.25 : 0) +
-          (spec === 'pierce' ? 0.1 : 0)) *
+          finite(ms.finalDamageBonus)) *
         (1 - monsterGuard),
     );
     state.enemyHp -= damage;

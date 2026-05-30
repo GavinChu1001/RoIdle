@@ -460,12 +460,10 @@ export function renderJobSkills(ctx = charCtx) {
       const unlocked = skills.find((s) => s.name === entry.name);
       const growth = growthFn(entry);
       const lvl = growth?.level || 0;
-      const spec = growth?.specialization || '';
       return `<div class="skill-entry"><strong>${esc(entry.name)} Lv.${lvl}</strong>
         ${unlocked ? `<p class="codex-desc">${ctx.skillTooltip?.(entry) || ''}</p>
         ${entry.active ? `<p class="codex-desc">${ctx.formatSkillMultiplier?.(entry.active.multiplier || 0) || ''}</p>` : ''}
         ${renderSkillMilestonePanel(entry, !!unlocked, ctx)}
-        ${renderSkillSpecialization(entry, !!unlocked, growth, ctx)}
         <p class="codex-desc">${descFn(milestoneFn(entry))}</p>` : '<p class="codex-desc">\u672a\u89e3\u9501</p>'}
       </div>`;
     }).join('')}</div>
@@ -551,22 +549,13 @@ export function renderSkillMilestonePanel(entry, unlocked, ctx = charCtx) {
   return `<div class="skill-milestones">${milestones.map((ms) => `<span class="skill-milestone"><small>Lv.${fmtn(ms.level)}</small><strong>${esc(ms.label || '')}</strong></span>`).join('')}</div>`;
 }
 
-export function renderSkillSpecialization(entry, unlocked, growth, ctx = charCtx) {
-  if (!unlocked) return '';
-  const opts = ctx.getSkillSpecializationOptions?.(entry) || [];
-  if (!opts.length) return '';
-  return `<div class="skill-spec"><strong>\u4e13\u7cbe</strong>
-    ${opts.map((opt) => `<button type="button" data-skill-id="${entry.id}" data-skill-spec="${opt.id}" class="${growth?.specialization === opt.id ? 'active' : ''}">${esc(opt.name || opt.id)}</button>`).join('')}
-  </div>`;
-}
-
 export function installCharacterRenderRuntime(context = {}) {
   configureCharacterRenderContext(context);
   const existing = window.RuneFrontierRenderRuntime || {};
   window.RuneFrontierRenderRuntime = typeof existing === 'object' ? Object.assign(existing, {
     renderHeroes, renderTown, renderCharacterStatSections, renderCharacterStatBreakdown,
     renderPowerSourcePanel, renderSkillPanel, renderTitlePanel, renderSkillSummaryCard,
-    renderJobSkills, renderSkillMilestonePanel, renderSkillSpecialization,
-  }) : { renderHeroes, renderTown, renderCharacterStatSections, renderCharacterStatBreakdown, renderPowerSourcePanel, renderSkillPanel, renderTitlePanel, renderSkillSummaryCard, renderJobSkills, renderSkillMilestonePanel, renderSkillSpecialization };
+    renderJobSkills, renderSkillMilestonePanel,
+  }) : { renderHeroes, renderTown, renderCharacterStatSections, renderCharacterStatBreakdown, renderPowerSourcePanel, renderSkillPanel, renderTitlePanel, renderSkillSummaryCard, renderJobSkills, renderSkillMilestonePanel };
   return window.RuneFrontierRenderRuntime;
 }

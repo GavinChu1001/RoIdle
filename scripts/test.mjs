@@ -85,6 +85,11 @@ const assassinSkills = classicDataContext.getV3CombatSkills('assassin');
 assert.equal(assassinSkills.find((entry) => entry.name === '毒性扩散').mechanism.poisonStackAdd, 1, 'Poison Spread must add poison stacks.');
 assert.equal(classicDataContext.getV3CombatSkills('priest').find((entry) => entry.name === '信仰守护').mechanism.extra.cleanseDebuff, undefined, 'Faith Guard must not advertise an unimplemented cleanse.');
 assert.equal(classicDataContext.getV3CombatSkills('blacksmith').find((entry) => entry.name === '武器精炼').mechanism.goldCost, undefined, 'Weapon Refinement must not invent an unspecified gold cost.');
+assert.doesNotMatch(game, /\bgetSkillSpecializationOptions\b/, 'Legacy skill specialization option helper should be removed.');
+assert.doesNotMatch(game, /\bselectSkillSpecialization\b/, 'Legacy skill specialization setter should be removed.');
+assert.doesNotMatch(game, /data-skill-spec/, 'Legacy skill specialization buttons should be removed from game.js.');
+assert.doesNotMatch(characterPageSource, /data-skill-spec/, 'Legacy skill specialization buttons should be removed from character page.');
+assert.doesNotMatch(characterPageSource, /renderSkillSpecialization/, 'Character page should render V3 circuits instead of legacy specialization.');
 assert.ok(classicDataContext.HARD_MAP_TIER_SCALE.grass.recommendedPower < classicDataContext.mapLevelRanges.sky.recommendedPower, 'Hard grass must not be harder than normal sky after map difficulty V2.');
 assert.ok(classicDataContext.ABYSS_MAP_TIER_SCALE.grass.recommendedPower < classicDataContext.mapLevelRanges.sky.recommendedPower, 'Abyss grass must not be harder than normal sky after map difficulty V2.');
 assert.ok(classicDataContext.HARD_MAP_TIER_SCALE.grass.recommendedPower >= classicDataContext.mapLevelRanges.sewer.recommendedPower, 'Hard grass should roughly start around the next-map challenge band.');
@@ -2950,7 +2955,7 @@ skills.configureSkillsContext({
   random: () => 0,
   currentMonsterStats: () => ({ type: 'normal', damageReduction: 0 }),
   getUnlockedSkills: () => [{ name: 'Strike', active: { chance: 1, stat: 'atk', multiplier: 2 } }],
-  getSkillGrowthEntry: () => ({ specialization: '' }),
+  getSkillGrowthEntry: () => ({ level: 1 }),
   getSkillMilestoneBonuses: () => ({}),
   getSkillLevelMultiplier: () => 1,
   showDamageNumber: (_target, amount) => { skillDamageShown = amount; },
