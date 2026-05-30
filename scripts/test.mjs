@@ -1238,6 +1238,9 @@ assert.equal(traitTotals.stats.hpPct, 0.08, 'Equipped Fides reform should add HP
 assert.equal(traitTotals.effects.activeSkillExtraCastChance, 0.06, 'Equipped OS core should expose extra cast effect.');
 assert.match(game, /collectEquippedTraitStats/, 'computeStats or its helper context must apply equipment trait stats.');
 assert.match(skillMechanicsSource, /activeSkillExtraCastChance/, 'V3 skill runtime must read equipment active extra cast trait.');
+assert.match(game, /renderEquipmentTraitPreview/, 'Equipment UI must render a trait preview block.');
+assert.match(game, /装备线特性/, 'Equipment UI should label the trait section in Chinese.');
+assert.match(styles, /\.equipment-trait-preview/, 'Styles must include equipment trait preview block.');
 const itemSynergy = await import('./../src/systems/equipment/itemSynergy.js');
 assert.equal(Object.keys(itemSynergy.EQUIPMENT_SYNERGY_LINES).length, 10, 'Equipment synergy must define one rule for every progression equipment line.');
 assert.ok(itemSynergy.EQUIPMENT_SYNERGY_LINES.ancientHero, 'Ancient Hero synergy line must exist.');

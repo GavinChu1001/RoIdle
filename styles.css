@@ -6101,6 +6101,56 @@ button.pixel-button {
   color: #264f3e;
 }
 
+.equipment-trait-preview {
+  display: grid;
+  gap: 6px;
+  margin-top: 7px;
+  padding: 8px;
+  border: 1px solid rgba(137, 89, 37, 0.28);
+  border-radius: 6px;
+  background: rgba(255, 248, 224, 0.62);
+}
+
+.equipment-trait-preview strong {
+  color: #4b2d15;
+  font-size: 0.82rem;
+}
+
+.equipment-trait-preview p {
+  margin: 0;
+  color: #5d3a1e;
+  font-size: 0.78rem;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.equipment-trait-stage-list {
+  display: grid;
+  gap: 4px;
+}
+
+.equipment-trait-stage {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  align-items: center;
+  gap: 6px;
+  color: #6b553b;
+  font-size: 0.72rem;
+  line-height: 1.25;
+  opacity: 0.72;
+}
+
+.equipment-trait-stage small {
+  color: #7a4c22;
+  font-weight: 950;
+}
+
+.equipment-trait-stage.active {
+  color: #3c2412;
+  opacity: 1;
+  font-weight: 900;
+}
+
 .slot-name,
 .material-group-title,
 .equipment-section-title,

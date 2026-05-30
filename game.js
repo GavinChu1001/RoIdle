@@ -9699,6 +9699,49 @@ function renderEquipmentSynergyPanel() {
   </section>`;
 }
 
+function equipmentTraitLabelName(key) {
+  const labels = {
+    activeSkillCooldownReduction: "主动冷却",
+    activeSkillExtraCastChance: "主动追加",
+    bossExecuteDamageBonus: "Boss斩杀",
+    lowHpShieldPct: "低血护盾",
+    abyssCycleBoost: "深渊循环",
+    eliteBossExecuteDamageBonus: "首领斩杀",
+    extraLineMaterialChance: "同线材料",
+    v3SkillCooldownReduction: "V3冷却",
+    v3CircuitEffectBonus: "回路效果",
+    v3GlobalSkillEffectBonus: "V3全局",
+    v3FinalCircuitEffectBonus: "最终回路",
+  };
+  return labels[key] || statLabelName(key);
+}
+
+function renderEquipmentTraitPreview(item) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  const preview = runtime?.getEquipmentTraitPreview?.(item);
+  const current = preview?.current;
+  if (!current?.series) return "";
+  const formatEntry = ([key, value]) => `${equipmentTraitLabelName(key)} +${percent(value)}`;
+  const currentRows = [
+    ...Object.entries(current.stats || {}).map(formatEntry),
+    ...Object.entries(current.effects || {}).map(formatEntry),
+  ];
+  if (!currentRows.length) return "";
+  const stageRows = (preview.stages || []).map((stage) => {
+    const rows = [
+      ...Object.entries(stage.stats || {}).map(formatEntry),
+      ...Object.entries(stage.effects || {}).map(formatEntry),
+    ];
+    const active = stage.stage === current.stage ? " active" : "";
+    return `<span class="equipment-trait-stage${active}"><small>${escapeHtml(stage.stageLabel)}</small>${escapeHtml(rows.join(" · ") || "无")}</span>`;
+  }).join("");
+  return `<section class="equipment-trait-preview">
+    <strong>装备线特性 · ${escapeHtml(current.label)} · ${escapeHtml(current.stageLabel)}</strong>
+    <p>${escapeHtml(currentRows.join(" · "))}</p>
+    <div class="equipment-trait-stage-list">${stageRows}</div>
+  </section>`;
+}
+
 function renderEquipment() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipment === "function") return runtime.renderEquipment();
   pruneEquipmentDetailExpandedState();
   els.equippedSlots.innerHTML = `
@@ -9766,6 +9809,7 @@ function renderEquipment() { const runtime = window.RuneFrontierRenderRuntime; i
           ${renderEquipmentCardScore(item)}
           ${renderCoreStatBars(item, 4)}
           ${renderEquipmentSpecialTags(item, 3)}
+          ${renderEquipmentTraitPreview(item)}
           <div class="equip-actions equipment-primary-actions">
             <button class="equipment-primary-action" type="button" data-equip-item="${item.id}">${equipped ? "已装备" : "装备"}</button>
             ${primaryGrowthButton}
