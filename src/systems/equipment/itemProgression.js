@@ -636,11 +636,9 @@ export function getEquipmentProgressionTags(item = {}) {
   const series = normalizeEquipmentSeries(item.series, '');
   if (!series) return [];
   const config = getEquipmentSeriesConfig(series);
-  const tier = normalizeGrowthTier(item.growthTier || config.defaultTier, config.defaultTier);
   const stage = config.stages?.[Math.max(0, Math.round(finiteNumber(item.upgradeStage, 0)))] || {};
-  return [
-    EQUIPMENT_GROWTH_TIERS[tier]?.label || tier,
+  return [...new Set([
     config.label,
-    stage.label || item.grade || '',
-  ].filter(Boolean);
+    stage.label || item.progressionLabel || item.grade || '',
+  ].filter(Boolean))];
 }
