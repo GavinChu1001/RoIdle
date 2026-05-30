@@ -782,6 +782,37 @@ assert.ok(
 );
 const lineFilters = itemProgression.getEquipmentLineFilterOptions();
 assert.ok(lineFilters.some((entry) => entry.id === 'line:ancientHero' && entry.label === '古代英雄'), 'Equipment filters should expose Ancient Hero line filtering.');
+let lineMasterySource = '';
+assert.doesNotThrow(() => {
+  lineMasterySource = read('src/systems/equipment/lineMastery.js');
+}, 'Equipment line mastery module must exist.');
+for (const name of [
+  'LINE_MASTERY_MAX_LEVEL',
+  'getLineMasteryCost',
+  'getLineMasteryBonus',
+  'upgradeLineMastery',
+]) {
+  assert.match(lineMasterySource, new RegExp(`\\b${name}\\b`), `Line mastery module must define ${name}.`);
+}
+assert.match(equipmentIndexSource, /lineMastery/, 'Equipment index should re-export line mastery.');
+const lineMasteryItemProgressionUrl = `data:text/javascript;base64,${Buffer.from(itemProgressionSource).toString('base64')}`;
+const withLineMasteryItemProgressionImport = (source) => source.replace(/from\s+['"]\.\/itemProgression\.js['"]/g, `from '${lineMasteryItemProgressionUrl}'`);
+const lineMastery = await importSource(withLineMasteryItemProgressionImport(lineMasterySource));
+const masteryCost1 = lineMastery.getLineMasteryCost('ancientHero', 0);
+assert.deepEqual(masteryCost1.materials, { ancientHeroShard: 6 }, 'Ancient Hero mastery Lv.1 should consume basic line material.');
+assert.equal(masteryCost1.gold, 1200, 'Ancient Hero mastery Lv.1 gold cost should be modest.');
+const masteryCost6 = lineMastery.getLineMasteryCost('ancientHero', 5);
+assert.deepEqual(masteryCost6.materials, { heroReformInscription: 2 }, 'Ancient Hero mastery Lv.6 should consume advanced line material.');
+const masteryCost11 = lineMastery.getLineMasteryCost('ancientHero', 10);
+assert.deepEqual(masteryCost11.materials, { mythicHeroCore: 1 }, 'Ancient Hero mastery Lv.11 should consume core line material.');
+const masteryCost16 = lineMastery.getLineMasteryCost('ancientHero', 15);
+assert.deepEqual(masteryCost16.materials, { mythicHeroCore: 2, abyssCore: 1 }, 'High mastery should create a long-term abyss material sink.');
+const masteryBonus10 = lineMastery.getLineMasteryBonus('ancientHero', 10);
+assert.ok(masteryBonus10.statMultiplier > 1.04, 'Lv.10 mastery should strengthen matching equipment stats.');
+assert.ok(masteryBonus10.bonusStats.skillDamageBonus > 0, 'Lv.10 mastery should grant a visible combat bonus.');
+const masteryState = { equipmentLineMastery: { ancientHero: { level: 30 }, unknown: { level: 5 } } };
+assert.deepEqual(lineMastery.normalizeLineMasteryState(masteryState.equipmentLineMastery), { ancientHero: { level: 20 } }, 'Line mastery normalization should clamp levels and drop unknown lines.');
+assert.equal(lineMastery.getLineMasteryCost('oldWorld', 0), null, 'Old-world temporary gear must not have line mastery upgrades.');
 const affixTierSource = game.slice(game.indexOf('const AFFIX_TIERS'), game.indexOf('const MECHANIC_AFFIXES'));
 const slotAffixPoolSource = game.slice(game.indexOf('const SLOT_AFFIX_POOLS'), game.indexOf('// [DATA->data.js] salvageRewards'));
 for (const stat of ['critRatePct', 'dodgeRatePct', 'baseExpBonus', 'jobExpBonus', 'mutationMaterialDoubleChance', 'statusResist', 'offlineEfficiencyBonus']) {
