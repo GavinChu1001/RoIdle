@@ -1257,6 +1257,10 @@ assert.match(skillMechanicsSource, /activeSkillExtraCastChance/, 'V3 skill runti
 assert.match(game, /renderEquipmentTraitPreview/, 'Equipment UI must render a trait preview block.');
 assert.match(game, /装备线特性/, 'Equipment UI should label the trait section in Chinese.');
 assert.match(styles, /\.equipment-trait-preview/, 'Styles must include equipment trait preview block.');
+assert.doesNotMatch(game, /data-skill-spec/, 'No legacy skill specialization action should remain.');
+assert.match(game, /装备线特性/, 'Equipment trait UI text should remain wired.');
+assert.match(characterPageSource, /技能回路/, 'Skill circuit UI text should remain wired.');
+assert.match(skillMechanicsSource, /v3FinalCircuitBoost|finalCircuitBoost/, 'Final V3 circuit boost should remain wired.');
 const itemSynergy = await import('./../src/systems/equipment/itemSynergy.js');
 assert.equal(Object.keys(itemSynergy.EQUIPMENT_SYNERGY_LINES).length, 10, 'Equipment synergy must define one rule for every progression equipment line.');
 assert.ok(itemSynergy.EQUIPMENT_SYNERGY_LINES.ancientHero, 'Ancient Hero synergy line must exist.');
