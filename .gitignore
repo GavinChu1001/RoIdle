@@ -15,6 +15,7 @@ node_modules/
 
 # Agent runtime
 .agents/
+.worktrees/
 
 # Player data (runtime generated)
 data/
