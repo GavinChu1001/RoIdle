@@ -7320,6 +7320,11 @@ function computeStats() {
   Object.entries(equipmentSynergies.stats || {}).forEach(([stat, value]) => {
     equip[stat] = Number(((equip[stat] || 0) + (Number(value) || 0)).toFixed(3));
   });
+  const equipmentTraitItems = Object.fromEntries(equippedItems().map((item) => [item.equipSlot || item.slot || item.id, item]));
+  const equipmentTraitTotals = window.RuneFrontierEquipmentRuntime?.collectEquippedTraitStats?.(equipmentTraitItems) || { stats: {}, effects: {} };
+  Object.entries(equipmentTraitTotals.stats || {}).forEach(([stat, value]) => {
+    equip[stat] = Number(((equip[stat] || 0) + (Number(value) || 0)).toFixed(3));
+  });
   const lineMasteryGlobalBonus = applyLineMasteryGlobalBonus(equip);
   const explorationBonuses = getMapExplorationBonuses(currentMap().id);
   const passive = getPassiveSkillTotals();
@@ -7388,6 +7393,8 @@ function computeStats() {
     trainingPct: attrBreakdown.trainingPct,
     setBonuses,
     equipmentSynergies,
+    equipmentTraitStats: equipmentTraitTotals.stats || {},
+    equipmentTraitEffects: equipmentTraitTotals.effects || {},
     equipmentSynergyDropEffects: equipmentSynergies.dropEffects || {},
     equipmentSynergyCombatEffects: equipmentSynergies.combatEffects || {},
     lineMasteryGlobalBonus,

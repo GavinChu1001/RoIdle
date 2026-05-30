@@ -1229,6 +1229,15 @@ assert.equal(osCoreTraits.effects.activeSkillExtraCastChance, 0.06, 'OS core sho
 const fidesReformTraits = itemTraits.getEquipmentStageTraits({ series: 'fides', upgradeStage: 1 });
 assert.equal(fidesReformTraits.stats.hpPct, 0.08, 'Fides reform should grant HP percent.');
 assert.equal(fidesReformTraits.stats.damageReductionPct, 0.02, 'Fides reform should grant damage reduction.');
+const traitTotals = itemTraits.collectEquippedTraitStats({
+  weapon: { series: 'os', upgradeStage: 2 },
+  armor: { series: 'fides', upgradeStage: 1 },
+});
+assert.equal(traitTotals.stats.skillDamageBonus, 0.10, 'Equipped OS core should add skill damage once.');
+assert.equal(traitTotals.stats.hpPct, 0.08, 'Equipped Fides reform should add HP percent.');
+assert.equal(traitTotals.effects.activeSkillExtraCastChance, 0.06, 'Equipped OS core should expose extra cast effect.');
+assert.match(game, /collectEquippedTraitStats/, 'computeStats or its helper context must apply equipment trait stats.');
+assert.match(skillMechanicsSource, /activeSkillExtraCastChance/, 'V3 skill runtime must read equipment active extra cast trait.');
 const itemSynergy = await import('./../src/systems/equipment/itemSynergy.js');
 assert.equal(Object.keys(itemSynergy.EQUIPMENT_SYNERGY_LINES).length, 10, 'Equipment synergy must define one rule for every progression equipment line.');
 assert.ok(itemSynergy.EQUIPMENT_SYNERGY_LINES.ancientHero, 'Ancient Hero synergy line must exist.');

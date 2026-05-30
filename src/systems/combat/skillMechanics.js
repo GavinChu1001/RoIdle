@@ -32,6 +32,12 @@ function applyEquipmentSkillHealBonus(mechanism, enhancement) {
   return next;
 }
 
+function equipmentTraitEffects(stats = {}) {
+  return stats.equipmentTraitEffects && typeof stats.equipmentTraitEffects === 'object'
+    ? stats.equipmentTraitEffects
+    : {};
+}
+
 export function configureSkillMechanicsContext(ctx = {}) {
   mechContext = ctx || {};
 }
@@ -739,6 +745,46 @@ function executeStealth(mechanism, skill, state, ctx) {
   return true;
 }
 
+function scaleV3MechanismDamage(mechanism = {}, ratio = 1) {
+  const next = { ...mechanism };
+  [
+    'multiplier',
+    'multiplierPerHit',
+    'perHit',
+    'perSecond',
+    'baseMultiplier',
+    'finisherMultiplier',
+    'markedMultiplier',
+    'snareMultiplier',
+  ].forEach((key) => {
+    if (next[key]) next[key] = finite(next[key]) * finite(ratio, 1);
+  });
+  return next;
+}
+
+function executeV3ActiveMechanism(mechanism, skill, state, stats, monster, ctx) {
+  switch (mechanism.type) {
+    case 'multihit': return executeMultihit(mechanism, skill, state, stats, monster, ctx);
+    case 'singleHit': return executeSingleHit(mechanism, skill, state, stats, monster, ctx);
+    case 'zone': return executeZone(mechanism, skill, state, stats, ctx);
+    case 'finisher': return executeFinisher(mechanism, skill, state, stats, monster, ctx);
+    case 'selfDamage': return executeSelfDamage(mechanism, skill, state, stats, monster, ctx);
+    case 'heal': return executeHeal(mechanism, skill, state, stats, ctx);
+    case 'statusExploit': return executeStatusExploit(mechanism, skill, state, stats, monster, ctx);
+    case 'statusExploitAll': return executeStatusExploitAll(mechanism, skill, state, stats, monster, ctx);
+    case 'lifestealDamage': return executeLifestealDamage(mechanism, skill, state, stats, monster, ctx);
+    case 'goldCost': return executeGoldCost(mechanism, skill, state, stats, monster, ctx);
+    case 'goldGenerate': return executeGoldGenerate(mechanism, skill, state, stats, monster, ctx);
+    case 'shield': return executeShield(mechanism, skill, state, stats, ctx);
+    case 'delayedBurst': return executeDelayedBurst(mechanism, skill, state, stats, ctx);
+    case 'selfBuff': return executeSelfBuff(mechanism, skill, state, stats, ctx);
+    case 'spreadMark': return executeSpreadMark(mechanism, skill, state, ctx);
+    case 'deathDefy': return executeDeathDefy(mechanism, skill, state, ctx);
+    case 'stealth': return executeStealth(mechanism, skill, state, ctx);
+    default: return false;
+  }
+}
+
 // ── 被动机制效果查询 ──
 
 export function getPassiveMechanismEffects(state, stats, ctx = mechContext) {
@@ -939,6 +985,16 @@ export function tickSkillSystem(dt, stats, ctx = mechContext) {
     const equipmentSkillEnhancement = getEquipmentSkillEnhancement(skill, stats);
     if (equipmentSkillEnhancement.multiplierBonus) dmgMult *= 1 + finite(equipmentSkillEnhancement.multiplierBonus);
     cdMult *= equipmentSkillEnhancement.cooldownMultiplier || 1;
+    const traitEffects = equipmentTraitEffects(stats);
+    if (traitEffects.v3SkillCooldownReduction) {
+      cdMult *= Math.max(0.5, 1 - finite(traitEffects.v3SkillCooldownReduction));
+    }
+    if (traitEffects.activeSkillCooldownReduction) {
+      cdMult *= Math.max(0.5, 1 - finite(traitEffects.activeSkillCooldownReduction));
+    }
+    if (traitEffects.v3GlobalSkillEffectBonus) {
+      dmgMult *= 1 + finite(traitEffects.v3GlobalSkillEffectBonus);
+    }
 
     // 觉醒效果：检查是否有觉醒并修改机制
     let awakenedMech = null;
@@ -970,26 +1026,14 @@ export function tickSkillSystem(dt, stats, ctx = mechContext) {
     if (activeMech.finisherMultiplier) activeMech.finisherMultiplier = finite(activeMech.finisherMultiplier) * dmgMult;
     if (activeMech.markedMultiplier) activeMech.markedMultiplier = finite(activeMech.markedMultiplier) * dmgMult;
     if (activeMech.snareMultiplier) activeMech.snareMultiplier = finite(activeMech.snareMultiplier) * dmgMult;
-    switch (mech.type) {
-      case 'multihit': fired = executeMultihit(activeMech, skill, state, stats, monster, ctx); break;
-      case 'singleHit': fired = executeSingleHit(activeMech, skill, state, stats, monster, ctx); break;
-      case 'zone': fired = executeZone(activeMech, skill, state, stats, ctx); break;
-      case 'finisher': fired = executeFinisher(activeMech, skill, state, stats, monster, ctx); break;
-      case 'selfDamage': fired = executeSelfDamage(activeMech, skill, state, stats, monster, ctx); break;
-      case 'heal': fired = executeHeal(activeMech, skill, state, stats, ctx); break;
-      case 'statusExploit': fired = executeStatusExploit(activeMech, skill, state, stats, monster, ctx); break;
-      case 'statusExploitAll': fired = executeStatusExploitAll(activeMech, skill, state, stats, monster, ctx); break;
-      case 'lifestealDamage': fired = executeLifestealDamage(activeMech, skill, state, stats, monster, ctx); break;
-      case 'goldCost': fired = executeGoldCost(activeMech, skill, state, stats, monster, ctx); break;
-      case 'goldGenerate': fired = executeGoldGenerate(activeMech, skill, state, stats, monster, ctx); break;
-      case 'shield': fired = executeShield(activeMech, skill, state, stats, ctx); break;
-      case 'delayedBurst': fired = executeDelayedBurst(activeMech, skill, state, stats, ctx); break;
-      case 'selfBuff': fired = executeSelfBuff(activeMech, skill, state, stats, ctx); break;
-      case 'spreadMark': fired = executeSpreadMark(activeMech, skill, state, ctx); break;
-    }
+    fired = executeV3ActiveMechanism(activeMech, skill, state, stats, monster, ctx);
 
     if (fired) {
       if (awakenedMech) spendAwakeningCharge(state, awakenConfig, ctx);
+      if (traitEffects.activeSkillExtraCastChance && random(ctx) < finite(traitEffects.activeSkillExtraCastChance)) {
+        const extraMech = scaleV3MechanismDamage(activeMech, 0.45);
+        executeV3ActiveMechanism(extraMech, skill, state, stats, monster, ctx);
+      }
       let cd = Math.round((skill.cooldown || 5) * cdMult);
       // 魔力增幅
       if (reduceThisSkillCooldown && passiveEffects.cooldownReduce) {
