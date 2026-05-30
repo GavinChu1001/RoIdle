@@ -1094,6 +1094,8 @@ const temperResult = abyssTempering.temperAbyssItem('a1', 'infuse', {
 assert.equal(temperResult.ok, true, 'Abyss tempering should complete when enough materials exist.');
 assert.equal(temperState.inventory[0].abyssTempered, true, 'Abyss tempering should mark the item.');
 assert.equal(temperState.inventory[0].prefix, '深渊', 'Abyss tempering should make display naming use the abyss prefix.');
+assert.notEqual(temperState.inventory[0].abyssForged, true, 'Abyss tempering should not mark a normal progression item as an original abyss drop.');
+assert.equal(temperState.inventory[0].sourceDifficulty, 'abyss-tempered', 'Abyss tempering should use a distinct source marker.');
 assert.equal(temperState.inventory[0].abyssAffixes[0].id, 'abyss-test', 'Abyss tempering should roll abyss affixes.');
 assert.equal(temperSaved, 1, 'Abyss tempering should save state once.');
 assert.equal(temperRendered, 1, 'Abyss tempering should rerender once.');
@@ -1120,6 +1122,18 @@ assert.equal(generated.id, 'generated-item', 'Module-owned item creation did not
 assert.equal(generated.atk, 10, 'Module-owned item creation changed base equipment output.');
 assert.deepEqual(generated.cardSlots, [], 'New equipment must retain the existing empty socket behavior.');
 assert.equal(generated.archetype, 'physical', 'Created equipment must record its archetype.');
+const normalizedTemperedItem = itemFactory.normalizeItem({
+  id: 'tempered',
+  name: 'Tempered Hero Blade',
+  slot: 'weapon',
+  atk: 100,
+  prefix: '深渊',
+  sourceDifficulty: 'abyss-tempered',
+  series: 'ancientHero',
+  growthTier: 'T2',
+}, factoryContext);
+assert.equal(normalizedTemperedItem.abyssForged, false, 'Prefix-only tempered items must not normalize into original abyss drops.');
+assert.equal(normalizedTemperedItem.sourceDifficulty, 'abyss-tempered', 'Tempered source marker should survive normalization.');
 const progressedItem = itemFactory.createItem(
   { name: 'Hero Blade', slot: 'weapon', atk: 10 },
   20,

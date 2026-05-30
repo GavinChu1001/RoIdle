@@ -91,9 +91,8 @@ export function temperAbyssItem(itemId, mode = 'infuse', context = {}) {
 
   consumeCost(state, cost);
   item.abyssTempered = true;
-  item.abyssForged = true;
   item.prefix = item.prefix || '\u6df1\u6e0a';
-  item.sourceDifficulty = item.sourceDifficulty || 'abyss';
+  item.sourceDifficulty = item.sourceDifficulty || 'abyss-tempered';
 
   if (mode === 'infuse' || mode === 'reroll') {
     const rolled = context.rollAbyssAffixes?.({ ...item, abyssForged: true, prefix: '\u6df1\u6e0a' }) || [];

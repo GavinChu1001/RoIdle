@@ -193,7 +193,7 @@ export function createItem(template = {}, level, forcedTierId = null, context = 
 export function normalizeItem(item = {}, runtime = runtimeContext) {
   item = item && typeof item === 'object' ? item : {};
   const fallbackPower = number(item.power);
-  const abyssForged = Boolean(item.abyssForged || item.sourceDifficulty === 'abyss' || item.prefix === '\u6df1\u6e0a');
+  const abyssForged = Boolean(item.abyssForged || item.sourceDifficulty === 'abyss');
   const progression = resolveItemProgression(item, {
     dropMapId: item.dropMapId || '',
     difficulty: item.sourceDifficulty || '',
