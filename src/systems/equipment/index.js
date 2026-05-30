@@ -21,6 +21,7 @@ export * from './itemCompare.js';
 export * from './itemTags.js';
 export * from './itemNaming.js';
 export * from './itemArchetype.js';
+export * from './equipmentGrowth.js';
 export * from './itemProgression.js';
 export * from './itemSynergy.js';
 export * from './statCatalog.js';

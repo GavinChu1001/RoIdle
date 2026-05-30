@@ -1160,8 +1160,11 @@ assert.match(
 
 const itemArchetypeModuleUrl = `data:text/javascript;base64,${Buffer.from(itemArchetypeSource).toString('base64')}`;
 const withItemArchetypeImport = (source) => source.replace(/from\s+['"]\.\/itemArchetype\.js['"]/g, `from '${itemArchetypeModuleUrl}'`);
+const equipmentGrowthModuleUrl = `data:text/javascript;base64,${Buffer.from(equipmentGrowthSource).toString('base64')}`;
+const withEquipmentGrowthImports = (source) => source
+  .replace(/from\s+['"]\.\/equipmentGrowth\.js['"]/g, `from '${equipmentGrowthModuleUrl}'`);
 const itemProgressionModuleUrl = `data:text/javascript;base64,${Buffer.from(itemProgressionSource).toString('base64')}`;
-const withEquipmentProgressionImports = (source) => withStatCatalogImport(withItemArchetypeImport(source))
+const withEquipmentProgressionImports = (source) => withEquipmentGrowthImports(withStatCatalogImport(withItemArchetypeImport(source)))
   .replace(/from\s+['"]\.\/itemProgression\.js['"]/g, `from '${itemProgressionModuleUrl}'`);
 
 let progressionUpgradeSource = '';
@@ -1304,6 +1307,36 @@ assert.equal(progressedItem.growthTier, 'T2', 'Created equipment must record its
 assert.equal(progressedItem.series, 'ancientHero', 'Created equipment must record its progression series.');
 assert.equal(progressedItem.upgradeStage, 0, 'Created equipment must record its upgrade stage.');
 assert.equal(progressedItem.upgradePathId, 'ancientHero', 'Created equipment must record its upgrade path id.');
+const levelSensitiveContext = {
+  ...factoryContext,
+  getEquipmentTiers: () => [{ id: 'rare', scale: 2, rolls: [1, 1] }],
+  getItemTierForLevel: (level) => ({ id: `tier-${level}`, scale: level >= 100 ? 20 : 1 }),
+  getSlotLevelGrowth: () => 0.25,
+  resolveItemProgression: () => ({
+    growthTier: 'T2',
+    series: 'ancientHero',
+    upgradeStage: 0,
+    grade: 'base',
+    upgradePathId: 'ancientHero',
+  }),
+};
+const progressionTemplateForLevelTest = {
+  name: 'Hero Blade',
+  source: 'progression_drop',
+  slot: 'weapon',
+  atk: 10,
+  growthTier: 'T2',
+  series: 'ancientHero',
+  upgradeStage: 0,
+  grade: 'base',
+};
+const lowLevelProgressionItem = itemFactory.createItem(progressionTemplateForLevelTest, 20, 'rare', { dropLevel: 20, rng: () => 0 }, levelSensitiveContext);
+const highLevelProgressionItem = itemFactory.createItem(progressionTemplateForLevelTest, 120, 'rare', { dropLevel: 120, rng: () => 0 }, levelSensitiveContext);
+assert.equal(lowLevelProgressionItem.atk, highLevelProgressionItem.atk, 'Progression-v2 drops must not scale core stats from hidden item level.');
+assert.equal(highLevelProgressionItem.growthModel, 'progression-v2', 'Progression drops should record the new growth model.');
+const normalizedLegacyGrowth = itemFactory.normalizeItem({ id: 'legacy-a', atk: 100, level: 90, rarity: 'legend' }, factoryContext);
+assert.equal(normalizedLegacyGrowth.growthModel, 'legacy-level', 'Normalized old equipment should keep legacy growth mode.');
+assert.equal(normalizedLegacyGrowth.legacyPowerSnapshot.stats.atk, 100, 'Legacy normalization should snapshot existing stat values.');
 assert.equal(itemFactory.createItem({ name: 'Rod', slot: 'weapon', matk: 10 }, 1, 'normal', { currentJobId: 'mage', rng: () => 0 }, factoryContext).archetype, 'magic', 'Created mage equipment must record magic archetype.');
 assert.equal(itemFactory.createItem({ name: 'Blade', slot: 'weapon', atk: 10 }, 1, 'normal', { targetArchetype: undefined, archetype: 'physical', currentJobId: 'mage', rng: () => 0 }, factoryContext).archetype, 'physical', 'Undefined directed archetype must not override the explicit item archetype.');
 assert.equal(itemFactory.normalizeItem({ atk: 100 }, factoryContext).archetype, 'physical', 'Legacy ATK equipment normalization must infer physical archetype.');

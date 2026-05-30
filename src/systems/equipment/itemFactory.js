@@ -1,4 +1,11 @@
 import { inferEquipmentArchetype, normalizeEquipmentArchetype, rollEquipmentArchetype } from './itemArchetype.js';
+import {
+  EQUIPMENT_GROWTH_MODEL,
+  calculateCreationStatScale,
+  growthModelFor,
+  snapshotLegacyPower,
+  usesProgressionGrowth,
+} from './equipmentGrowth.js';
 import { resolveItemProgression } from './itemProgression.js';
 import { DEPRECATED_EQUIPMENT_STATS, applyCanonicalEquipmentStats } from './statCatalog.js';
 
@@ -77,7 +84,16 @@ export function createItem(template = {}, level, forcedTierId = null, context = 
     : runtime.getItemTierForLevel?.(dropLevel) || { id: 'starter', scale: 1 };
   const slotGrowth = runtime.getSlotLevelGrowth?.(template.slot) || 0;
   const quality = runtime.randomFloat?.(safeTier.rolls[0], safeTier.rolls[1]) ?? safeTier.rolls[0];
-  const statScale = safeTier.scale * number(itemTier.scale, 1) * quality * (1 + safeLevel * slotGrowth);
+  const progressionGrowth = usesProgressionGrowth(template, context);
+  const statScale = calculateCreationStatScale({
+    template,
+    context,
+    tier: safeTier,
+    itemTier,
+    quality,
+    level: safeLevel,
+    slotGrowth,
+  });
   const archetype = resolveCreatedItemArchetype(template, context, runtime);
   const progression = resolveItemProgression(template, { ...context, archetype }, runtime);
   const item = {
@@ -108,6 +124,8 @@ export function createItem(template = {}, level, forcedTierId = null, context = 
     upgradePathId: progression.upgradePathId || progression.series || 'oldWorld',
     progressionLabel: progression.progressionLabel || '',
     progressionSource: progression.progressionSource || '',
+    growthModel: progressionGrowth ? EQUIPMENT_GROWTH_MODEL.PROGRESSION_V2 : EQUIPMENT_GROWTH_MODEL.LEGACY_LEVEL,
+    legacyPowerSnapshot: null,
     rarity: safeTier.id,
     tier: safeTier.id,
     itemTier: itemTier.id,
@@ -203,6 +221,10 @@ export function normalizeItem(item = {}, runtime = runtimeContext) {
     grade: item.grade || '',
     upgradePathId: item.upgradePathId || '',
   }, runtime);
+  const normalizedGrowthModel = item.growthModel || growthModelFor(item, item);
+  const legacyPowerSnapshot = normalizedGrowthModel === EQUIPMENT_GROWTH_MODEL.LEGACY_LEVEL
+    ? (item.legacyPowerSnapshot || snapshotLegacyPower(item))
+    : null;
   const normalized = {
     id: item.id || runtime.createLegacyItemId?.() || `legacy-${Date.now().toString(36)}`,
     instanceId: item.instanceId || item.id || '',
@@ -231,6 +253,8 @@ export function normalizeItem(item = {}, runtime = runtimeContext) {
     upgradePathId: progression.upgradePathId || progression.series || 'oldWorld',
     progressionLabel: item.progressionLabel || progression.progressionLabel || '',
     progressionSource: item.progressionSource || progression.progressionSource || '',
+    growthModel: normalizedGrowthModel,
+    legacyPowerSnapshot,
     rarity: item.rarity || 'normal',
     tier: item.tier || item.rarity || 'normal',
     itemTier: runtime.inferItemTier?.(item)?.id || item.itemTier || '',
