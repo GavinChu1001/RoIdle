@@ -194,7 +194,8 @@ assert.match(html, /src="\.\/src\/main\.js\?v=20260529-mvp-inscription-v2"/, 'MV
 assert.doesNotMatch(game, /renderItemName\(item,\s*`Lv\.\$\{item\.level\}/, 'Equipment list and equipped slot names should not expose internal item level.');
 assert.doesNotMatch(game, /等级：\$\{item\.level \|\| 1\}/, 'Equipment detail tooltips should not label internal item level as player-facing level.');
 assert.match(game, /来源强度：\$\{item\.dropLevel \|\| item\.level \|\| 1\}/, 'Equipment detail tooltips should preserve internal strength as source strength.');
-assert.match(game, /成长：\$\{progressionTags\}|旧世过渡/, 'Equipment detail tooltips should expose progression tags with an old-world fallback.');
+assert.match(game, /成长：\$\{progressionTags\}/, 'Equipment detail tooltips should expose progression tags.');
+assert.match(game, /\|\|\s*"旧世过渡"/, 'Equipment detail tooltips should fall back to old-world wording when progression tags are absent.');
 assert.doesNotMatch(offlineLootSource, /等级\s*\$\{fmtn\(item\?\.level,\s*ctx\)\}/, 'Offline equipment loot should not expose internal item level.');
 for (const file of [
   'assets/ui/fx/hit-slash.png',
