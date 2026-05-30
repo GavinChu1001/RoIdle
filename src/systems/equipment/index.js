@@ -10,6 +10,7 @@ import { EQUIPMENT_ARCHETYPES, normalizeEquipmentArchetype, getArchetypeLabel, g
 import { applyRarityUpgradeRewards, usesProgressionGrowth } from './equipmentGrowth.js';
 import { EQUIPMENT_GROWTH_TIERS, EQUIPMENT_SERIES, EQUIPMENT_LINE_MATERIALS, MAP_EQUIPMENT_PROGRESSION, PROGRESSION_EQUIPMENT_SLOTS, normalizeGrowthTier, normalizeEquipmentSeries, getEquipmentSeriesConfig, getEquipmentLineMaterials, getMapEquipmentProgression, getProgressionEquipmentTemplates, getProgressionEquipmentTemplate, getProgressionEquipmentDropTable, getEquipmentLineFilterOptions, getEquipmentLineMaterialOverview, getAllEquipmentLineMaterialOverviews, formatEquipmentProgressionSummary, resolveEquipmentProgressionContext, resolveItemProgression, getProgressionMaterialDrops, getNextEquipmentUpgrade, getEquipmentUpgradeCost, getEquipmentProgressionTags } from './itemProgression.js';
 import { EQUIPMENT_SYNERGY_LINES, ROUTE_SKILL_ENHANCEMENTS, computeEquipmentSynergies, getEquipmentSynergySummary, getProfessionRoute, getProfessionRouteTier } from './itemSynergy.js';
+import { EQUIPMENT_LINE_TRAITS, collectEquippedTraitStats, getEquipmentStageTraits, getEquipmentTraitPreview, getEquipmentTraitStage } from './itemTraits.js';
 import { DEPRECATED_EQUIPMENT_STATS, ORDINARY_EQUIPMENT_AFFIX_STATS, SPECIAL_MECHANIC_STATS, EQUIPMENT_MAIN_STAT_GROUPS, canonicalEquipmentStat, canonicalizeEquipmentStats, applyCanonicalEquipmentStats } from './statCatalog.js';
 import { canUpgradeEquipmentProgression, upgradeEquipmentProgression } from './progressionUpgrade.js';
 import { LINE_MASTERY_MAX_LEVEL, normalizeLineMasteryState, getLineMasteryLevel, getLineMasteryCost, getLineMasteryBonus, getLineMasteryGlobalBonus, canUpgradeLineMastery, upgradeLineMastery } from './lineMastery.js';
@@ -25,6 +26,7 @@ export * from './itemArchetype.js';
 export * from './equipmentGrowth.js';
 export * from './itemProgression.js';
 export * from './itemSynergy.js';
+export * from './itemTraits.js';
 export * from './statCatalog.js';
 export * from './progressionUpgrade.js';
 export * from './lineMastery.js';
@@ -114,6 +116,11 @@ export function installEquipmentRuntime(context = {}) {
     getEquipmentSynergySummary,
     getProfessionRoute,
     getProfessionRouteTier,
+    EQUIPMENT_LINE_TRAITS,
+    collectEquippedTraitStats,
+    getEquipmentStageTraits,
+    getEquipmentTraitPreview,
+    getEquipmentTraitStage,
     DEPRECATED_EQUIPMENT_STATS,
     ORDINARY_EQUIPMENT_AFFIX_STATS,
     SPECIAL_MECHANIC_STATS,

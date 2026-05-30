@@ -1213,6 +1213,22 @@ assert.match(game, /getSocketCardEffects/, 'Card socket effects should remain av
 assert.match(game, /offlineEfficiencyBonus/, 'offlineEfficiencyBonus may remain for cards, VIP, synergy, or non-random systems.');
 assert.match(itemProgressionSource, /expBonus/, 'Progression templates should use expBonus.');
 assert.doesNotMatch(itemProgressionSource, /baseExpBonus|jobExpBonus/, 'Progression templates should not split BASE/JOB exp.');
+let itemTraitsSource = '';
+assert.doesNotThrow(() => {
+  itemTraitsSource = read('src/systems/equipment/itemTraits.js');
+}, 'Equipment trait module must exist.');
+assert.match(itemTraitsSource, /\bEQUIPMENT_LINE_TRAITS\b/, 'Equipment trait module must define EQUIPMENT_LINE_TRAITS.');
+assert.match(itemTraitsSource, /\bgetEquipmentStageTraits\b/, 'Equipment trait module must expose getEquipmentStageTraits.');
+assert.match(itemTraitsSource, /\bcollectEquippedTraitStats\b/, 'Equipment trait module must expose collectEquippedTraitStats.');
+const itemTraits = await import('./../src/systems/equipment/itemTraits.js');
+const osCoreTraits = itemTraits.getEquipmentStageTraits({ series: 'os', upgradeStage: 2 });
+assert.equal(osCoreTraits.label, 'OS / 幻象', 'OS trait preview should keep the line label.');
+assert.equal(osCoreTraits.stageLabel, '核心阶', 'Upgrade stage 2 should be core tier.');
+assert.equal(osCoreTraits.stats.skillDamageBonus, 0.10, 'OS core should grant skill damage.');
+assert.equal(osCoreTraits.effects.activeSkillExtraCastChance, 0.06, 'OS core should grant extra active cast chance.');
+const fidesReformTraits = itemTraits.getEquipmentStageTraits({ series: 'fides', upgradeStage: 1 });
+assert.equal(fidesReformTraits.stats.hpPct, 0.08, 'Fides reform should grant HP percent.');
+assert.equal(fidesReformTraits.stats.damageReductionPct, 0.02, 'Fides reform should grant damage reduction.');
 const itemSynergy = await import('./../src/systems/equipment/itemSynergy.js');
 assert.equal(Object.keys(itemSynergy.EQUIPMENT_SYNERGY_LINES).length, 10, 'Equipment synergy must define one rule for every progression equipment line.');
 assert.ok(itemSynergy.EQUIPMENT_SYNERGY_LINES.ancientHero, 'Ancient Hero synergy line must exist.');
