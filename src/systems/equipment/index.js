@@ -31,7 +31,13 @@ export * from './socket.js';
 export * from './dismantle.js';
 
 export function installEquipmentRuntime(context = {}) {
-  configureItemStatsContext(context);
+  configureItemStatsContext({
+    ...context,
+    getLineMasteryBonus: (series) => {
+      const state = context.getState?.() || {};
+      return getLineMasteryBonus(series, getLineMasteryLevel(state, series));
+    },
+  });
   configureItemFactoryContext(context);
   configureEquipmentMutationContext({ ...context, normalizeItem: (item) => normalizeItem(item, context) });
   configureRefineContext(context);

@@ -1969,6 +1969,7 @@ function createDefaultState() {
     equipmentPityKills: 0,
     equipmentSystemVersion: EQUIPMENT_SYSTEM_VERSION,
     equipmentStatVersion: EQUIPMENT_STAT_VERSION,
+    equipmentLineMastery: {},
     mapDifficultyProgress: { grass: { normal: { unlocked: true, cleared: false }, hard: { unlocked: false, cleared: false }, abyss: { unlocked: false, cleared: false } } },
     paused: false,
     enemyHp: 0,
@@ -3023,6 +3024,7 @@ function mergeState(base, saved) {
     inventory: normalizedInventory,
     log: mergedLog.slice(0, 24),
     mapDifficultyProgress: normalizeMapDifficultyProgress(saved.mapDifficultyProgress, saved.bestMap, saved.currentDifficulty),
+    equipmentLineMastery: window.RuneFrontierEquipmentRuntime?.normalizeLineMasteryState?.(saved.equipmentLineMastery) || {},
     shopState: saved.shopState || base.shopState || { dailyPurchases: {}, weeklyPurchases: {}, totalPurchases: {}, lastDailyRefresh: "", lastWeeklyRefresh: "" },
   };
 }

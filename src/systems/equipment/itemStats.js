@@ -30,12 +30,16 @@ const FLAT_STATS = new Set(['atk', 'matk', 'def', 'hp', 'hpRegen', 'str', 'agi',
 let runtimeContext = Object.freeze({
   getMechanicAffixEffects: () => ({}),
   computeCardSocketBonuses: () => ({}),
+  getLineMasteryBonus: () => ({ statMultiplier: 1, bonusStats: {}, abyssAffixMultiplier: 1 }),
 });
 
 export function configureItemStatsContext(context = {}) {
   runtimeContext = Object.freeze({
     getMechanicAffixEffects: typeof context.getMechanicAffixEffects === 'function' ? context.getMechanicAffixEffects : () => ({}),
     computeCardSocketBonuses: typeof context.computeCardSocketBonuses === 'function' ? context.computeCardSocketBonuses : () => ({}),
+    getLineMasteryBonus: typeof context.getLineMasteryBonus === 'function'
+      ? context.getLineMasteryBonus
+      : () => ({ statMultiplier: 1, bonusStats: {}, abyssAffixMultiplier: 1 }),
   });
 }
 
@@ -149,6 +153,24 @@ export function getEffectiveItemStats(item = {}, includeRandom = true, context =
     abyssDamageReduction: scalePercent(item.abyssDamageReduction, 'abyssDamageReduction'),
     highTierFind: scalePercent(number(item.highTierFind) + number(item.mythicWeightBonus) + number(item.mythicEssenceDropBonus) + number(item.rebirthPrestigeWeightBonus), 'highTierFind'),
   };
+  const itemLine = item.series || item.upgradePathId || '';
+  const masteryProvider = typeof context.getLineMasteryBonus === 'function'
+    ? context.getLineMasteryBonus
+    : () => ({ statMultiplier: 1, bonusStats: {}, abyssAffixMultiplier: 1 });
+  const mastery = masteryProvider(itemLine) || {};
+  const masteryMultiplier = number(mastery.statMultiplier || 1);
+  if (itemLine && itemLine !== 'oldWorld' && masteryMultiplier > 1) {
+    Object.keys(stats).forEach((key) => {
+      const value = number(stats[key]);
+      if (!value || key === 'luck') return;
+      stats[key] = Math.abs(value) < 1
+        ? Number((value * masteryMultiplier).toFixed(3))
+        : Math.round(value * masteryMultiplier);
+    });
+  }
+  Object.entries(mastery.bonusStats || {}).forEach(([stat, value]) => {
+    addScaledStat(stats, stat, value, { applyRefine: false });
+  });
   [
     'abyssExecuteDamageBonus', 'setPowerBonus', 'finalDamageBonus', 'eliteDamageBonus',
     'rareDropBonus', 'bossDamageReduction',

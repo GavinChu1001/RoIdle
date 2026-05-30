@@ -364,6 +364,8 @@ assert.match(game, /onboarding:\s*normalizeOnboarding\(saved\.onboarding\s*\|\|\
 assert.match(game, /state\.onboarding\s*=\s*normalizeOnboarding\(state\.onboarding\)/, 'Sanitize pass must keep onboarding normalized.');
 assert.match(game, /const EQUIPMENT_STAT_VERSION\s*=\s*2/, 'Equipment V2 must define a stat-version gate.');
 assert.match(game, /equipmentStatVersion:\s*EQUIPMENT_STAT_VERSION/, 'Default state must mark fresh saves as Equipment V2.');
+assert.match(game, /equipmentLineMastery:\s*\{\}/, 'Default state must initialize equipment line mastery.');
+assert.match(game, /equipmentLineMastery:\s*window\.RuneFrontierEquipmentRuntime\?\.normalizeLineMasteryState\?\.\(saved\.equipmentLineMastery\)/, 'Saved state merge must normalize equipment line mastery.');
 assert.match(game, /equipmentReforgeTicket/, 'Equipment V2 migration must grant reforge tickets.');
 assert.doesNotMatch(game, /antiCrit:\s*"抗暴"/, 'Equipment V2 UI labels must not expose antiCrit.');
 assert.match(game, /reforgeEquipmentV2/, 'Equipment V2 must expose a reforge-ticket action.');
@@ -647,6 +649,25 @@ assert.equal(canonicalEffective.expBonus, 0.12, 'Effective stats should merge ex
 assert.equal(canonicalEffective.combatPaceBonus, 0.03, 'Effective stats should merge pace aliases.');
 assert.equal(canonicalEffective.antiCrit, undefined, 'Effective stats should strip antiCrit.');
 assert.equal(canonicalEffective.damageReduction, undefined, 'Effective stats should strip damageReduction.');
+itemStats.configureItemStatsContext({
+  getMechanicAffixEffects: () => ({}),
+  computeCardSocketBonuses: () => ({}),
+  getLineMasteryBonus: (series) => series === 'ancientHero'
+    ? { statMultiplier: 1.06, bonusStats: { skillDamageBonus: 0.01 }, abyssAffixMultiplier: 1 }
+    : { statMultiplier: 1, bonusStats: {}, abyssAffixMultiplier: 1 },
+});
+const masteredStats = itemStats.getEffectiveItemStats({
+  series: 'ancientHero',
+  atk: 100,
+  skillDamageBonus: 0.02,
+});
+assert.equal(masteredStats.atk, 106, 'Line mastery should scale matching line flat stats.');
+assert.ok(masteredStats.skillDamageBonus >= 0.03, 'Line mastery should add milestone bonus stats.');
+const oldWorldStats = itemStats.getEffectiveItemStats({
+  series: 'oldWorld',
+  atk: 100,
+});
+assert.equal(oldWorldStats.atk, 100, 'Line mastery should not affect T1 old-world equipment.');
 
 let itemArchetypeSource = '';
 assert.doesNotThrow(() => {
