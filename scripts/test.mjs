@@ -866,6 +866,26 @@ assert.equal(
 const legacySnapshot = equipmentGrowth.snapshotLegacyPower({ atk: 123, level: 88, rarity: 'legend' });
 assert.equal(legacySnapshot.model, 'legacy-level', 'Legacy snapshots should record the old growth model.');
 assert.equal(legacySnapshot.stats.atk, 123, 'Legacy snapshots should preserve current stat values.');
+const legacySpecialSnapshot = equipmentGrowth.snapshotLegacyPower({
+  monsterDamageBonus: 0.12,
+  eliteDamageBonus: 0.08,
+  statusResist: 0.04,
+  mutationMaterialDoubleChance: 0.2,
+});
+assert.equal(legacySpecialSnapshot.stats.monsterDamageBonus, 0.12, 'Legacy snapshots should preserve monster damage bonuses.');
+assert.equal(legacySpecialSnapshot.stats.eliteDamageBonus, 0.08, 'Legacy snapshots should preserve elite damage bonuses.');
+assert.equal(legacySpecialSnapshot.stats.statusResist, 0.04, 'Legacy snapshots should preserve status resistance.');
+assert.equal(legacySpecialSnapshot.stats.mutationMaterialDoubleChance, 0.2, 'Legacy snapshots should preserve mutation material bonuses.');
+const blockedPerkUpgrade = equipmentGrowth.applyRarityUpgradeRewards(
+  { rarityPerk: { id: 'epic' }, rarityRewardHistory: ['epic'] },
+  'mythic',
+  {},
+);
+assert.deepEqual(
+  blockedPerkUpgrade.rarityRewardHistory,
+  ['epic', 'ancient'],
+  'Skipped perk rewards must not be recorded as applied.',
+);
 let lineMasterySource = '';
 assert.doesNotThrow(() => {
   lineMasterySource = read('src/systems/equipment/lineMastery.js');

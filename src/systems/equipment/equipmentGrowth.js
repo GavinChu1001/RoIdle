@@ -9,11 +9,11 @@ export const GROWTH_STAT_KEYS = Object.freeze([
   'aspd', 'crit', 'drop', 'gold', 'dodgeRate',
   'atkPct', 'matkPct', 'hpPct', 'defPct',
   'attackSpeedPct', 'critDamageBonus', 'skillDamageBonus',
-  'bossDamageBonus', 'finalDamageBonus', 'rareDropBonus',
+  'bossDamageBonus', 'monsterDamageBonus', 'eliteDamageBonus', 'finalDamageBonus', 'rareDropBonus',
   'damageReductionPct', 'lifeSteal', 'blockRate', 'hpRegenPct',
-  'ignoreDefense', 'expBonus', 'equipmentDrop', 'cardDrop',
+  'ignoreDefense', 'statusResist', 'expBonus', 'equipmentDrop', 'cardDrop',
   'materialQuantityBonus', 'combatPaceBonus', 'abyssDamageBonus',
-  'abyssDamageReduction', 'highTierFind', 'echoChance', 'thornVitMultiplier',
+  'abyssDamageReduction', 'highTierFind', 'echoChance', 'mutationMaterialDoubleChance', 'thornVitMultiplier',
 ]);
 
 const RARITY_ORDER = Object.freeze(['normal', 'fine', 'rare', 'epic', 'ancient', 'legend', 'darkGold', 'mythic']);
@@ -93,30 +93,37 @@ export function applyRarityUpgradeRewards(item = {}, targetRarity = item.rarity,
   const applied = new Set(item.rarityRewardHistory);
   const applyOnce = (rarity, fn) => {
     if (targetRank < rarityRank(rarity) || applied.has(rarity)) return;
-    fn();
-    applied.add(rarity);
+    if (fn()) applied.add(rarity);
+  };
+  const applyPerkReward = (rarity) => {
+    if (item.rarityPerk?.id === rarity) return true;
+    if (item.rarityPerk || !runtime.applyRarityPerk) return false;
+    runtime.applyRarityPerk(item, { id: rarity }, item);
+    return item.rarityPerk?.id === rarity;
   };
 
   applyOnce('rare', () => {
-    if (runtime.rollRandomStats && runtime.normalizeEquipmentArchetype) {
-      item.randomStats = runtime.rollRandomStats(targetRarity, runtime.normalizeEquipmentArchetype(item.archetype || 'general'));
-    }
+    if (item.randomStats) return true;
+    if (!runtime.rollRandomStats || !runtime.normalizeEquipmentArchetype) return false;
+    item.randomStats = runtime.rollRandomStats(targetRarity, runtime.normalizeEquipmentArchetype(item.archetype || 'general'));
+    return Boolean(item.randomStats);
   });
   applyOnce('epic', () => {
-    if (!item.rarityPerk && runtime.applyRarityPerk) runtime.applyRarityPerk(item, { id: 'epic' }, item);
+    return applyPerkReward('epic');
   });
   applyOnce('ancient', () => {
     const current = Array.isArray(item.cardSlots) ? item.cardSlots : [];
     item.cardSlots = current.length ? current : [{ cardId: null }];
+    return item.cardSlots.length > 0;
   });
   applyOnce('legend', () => {
-    if (!item.rarityPerk && runtime.applyRarityPerk) runtime.applyRarityPerk(item, { id: 'legend' }, item);
+    return applyPerkReward('legend');
   });
   applyOnce('darkGold', () => {
-    if (!item.rarityPerk && runtime.applyRarityPerk) runtime.applyRarityPerk(item, { id: 'darkGold' }, item);
+    return applyPerkReward('darkGold');
   });
   applyOnce('mythic', () => {
-    if (!item.rarityPerk && runtime.applyRarityPerk) runtime.applyRarityPerk(item, { id: 'mythic' }, item);
+    return applyPerkReward('mythic');
   });
 
   item.rarityRewardHistory = [...applied];
