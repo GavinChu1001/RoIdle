@@ -48,9 +48,14 @@ function copyNumericStats(item = {}) {
 }
 
 export function usesProgressionGrowth(template = {}, context = {}) {
-  return template.source === 'progression_drop' ||
-    Boolean(template.series || template.growthTier || template.upgradePathId) ||
-    Boolean(context.series || context.growthTier || context.upgradePathId);
+  const source = template.source || context.source || '';
+  const series = template.series || context.series || '';
+  const growthTier = template.growthTier || context.growthTier || '';
+  const upgradePathId = template.upgradePathId || context.upgradePathId || '';
+  return source === 'progression_drop' ||
+    Boolean(series && series !== 'oldWorld') ||
+    Boolean(growthTier && growthTier !== 'T1') ||
+    Boolean(upgradePathId && upgradePathId !== 'oldWorld');
 }
 
 export function growthModelFor(template = {}, context = {}) {

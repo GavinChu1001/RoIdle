@@ -1325,6 +1325,11 @@ const progressionTemplateForLevelTest = {
   source: 'progression_drop',
   slot: 'weapon',
   atk: 10,
+  aspd: 0.02,
+  crit: 0.03,
+  drop: 0.04,
+  dodgeRate: 0.05,
+  gold: 1,
   growthTier: 'T2',
   series: 'ancientHero',
   upgradeStage: 0,
@@ -1333,10 +1338,26 @@ const progressionTemplateForLevelTest = {
 const lowLevelProgressionItem = itemFactory.createItem(progressionTemplateForLevelTest, 20, 'rare', { dropLevel: 20, rng: () => 0 }, levelSensitiveContext);
 const highLevelProgressionItem = itemFactory.createItem(progressionTemplateForLevelTest, 120, 'rare', { dropLevel: 120, rng: () => 0 }, levelSensitiveContext);
 assert.equal(lowLevelProgressionItem.atk, highLevelProgressionItem.atk, 'Progression-v2 drops must not scale core stats from hidden item level.');
+assert.equal(lowLevelProgressionItem.aspd, highLevelProgressionItem.aspd, 'Progression-v2 drops must not scale ASPD from hidden item level.');
+assert.equal(lowLevelProgressionItem.crit, highLevelProgressionItem.crit, 'Progression-v2 drops must not scale crit from hidden item level.');
+assert.equal(lowLevelProgressionItem.drop, highLevelProgressionItem.drop, 'Progression-v2 drops must not scale drop from hidden item level.');
+assert.equal(lowLevelProgressionItem.dodgeRate, highLevelProgressionItem.dodgeRate, 'Progression-v2 drops must not scale dodge from hidden item level.');
+assert.equal(lowLevelProgressionItem.gold, highLevelProgressionItem.gold, 'Progression-v2 drops must not scale gold from hidden item level.');
 assert.equal(highLevelProgressionItem.growthModel, 'progression-v2', 'Progression drops should record the new growth model.');
 const normalizedLegacyGrowth = itemFactory.normalizeItem({ id: 'legacy-a', atk: 100, level: 90, rarity: 'legend' }, factoryContext);
 assert.equal(normalizedLegacyGrowth.growthModel, 'legacy-level', 'Normalized old equipment should keep legacy growth mode.');
 assert.equal(normalizedLegacyGrowth.legacyPowerSnapshot.stats.atk, 100, 'Legacy normalization should snapshot existing stat values.');
+const normalizedOldWorldLegacy = itemFactory.normalizeItem({
+  id: 'legacy-oldworld',
+  atk: 77,
+  level: 50,
+  series: 'oldWorld',
+  growthTier: 'T1',
+  upgradePathId: 'oldWorld',
+  rarity: 'rare',
+}, factoryContext);
+assert.equal(normalizedOldWorldLegacy.growthModel, 'legacy-level', 'Old-world default progression fields should not mark legacy equipment as progression-v2.');
+assert.equal(normalizedOldWorldLegacy.legacyPowerSnapshot.stats.atk, 77, 'Old-world legacy equipment should still snapshot current stats.');
 assert.equal(itemFactory.createItem({ name: 'Rod', slot: 'weapon', matk: 10 }, 1, 'normal', { currentJobId: 'mage', rng: () => 0 }, factoryContext).archetype, 'magic', 'Created mage equipment must record magic archetype.');
 assert.equal(itemFactory.createItem({ name: 'Blade', slot: 'weapon', atk: 10 }, 1, 'normal', { targetArchetype: undefined, archetype: 'physical', currentJobId: 'mage', rng: () => 0 }, factoryContext).archetype, 'physical', 'Undefined directed archetype must not override the explicit item archetype.');
 assert.equal(itemFactory.normalizeItem({ atk: 100 }, factoryContext).archetype, 'physical', 'Legacy ATK equipment normalization must infer physical archetype.');

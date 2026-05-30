@@ -94,6 +94,8 @@ export function createItem(template = {}, level, forcedTierId = null, context = 
     level: safeLevel,
     slotGrowth,
   });
+  const levelGrowthFactor = progressionGrowth ? 1 : 1 + safeLevel * 0.018;
+  const goldGrowthFactor = progressionGrowth ? 1 : 1 + safeLevel * 0.025;
   const archetype = resolveCreatedItemArchetype(template, context, runtime);
   const progression = resolveItemProgression(template, { ...context, archetype }, runtime);
   const item = {
@@ -157,7 +159,7 @@ export function createItem(template = {}, level, forcedTierId = null, context = 
     matk: Math.round(number(template.matk) * statScale),
     def: Math.round(number(template.def) * statScale),
     hp: Math.round(number(template.hp) * statScale),
-    aspd: Number((number(template.aspd) * (1 + safeLevel * 0.018)).toFixed(3)),
+    aspd: Number((number(template.aspd) * levelGrowthFactor).toFixed(3)),
     luck: 0,
     str: Math.round(number(template.str) * statScale),
     agi: Math.round(number(template.agi) * statScale),
@@ -165,11 +167,11 @@ export function createItem(template = {}, level, forcedTierId = null, context = 
     int: Math.round(number(template.int) * statScale),
     dex: Math.round(number(template.dex) * statScale),
     luk: Math.round((number(template.luk) + number(template.luck)) * statScale),
-    gold: Number((number(template.gold) * (1 + safeLevel * 0.025)).toFixed(3)),
-    crit: Number(((number(template.crit) + number(template.critRatePct)) * (1 + safeLevel * 0.018)).toFixed(3)),
-    drop: Number((number(template.drop) * (1 + safeLevel * 0.018)).toFixed(3)),
+    gold: Number((number(template.gold) * goldGrowthFactor).toFixed(3)),
+    crit: Number(((number(template.crit) + number(template.critRatePct)) * levelGrowthFactor).toFixed(3)),
+    drop: Number((number(template.drop) * levelGrowthFactor).toFixed(3)),
     hpRegen: Math.round(number(template.hpRegen) * statScale),
-    dodgeRate: Number(((number(template.dodgeRate) + number(template.dodgeRatePct)) * (1 + safeLevel * 0.018)).toFixed(3)),
+    dodgeRate: Number(((number(template.dodgeRate) + number(template.dodgeRatePct)) * levelGrowthFactor).toFixed(3)),
     atkPct: number(template.atkPct),
     matkPct: number(template.matkPct),
     hpPct: number(template.hpPct),
