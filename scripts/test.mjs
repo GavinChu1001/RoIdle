@@ -960,6 +960,26 @@ assert.equal(rebuiltGrowthStats.atk, 35, 'Progression rebuild should scale templ
 assert.equal(rebuiltGrowthStats.lifeSteal, 0.05, 'Progression rebuild should replay existing rarity perk bonuses once.');
 assert.equal(rebuiltGrowthStats.magicDamageReduction, 0, 'Progression rebuild should clear absent old stats.');
 assert.equal(rebuiltGrowthStats.growthModel, 'progression-v2', 'Progression rebuild should mark the growth model.');
+const cappedAffixReplay = equipmentGrowth.rebuildGrowthStatsFromTemplate(
+  {
+    blockRate: 0,
+    affixDetails: Array.from({ length: 5 }, () => ({ type: 'percent', stat: 'blockRate', value: 0.04, cap: 0.18 })),
+  },
+  {},
+  { scale: 1 },
+  1,
+);
+assert.equal(cappedAffixReplay.blockRate, 0.18, 'Progression rebuild should preserve capped percent affix totals.');
+const appliedValueReplay = equipmentGrowth.rebuildGrowthStatsFromTemplate(
+  {
+    blockRate: 0,
+    affixDetails: [{ type: 'percent', stat: 'blockRate', value: 0.04, appliedValue: 0.02, cap: 0.18 }],
+  },
+  {},
+  { scale: 1 },
+  1,
+);
+assert.equal(appliedValueReplay.blockRate, 0.02, 'Progression rebuild should prefer stored cap-aware appliedValue over raw affix value.');
 const blockedPerkUpgrade = equipmentGrowth.applyRarityUpgradeRewards(
   { rarityPerk: { id: 'epic' }, rarityRewardHistory: ['epic'] },
   'mythic',

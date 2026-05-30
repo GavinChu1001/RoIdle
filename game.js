@@ -5924,10 +5924,13 @@ function applyRandomAffixes(item, tier, level, itemTier = getItemTierForLevel(le
     if (!affix) continue;
     const key = canonicalItemStat(stat);
     const value = rollAffixStat(affix, level, itemTier, tier, type);
+    const before = Number(item[key] || 0);
     addItemStat(item, key, value, affix.cap);
+    const after = Number(item[key] || 0);
+    const appliedValue = Number((after - before).toFixed(3));
     item.ranges[key] = mergeRange(item.ranges[key], [rollAffixStatMin(affix, level, itemTier, tier, type), rollAffixStatMax(affix, level, itemTier, tier, type)]);
     item.affixes.push(`${type === "percent" ? "[百分比]" : "[固定]"}${affix.label}${formatStatValue(key, value)}`);
-    item.affixDetails.push({ type, stat: key, label: affix.label, value });
+    item.affixDetails.push({ type, stat: key, label: affix.label, value, appliedValue, cap: affix.cap });
   }
 }
 

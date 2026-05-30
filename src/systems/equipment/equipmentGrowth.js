@@ -49,9 +49,12 @@ function copyNumericStats(item = {}) {
 
 function addStoredBonus(item = {}, bonus = {}) {
   const stat = bonus?.stat;
-  const value = Number(bonus?.value);
+  const appliedValue = Number(bonus?.appliedValue);
+  const value = Number.isFinite(appliedValue) ? appliedValue : Number(bonus?.value);
   if (!stat || !GROWTH_STAT_KEYS.includes(stat) || !Number.isFinite(value)) return false;
-  const next = finite(item[stat], 0) + value;
+  const rawNext = finite(item[stat], 0) + value;
+  const cap = Number(bonus?.cap);
+  const next = Number.isFinite(appliedValue) || !Number.isFinite(cap) ? rawNext : Math.min(cap, rawNext);
   item[stat] = Number(next.toFixed(3));
   return true;
 }
