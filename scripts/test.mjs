@@ -161,6 +161,14 @@ for (const id of [
 }
 assert.match(game, /bar\.dataset\.skillComposition/, 'The RO skill bar must update existing nodes instead of rebuilding on every fast render.');
 assert.match(game, /renderSkillCastBanner\(\)/, 'Skill casts must update their visible combat banner.');
+assert.match(game, /DAMAGE_FLOAT_BATCH_WINDOW_MS/, 'Combat feedback should batch frequent damage floats.');
+assert.match(game, /SKILL_FEEDBACK_MIN_INTERVAL_MS/, 'Skill cast banners should be throttled.');
+assert.match(game, /HIT_FEEDBACK_MIN_INTERVAL_MS/, 'Hit feedback should be throttled.');
+assert.match(game, /withSuppressedCombatFeedback/, 'Combat catch-up should suppress heavy visual feedback.');
+assert.match(game, /renderDamageNumberNow/, 'Damage number rendering should have a single immediate renderer behind the batcher.');
+assert.match(game, /pendingDamageFloats\.set/, 'Damage float batching should retain pending batches before rendering.');
+assert.match(game, /options\.suffix\s*\|\|\s*""/, 'Combat damage text should append an optional batch suffix.');
+assert.match(game, /const\s+runSimulation\s*=\s*\(\)\s*=>\s*\{[\s\S]*updateCombat\(combatStep\)[\s\S]*withSuppressedCombatFeedback\(runSimulation\)/, 'Combat catch-up should wrap the simulation loop when visual feedback is suppressed.');
 assert.match(styles, /\.skill-bar-icon\.cooldown\.casting/, 'Casting feedback must remain visible when a skill immediately enters cooldown.');
 assert.match(styles, /\.scene-wrap\.skill-cast-active::after/, 'Skill casts must create a visible battle-scene impact pulse.');
 assert.match(game, /function\s+spawnCombatSparks\s*\(/, 'Combat impacts should spawn lightweight pixel spark accents.');
