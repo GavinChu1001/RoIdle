@@ -37,6 +37,7 @@ const itemNamingSource = read('src/systems/equipment/itemNaming.js');
 const itemScoreSource = read('src/systems/equipment/itemScore.js');
 const itemFactorySource = read('src/systems/equipment/itemFactory.js');
 const dismantleSource = read('src/systems/equipment/dismantle.js');
+const equipmentGrowthSource = read('src/systems/equipment/equipmentGrowth.js');
 const equipmentDropsSource = read('src/systems/drops/equipmentDrops.js');
 const materialDropsSource = read('src/systems/drops/materialDrops.js');
 const cardDropsSource = read('src/systems/drops/cardDrops.js');
@@ -851,6 +852,20 @@ assert.ok(ancientHeroOverview.sources.every((source) => Array.isArray(source.mat
 const allLineOverviews = itemProgression.getAllEquipmentLineMaterialOverviews();
 assert.ok(allLineOverviews.length >= 9, 'All material overviews should cover progression lines.');
 assert.ok(!allLineOverviews.some((overview) => overview.series === 'oldWorld'), 'Old-world temporary gear should not appear in material overviews.');
+const equipmentGrowth = await importSource(equipmentGrowthSource);
+assert.equal(
+  equipmentGrowth.usesProgressionGrowth({ source: 'progression_drop' }, {}),
+  true,
+  'Progression drops should use growth-v2 scaling.'
+);
+assert.equal(
+  equipmentGrowth.usesProgressionGrowth({ source: 'monster_drop' }, {}),
+  false,
+  'Legacy monster templates should keep legacy level scaling.'
+);
+const legacySnapshot = equipmentGrowth.snapshotLegacyPower({ atk: 123, level: 88, rarity: 'legend' });
+assert.equal(legacySnapshot.model, 'legacy-level', 'Legacy snapshots should record the old growth model.');
+assert.equal(legacySnapshot.stats.atk, 123, 'Legacy snapshots should preserve current stat values.');
 let lineMasterySource = '';
 assert.doesNotThrow(() => {
   lineMasterySource = read('src/systems/equipment/lineMastery.js');
