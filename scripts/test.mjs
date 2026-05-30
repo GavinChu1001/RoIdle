@@ -394,6 +394,7 @@ assert.equal((game.match(/^init\(\);/gm) || []).length, 0, 'Classic runtime must
 assert.match(game, /window\.bootstrapLegacyRuntime\s*=\s*\(\)\s*=>/, 'Classic runtime bootstrap bridge is missing.');
 assert.match(game, /if\s*\(legacyRuntimeStarted\)\s*return false/, 'Classic runtime bootstrap must be guarded against duplicate starts.');
 assert.match(game, /RuneFrontierLegacyEquipmentContext/, 'Legacy runtime must expose read-only equipment dependencies.');
+assert.match(game, /applyRarityPerk,/, 'Classic equipment context must expose rarity perk completion to modules.');
 assert.match(game, /RuneFrontierEquipmentRuntime/, 'Classic equipment entry points must forward to module implementations.');
 assert.match(game, /showSalvageResult\(title,\s*count,\s*rewards\)/, 'Dismantle result dialog must receive title, count, and material rewards.');
 assert.match(game, /\n\s*renderAll,\s*\n\s*render:\s*renderAll,/, 'Equipment mutations must be able to rerender after state changes.');
@@ -589,6 +590,9 @@ assert.equal(mergedCatalogStats.expBonus, 0.12, 'experience aliases should add t
 assert.equal(mergedCatalogStats.combatPaceBonus, 0.03, 'pace aliases should add together.');
 assert.equal(mergedCatalogStats.antiCrit, undefined, 'deprecated antiCrit should be stripped.');
 assert.match(equipmentIndexSource, /statCatalog/, 'Equipment index should re-export the stat catalog.');
+assert.match(equipmentIndexSource, /import\s+\{[^}]*applyRarityUpgradeRewards[^}]*usesProgressionGrowth[^}]*\}\s+from\s+['"]\.\/equipmentGrowth\.js['"]/, 'Equipment runtime must import growth bridge helpers.');
+assert.match(equipmentIndexSource, /usesProgressionGrowth,/, 'Equipment runtime must expose progression growth detection.');
+assert.match(equipmentIndexSource, /applyRarityUpgradeRewards:\s*\(item,\s*rarity\)\s*=>\s*applyRarityUpgradeRewards\(item,\s*rarity,\s*context\)/, 'Equipment runtime must bridge rarity reward completion with the legacy context.');
 
 const statCatalogModuleUrl = `data:text/javascript;base64,${Buffer.from(statCatalogSource).toString('base64')}`;
 const withStatCatalogImport = (source) => source.replace(/from\s+['"]\.\/statCatalog\.js['"]/g, `from '${statCatalogModuleUrl}'`);
