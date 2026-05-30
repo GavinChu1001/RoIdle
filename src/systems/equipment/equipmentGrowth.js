@@ -29,9 +29,32 @@ export const GROWTH_STAT_KEYS = Object.freeze([
 
 const RARITY_ORDER = Object.freeze(['normal', 'fine', 'rare', 'epic', 'ancient', 'legend', 'darkGold', 'mythic']);
 
+export const PROGRESSION_RARITY_QUALITY_RANGES = Object.freeze({
+  normal: Object.freeze([0.96, 1.04]),
+  fine: Object.freeze([0.98, 1.06]),
+  rare: Object.freeze([1.00, 1.08]),
+  epic: Object.freeze([1.03, 1.12]),
+  ancient: Object.freeze([1.06, 1.15]),
+  legend: Object.freeze([1.08, 1.18]),
+  darkGold: Object.freeze([1.10, 1.22]),
+  mythic: Object.freeze([1.14, 1.28]),
+});
+
 function finite(value, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
+}
+
+export function getProgressionRarityQualityRange(rarity = 'normal') {
+  return [...(PROGRESSION_RARITY_QUALITY_RANGES[rarity] || PROGRESSION_RARITY_QUALITY_RANGES.normal)];
+}
+
+export function rollProgressionQuality(tier = {}, randomFloat = null) {
+  const [min, max] = getProgressionRarityQualityRange(tier.id || tier.rarity || 'normal');
+  const rolled = typeof randomFloat === 'function'
+    ? randomFloat(min, max)
+    : min + Math.random() * (max - min);
+  return Number(finite(rolled, min).toFixed(3));
 }
 
 function rarityRank(rarity) {
@@ -148,7 +171,7 @@ export function snapshotLegacyPower(item = {}) {
 
 export function calculateCreationStatScale({ template = {}, context = {}, tier = {}, itemTier = {}, quality = 1, level = 1, slotGrowth = 0 } = {}) {
   if (usesProgressionGrowth(template, context)) {
-    return finite(tier.scale, 1) * finite(quality, 1);
+    return finite(quality, 1);
   }
   return finite(tier.scale, 1) * finite(itemTier.scale, 1) * finite(quality, 1) * (1 + finite(level, 1) * finite(slotGrowth));
 }

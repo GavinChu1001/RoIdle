@@ -1051,8 +1051,49 @@ assert.equal(
     level: 20,
     slotGrowth: 0.1,
   }),
-  3,
-  'Progression growth should ignore legacy item tier and level scaling.',
+  1.5,
+  'Progression growth should use quality only for creation stat scaling.',
+);
+assert.deepEqual(
+  equipmentGrowth.getProgressionRarityQualityRange('rare'),
+  [1.00, 1.08],
+  'Progression rare quality should be a light base-stat modifier.',
+);
+assert.deepEqual(
+  equipmentGrowth.getProgressionRarityQualityRange('mythic'),
+  [1.14, 1.28],
+  'Progression mythic quality should stay far below the old 7x-9x base-stat multiplier.',
+);
+assert.equal(
+  equipmentGrowth.rollProgressionQuality({ id: 'legend' }, (min, max) => max),
+  1.18,
+  'Progression legend quality should use the configured max roll.',
+);
+assert.equal(
+  equipmentGrowth.calculateCreationStatScale({
+    template: { source: 'progression_drop', series: 'os', growthTier: 'T3' },
+    context: {},
+    tier: { id: 'legend', scale: 2.94 },
+    itemTier: { id: 'tier9', scale: 12 },
+    quality: 1.18,
+    level: 150,
+    slotGrowth: 0.045,
+  }),
+  1.18,
+  'Progression equipment creation should not multiply base stats by rarity scale, item tier, or level growth.',
+);
+assert.equal(
+  Number(equipmentGrowth.calculateCreationStatScale({
+    template: { source: 'monster_drop' },
+    context: {},
+    tier: { id: 'legend', scale: 2.94 },
+    itemTier: { id: 'tier3', scale: 2.1 },
+    quality: 1.2,
+    level: 20,
+    slotGrowth: 0.045,
+  }).toFixed(3)),
+  14.077,
+  'Legacy equipment creation should keep the old rarity/item-tier/level growth formula.',
 );
 assert.equal(
   equipmentGrowth.calculateCreationStatScale({
