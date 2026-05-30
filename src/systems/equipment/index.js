@@ -12,6 +12,7 @@ import { EQUIPMENT_SYNERGY_LINES, ROUTE_SKILL_ENHANCEMENTS, computeEquipmentSyne
 import { DEPRECATED_EQUIPMENT_STATS, ORDINARY_EQUIPMENT_AFFIX_STATS, SPECIAL_MECHANIC_STATS, EQUIPMENT_MAIN_STAT_GROUPS, canonicalEquipmentStat, canonicalizeEquipmentStats, applyCanonicalEquipmentStats } from './statCatalog.js';
 import { canUpgradeEquipmentProgression, upgradeEquipmentProgression } from './progressionUpgrade.js';
 import { LINE_MASTERY_MAX_LEVEL, normalizeLineMasteryState, getLineMasteryLevel, getLineMasteryCost, getLineMasteryBonus, canUpgradeLineMastery, upgradeLineMastery } from './lineMastery.js';
+import { ABYSS_TEMPERING_MAX_LEVEL, canTemperAbyssItem, getAbyssTemperingCost, getAbyssTemperingBonus, temperAbyssItem } from './abyssTempering.js';
 
 export * from './itemFactory.js';
 export * from './itemStats.js';
@@ -25,6 +26,7 @@ export * from './itemSynergy.js';
 export * from './statCatalog.js';
 export * from './progressionUpgrade.js';
 export * from './lineMastery.js';
+export * from './abyssTempering.js';
 export * from './refine.js';
 export * from './starRefine.js';
 export * from './socket.js';
@@ -37,6 +39,7 @@ export function installEquipmentRuntime(context = {}) {
       const state = context.getState?.() || {};
       return getLineMasteryBonus(series, getLineMasteryLevel(state, series));
     },
+    getAbyssTemperingBonus,
   });
   configureItemFactoryContext(context);
   configureEquipmentMutationContext({ ...context, normalizeItem: (item) => normalizeItem(item, context) });
@@ -88,6 +91,11 @@ export function installEquipmentRuntime(context = {}) {
     getLineMasteryBonus,
     canUpgradeLineMastery: (series) => canUpgradeLineMastery(series, context),
     upgradeLineMastery: (series) => upgradeLineMastery(series, context),
+    ABYSS_TEMPERING_MAX_LEVEL,
+    canTemperAbyssItem,
+    getAbyssTemperingCost,
+    getAbyssTemperingBonus,
+    temperAbyssItem: (itemId, mode) => temperAbyssItem(itemId, mode, context),
     EQUIPMENT_SYNERGY_LINES,
     ROUTE_SKILL_ENHANCEMENTS,
     computeEquipmentSynergies,

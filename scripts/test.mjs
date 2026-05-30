@@ -655,6 +655,9 @@ itemStats.configureItemStatsContext({
   getLineMasteryBonus: (series) => series === 'ancientHero'
     ? { statMultiplier: 1.06, bonusStats: { skillDamageBonus: 0.01 }, abyssAffixMultiplier: 1 }
     : { statMultiplier: 1, bonusStats: {}, abyssAffixMultiplier: 1 },
+  getAbyssTemperingBonus: (item) => item?.abyssTemperingLevel
+    ? { abyssDamageBonus: 0.012, abyssDamageReduction: 0.003 }
+    : {},
 });
 const masteredStats = itemStats.getEffectiveItemStats({
   series: 'ancientHero',
@@ -668,6 +671,13 @@ const oldWorldStats = itemStats.getEffectiveItemStats({
   atk: 100,
 });
 assert.equal(oldWorldStats.atk, 100, 'Line mastery should not affect T1 old-world equipment.');
+const temperedStats = itemStats.getEffectiveItemStats({
+  series: 'ancientHero',
+  growthTier: 'T2',
+  abyssTemperingLevel: 2,
+});
+assert.equal(temperedStats.abyssDamageBonus, 0.012, 'Abyss tempering bonus should apply to effective stats.');
+assert.equal(temperedStats.abyssDamageReduction, 0.003, 'Abyss tempering defensive bonus should apply to effective stats.');
 
 let itemArchetypeSource = '';
 assert.doesNotThrow(() => {
@@ -998,6 +1008,65 @@ assert.equal(upgradeState.inventory[0].upgradeStage, 1, 'Progression upgrade sho
 assert.ok(upgradeState.materials.heroReformInscription < 4, 'Progression upgrade should consume line-specific material.');
 assert.equal(upgradeSaved, 1, 'Progression upgrade should save state once.');
 assert.equal(upgradeRendered, 1, 'Progression upgrade should rerender once.');
+let abyssTemperingSource = '';
+assert.doesNotThrow(() => {
+  abyssTemperingSource = read('src/systems/equipment/abyssTempering.js');
+}, 'Abyss tempering module must exist.');
+for (const name of [
+  'ABYSS_TEMPERING_MAX_LEVEL',
+  'canTemperAbyssItem',
+  'getAbyssTemperingCost',
+  'getAbyssTemperingBonus',
+  'temperAbyssItem',
+]) {
+  assert.match(abyssTemperingSource, new RegExp(`\\b${name}\\b`), `Abyss tempering module must define ${name}.`);
+}
+assert.match(equipmentIndexSource, /abyssTempering/, 'Equipment index should re-export abyss tempering.');
+assert.match(game, /rollAbyssAffixes,/, 'Equipment runtime context must expose abyss affix rolling.');
+const abyssTempering = await importSource(withEquipmentProgressionImports(abyssTemperingSource));
+const ancientHeroItem = { id: 'a1', series: 'ancientHero', growthTier: 'T2', upgradeStage: 0, rarity: 'rare' };
+assert.equal(abyssTempering.canTemperAbyssItem(ancientHeroItem), true, 'T2+ progression equipment should be temperable.');
+assert.equal(abyssTempering.canTemperAbyssItem({ series: 'oldWorld', growthTier: 'T1' }), false, 'T1 old-world equipment should not be abyss-temperable.');
+assert.deepEqual(
+  abyssTempering.getAbyssTemperingCost(ancientHeroItem, 'infuse').materials,
+  { heroReformInscription: 1, abyssShard: 8 },
+  'Infuse should consume line advanced material and abyss shards.',
+);
+assert.deepEqual(
+  abyssTempering.getAbyssTemperingCost({ ...ancientHeroItem, abyssTemperingLevel: 4 }, 'empower').materials,
+  { mythicHeroCore: 1, abyssCore: 1 },
+  'Higher temper levels should consume line core material and abyss core.',
+);
+assert.deepEqual(
+  abyssTempering.getAbyssTemperingBonus({ series: 'ancientHero', growthTier: 'T2', abyssTemperingLevel: 2 }),
+  { abyssDamageBonus: 0.012, abyssDamageReduction: 0.003 },
+  'Abyss tempering levels should grant abyss combat bonuses.',
+);
+assert.deepEqual(
+  abyssTempering.getAbyssTemperingBonus({ series: 'oldWorld', growthTier: 'T1', abyssTemperingLevel: 2 }),
+  {},
+  'Old-world equipment should not receive abyss tempering bonuses.',
+);
+const temperState = {
+  gold: 50000,
+  materials: { heroReformInscription: 2, abyssShard: 20 },
+  inventory: [{ ...ancientHeroItem, name: 'Hero Blade' }],
+};
+let temperSaved = 0;
+let temperRendered = 0;
+const temperResult = abyssTempering.temperAbyssItem('a1', 'infuse', {
+  getState: () => temperState,
+  rollAbyssAffixes: () => [{ id: 'abyss-test', effects: { bossDamageBonus: 0.05 } }],
+  save: () => { temperSaved += 1; },
+  renderAll: () => { temperRendered += 1; },
+  showToast: () => {},
+});
+assert.equal(temperResult.ok, true, 'Abyss tempering should complete when enough materials exist.');
+assert.equal(temperState.inventory[0].abyssTempered, true, 'Abyss tempering should mark the item.');
+assert.equal(temperState.inventory[0].prefix, '深渊', 'Abyss tempering should make display naming use the abyss prefix.');
+assert.equal(temperState.inventory[0].abyssAffixes[0].id, 'abyss-test', 'Abyss tempering should roll abyss affixes.');
+assert.equal(temperSaved, 1, 'Abyss tempering should save state once.');
+assert.equal(temperRendered, 1, 'Abyss tempering should rerender once.');
 
 const itemFactory = await importSource(withEquipmentProgressionImports(itemFactorySource));
 const factoryContext = {

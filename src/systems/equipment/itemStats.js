@@ -31,6 +31,7 @@ let runtimeContext = Object.freeze({
   getMechanicAffixEffects: () => ({}),
   computeCardSocketBonuses: () => ({}),
   getLineMasteryBonus: () => ({ statMultiplier: 1, bonusStats: {}, abyssAffixMultiplier: 1 }),
+  getAbyssTemperingBonus: () => ({}),
 });
 
 export function configureItemStatsContext(context = {}) {
@@ -40,6 +41,7 @@ export function configureItemStatsContext(context = {}) {
     getLineMasteryBonus: typeof context.getLineMasteryBonus === 'function'
       ? context.getLineMasteryBonus
       : () => ({ statMultiplier: 1, bonusStats: {}, abyssAffixMultiplier: 1 }),
+    getAbyssTemperingBonus: typeof context.getAbyssTemperingBonus === 'function' ? context.getAbyssTemperingBonus : () => ({}),
   });
 }
 
@@ -185,6 +187,9 @@ export function getEffectiveItemStats(item = {}, includeRandom = true, context =
     Object.entries(affix?.effects || {}).forEach(([stat, value]) => addScaledStat(stats, stat, value));
   });
   Object.entries(context.computeCardSocketBonuses(item) || {}).forEach(([stat, value]) => {
+    addScaledStat(stats, stat, value, { applyRefine: false });
+  });
+  Object.entries((typeof context.getAbyssTemperingBonus === 'function' ? context.getAbyssTemperingBonus(item) : {}) || {}).forEach(([stat, value]) => {
     addScaledStat(stats, stat, value, { applyRefine: false });
   });
   if (includeRandom) {
