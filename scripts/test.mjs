@@ -871,11 +871,80 @@ const legacySpecialSnapshot = equipmentGrowth.snapshotLegacyPower({
   eliteDamageBonus: 0.08,
   statusResist: 0.04,
   mutationMaterialDoubleChance: 0.2,
+  dodgeRatePct: 0.03,
+  critRatePct: 0.07,
+  baseExpBonus: 0.11,
+  jobExpBonus: 0.13,
+  mythicWeightBonus: 0.15,
+  abyssBossDamageBonus: 0.17,
+  bossDamageReduction: 0.19,
+  offlineEfficiencyBonus: 0.21,
+  magicDamageReduction: 0.23,
+  splashTargets: 2,
+  fireBurstChance: 0.25,
+  meteorCounterChance: 0.27,
+  normalAttackDamageBonus: 0.29,
+  abyssPower: 31,
+  setPowerBonus: 0.33,
+  physicalFinalDamageBonus: 0.35,
 });
 assert.equal(legacySpecialSnapshot.stats.monsterDamageBonus, 0.12, 'Legacy snapshots should preserve monster damage bonuses.');
 assert.equal(legacySpecialSnapshot.stats.eliteDamageBonus, 0.08, 'Legacy snapshots should preserve elite damage bonuses.');
 assert.equal(legacySpecialSnapshot.stats.statusResist, 0.04, 'Legacy snapshots should preserve status resistance.');
 assert.equal(legacySpecialSnapshot.stats.mutationMaterialDoubleChance, 0.2, 'Legacy snapshots should preserve mutation material bonuses.');
+for (const [stat, value] of Object.entries({
+  dodgeRatePct: 0.03,
+  critRatePct: 0.07,
+  baseExpBonus: 0.11,
+  jobExpBonus: 0.13,
+  mythicWeightBonus: 0.15,
+  abyssBossDamageBonus: 0.17,
+  bossDamageReduction: 0.19,
+  offlineEfficiencyBonus: 0.21,
+  magicDamageReduction: 0.23,
+  splashTargets: 2,
+  fireBurstChance: 0.25,
+  meteorCounterChance: 0.27,
+  normalAttackDamageBonus: 0.29,
+  abyssPower: 31,
+  setPowerBonus: 0.33,
+  physicalFinalDamageBonus: 0.35,
+})) {
+  assert.equal(legacySpecialSnapshot.stats[stat], value, `Legacy snapshots should preserve ${stat}.`);
+}
+assert.equal(
+  equipmentGrowth.calculateCreationStatScale({
+    template: { source: 'progression_drop' },
+    tier: { scale: 2 },
+    itemTier: { scale: 5 },
+    quality: 1.5,
+    level: 20,
+    slotGrowth: 0.1,
+  }),
+  3,
+  'Progression growth should ignore legacy item tier and level scaling.',
+);
+assert.equal(
+  equipmentGrowth.calculateCreationStatScale({
+    template: { source: 'monster_drop' },
+    tier: { scale: 2 },
+    itemTier: { scale: 5 },
+    quality: 1.5,
+    level: 20,
+    slotGrowth: 0.1,
+  }),
+  45,
+  'Legacy growth should preserve item tier and level scaling.',
+);
+const rebuiltGrowthStats = equipmentGrowth.rebuildGrowthStatsFromTemplate(
+  { atk: 99, magicDamageReduction: 0.4 },
+  { atk: 10 },
+  { scale: 2 },
+  1.5,
+);
+assert.equal(rebuiltGrowthStats.atk, 30, 'Progression rebuild should scale present template stats.');
+assert.equal(rebuiltGrowthStats.magicDamageReduction, 0, 'Progression rebuild should clear absent old stats.');
+assert.equal(rebuiltGrowthStats.growthModel, 'progression-v2', 'Progression rebuild should mark the growth model.');
 const blockedPerkUpgrade = equipmentGrowth.applyRarityUpgradeRewards(
   { rarityPerk: { id: 'epic' }, rarityRewardHistory: ['epic'] },
   'mythic',
@@ -886,6 +955,27 @@ assert.deepEqual(
   ['epic', 'ancient'],
   'Skipped perk rewards must not be recorded as applied.',
 );
+const rewardRuntimeCalls = { rolls: 0, perks: 0 };
+const rewardRuntime = {
+  normalizeEquipmentArchetype: (archetype) => archetype,
+  rollRandomStats: (rarity, archetype) => {
+    rewardRuntimeCalls.rolls += 1;
+    return { rarity, archetype, atk: 1 };
+  },
+  applyRarityPerk: (item, perk) => {
+    rewardRuntimeCalls.perks += 1;
+    item.rarityPerk = { id: perk.id };
+  },
+};
+const rewardedItem = equipmentGrowth.applyRarityUpgradeRewards({ archetype: 'physical' }, 'ancient', rewardRuntime);
+assert.deepEqual(rewardedItem.rarityRewardHistory, ['rare', 'epic', 'ancient'], 'Successful rarity rewards should be recorded.');
+assert.deepEqual(rewardedItem.cardSlots, [{ cardId: null }], 'Ancient reward should add a card slot.');
+assert.equal(rewardRuntimeCalls.rolls, 1, 'Rare reward should roll random stats once.');
+assert.equal(rewardRuntimeCalls.perks, 1, 'Epic reward should apply its perk once.');
+equipmentGrowth.applyRarityUpgradeRewards(rewardedItem, 'ancient', rewardRuntime);
+assert.deepEqual(rewardedItem.rarityRewardHistory, ['rare', 'epic', 'ancient'], 'Second rarity reward pass should not duplicate history.');
+assert.equal(rewardRuntimeCalls.rolls, 1, 'Second rarity reward pass should not reroll random stats.');
+assert.equal(rewardRuntimeCalls.perks, 1, 'Second rarity reward pass should not reapply perks.');
 let lineMasterySource = '';
 assert.doesNotThrow(() => {
   lineMasterySource = read('src/systems/equipment/lineMastery.js');
