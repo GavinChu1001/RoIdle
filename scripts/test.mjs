@@ -143,9 +143,12 @@ assert.match(game, /spawnCombatRewardVfx\(wrap,\s*state\.enemyBoss\s*\?\s*"boss-
 assert.match(game, /spawnCombatRewardVfx\(wrap,\s*"loot"/, 'High-value loot banners should add generated loot VFX.');
 assert.match(game, /function\s+spawnPlayerFeedbackVfx\s*\(/, 'Player heal, block, dodge, and hurt events should spawn generated player-side VFX.');
 assert.match(game, /spawnPlayerFeedbackVfx\(wrap,\s*target,\s*type\)/, 'Damage-number routing should attach player-side VFX to existing combat feedback events.');
+assert.match(game, /const\s+baseLeft\s*=\s*21/, 'Player feedback VFX should be anchored over the player character instead of beside the HUD.');
+assert.match(game, /const\s+baseTop\s*=\s*66/, 'Player feedback VFX should appear on the player character body.');
 assert.match(game, /function\s+spawnEnemyActionVfx\s*\(/, 'Enemy attacks should have generated warning and impact VFX.');
 assert.match(game, /function\s+showEnemyAttackWarning\s*\(/, 'Enemy attack windups should expose a scene warning hook.');
 assert.match(game, /function\s+showEnemyAttackImpact\s*\(/, 'Enemy attack hits should expose a scene impact hook.');
+assert.match(game, /const\s+layerClass\s*=\s*type\s*===\s*"boss-cast"\s*\?\s*"enemy-action-behind"\s*:\s*"enemy-action-front"/, 'Boss charge windups should opt into a behind-monster visual layer while normal enemy warnings stay in front.');
 assert.match(game, /showEnemyAttackWarning,\s*\n\s*showEnemyAttackImpact,/, 'Combat runtime context should receive enemy warning and impact hooks.');
 assert.match(styles, /\.ro-vfx\s*\{[\s\S]*background-repeat:\s*no-repeat/, 'Generated combat VFX should share a sprite display primitive.');
 assert.match(styles, /\.ro-vfx-slash\s*\{[\s\S]*assets\/ui\/fx\/hit-slash\.png/, 'Slash hits should use the generated slash asset.');
@@ -164,15 +167,23 @@ for (const reward of ['death', 'boss-death', 'loot', 'gold']) {
 for (const playerFeedback of ['heal', 'shield', 'dodge', 'hurt']) {
   assert.match(styles, new RegExp(`\\.ro-player-vfx-${playerFeedback}\\s*\\{[\\s\\S]*assets\\/ui\\/fx\\/player-${playerFeedback}\\.png`), `${playerFeedback} player feedback should use a generated VFX asset.`);
 }
+assert.match(styles, /\.ro-player-vfx\s*\{[\s\S]*--player-vfx-hold-opacity:\s*0\.5/, 'Player feedback VFX should render as semi-transparent overlays on the player.');
+assert.match(styles, /@keyframes\s+roPlayerFeedbackPop\s*\{[\s\S]*24%\s*\{[\s\S]*opacity:\s*0\.52[\s\S]*74%\s*\{[\s\S]*opacity:\s*0\.42/, 'Player hurt feedback should stay semi-transparent over the character.');
+assert.match(styles, /@keyframes\s+roPlayerHeal\s*\{[\s\S]*26%\s*\{[\s\S]*opacity:\s*0\.52[\s\S]*76%\s*\{[\s\S]*opacity:\s*0\.4/, 'Player heal feedback should stay semi-transparent over the character.');
+assert.match(styles, /@keyframes\s+roPlayerShield\s*\{[\s\S]*22%\s*\{[\s\S]*opacity:\s*0\.54[\s\S]*64%\s*\{[\s\S]*opacity:\s*0\.44/, 'Player shield feedback should stay semi-transparent over the character.');
+assert.match(styles, /@keyframes\s+roPlayerDodge\s*\{[\s\S]*24%\s*\{[\s\S]*opacity:\s*0\.5/, 'Player dodge feedback should stay semi-transparent over the character.');
 for (const enemyAction of ['enemy-warning', 'boss-cast', 'boss-impact', 'danger-mark']) {
   assert.match(styles, new RegExp(`\\.ro-enemy-action-vfx-${enemyAction}\\s*\\{[\\s\\S]*assets\\/ui\\/fx\\/${enemyAction}\\.png`), `${enemyAction} enemy action feedback should use a generated VFX asset.`);
 }
+assert.match(styles, /\.ro-enemy-action-vfx-enemy-warning\s*\{[\s\S]*z-index:\s*9/, 'Normal monster attack warnings should sit in front of the monster-side action layer.');
+assert.match(styles, /\.ro-enemy-action-vfx-boss-cast\s*\{[\s\S]*z-index:\s*4/, 'Boss charge windups should sit on a lower behind-monster visual layer.');
+assert.match(styles, /@keyframes\s+roBossCast\s*\{[\s\S]*22%\s*\{[\s\S]*opacity:\s*0\.58[\s\S]*68%\s*\{[\s\S]*opacity:\s*0\.44/, 'Boss charge windups should stay translucent so the monster remains readable.');
 assert.match(html, /id="enemyStatusVfxLayer"[\s\S]*class="enemy-status-vfx-layer"/, 'Battle canvas should expose a dedicated enemy status VFX layer without changing combat ids.');
 assert.match(styles, /\.ro-vfx-spark\s*\{[\s\S]*width:\s*64px[\s\S]*height:\s*64px/, 'Generated spark VFX should stay compact enough to avoid covering the hero.');
 assert.match(styles, /\.combat-impact-player-hit\.ro-vfx-spark\s*\{[\s\S]*width:\s*74px[\s\S]*height:\s*74px/, 'Player-hit generated spark should be smaller than the first preview implementation.');
 assert.match(styles, /@media\s*\(max-width:\s*640px\)[\s\S]*\.combat-impact-player-hit\.ro-vfx-spark\s*\{[\s\S]*width:\s*60px[\s\S]*height:\s*60px/, 'Mobile player-hit generated spark should be compact on 390px screens.');
-assert.match(html, /styles\.css\?v=20260529-battle-effects-v9/, 'Battle effect CSS should use a fresh cache-busting version.');
-assert.match(html, /game\.js\?v=20260529-battle-effects-v7/, 'Battle effect runtime should use a fresh cache-busting version.');
+assert.match(html, /styles\.css\?v=20260529-battle-effects-v11/, 'Battle effect CSS should use a fresh cache-busting version.');
+assert.match(html, /game\.js\?v=20260529-battle-effects-v9/, 'Battle effect runtime should use a fresh cache-busting version.');
 assert.match(main, /getMvpInscriptionView:\s*window\.getMvpInscriptionView/, 'Character page runtime must receive the live MVP inscription view helper.');
 assert.match(main, /canGainMvpInscriptionOnCurrentMap:\s*window\.canGainMvpInscriptionOnCurrentMap/, 'Character page runtime must receive the live MVP inscription map eligibility helper.');
 assert.match(html, /src="\.\/src\/main\.js\?v=20260529-mvp-inscription-v2"/, 'MVP inscription runtime must use a fresh module cache-busting version.');

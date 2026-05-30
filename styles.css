@@ -10881,13 +10881,14 @@ details > summary::marker {
 .ro-player-vfx {
   --player-vfx-rotate: 0deg;
   --player-vfx-scale: 1;
+  --player-vfx-hold-opacity: 0.5;
   position: absolute;
-  left: 23%;
-  top: 50%;
-  z-index: 7;
+  left: 21%;
+  top: 66%;
+  z-index: 8;
   display: block;
-  width: 96px;
-  height: 96px;
+  width: 78px;
+  height: 78px;
   pointer-events: none;
   background-position: center;
   background-repeat: no-repeat;
@@ -10895,52 +10896,53 @@ details > summary::marker {
   image-rendering: pixelated;
   opacity: 0;
   transform: translate(-50%, -50%) rotate(var(--player-vfx-rotate)) scale(var(--player-vfx-scale));
-  filter: drop-shadow(0 0 7px rgba(255, 225, 136, 0.32));
+  filter: drop-shadow(0 0 5px rgba(255, 225, 136, 0.22));
   will-change: opacity, transform;
   animation: roPlayerFeedbackPop 860ms steps(5, end) forwards;
 }
 
 .ro-player-vfx-heal {
-  width: 104px;
-  height: 112px;
+  width: 82px;
+  height: 88px;
   background-image: url("assets/ui/fx/player-heal.png");
   filter:
-    drop-shadow(0 0 7px rgba(118, 227, 111, 0.45))
-    drop-shadow(0 0 9px rgba(255, 227, 126, 0.28));
+    drop-shadow(0 0 5px rgba(118, 227, 111, 0.32))
+    drop-shadow(0 0 7px rgba(255, 227, 126, 0.18));
   animation: roPlayerHeal 1080ms steps(5, end) forwards;
 }
 
 .ro-player-vfx-shield {
-  width: 112px;
-  height: 108px;
+  width: 90px;
+  height: 88px;
   z-index: 8;
   background-image: url("assets/ui/fx/player-shield.png");
   filter:
-    drop-shadow(0 0 8px rgba(108, 190, 255, 0.42))
-    drop-shadow(0 0 8px rgba(255, 214, 104, 0.24));
+    drop-shadow(0 0 6px rgba(108, 190, 255, 0.28))
+    drop-shadow(0 0 6px rgba(255, 214, 104, 0.16));
   animation: roPlayerShield 940ms steps(5, end) forwards;
 }
 
 .ro-player-vfx-dodge {
-  width: 108px;
-  height: 92px;
+  width: 82px;
+  height: 70px;
   background-image: url("assets/ui/fx/player-dodge.png");
-  filter: drop-shadow(0 0 7px rgba(171, 226, 255, 0.42));
+  filter: drop-shadow(0 0 5px rgba(171, 226, 255, 0.28));
   animation: roPlayerDodge 820ms steps(5, end) forwards;
 }
 
 .ro-player-vfx-hurt {
-  width: 82px;
-  height: 84px;
-  z-index: 6;
+  width: 64px;
+  height: 66px;
+  z-index: 8;
   background-image: url("assets/ui/fx/player-hurt.png");
-  filter: drop-shadow(0 0 7px rgba(255, 109, 69, 0.38));
+  filter: drop-shadow(0 0 5px rgba(255, 109, 69, 0.26));
   animation: roPlayerFeedbackPop 760ms steps(4, end) forwards;
 }
 
 .ro-enemy-action-vfx {
   --enemy-action-rotate: 0deg;
   --enemy-action-scale: 1;
+  --enemy-action-hold-opacity: 0.84;
   position: absolute;
   left: 73%;
   top: 51%;
@@ -10962,20 +10964,30 @@ details > summary::marker {
   animation: roEnemyWarning 760ms steps(5, end) forwards;
 }
 
+.enemy-action-front {
+  z-index: 9;
+}
+
+.enemy-action-behind {
+  z-index: 4;
+}
+
 .ro-enemy-action-vfx-enemy-warning {
   width: 126px;
   height: 114px;
+  z-index: 9;
   background-image: url("assets/ui/fx/enemy-warning.png");
 }
 
 .ro-enemy-action-vfx-boss-cast {
+  --enemy-action-hold-opacity: 0.52;
   width: 176px;
   height: 170px;
-  z-index: 7;
+  z-index: 4;
   background-image: url("assets/ui/fx/boss-cast.png");
   filter:
-    drop-shadow(0 0 10px rgba(255, 103, 54, 0.48))
-    drop-shadow(0 0 12px rgba(119, 42, 180, 0.24));
+    drop-shadow(0 0 8px rgba(255, 103, 54, 0.32))
+    drop-shadow(0 0 10px rgba(119, 42, 180, 0.18));
   animation: roBossCast 1120ms steps(5, end) forwards;
 }
 
@@ -11164,11 +11176,11 @@ details > summary::marker {
     transform: translate(-50%, -46%) rotate(var(--player-vfx-rotate)) scale(0.44);
   }
   24% {
-    opacity: 0.9;
+    opacity: 0.52;
     transform: translate(-50%, -50%) rotate(var(--player-vfx-rotate)) scale(var(--player-vfx-scale));
   }
   74% {
-    opacity: 0.82;
+    opacity: 0.42;
   }
   100% {
     opacity: 0;
@@ -11182,11 +11194,11 @@ details > summary::marker {
     transform: translate(-50%, -42%) scale(0.48);
   }
   26% {
-    opacity: 0.86;
+    opacity: 0.52;
     transform: translate(-50%, -50%) scale(var(--player-vfx-scale));
   }
   76% {
-    opacity: 0.74;
+    opacity: 0.4;
   }
   100% {
     opacity: 0;
@@ -11200,11 +11212,11 @@ details > summary::marker {
     transform: translate(-50%, -50%) scale(0.42);
   }
   22% {
-    opacity: 0.9;
+    opacity: 0.54;
     transform: translate(-50%, -50%) scale(var(--player-vfx-scale));
   }
   64% {
-    opacity: 0.82;
+    opacity: 0.44;
   }
   100% {
     opacity: 0;
@@ -11218,7 +11230,7 @@ details > summary::marker {
     transform: translate(-64%, -50%) rotate(var(--player-vfx-rotate)) scale(0.54);
   }
   24% {
-    opacity: 0.76;
+    opacity: 0.5;
     transform: translate(-50%, -50%) rotate(var(--player-vfx-rotate)) scale(var(--player-vfx-scale));
   }
   100% {
@@ -11230,7 +11242,7 @@ details > summary::marker {
 @keyframes roPlayerReducedHold {
   0%,
   94% {
-    opacity: 0.82;
+    opacity: var(--player-vfx-hold-opacity, 0.5);
     transform: translate(-50%, -50%) rotate(var(--player-vfx-rotate)) scale(var(--player-vfx-scale));
   }
   100% {
@@ -11263,11 +11275,11 @@ details > summary::marker {
     transform: translate(-50%, -50%) scale(0.46);
   }
   22% {
-    opacity: 0.88;
+    opacity: 0.58;
     transform: translate(-50%, -50%) scale(var(--enemy-action-scale));
   }
   68% {
-    opacity: 0.8;
+    opacity: 0.44;
     transform: translate(-50%, -50%) scale(1);
   }
   100% {
@@ -11315,7 +11327,7 @@ details > summary::marker {
 @keyframes roEnemyReducedHold {
   0%,
   94% {
-    opacity: 0.84;
+    opacity: var(--enemy-action-hold-opacity, 0.84);
     transform: translate(-50%, -50%) rotate(var(--enemy-action-rotate)) scale(var(--enemy-action-scale));
   }
   100% {
@@ -11454,23 +11466,23 @@ details > summary::marker {
   }
 
   .ro-player-vfx-heal {
-    width: 76px;
-    height: 82px;
+    width: 60px;
+    height: 64px;
   }
 
   .ro-player-vfx-shield {
-    width: 82px;
-    height: 78px;
+    width: 66px;
+    height: 64px;
   }
 
   .ro-player-vfx-dodge {
-    width: 78px;
-    height: 66px;
+    width: 62px;
+    height: 52px;
   }
 
   .ro-player-vfx-hurt {
-    width: 62px;
-    height: 64px;
+    width: 48px;
+    height: 50px;
   }
 
   .ro-enemy-action-vfx-enemy-warning {
