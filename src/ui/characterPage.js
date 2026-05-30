@@ -6,6 +6,41 @@ function fmtn(v) { return charCtx.formatNumber ? charCtx.formatNumber(v) : Strin
 function pct(v) { return charCtx.percent ? charCtx.percent(v) : String(Math.round((v || 0) * 100)) + '%'; }
 function fsv(stat, v) { return charCtx.formatStatValue ? charCtx.formatStatValue(stat, v) : String(v); }
 
+const MVP_INSCRIPTION_BONUS_LABELS = [
+  ['hpPct', '生命'],
+  ['atkPct', '物攻'],
+  ['matkPct', '魔攻'],
+  ['defPct', '防御'],
+  ['baseExpBonus', 'BASE经验'],
+  ['jobExpBonus', 'JOB经验'],
+  ['goldBonus', '金币'],
+  ['attackSpeedPct', '攻速'],
+  ['combatPaceBonus', '战斗节奏'],
+  ['bossDamageBonus', 'Boss伤害'],
+  ['hitRate', '命中'],
+  ['critRatePct', '暴击'],
+  ['statusResist', '状态抗性'],
+  ['physicalFinalDamageBonus', '物理最终'],
+  ['normalAttackDamageBonus', '普攻伤害'],
+  ['skillDamageBonus', '技能伤害'],
+  ['finalDamageBonus', '最终伤害'],
+];
+
+function fmtInscriptionPercent(value) {
+  const safe = F(value);
+  const percentValue = safe * 100;
+  const digits = Math.abs(percentValue) < 1 ? 2 : Math.abs(percentValue) < 10 ? 1 : 0;
+  const text = percentValue.toFixed(digits).replace(/\.0+$/, '').replace(/(\.\d*[1-9])0$/, '$1');
+  return `${safe >= 0 ? '+' : ''}${text}%`;
+}
+
+function mvpInscriptionBonusEntries(bonuses = {}) {
+  return MVP_INSCRIPTION_BONUS_LABELS
+    .map(([key, label]) => ({ key, label, value: F(bonuses[key]) }))
+    .filter((entry) => entry.value !== 0)
+    .map((entry) => ({ ...entry, valueText: fmtInscriptionPercent(entry.value) }));
+}
+
 export function configureCharacterRenderContext(ctx = {}) { charCtx = ctx || {}; }
 
 export function renderHeroes(ctx = charCtx) {
@@ -33,6 +68,7 @@ export function renderHeroes(ctx = charCtx) {
   const inscriptionStageName = mvpInscription.stageName || '波利王铭刻';
   const nextStageName = mvpInscription.nextStage?.name || inscriptionStageName;
   const canBreakthroughMvpInscription = Boolean(mvpInscription.atBreakthrough);
+  const inscriptionBonusEntries = mvpInscriptionBonusEntries(mvpInscription.bonuses || {});
   const rebirthModeHtml = F(state.hero?.rebirths) > 0 ? `
         <div class="rebirth-mode-section ro-character-mode">
           <label class="rebirth-toggle">
@@ -90,6 +126,15 @@ export function renderHeroes(ctx = charCtx) {
         <div class="meter ro-character-job-meter"><div style="width:${Math.max(0, Math.min(100, inscriptionProgress))}%"></div></div>
       </div>
       <p class="ro-character-growth-note">前台修行 ${fmtn(F(mvpInscription.onlinePerMinute))} / 分钟 · ${inscriptionMapEffective ? '当前地图可获得铭刻经验' : '当前地图过低，不获得铭刻经验'}</p>
+      <div class="ro-character-section-title">
+        <strong>当前加成</strong>
+        <span>${inscriptionBonusEntries.length ? `${fmtn(inscriptionBonusEntries.length)} 项生效` : '暂无加成'}</span>
+      </div>
+      <div class="stat-grid ro-character-inscription-bonuses">
+        ${inscriptionBonusEntries.length
+          ? inscriptionBonusEntries.map((entry) => `<span><small>${esc(entry.label)}</small>${esc(entry.valueText)}</span>`).join('')
+          : '<span><small>当前加成</small>待激活</span>'}
+      </div>
       <div class="hero-actions-inline ro-character-actions">
         <button class="ro-light-control" type="button" data-mvp-inscription-breakthrough ${canBreakthroughMvpInscription ? '' : 'disabled'}>下一突破：${esc(nextStageName)}</button>
       </div>

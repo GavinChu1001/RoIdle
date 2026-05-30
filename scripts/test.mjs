@@ -1585,6 +1585,9 @@ assert.match(characterPageSource, /MVP铭刻/, 'Character page must render the M
 assert.match(characterPageSource, /当前地图.*铭刻/, 'Character page should show whether the current map grants inscription exp.');
 assert.match(characterPageSource, /下一突破/, 'Character page should show MVP inscription breakthrough guidance.');
 assert.match(characterPageSource, /Boolean\(mvpInscription\.atBreakthrough\)/, 'Character page breakthrough button must follow runtime breakthrough state.');
+assert.match(characterPageSource, /当前加成/, 'Character page should show active MVP inscription stat bonuses.');
+assert.match(characterPageSource, /mvpInscriptionBonusEntries\(mvpInscription\.bonuses \|\| \{\}\)/, 'Character page should render MVP inscription bonuses from the live view.');
+assert.match(characterPageSource, /ro-character-inscription-bonuses/, 'Character page should render MVP inscription bonus chips.');
 assert.equal(offline.shouldSettleBackgroundOffline(14999), false, 'Short background pauses should resume normal combat without offline settlement.');
 assert.equal(offline.shouldSettleBackgroundOffline(15000), true, 'Background pauses at the threshold should settle through offline rewards.');
 const backgroundOfflineState = {
