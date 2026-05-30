@@ -6679,6 +6679,304 @@ button.pixel-button {
   font-weight: 900;
 }
 
+.material-bag-page {
+  grid-template-columns: 1fr;
+  align-items: stretch;
+}
+
+.material-bag-board,
+.material-detail-panel {
+  min-width: 0;
+  padding: 10px;
+  border: 2px solid rgba(61, 37, 20, 0.36);
+  border-radius: 7px;
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 244, 213, 0.9), rgba(228, 193, 132, 0.78));
+}
+
+.material-bag-heading,
+.material-detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.material-bag-heading {
+  margin-bottom: 8px;
+}
+
+.material-bag-heading .material-group-title {
+  margin: 0;
+}
+
+.material-bag-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 9px;
+}
+
+.material-bag-filter {
+  min-height: 27px;
+  padding: 4px 8px;
+  border: 1px solid rgba(77, 46, 22, 0.42);
+  border-radius: 5px;
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(255, 238, 194, 0.95), rgba(219, 179, 111, 0.88));
+  color: #4a2b18;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.material-bag-filter.active {
+  color: #fff2cf;
+  border-color: rgba(25, 79, 54, 0.7);
+  background:
+    url("assets/ui/bg-pixel-noise.png"),
+    linear-gradient(180deg, rgba(56, 118, 83, 0.95), rgba(34, 82, 57, 0.94));
+}
+
+.material-bag-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
+  gap: 7px;
+}
+
+.material-bag-slot,
+.material-empty-slot {
+  position: relative;
+  min-width: 0;
+  aspect-ratio: 1 / 1;
+  min-height: 74px;
+  border: 2px solid rgba(93, 59, 29, 0.42);
+  border-radius: 5px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0) 52%),
+    linear-gradient(180deg, rgba(255, 241, 200, 0.92), rgba(217, 181, 116, 0.82));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.35),
+    inset 0 -6px 12px rgba(82, 48, 18, 0.08);
+}
+
+.material-empty-slot {
+  background:
+    repeating-linear-gradient(45deg, rgba(96, 61, 27, 0.04) 0 2px, transparent 2px 7px),
+    rgba(213, 178, 114, 0.44);
+}
+
+.material-bag-slot.selected {
+  border-color: rgba(32, 107, 74, 0.9);
+  box-shadow:
+    0 0 0 2px rgba(45, 114, 81, 0.2),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+
+.material-bag-rarity-rare { border-color: rgba(62, 105, 145, 0.7); }
+.material-bag-rarity-epic { border-color: rgba(107, 86, 159, 0.72); }
+.material-bag-rarity-legend,
+.material-bag-rarity-darkGold { border-color: rgba(191, 117, 39, 0.78); }
+.material-bag-rarity-mythic { border-color: rgba(191, 77, 123, 0.78); }
+
+.material-bag-item {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  padding: 6px 5px 5px;
+  border: 0;
+  background: transparent;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.material-bag-icon {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 2px solid rgba(70, 43, 20, 0.7);
+  border-radius: 5px;
+  background:
+    radial-gradient(circle at 35% 28%, rgba(255, 246, 183, 0.95) 0 18%, rgba(210, 143, 45, 0.95) 20% 54%, rgba(119, 65, 22, 0.94) 56% 100%);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.18);
+  color: #3d2110;
+  font-size: 0.75rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.material-bag-name {
+  width: 100%;
+  min-height: 16px;
+  overflow: hidden;
+  color: #3f2616;
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1.15;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.material-bag-qty {
+  position: absolute;
+  right: 4px;
+  bottom: 3px;
+  min-width: 24px;
+  padding: 1px 4px;
+  border: 1px solid rgba(75, 45, 20, 0.28);
+  border-radius: 999px;
+  background: rgba(255, 248, 226, 0.86);
+  color: #4a2b18;
+  font-size: 0.64rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+.material-bag-empty {
+  grid-column: 1 / -1;
+  min-height: 76px;
+  display: grid;
+  place-items: center;
+  color: #6a4426;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.material-detail-panel {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.material-detail-empty {
+  place-items: center;
+  text-align: center;
+}
+
+.material-detail-head {
+  justify-content: flex-start;
+  padding-bottom: 9px;
+  border-bottom: 1px dashed rgba(78, 47, 23, 0.38);
+}
+
+.material-detail-head .material-bag-icon {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+}
+
+.material-detail-head div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.material-detail-head strong {
+  overflow: hidden;
+  color: #3f2616;
+  font-size: 0.98rem;
+  line-height: 1.18;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.material-detail-head small,
+.material-detail-section strong {
+  color: #6a4426;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.material-detail-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.material-detail-stats span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid rgba(82, 49, 22, 0.24);
+  border-radius: 6px;
+  background: rgba(255, 248, 224, 0.58);
+}
+
+.material-detail-stats small {
+  color: #6a4426;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.material-detail-stats strong {
+  overflow: hidden;
+  color: #3f2616;
+  font-size: 0.92rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.material-detail-section {
+  display: grid;
+  gap: 7px;
+  padding-top: 9px;
+  border-top: 1px dashed rgba(78, 47, 23, 0.34);
+}
+
+.material-detail-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.material-detail-chips span {
+  padding: 4px 7px;
+  border: 1px solid rgba(88, 53, 25, 0.28);
+  border-radius: 999px;
+  background: rgba(242, 217, 171, 0.76);
+  color: #563719;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.material-source-list {
+  display: grid;
+  gap: 6px;
+}
+
+.material-source-list span {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px;
+  border: 1px solid rgba(45, 98, 68, 0.32);
+  border-radius: 5px;
+  background: rgba(225, 239, 220, 0.54);
+}
+
+.material-source-list b {
+  overflow: hidden;
+  color: #3f4022;
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.material-source-list em {
+  color: #456443;
+  font-size: 0.66rem;
+  font-style: normal;
+  font-weight: 900;
+}
+
 .material-goal-layout {
   display: grid;
   gap: 12px;
