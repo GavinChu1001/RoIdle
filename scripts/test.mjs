@@ -97,6 +97,10 @@ assert.doesNotMatch(game, /SKILL_MAX_LEVEL_BY_RANK\s*=\s*\{\s*novice:\s*5,\s*fir
 assert.match(characterPageSource, /renderSkillCircuitNodes/, 'Character page must render V3 skill circuit nodes.');
 assert.match(characterPageSource, /技能回路/, 'Character page should label circuit nodes in Chinese.');
 assert.match(styles, /\.skill-circuit-node/, 'Styles must include skill circuit node classes.');
+assert.match(skillMechanicsSource, /getUnlockedSkillCircuits/, 'Skill mechanics must read unlocked V3 circuit nodes.');
+assert.match(skillMechanicsSource, /extraHit/, 'Skill mechanics must support extraHit circuit effect.');
+assert.match(skillMechanicsSource, /armorBreak/, 'Skill mechanics must support armorBreak circuit effect.');
+assert.match(skillMechanicsSource, /finalCircuitBoost/, 'Skill mechanics must support final circuit boost.');
 assert.doesNotMatch(game, /\bgetSkillSpecializationOptions\b/, 'Legacy skill specialization option helper should be removed.');
 assert.doesNotMatch(game, /\bselectSkillSpecialization\b/, 'Legacy skill specialization setter should be removed.');
 assert.doesNotMatch(game, /data-skill-spec/, 'Legacy skill specialization buttons should be removed from game.js.');

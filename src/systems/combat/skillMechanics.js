@@ -38,6 +38,45 @@ function equipmentTraitEffects(stats = {}) {
     : {};
 }
 
+function circuitValueMultiplier(stats = {}) {
+  return 1 + finite(equipmentTraitEffects(stats).v3CircuitEffectBonus);
+}
+
+function unlockedCircuitsFor(skill, ctx = mechContext) {
+  return ctx.getUnlockedSkillCircuits?.(skill) || [];
+}
+
+function circuitStatsFor(skill, ctx = mechContext, stats = {}) {
+  const result = {};
+  const multiplier = circuitValueMultiplier(stats);
+  unlockedCircuitsFor(skill, ctx).forEach((node) => {
+    Object.entries(node.stats || {}).forEach(([key, value]) => {
+      result[key] = finite(result[key]) + finite(value) * multiplier;
+    });
+  });
+  return result;
+}
+
+function boostCircuitEffect(effect = {}, stats = {}) {
+  const multiplier = circuitValueMultiplier(stats);
+  const finalMultiplier = 1 + finite(equipmentTraitEffects(stats).v3FinalCircuitEffectBonus);
+  const next = { ...effect };
+  ['chance', 'multiplier', 'ignoreDefense', 'ratio'].forEach((key) => {
+    if (next[key]) next[key] = finite(next[key]) * multiplier;
+  });
+  if (next.type === 'finalCircuitBoost' && next.multiplier) {
+    next.multiplier = finite(next.multiplier) * finalMultiplier;
+  }
+  return next;
+}
+
+function circuitEffectsFor(skill, ctx = mechContext, stats = {}) {
+  return unlockedCircuitsFor(skill, ctx)
+    .map((node) => node.effect)
+    .filter(Boolean)
+    .map((effect) => boostCircuitEffect(effect, stats));
+}
+
 export function configureSkillMechanicsContext(ctx = {}) {
   mechContext = ctx || {};
 }
@@ -65,7 +104,8 @@ function calcSkillDamage(source, multiplier, stats, monster, ctx = mechContext, 
       damageType: mechanism.damageType || damageTypeFromMechanism(mechanism),
     }, ctx)
     : 0;
-  const skillDamageMultiplier = 1 + finite(targetBonus) + finite(stats.skillDamageBonus);
+  const armorBreakBonus = finite(state.v3ArmorBreakTimer) > 0 ? finite(state.v3ArmorBreakIgnoreDefense) : 0;
+  const skillDamageMultiplier = 1 + finite(targetBonus) + finite(stats.skillDamageBonus) + armorBreakBonus;
   const passive = getPassiveMechanismEffects(state, stats, ctx);
   const passiveDamageMultiplier = (1 + finite(passive.damagePct)) *
     (hasMark(state, 'any') ? (1 + finite(passive.markedVulnerablePct)) : 1);
@@ -276,6 +316,10 @@ function tickCooldowns(state, dt) {
     if (cds[key] > 0) cds[key] = Math.max(0, cds[key] - dt);
   });
   state.deathDefyCooldown = Math.max(0, finite(state.deathDefyCooldown) - dt);
+  state.v3ArmorBreakTimer = Math.max(0, finite(state.v3ArmorBreakTimer) - dt);
+  if (state.v3ArmorBreakTimer <= 0) state.v3ArmorBreakIgnoreDefense = 0;
+  state.v3FinalCircuitBoostTimer = Math.max(0, finite(state.v3FinalCircuitBoostTimer) - dt);
+  if (state.v3FinalCircuitBoostTimer <= 0) state.v3FinalCircuitBoost = 0;
 }
 
 function hasBuff(state, buffId) {
@@ -995,6 +1039,15 @@ export function tickSkillSystem(dt, stats, ctx = mechContext) {
     if (traitEffects.v3GlobalSkillEffectBonus) {
       dmgMult *= 1 + finite(traitEffects.v3GlobalSkillEffectBonus);
     }
+    const circuitStats = circuitStatsFor(skill, ctx, stats);
+    const isBossTarget = Boolean(state.enemyBoss || monster.type === 'boss');
+    const isAbyss = state.currentDifficulty === 'abyss';
+    if (circuitStats.skillDamageBonus) dmgMult *= 1 + finite(circuitStats.skillDamageBonus);
+    if (circuitStats.finalDamageBonus) dmgMult *= 1 + finite(circuitStats.finalDamageBonus);
+    if (circuitStats.bossDamageBonus && isBossTarget) dmgMult *= 1 + finite(circuitStats.bossDamageBonus);
+    if (circuitStats.abyssDamageBonus && isAbyss) dmgMult *= 1 + finite(circuitStats.abyssDamageBonus);
+    if (finite(state.v3FinalCircuitBoostTimer) > 0) dmgMult *= 1 + finite(state.v3FinalCircuitBoost);
+    const circuitEffects = circuitEffectsFor(skill, ctx, stats);
 
     // 觉醒效果：检查是否有觉醒并修改机制
     let awakenedMech = null;
@@ -1034,7 +1087,26 @@ export function tickSkillSystem(dt, stats, ctx = mechContext) {
         const extraMech = scaleV3MechanismDamage(activeMech, 0.45);
         executeV3ActiveMechanism(extraMech, skill, state, stats, monster, ctx);
       }
+      let circuitCooldownRefund = 0;
+      circuitEffects.forEach((effect) => {
+        if (effect.type === 'extraHit' && random(ctx) < finite(effect.chance)) {
+          const extraMech = scaleV3MechanismDamage(activeMech, finite(effect.multiplier) || 0.4);
+          executeV3ActiveMechanism(extraMech, skill, state, stats, monster, ctx);
+        }
+        if (effect.type === 'armorBreak') {
+          state.v3ArmorBreakTimer = Math.max(finite(state.v3ArmorBreakTimer), finite(effect.duration) || 4);
+          state.v3ArmorBreakIgnoreDefense = Math.max(finite(state.v3ArmorBreakIgnoreDefense), finite(effect.ignoreDefense) || 0.08);
+        }
+        if (effect.type === 'finalCircuitBoost') {
+          state.v3FinalCircuitBoostTimer = Math.max(finite(state.v3FinalCircuitBoostTimer), 4);
+          state.v3FinalCircuitBoost = Math.max(finite(state.v3FinalCircuitBoost), finite(effect.multiplier) || 0.12);
+        }
+        if (effect.type === 'cooldownRefund') {
+          circuitCooldownRefund = Math.max(circuitCooldownRefund, Math.min(0.8, finite(effect.ratio)));
+        }
+      });
       let cd = Math.round((skill.cooldown || 5) * cdMult);
+      if (circuitCooldownRefund > 0) cd = Math.max(1, Math.round(cd * (1 - circuitCooldownRefund)));
       // 魔力增幅
       if (reduceThisSkillCooldown && passiveEffects.cooldownReduce) {
         cd = Math.max(1, Math.round(cd * (1 - passiveEffects.cooldownReduce)));
