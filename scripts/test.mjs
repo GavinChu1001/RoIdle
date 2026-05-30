@@ -1992,12 +1992,21 @@ assert.match(game, /function\s+isProgressionLineEquipment\s*\(/, 'Equipment UI m
 assert.match(game, /function\s+renderEquipmentPotentialBadge\s*\(/, 'Equipment cards must render progression growth potential.');
 assert.match(game, /成长潜力/, 'Equipment cards should label progression potential in Chinese.');
 assert.match(game, /item\.series\s*!==\s*["']oldWorld["']/, 'Progression line equipment should be protected from broad salvage flows.');
+assert.doesNotMatch(game, /function\s+equipmentPotentialScore\s*\(/, 'Unused progression potential score helper should not remain in game.js.');
 const progressionProtectionSource = game.slice(game.indexOf('function shouldProtectEquipment'), game.indexOf('function equipmentProgressionRuntime'));
 assert.match(progressionProtectionSource, /isProgressionLineEquipment\(item\)/, 'Equipment protection must keep progression-line gear out of broad salvage flows.');
 const equipmentBadgeSource = game.slice(game.indexOf('function renderEquipmentBadges'), game.indexOf('function renderMaps'));
 assert.match(equipmentBadgeSource, /renderEquipmentPotentialBadge\(item\)/, 'Equipment badge row must include progression potential.');
 const salvageAllSource = game.slice(game.indexOf('function salvageAllUnequipped'), game.indexOf('function showSalvageResultModal'));
 assert.match(salvageAllSource, /shouldProtectEquipment\(item\)/, 'Batch unequipped salvage must respect protected progression gear.');
+const manualSalvageSource = game.slice(game.indexOf('function salvageItem'), game.indexOf('function getSalvageRewards'));
+assert.doesNotMatch(manualSalvageSource, /isProgressionLineEquipment\(item\)|shouldProtectEquipment\(item\)/, 'Manual salvage must not hard-block progression-line gear.');
+const equipmentCardSource = game.slice(game.indexOf('data-salvage-item'), game.indexOf('function renderEquipmentFilterBar'));
+assert.doesNotMatch(equipmentCardSource, /data-salvage-item[\s\S]{0,240}isProgressionLineEquipment/, 'Manual salvage action must remain available for progression-line gear.');
+const offlineFullSalvageSource = game.slice(game.indexOf('function canOfflineFullSalvage'), game.indexOf('function processOfflineGeneratedEquipment'));
+assert.match(offlineFullSalvageSource, /shouldProtectEquipment\(item\)|isProgressionLineEquipment\(item\)/, 'Offline full-inventory salvage must protect progression-line gear.');
+const moduleBatchSalvageSource = dismantleSource.slice(dismantleSource.indexOf('export function salvageAllUnequipped'), dismantleSource.indexOf('export function equipBest'));
+assert.match(moduleBatchSalvageSource, /ctx\.shouldProtectEquipment\?\.\(item\)/, 'Modular batch dismantle must respect protected equipment.');
 
 const scoreStandaloneSource = withItemArchetypeImport(itemScoreSource)
   .replace("import { getEffectiveItemStats } from './itemStats.js';", 'const getEffectiveItemStats = (item) => item;')
@@ -2085,9 +2094,9 @@ const batchMutationContext = {
   save: () => {},
 };
 dismantle.salvageAllUnequipped(batchMutationContext);
-assert.deepEqual(batchState.inventory.map((item) => item.id), ['equipped', 'locked'], 'Batch dismantle must remove all unlocked unequipped equipment.');
-assert.equal(batchState.materials.dust, 2, 'Batch dismantle must reward all unlocked unequipped equipment.');
-assert.deepEqual(batchSalvageDialog, ['\u6279\u91cf\u5206\u89e3\u5b8c\u6210', 2, { dust: 2 }], 'Batch dismantle dialog must count all unlocked unequipped equipment.');
+assert.deepEqual(batchState.inventory.map((item) => item.id), ['keep', 'equipped', 'locked'], 'Batch dismantle must keep protected unlocked unequipped equipment.');
+assert.equal(batchState.materials.dust, 1, 'Batch dismantle must only reward unprotected unlocked unequipped equipment.');
+assert.deepEqual(batchSalvageDialog, ['\u6279\u91cf\u5206\u89e3\u5b8c\u6210', 1, { dust: 1 }], 'Batch dismantle dialog must count only unprotected unlocked unequipped equipment.');
 const fullInventory = dismantle.addEquipmentToInventory({ id: 'second', rarity: 'legend' }, {}, mutationContext);
 assert.equal(fullInventory.skipped, true, 'Inventory capacity behavior changed.');
 mutationState.inventory = [{ id: 'manual', rarity: 'normal', level: 1 }];
@@ -2097,6 +2106,7 @@ let manualSalvageRenders = 0;
 let manualSalvageSaves = 0;
 const manualMutationContext = {
   ...mutationContext,
+  shouldProtectEquipment: () => true,
   addLog: () => {},
   materialText: () => 'Dust x1',
   getDisplayItemName: () => 'Blade',

@@ -6158,10 +6158,6 @@ function equipItem(id) {
 function salvageItem(id, options = {}) {
   const item = state.inventory.find((entry) => entry.id === id);
   if (!item) return { ok: false };
-  if (isProgressionLineEquipment(item)) {
-    if (!options.silent) showToast("成长装备受保护，不能分解");
-    return { ok: false };
-  }
   const runtime = window.RuneFrontierEquipmentRuntime;
   if (runtime && typeof runtime.salvageItem === "function") return runtime.salvageItem(id, options);
   if (item.locked) {
@@ -6921,6 +6917,7 @@ function rollOfflineEquipmentDrops(rewards, stats, map, mapIndex, killCount) {
 }
 
 function canOfflineFullSalvage(item) {
+  if (shouldProtectEquipment(item)) return false;
   return !item.setId && !["darkGold", "mythic"].includes(item.rarity) && rarityRank(item.rarity) <= rarityRank("epic");
 }
 
@@ -9839,7 +9836,7 @@ function renderEquipment() { const runtime = window.RuneFrontierRenderRuntime; i
                 ${progressionCost && nextStar <= 15 ? `<button type="button" data-refine-item="${item.id}" ${!hasMaterials(refineCost) ? "disabled" : ""}>星炼</button>` : ""}
                 <button type="button" data-empower-item="${item.id}" ${nextEmpower > 10 || !hasMaterials(empowerCost) ? "disabled" : ""}>赋能</button>
                 ${isZodiacItem(item) ? `<button class="ghost" type="button" data-collect-zodiac="${item.id}">收藏</button><button class="ghost" type="button" data-zodiac-salvage="${item.id}" ${equipped || item.locked ? "disabled" : ""}>星座分解</button>` : ""}
-                <button class="ghost equipment-danger-action" type="button" data-salvage-item="${item.id}" ${equipped || item.locked || isZodiacItem(item) || isProgressionLineEquipment(item) ? "disabled" : ""}>分解</button>
+                <button class="ghost equipment-danger-action" type="button" data-salvage-item="${item.id}" ${equipped || item.locked || isZodiacItem(item) ? "disabled" : ""}>分解</button>
               </div>
               <details class="equipment-detail-toggle equipment-detail-compact">
                 <summary class="equipment-detail-summary">明细</summary>
@@ -10036,13 +10033,6 @@ function isProgressionLineEquipment(item = {}) {
 function equipmentGrowthTierRank(item = {}) {
   const match = String(item.growthTier || "T1").match(/^T(\d+)$/i);
   return match ? Number(match[1]) : 1;
-}
-
-function equipmentPotentialScore(item = {}) {
-  const tierRank = equipmentGrowthTierRank(item);
-  const stage = Math.max(0, Number(item.upgradeStage || 0));
-  const lineBonus = isProgressionLineEquipment(item) ? 1200 : 0;
-  return Math.round(lineBonus + tierRank * 1000 + stage * 450 + rarityRank(item.rarity) * 120);
 }
 
 function renderEquipmentPotentialBadge(item = {}) {
