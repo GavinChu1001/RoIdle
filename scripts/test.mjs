@@ -101,6 +101,8 @@ assert.match(skillMechanicsSource, /getUnlockedSkillCircuits/, 'Skill mechanics 
 assert.match(skillMechanicsSource, /extraHit/, 'Skill mechanics must support extraHit circuit effect.');
 assert.match(skillMechanicsSource, /armorBreak/, 'Skill mechanics must support armorBreak circuit effect.');
 assert.match(skillMechanicsSource, /finalCircuitBoost/, 'Skill mechanics must support final circuit boost.');
+assert.match(skillMechanicsSource, /MIN_ACTIVE_SKILL_COOLDOWN/, 'V3 active skills should have a minimum effective cooldown.');
+assert.match(skillMechanicsSource, /Math\.max\(MIN_ACTIVE_SKILL_COOLDOWN,\s*cd\)/, 'V3 cooldown reductions should be floored after all refunds.');
 assert.doesNotMatch(game, /\bgetSkillSpecializationOptions\b/, 'Legacy skill specialization option helper should be removed.');
 assert.doesNotMatch(game, /\bselectSkillSpecialization\b/, 'Legacy skill specialization setter should be removed.');
 assert.doesNotMatch(game, /data-skill-spec/, 'Legacy skill specialization buttons should be removed from game.js.');
@@ -3261,6 +3263,27 @@ skillMechanics.tickSkillSystem(0, {
 });
 assert.equal(synergySkillState.enemyHp, 880, 'Equipment synergy should increase matching V3 skill damage.');
 assert.equal(synergySkillState.skillCooldowns.synergy_fire, 5, 'Equipment synergy should reduce matching V3 skill cooldown.');
+
+const floorSkill = {
+  id: 'floor_skill',
+  name: 'Floor Skill',
+  kind: mageSkill.kind,
+  cooldown: 3,
+  levelScaling: { cooldownPerLevel: 0.25 },
+  mechanism: { type: 'singleHit', multiplier: 1, stat: 'matk' },
+};
+const floorSkillState = { hero: { currentHp: 100 }, enemyHp: 1000, enemyMaxHp: 1000, skillCooldowns: {}, activeZones: [], activeBuffs: [], enemyMarks: {} };
+globalThis.window = { ...(priorSkillWindow || {}), v3JobSkills: { mage: [floorSkill] } };
+skillMechanics.configureSkillMechanicsContext({
+  getState: () => floorSkillState,
+  currentJob: () => ({ id: 'mage' }),
+  getSkillGrowthEntry: () => ({ level: 20 }),
+  currentMonsterStats: () => ({ damageReduction: 0 }),
+  normalizeDamage: Math.round,
+  random: () => 0.5,
+});
+skillMechanics.tickSkillSystem(0, { matkPower: 100, atkPower: 0, crit: 0, maxHp: 100 });
+assert.ok(floorSkillState.skillCooldowns.floor_skill >= 2.2, 'V3 active skill cooldowns must keep a runtime floor after scaling.');
 
 const bonusSkill = { id: 'bonus_skill', name: 'Bonus Skill', kind: '主动', cooldown: 5, mechanism: { type: 'singleHit', multiplier: 1, stat: 'matk' } };
 const bonusSkillState = { hero: { currentHp: 100 }, enemyHp: 1000, enemyMaxHp: 1000, skillCooldowns: {}, activeZones: [], activeBuffs: [], enemyMarks: {} };

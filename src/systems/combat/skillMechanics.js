@@ -2,6 +2,7 @@
 // Skill Mechanics Engine
 
 let mechContext = {};
+const MIN_ACTIVE_SKILL_COOLDOWN = 2.2;
 
 function finite(v) { const n = Number(v || 0); return Number.isFinite(n) ? n : 0; }
 function random(ctx = mechContext) { return ctx.random?.() ?? Math.random(); }
@@ -1123,6 +1124,7 @@ export function tickSkillSystem(dt, stats, ctx = mechContext) {
         cd *= (1 - Math.min(1, pendingRefund));
         delete state.pendingSkillCooldownRefunds[skill.id];
       }
+      cd = Math.max(MIN_ACTIVE_SKILL_COOLDOWN, cd);
       cds[skill.id] = cd;
       if (state.resonanceTriggered && passiveEffects.cooldownReduce) {
         state.cooldownReductionNextSkill = true;
