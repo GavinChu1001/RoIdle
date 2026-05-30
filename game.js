@@ -9902,7 +9902,7 @@ function renderEquipmentFilterBar(count) { const runtime = window.RuneFrontierRe
 function getEquipmentCompactSortOptions() {
   return [
     ["score", "综合"],
-    ["level", "等级"],
+    ["level", "来源强度"],
     ["rarity", "品质"],
     ["refine", "星炼"],
     ["recent", "最近"],
@@ -9959,7 +9959,7 @@ function sortEquipmentList(items) {
   };
   indexed.sort((a, b) => {
     if (activeSort === "recent") return a.index - b.index;
-    if (activeSort === "level") return (b.item.level || 0) - (a.item.level || 0);
+    if (activeSort === "level") return (b.item.dropLevel || b.item.level || 0) - (a.item.dropLevel || a.item.level || 0);
     if (activeSort === "rarity") return rarityRank(b.item.rarity) - rarityRank(a.item.rarity);
     if (activeSort === "refine") return (b.item.refine || 0) - (a.item.refine || 0);
     return scoreOf(b.item, activeSort) - scoreOf(a.item, activeSort);

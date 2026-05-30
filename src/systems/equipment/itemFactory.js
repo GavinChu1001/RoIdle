@@ -203,8 +203,10 @@ export function createItem(template = {}, level, forcedTierId = null, context = 
     thornVitMultiplier: number(template.thornVitMultiplier),
   };
   item.instanceId = item.id;
-  runtime.addBaseRanges?.(item, template, safeTier, safeLevel, itemTier, slotGrowth);
-  runtime.applyRandomAffixes?.(item, safeTier, safeLevel, itemTier);
+  const affixLevel = progressionGrowth ? 1 : safeLevel;
+  const affixItemTier = progressionGrowth ? { ...itemTier, scale: 1 } : itemTier;
+  runtime.addBaseRanges?.(item, template, safeTier, affixLevel, affixItemTier, slotGrowth);
+  runtime.applyRandomAffixes?.(item, safeTier, affixLevel, affixItemTier);
   runtime.applyAbyssEquipmentBonus?.(item);
   runtime.applyRarityPerk?.(item, safeTier, template);
   return applyCanonicalEquipmentStats(item);
@@ -333,6 +335,7 @@ export function normalizeItem(item = {}, runtime = runtimeContext) {
     enhanceLevel: item.enhanceLevel || 0,
     specialPassives: Array.isArray(item.specialPassives) ? item.specialPassives : [],
     rarityPerk: item.rarityPerk || null,
+    rarityPerks: item.rarityPerks && typeof item.rarityPerks === 'object' && !Array.isArray(item.rarityPerks) ? item.rarityPerks : {},
   };
   runtime.applyAbyssEquipmentBonus?.(normalized);
   runtime.applyAbyssSetItemBonus?.(normalized);

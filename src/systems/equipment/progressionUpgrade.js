@@ -4,7 +4,7 @@ import {
   rebuildGrowthStatsFromTemplate,
 } from './equipmentGrowth.js';
 
-const RARITY_ORDER = ['normal', 'fine', 'rare', 'epic', 'legend', 'darkGold', 'mythic'];
+const RARITY_ORDER = ['normal', 'fine', 'rare', 'epic', 'ancient', 'legend', 'darkGold', 'mythic'];
 const SCALE_KEYS = [
   'atk', 'matk', 'def', 'hp', 'hpRegen', 'str', 'agi', 'vit', 'int', 'dex', 'luk', 'luck',
   'aspd', 'crit', 'drop', 'gold', 'dodgeRate', 'atkPct', 'matkPct', 'hpPct', 'defPct',

@@ -945,12 +945,19 @@ assert.equal(
   'Legacy growth should preserve item tier and level scaling.',
 );
 const rebuiltGrowthStats = equipmentGrowth.rebuildGrowthStatsFromTemplate(
-  { atk: 99, magicDamageReduction: 0.4 },
+  {
+    atk: 9999,
+    magicDamageReduction: 0.4,
+    affixDetails: [{ type: 'flat', stat: 'atk', value: 5 }],
+    rarityPerk: { id: 'epic-life', type: 'specialAffix', stat: 'lifeSteal', value: 0.05 },
+    rarityPerks: { epic: { id: 'epic-life', type: 'specialAffix', stat: 'lifeSteal', value: 0.05 } },
+  },
   { atk: 10 },
   { scale: 2 },
   1.5,
 );
-assert.equal(rebuiltGrowthStats.atk, 30, 'Progression rebuild should scale present template stats.');
+assert.equal(rebuiltGrowthStats.atk, 35, 'Progression rebuild should scale template stats and replay flat affix bonuses.');
+assert.equal(rebuiltGrowthStats.lifeSteal, 0.05, 'Progression rebuild should replay existing rarity perk bonuses once.');
 assert.equal(rebuiltGrowthStats.magicDamageReduction, 0, 'Progression rebuild should clear absent old stats.');
 assert.equal(rebuiltGrowthStats.growthModel, 'progression-v2', 'Progression rebuild should mark the growth model.');
 const blockedPerkUpgrade = equipmentGrowth.applyRarityUpgradeRewards(
@@ -975,15 +982,47 @@ const rewardRuntime = {
     item.rarityPerk = { id: perk.id };
   },
 };
-const rewardedItem = equipmentGrowth.applyRarityUpgradeRewards({ archetype: 'physical' }, 'ancient', rewardRuntime);
+const rewardedItem = equipmentGrowth.applyRarityUpgradeRewards({ archetype: 'physical', randomStats: { str: 0, dex: 0 } }, 'ancient', rewardRuntime);
 assert.deepEqual(rewardedItem.rarityRewardHistory, ['rare', 'epic', 'ancient'], 'Successful rarity rewards should be recorded.');
 assert.deepEqual(rewardedItem.cardSlots, [{ cardId: null }], 'Ancient reward should add a card slot.');
 assert.equal(rewardRuntimeCalls.rolls, 1, 'Rare reward should roll random stats once.');
 assert.equal(rewardRuntimeCalls.perks, 1, 'Epic reward should apply its perk once.');
+assert.deepEqual(rewardedItem.randomStats, { rarity: 'ancient', archetype: 'physical', atk: 1 }, 'Zero random stats should be replaced by a real rare reward roll.');
 equipmentGrowth.applyRarityUpgradeRewards(rewardedItem, 'ancient', rewardRuntime);
 assert.deepEqual(rewardedItem.rarityRewardHistory, ['rare', 'epic', 'ancient'], 'Second rarity reward pass should not duplicate history.');
 assert.equal(rewardRuntimeCalls.rolls, 1, 'Second rarity reward pass should not reroll random stats.');
 assert.equal(rewardRuntimeCalls.perks, 1, 'Second rarity reward pass should not reapply perks.');
+const higherPerkCalls = [];
+const higherPerkRuntime = {
+  applyRarityPerk: (item, perk) => {
+    higherPerkCalls.push(perk.id);
+    const values = { legend: 0.07, darkGold: 0.09, mythic: 0.11 };
+    const value = values[perk.id] || 0;
+    item.finalDamageBonus = Number(((item.finalDamageBonus || 0) + value).toFixed(3));
+    item.rarityPerk = { id: perk.id, type: 'specialAffix', stat: 'finalDamageBonus', value };
+  },
+};
+const higherPerkItem = {
+  rarityPerk: { id: 'epic', type: 'specialAffix', stat: 'lifeSteal', value: 0.03 },
+  rarityPerks: { epic: { id: 'epic', type: 'specialAffix', stat: 'lifeSteal', value: 0.03 } },
+  rarityRewardHistory: ['rare', 'epic', 'ancient'],
+  randomStats: { atk: 1 },
+  cardSlots: [{ cardId: null }],
+  lifeSteal: 0.03,
+};
+equipmentGrowth.applyRarityUpgradeRewards(higherPerkItem, 'mythic', higherPerkRuntime);
+assert.deepEqual(higherPerkCalls, ['legend', 'darkGold', 'mythic'], 'Higher rarity perks should apply even when an epic perk already exists.');
+assert.equal(higherPerkItem.rarityPerk.id, 'mythic', 'Singular rarityPerk should point at the highest applied perk for compatibility.');
+assert.equal(higherPerkItem.rarityPerks.mythic.id, 'mythic', 'Rarity perks should be recorded per rarity.');
+assert.equal(higherPerkItem.finalDamageBonus, 0.27, 'Higher rarity perk stats should be applied once.');
+assert.deepEqual(
+  higherPerkItem.rarityRewardHistory,
+  ['rare', 'epic', 'ancient', 'legend', 'darkGold', 'mythic'],
+  'Higher rarity perk history should record newly applied rewards.',
+);
+equipmentGrowth.applyRarityUpgradeRewards(higherPerkItem, 'mythic', higherPerkRuntime);
+assert.deepEqual(higherPerkCalls, ['legend', 'darkGold', 'mythic'], 'Second mythic reward pass should not reapply higher perks.');
+assert.equal(higherPerkItem.finalDamageBonus, 0.27, 'Second mythic reward pass should not duplicate perk stats.');
 let lineMasterySource = '';
 assert.doesNotThrow(() => {
   lineMasterySource = read('src/systems/equipment/lineMastery.js');
@@ -1151,10 +1190,18 @@ assert.match(game, /equipment-more-actions/, 'Equipment cards should move low-fr
 assert.match(game, /equipment-detail-summary[^>]*>明细</, 'Equipment stat details should be a lightweight detail entry, not a large primary CTA.');
 const equipmentFilterBarSource = game.slice(game.indexOf('function renderEquipmentFilterBar'), game.indexOf('function filterEquipmentList'));
 const compactSortSource = game.slice(game.indexOf('function getEquipmentCompactSortOptions'), game.indexOf('function normalizeEquipmentSort'));
+const equipmentSortListSource = game.slice(game.indexOf('function sortEquipmentList'), game.indexOf('function renderEquipmentBatchPanel'));
 const equipmentStatSectionsSource = game.slice(game.indexOf('function renderEquipmentStatSections'), game.indexOf('function renderSalvagePreviewSection'));
 assert.match(equipmentFilterBarSource, /equipment-filter-primary/, 'Equipment filters should keep common filters in a primary row.');
 assert.match(equipmentFilterBarSource, /equipment-filter-more/, 'Equipment filters should collapse low-frequency filters behind a More control.');
 assert.doesNotMatch(compactSortSource, /physicalScore|magicScore|generalScore|sockets|abyss/, 'Equipment sort options should stay compact and avoid specialist score tabs.');
+assert.doesNotMatch(compactSortSource, /\["level",\s*"\u7b49\u7ea7"\]/, 'Equipment compact sort should not label internal source strength as level.');
+assert.match(compactSortSource, /\["level",\s*"\u6765\u6e90\u5f3a\u5ea6"\]/, 'Equipment compact sort should label level sort as source strength.');
+assert.match(
+  equipmentSortListSource,
+  /\(b\.item\.dropLevel\s*\|\|\s*b\.item\.level\s*\|\|\s*0\)\s*-\s*\(a\.item\.dropLevel\s*\|\|\s*a\.item\.level\s*\|\|\s*0\)/,
+  'Equipment compact level sort should prefer dropLevel with level fallback.',
+);
 assert.doesNotMatch(equipmentStatSectionsSource, /renderEquipmentScores\(item\)/, 'Equipment detail sections should not render the full equipment score block.');
 assert.match(equipmentStatSectionsSource, /equipment-stat-group-compact/, 'Equipment detail stats should use compact collapsible groups.');
 assert.match(equipmentStyles, /equipment-filter-more/, 'Equipment filter More control should have dedicated styles.');
@@ -1267,6 +1314,31 @@ assert.equal(recompositionState.inventory[0].refine, 7, 'Upgrade should preserve
 assert.equal(recompositionState.inventory[0].empower, 3, 'Upgrade should preserve empower investment.');
 assert.equal(recompositionState.inventory[0].cardSlots[0].cardId, 'card-a', 'Upgrade should preserve socketed cards.');
 assert.ok(recompositionState.inventory[0].rarityRewardHistory.includes('epic'), 'Upgrade should complete target rarity rewards.');
+const ancientRarityUpgradeState = {
+  gold: 10000,
+  materials: { heroReformInscription: 4 },
+  inventory: [{
+    id: 'ancient-upgrade',
+    name: 'Ancient Hero Blade',
+    slot: 'weapon',
+    archetype: 'physical',
+    series: 'ancientHero',
+    growthTier: 'T2',
+    upgradeStage: 0,
+    rarity: 'ancient',
+    tier: 'ancient',
+    level: 80,
+    dropLevel: 80,
+    atk: 40,
+  }],
+};
+const ancientRarityUpgradeResult = progressionUpgrade.upgradeEquipmentProgression('ancient-upgrade', {
+  getState: () => ancientRarityUpgradeState,
+  getProgressionEquipmentTemplate: () => null,
+  applyRarityUpgradeRewards: () => {},
+});
+assert.equal(ancientRarityUpgradeResult.ok, true, 'Ancient rarity progression upgrade should succeed.');
+assert.equal(ancientRarityUpgradeState.inventory[0].rarity, 'ancient', 'Progression upgrade must not downgrade ancient rarity to an epic target.');
 let abyssTemperingSource = '';
 assert.doesNotThrow(() => {
   abyssTemperingSource = read('src/systems/equipment/abyssTempering.js');
@@ -1420,6 +1492,65 @@ assert.equal(lowLevelProgressionItem.drop, highLevelProgressionItem.drop, 'Progr
 assert.equal(lowLevelProgressionItem.dodgeRate, highLevelProgressionItem.dodgeRate, 'Progression-v2 drops must not scale dodge from hidden item level.');
 assert.equal(lowLevelProgressionItem.gold, highLevelProgressionItem.gold, 'Progression-v2 drops must not scale gold from hidden item level.');
 assert.equal(highLevelProgressionItem.growthModel, 'progression-v2', 'Progression drops should record the new growth model.');
+const scalingProbeCalls = [];
+const scalingProbeContext = {
+  ...factoryContext,
+  getEquipmentTiers: () => [{ id: 'rare', scale: 2, rolls: [1, 1] }],
+  getItemTierForLevel: (level) => ({ id: `tier-${level}`, scale: level >= 100 ? 20 : 3 }),
+  resolveItemProgression: () => ({
+    growthTier: 'T2',
+    series: 'ancientHero',
+    upgradeStage: 0,
+    grade: 'base',
+    upgradePathId: 'ancientHero',
+  }),
+  addBaseRanges: (item, template, tier, callLevel, callItemTier) => {
+    scalingProbeCalls.push({ hook: 'range', level: callLevel, scale: callItemTier.scale });
+  },
+  applyRandomAffixes: (item, tier, callLevel, callItemTier) => {
+    scalingProbeCalls.push({ hook: 'affix', level: callLevel, scale: callItemTier.scale });
+    item.atk += callLevel * callItemTier.scale;
+    item.affixDetails.push({ type: 'flat', stat: 'atk', value: callLevel * callItemTier.scale });
+  },
+};
+const lowAffixProgressionItem = itemFactory.createItem(progressionTemplateForLevelTest, 20, 'rare', { dropLevel: 20, rng: () => 0 }, scalingProbeContext);
+const highAffixProgressionItem = itemFactory.createItem(progressionTemplateForLevelTest, 120, 'rare', { dropLevel: 120, rng: () => 0 }, scalingProbeContext);
+assert.equal(lowAffixProgressionItem.atk, highAffixProgressionItem.atk, 'Progression-v2 random affixes must not scale from hidden item level or item tier.');
+assert.deepEqual(
+  scalingProbeCalls,
+  [
+    { hook: 'range', level: 1, scale: 1 },
+    { hook: 'affix', level: 1, scale: 1 },
+    { hook: 'range', level: 1, scale: 1 },
+    { hook: 'affix', level: 1, scale: 1 },
+  ],
+  'Progression-v2 range and affix hooks should receive neutral level and item-tier scale.',
+);
+const legacyScalingProbeCalls = [];
+itemFactory.createItem(
+  { name: 'Legacy Blade', source: 'monster_drop', slot: 'weapon', atk: 10 },
+  80,
+  'rare',
+  { dropLevel: 80, rng: () => 0 },
+  {
+    ...scalingProbeContext,
+    resolveItemProgression: undefined,
+    addBaseRanges: (item, template, tier, callLevel, callItemTier) => {
+      legacyScalingProbeCalls.push({ hook: 'range', level: callLevel, scale: callItemTier.scale });
+    },
+    applyRandomAffixes: (item, tier, callLevel, callItemTier) => {
+      legacyScalingProbeCalls.push({ hook: 'affix', level: callLevel, scale: callItemTier.scale });
+    },
+  },
+);
+assert.deepEqual(
+  legacyScalingProbeCalls,
+  [
+    { hook: 'range', level: 80, scale: 3 },
+    { hook: 'affix', level: 80, scale: 3 },
+  ],
+  'Legacy items should keep real level and item-tier scaling for range and affix hooks.',
+);
 const normalizedLegacyGrowth = itemFactory.normalizeItem({ id: 'legacy-a', atk: 100, level: 90, rarity: 'legend' }, factoryContext);
 assert.equal(normalizedLegacyGrowth.growthModel, 'legacy-level', 'Normalized old equipment should keep legacy growth mode.');
 assert.equal(normalizedLegacyGrowth.legacyPowerSnapshot.stats.atk, 100, 'Legacy normalization should snapshot existing stat values.');
