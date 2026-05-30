@@ -46,6 +46,7 @@ const lootRollSource = read('src/systems/drops/lootRoll.js');
 const recentLootSource = read('src/systems/drops/recentLoot.js');
 const lootModelSource = read('src/systems/drops/lootModel.js');
 const offlineSource = read('src/systems/offline.js');
+const offlineLootSource = read('src/ui/offlineLoot.js');
 const devBridgeSource = read('src/dev/devBridge.js');
 const settlementSource = read('src/systems/combat/settlement.js');
 const bossCombatSource = read('src/systems/combat/bossCombat.js');
@@ -189,6 +190,8 @@ assert.match(html, /game\.js\?v=20260530-mvp-aura-v1/, 'MVP aura runtime should 
 assert.match(main, /getMvpInscriptionView:\s*window\.getMvpInscriptionView/, 'Character page runtime must receive the live MVP inscription view helper.');
 assert.match(main, /canGainMvpInscriptionOnCurrentMap:\s*window\.canGainMvpInscriptionOnCurrentMap/, 'Character page runtime must receive the live MVP inscription map eligibility helper.');
 assert.match(html, /src="\.\/src\/main\.js\?v=20260529-mvp-inscription-v2"/, 'MVP inscription runtime must use a fresh module cache-busting version.');
+assert.doesNotMatch(game, /renderItemName\(item,\s*`Lv\.\$\{item\.level\}/, 'Equipment list and equipped slot names should not expose internal item level.');
+assert.doesNotMatch(offlineLootSource, /等级\s*\$\{fmtn\(item\?\.level,\s*ctx\)\}/, 'Offline equipment loot should not expose internal item level.');
 for (const file of [
   'assets/ui/fx/hit-slash.png',
   'assets/ui/fx/hit-crit.png',
@@ -808,6 +811,16 @@ assert.ok(ancientHeroWeapon, 'Progression equipment pool must include Ancient He
 assert.match(ancientHeroWeapon.name, /古代英雄/, 'Progression equipment names should expose the equipment line, not old map-template names.');
 assert.equal(ancientHeroWeapon.series, 'ancientHero', 'Progression templates must carry series metadata.');
 assert.equal(ancientHeroWeapon.archetype, 'physical', 'Progression templates must carry archetype metadata.');
+assert.deepEqual(
+  itemProgression.getEquipmentProgressionTags({ series: 'ancientHero', growthTier: 'T3', upgradeStage: 2, grade: 'lt' }),
+  ['古代英雄', '英雄-LT'],
+  'Ancient Hero LT tags should show the item line and stage, not the T3 OS / Illusion growth tier label.',
+);
+assert.deepEqual(
+  itemProgression.getEquipmentProgressionTags({ series: 'ancientHero', growthTier: 'T2', upgradeStage: 0, grade: 'base' }),
+  ['古代英雄'],
+  'Ancient Hero base tags should not repeat identical line and stage labels.',
+);
 const sewerProgressionRows = itemProgression.getProgressionEquipmentDropTable('sewer', 'normal');
 assert.ok(sewerProgressionRows.length > 0, 'Sewer normal should have a generated progression equipment table.');
 assert.ok(sewerProgressionRows.every((row) => String(row.equipmentId).startsWith('prog_')), 'Progression map tables must not rely on old one-hand-sword rows.');
@@ -1001,13 +1014,18 @@ assert.match(game, /getAllEquipmentLineMaterialOverviews/, 'Material page should
 assert.match(game, /data-upgrade-line-mastery/, 'Material page should offer line mastery upgrades.');
 assert.match(game, /data-temper-abyss-item/, 'Material page should offer abyss tempering actions.');
 assert.match(game, /material-goal-layout/, 'Material goal page should have dedicated layout classes.');
-assert.match(game, /renderEquipmentLineMaterialBoard/, 'Equipment material page should render an equipment-line material board.');
-assert.match(game, /renderMaterialLineInventoryCard/, 'Equipment material page should render compact line material cards.');
-assert.match(game, /renderGeneralMaterialBoard/, 'Equipment material page should keep non-line materials in a compact general board.');
-assert.match(game, /material-line-inventory-card/, 'Equipment material page should expose compact line-card classes.');
-assert.match(game, /material-missing/, 'Equipment material page should show material shortages.');
-assert.match(styles, /\.material-line-inventory-board\s*\{/, 'Equipment material board should have dedicated layout styles.');
-assert.match(styles, /\.material-line-material-row\s*\{/, 'Equipment material rows should have compact dedicated styles.');
+const materialGroupsSource = game.slice(game.indexOf('function renderMaterialGroups'), game.indexOf('function renderEquipmentLineMaterialBoard'));
+assert.match(materialGroupsSource, /renderOwnedMaterialBag/, 'Equipment material page should render an owned-only material bag.');
+assert.match(game, /collectOwnedMaterialBagItems/, 'Material bag should collect only owned materials.');
+assert.match(game, /data-material-bag-item/, 'Material bag items should be selectable.');
+assert.match(game, /data-material-bag-filter/, 'Material bag should keep compact category filters.');
+assert.match(game, /material-bag-grid/, 'Material page should use a bag-grid layout.');
+assert.match(game, /material-detail-panel/, 'Material page should show selected material details.');
+assert.match(game, /material-empty-slot/, 'Material page should render empty bag slots instead of unowned materials.');
+assert.doesNotMatch(materialGroupsSource, /renderEquipmentLineMaterialBoard\(\)/, 'Equipment material page should not render long equipment-line boards.');
+assert.doesNotMatch(materialGroupsSource, /renderGeneralMaterialBoard\(\)/, 'Equipment material page should not render the old general material board.');
+assert.match(styles, /\.material-bag-grid\s*\{/, 'Material bag grid styles must exist.');
+assert.match(styles, /\.material-detail-panel\s*\{/, 'Material detail panel styles must exist.');
 
 assert.match(
   itemFactorySource,

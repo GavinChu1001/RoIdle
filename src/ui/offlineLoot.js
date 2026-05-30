@@ -38,7 +38,7 @@ function offlineEquipItem(item, ctx = lootCtx) {
     <span class="offline-loot-icon">${rn(item?.rarity, ctx)[0] || '装'}</span>
     <div>
       ${rnItem(item, '', ctx)}
-      <small>${rn(item?.rarity, ctx)} · 等级 ${fmtn(item?.level, ctx)}${item?.refine ? ` · +${fmtn(item.refine, ctx)}` : ''}</small>
+      <small>${rn(item?.rarity, ctx)}${item?.refine ? ` · +${fmtn(item.refine, ctx)}` : ''}</small>
       ${renderSet(item?.setName, ctx)}
     </div>
   </div>`;

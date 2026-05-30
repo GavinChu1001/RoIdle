@@ -1464,6 +1464,8 @@ let loopDt = 0;
 let offlineRewardModalOpen = false;
 let refineResultState = null;
 let recentSkillLevelUps = {};
+let materialBagFilter = "all";
+let selectedMaterialBagId = "";
 let recentSkillExpGains = {};
 let recentLootFeedback = [];
 let skillFeedbackTimer = 0;
@@ -2289,6 +2291,19 @@ function bindEvents() {
     renderEquipment();
   });
   els.materialList.addEventListener("click", (event) => {
+    const materialFilterButton = event.target.closest("button[data-material-bag-filter]");
+    if (materialFilterButton) {
+      materialBagFilter = materialFilterButton.dataset.materialBagFilter || "all";
+      selectedMaterialBagId = "";
+      renderEquipment();
+      return;
+    }
+    const materialItemButton = event.target.closest("button[data-material-bag-item]");
+    if (materialItemButton) {
+      selectedMaterialBagId = materialItemButton.dataset.materialBagItem || "";
+      renderEquipment();
+      return;
+    }
     const batchButton = event.target.closest("button[data-batch-equipment]");
     if (batchButton) {
       runEquipmentBatchAction(batchButton.dataset.batchEquipment);
@@ -9550,7 +9565,7 @@ function unequipCostume(slot) {
 function equippedSlotMeta(item) {
   if (!item) return "未装备";
   return `<div class="equipped-slot-summary">
-    <div class="equipped-slot-title">${renderItemName(item, `Lv.${item.level} ${refineText(item)} ${empowerText(item)}`)}</div>
+    <div class="equipped-slot-title">${renderItemName(item, `${refineText(item)} ${empowerText(item)}`)}</div>
     ${item.setName ? `<div class="equip-meta">${renderSetName(item.setName)}</div>` : ""}
     ${renderEquipmentSummaryStats(item, 3)}
   </div>`;
@@ -9766,7 +9781,7 @@ function renderEquipment() { const runtime = window.RuneFrontierRenderRuntime; i
           <div class="equip-head equipment-detail-header">
               <span class="item-icon" style="background-image:${imageBackgroundList(itemImageCandidates(item))}"></span>
             <div class="equipment-name-main">
-              <span class="equip-name equipment-name-row">${renderItemName(item, `Lv.${item.level} ${refineText(item)} ${empowerText(item)}`)}</span>
+              <span class="equip-name equipment-name-row">${renderItemName(item, `${refineText(item)} ${empowerText(item)}`)}</span>
               ${renderEquipmentBadges(item)}
               ${renderEquipmentStateBadges(item, equipped, nextStar)}
             </div>
@@ -12779,10 +12794,236 @@ function materialInventoryText() {
 }
 
 function renderMaterialGroups() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderMaterialGroups === "function") return runtime.renderMaterialGroups();
-  return `<section class="material-page">
-    ${renderEquipmentLineMaterialBoard()}
-    ${renderGeneralMaterialBoard()}
+  return renderOwnedMaterialBag();
+}
+
+function renderOwnedMaterialBag() {
+  const owned = collectOwnedMaterialBagItems();
+  const filters = materialBagFilterOptions();
+  const activeFilter = filters.some((filter) => filter.id === materialBagFilter) ? materialBagFilter : "all";
+  const visible = activeFilter === "all" ? owned : owned.filter((item) => item.category === activeFilter);
+  const selected = visible.find((item) => item.id === selectedMaterialBagId) || visible[0] || null;
+  const occupiedSlots = visible.map((item) => renderMaterialBagSlot(item, selected?.id === item.id)).join("");
+  const slotBase = visible.length ? Math.ceil(visible.length / 4) * 4 : 8;
+  const emptySlotCount = Math.max(0, slotBase - visible.length);
+  const emptySlots = Array.from({ length: emptySlotCount }, () => `<span class="material-empty-slot" aria-hidden="true"></span>`).join("");
+  return `<section class="material-page material-bag-page">
+    <div class="material-bag-board">
+      <div class="material-bag-heading">
+        <h4 class="material-group-title">材料背包</h4>
+        <span class="equipment-badge equipment-badge-slot">${formatNumber(owned.length)} / 240</span>
+      </div>
+      <div class="material-bag-filters">
+        ${filters.map((filter) => `<button type="button" class="material-bag-filter ${activeFilter === filter.id ? "active" : ""}" data-material-bag-filter="${escapeAttr(filter.id)}">${escapeHtml(filter.label)}</button>`).join("")}
+      </div>
+      <div class="material-bag-grid">
+        ${visible.length ? occupiedSlots : `<div class="material-bag-empty">暂无已拥有材料</div>`}
+        ${emptySlots}
+      </div>
+    </div>
+    ${renderMaterialBagDetail(selected)}
   </section>`;
+}
+
+function materialBagFilterOptions() {
+  return [
+    { id: "all", label: "全部" },
+    { id: "equipment", label: "装备" },
+    { id: "enhance", label: "强化" },
+    { id: "abyss", label: "深渊" },
+    { id: "boss", label: "Boss" },
+    { id: "card", label: "卡片" },
+    { id: "other", label: "其他" },
+  ];
+}
+
+function collectOwnedMaterialBagItems() {
+  const lineMeta = buildMaterialLineMeta();
+  return Object.entries(state.materials || {})
+    .map(([id, qty]) => buildMaterialBagItem(id, qty, lineMeta[id]))
+    .filter((item) => item && item.qty > 0)
+    .sort((a, b) => {
+      const categoryDelta = materialBagCategoryRank(a.category) - materialBagCategoryRank(b.category);
+      if (categoryDelta) return categoryDelta;
+      const rarityDelta = rarityRank(b.rarity) - rarityRank(a.rarity);
+      if (rarityDelta) return rarityDelta;
+      return a.name.localeCompare(b.name, "zh-Hans-CN");
+    });
+}
+
+function buildMaterialLineMeta() {
+  const runtime = equipmentProgressionRuntime();
+  const meta = {};
+  (runtime?.getAllEquipmentLineMaterialOverviews?.() || []).forEach((overview) => {
+    Object.entries(overview.materials || {}).forEach(([kind, material]) => {
+      if (!material?.id) return;
+      const sources = (overview.sources || [])
+        .filter((source) => {
+          const kinds = Array.isArray(source.materialKinds) ? source.materialKinds : [];
+          if (!kinds.length) return true;
+          return kinds.includes(kind);
+        })
+        .slice(0, 4)
+        .map((source) => `${mapNameById(source.mapId)} ${DIFFICULTY_CONFIG[source.difficulty]?.label || source.difficulty}`);
+      meta[material.id] = {
+        series: overview.series,
+        lineLabel: overview.label,
+        kind,
+        sources,
+      };
+    });
+  });
+  return meta;
+}
+
+function buildMaterialBagItem(id, qty, lineMeta = null) {
+  const amount = Math.max(0, Number(qty || 0));
+  if (amount <= 0) return null;
+  const db = MATERIAL_DB[id] || {};
+  const name = materialNames[id] || db.name || id;
+  const category = lineMeta ? "equipment" : materialBagCategory(id, db);
+  return {
+    id,
+    qty: amount,
+    name,
+    rarity: db.rarity || "normal",
+    category,
+    categoryLabel: materialBagCategoryLabel(category),
+    typeLabel: lineMeta ? `${lineMeta.lineLabel}线材料` : materialBagCategoryLabel(category),
+    lineLabel: lineMeta?.lineLabel || "",
+    lineKind: lineMeta?.kind || "",
+    uses: materialBagUseLabels(id, category, lineMeta),
+    sources: materialBagSources(id, category, lineMeta),
+    note: materialBagNote(id, category, lineMeta, db),
+  };
+}
+
+function materialBagCategory(id, db = {}) {
+  if (db.type === "equipment_progression") return "equipment";
+  if (["dust", "ore", "crystal", "rune", "oridecon", "elunium", "enhanceProtect", "enhanceAsh", "ancientCore", "starShard", "mythicEssence", "darkGoldFragment"].includes(id)) return "enhance";
+  if (["abyssShard", "abyssCore", "abyssEssence"].includes(id)) return "abyss";
+  if (bossEssenceByMap.includes(id) || id === "bossSoul") return "boss";
+  if (id === "bossCardShard" || id === "cardRemover" || Object.values(ZODIAC_CARD_BY_SET).includes(id)) return "card";
+  if (["socketStone", "advancedSocketStone", "mythicSocketStone"].includes(id)) return "card";
+  return "other";
+}
+
+function materialBagCategoryLabel(category) {
+  return {
+    equipment: "装备线材料",
+    enhance: "强化材料",
+    abyss: "深渊材料",
+    boss: "Boss材料",
+    card: "卡片材料",
+    other: "其他材料",
+  }[category] || "材料";
+}
+
+function materialBagCategoryRank(category) {
+  const order = ["equipment", "enhance", "abyss", "boss", "card", "other"];
+  const index = order.indexOf(category);
+  return index >= 0 ? index : order.length;
+}
+
+function materialBagUseLabels(id, category, lineMeta = null) {
+  if (lineMeta) return [materialLineKindUse(lineMeta.kind), `${lineMeta.lineLabel}装备线`];
+  if (["dust", "ore", "crystal", "rune"].includes(id)) return ["基础强化", "商店补给"];
+  if (["oridecon", "elunium", "enhanceProtect", "enhanceAsh"].includes(id)) return ["装备精炼", "失败保护"];
+  if (["ancientCore", "starShard", "mythicEssence", "darkGoldFragment"].includes(id)) return ["高阶打造", "稀有兑换"];
+  if (category === "abyss") return ["深渊淬炼", "后期成长"];
+  if (category === "boss") return ["Boss兑换", "特殊打造"];
+  if (category === "card") return ["打孔插卡", "卡片合成"];
+  if (id === "skillFragment") return ["技能升级"];
+  return ["材料库存"];
+}
+
+function materialLineKindUse(kind) {
+  return {
+    basic: "精通升级 / 基础进阶",
+    advanced: "装备进阶 / 深渊淬炼",
+    core: "高阶进阶 / 强化淬炼",
+  }[kind] || "装备成长";
+}
+
+function materialBagSources(id, category, lineMeta = null) {
+  if (lineMeta?.sources?.length) return lineMeta.sources;
+  if (id === "dust") return ["南门及后续地图", "离线收益", "商店补给"];
+  if (id === "ore") return ["森林及后续地图", "离线收益", "商店补给"];
+  if (id === "crystal") return ["下水道及后续地图", "商店补给"];
+  if (id === "rune") return ["中后期地图", "变异怪"];
+  if (["oridecon", "elunium"].includes(id)) return ["中后期地图", "商店补给"];
+  if (["socketStone", "advancedSocketStone", "mythicSocketStone", "cardRemover"].includes(id)) return ["Boss", "商店补给", "高阶地图"];
+  if (category === "abyss") return ["深渊地图", "深渊 Boss"];
+  if (bossEssenceByMap.includes(id)) {
+    const map = maps[bossEssenceByMap.indexOf(id)];
+    return [map ? `${map.name} Boss` : "Boss", "困难 / 深渊 Boss"];
+  }
+  if (category === "boss") return ["Boss", "首领奖励"];
+  if (Object.values(ZODIAC_CARD_BY_SET).includes(id)) return ["星座装备分解"];
+  if (id === "bossCardShard") return ["Boss", "商店兑换"];
+  return ["地图掉落", "任务 / 商店"];
+}
+
+function materialBagNote(id, category, lineMeta = null, db = {}) {
+  if (lineMeta) return `用于${lineMeta.lineLabel}装备线成长。背包只显示库存，具体缺口会在铁匠铺升级时显示。`;
+  if (category === "abyss") return "深渊相关材料主要服务后期淬炼和高阶成长。";
+  if (category === "boss") return "Boss产物保留为稀有库存，用于兑换、打造或特殊升级。";
+  if (category === "card") return "卡片相关材料用于打孔、拆卡或合成，具体操作在装备与卡片页面完成。";
+  return db.description || "当前已拥有的材料库存。";
+}
+
+function renderMaterialBagSlot(item, selected) {
+  const rarity = item.rarity || "normal";
+  return `<div class="material-bag-slot ${selected ? "selected" : ""} material-bag-rarity-${escapeHtml(rarity)}">
+    <button type="button" class="material-bag-item" data-material-bag-item="${escapeAttr(item.id)}" aria-pressed="${selected ? "true" : "false"}">
+      <span class="material-bag-icon ${getRarityClass({ rarity })}">${escapeHtml(materialBagIconText(item))}</span>
+      <span class="material-bag-name">${escapeHtml(item.name)}</span>
+      <span class="material-bag-qty">×${formatNumber(item.qty)}</span>
+    </button>
+  </div>`;
+}
+
+function materialBagIconText(item) {
+  if (item.id === "bossCardShard") return "卡";
+  if (item.id === "cardRemover") return "拆";
+  if (item.lineKind === "advanced") return "铭";
+  if (item.lineKind === "core") return "核";
+  const text = String(item.name || item.id || "?").replace(/[^\u4e00-\u9fa5A-Za-z0-9]/g, "");
+  return text.slice(0, 1) || "?";
+}
+
+function renderMaterialBagDetail(item) {
+  if (!item) {
+    return `<aside class="material-detail-panel material-detail-empty">
+      <strong>暂无材料</strong>
+      <p class="slot-meta">获得材料后会显示在左侧背包格子里。</p>
+    </aside>`;
+  }
+  return `<aside class="material-detail-panel">
+    <div class="material-detail-head">
+      <span class="material-bag-icon ${getRarityClass({ rarity: item.rarity })}">${escapeHtml(materialBagIconText(item))}</span>
+      <div>
+        <strong>${escapeHtml(item.name)}</strong>
+        <small>${escapeHtml(item.typeLabel)}</small>
+      </div>
+    </div>
+    <div class="material-detail-stats">
+      <span><small>持有</small><strong>${formatNumber(item.qty)}</strong></span>
+      <span><small>分类</small><strong>${escapeHtml(item.categoryLabel)}</strong></span>
+    </div>
+    <div class="material-detail-section">
+      <strong>当前用途</strong>
+      <div class="material-detail-chips">${item.uses.map((use) => `<span>${escapeHtml(use)}</span>`).join("")}</div>
+    </div>
+    <div class="material-detail-section">
+      <strong>主要来源</strong>
+      <div class="material-source-list">${item.sources.map((source, index) => `<span><b>${escapeHtml(source)}</b><em>${index === 0 ? "推荐" : "来源"}</em></span>`).join("")}</div>
+    </div>
+    <div class="material-detail-section">
+      <strong>说明</strong>
+      <p class="slot-meta">${escapeHtml(item.note)}</p>
+    </div>
+  </aside>`;
 }
 
 function renderEquipmentLineMaterialBoard() {
