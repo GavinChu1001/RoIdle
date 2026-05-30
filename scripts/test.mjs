@@ -31,6 +31,7 @@ const equipmentStyles = read('unified-equipment-ui.css');
 const main = read('src/main.js');
 const stateSurface = read('src/state/index.js');
 const equipmentIndexSource = read('src/systems/equipment/index.js');
+const statCatalogSource = read('src/systems/equipment/statCatalog.js');
 const itemStatsSource = read('src/systems/equipment/itemStats.js');
 const itemNamingSource = read('src/systems/equipment/itemNaming.js');
 const itemScoreSource = read('src/systems/equipment/itemScore.js');
@@ -183,7 +184,7 @@ assert.match(styles, /\.ro-vfx-spark\s*\{[\s\S]*width:\s*64px[\s\S]*height:\s*64
 assert.match(styles, /\.combat-impact-player-hit\.ro-vfx-spark\s*\{[\s\S]*width:\s*74px[\s\S]*height:\s*74px/, 'Player-hit generated spark should be smaller than the first preview implementation.');
 assert.match(styles, /@media\s*\(max-width:\s*640px\)[\s\S]*\.combat-impact-player-hit\.ro-vfx-spark\s*\{[\s\S]*width:\s*60px[\s\S]*height:\s*60px/, 'Mobile player-hit generated spark should be compact on 390px screens.');
 assert.match(html, /styles\.css\?v=20260529-battle-effects-v11/, 'Battle effect CSS should use a fresh cache-busting version.');
-assert.match(html, /game\.js\?v=20260529-battle-effects-v9/, 'Battle effect runtime should use a fresh cache-busting version.');
+assert.match(html, /game\.js\?v=20260530-mvp-aura-v1/, 'MVP aura runtime should use a fresh cache-busting version.');
 assert.match(main, /getMvpInscriptionView:\s*window\.getMvpInscriptionView/, 'Character page runtime must receive the live MVP inscription view helper.');
 assert.match(main, /canGainMvpInscriptionOnCurrentMap:\s*window\.canGainMvpInscriptionOnCurrentMap/, 'Character page runtime must receive the live MVP inscription map eligibility helper.');
 assert.match(html, /src="\.\/src\/main\.js\?v=20260529-mvp-inscription-v2"/, 'MVP inscription runtime must use a fresh module cache-busting version.');
@@ -227,9 +228,31 @@ assert.ok(existsSync(join(root, 'assets/ui/fx/manifest.json')), 'Generated VFX a
 const battleVfxManifest = JSON.parse(read('assets/ui/fx/manifest.json'));
 assert.equal(battleVfxManifest.style, 'ro-pixel-generated-vfx', 'Combat VFX manifest should lock the RO pixel generated style.');
 assert.equal(battleVfxManifest.rules.generatedOnly, true, 'Combat VFX manifest should require generated assets for image-based effects.');
+assert.equal(battleVfxManifest.rules.noGifSpriteSheets, true, 'Persistent animated battle auras should use PNG/WebP sprite sheets instead of GIF.');
 for (const file of ['hit-slash.png', 'hit-crit.png', 'hit-spark.png', 'hit-skill.png', 'skill-fire.png', 'skill-ice.png', 'skill-shadow.png', 'skill-holy.png', 'skill-storm.png', 'skill-support.png', 'status-burn.png', 'status-freeze.png', 'status-poison.png', 'status-snare.png', 'status-mark.png', 'status-break.png', 'status-wound.png', 'reward-death.png', 'reward-boss-death.png', 'reward-loot.png', 'reward-gold.png', 'player-heal.png', 'player-shield.png', 'player-dodge.png', 'player-hurt.png', 'enemy-warning.png', 'boss-cast.png', 'boss-impact.png', 'danger-mark.png']) {
   assert.ok(battleVfxManifest.assets.some((asset) => asset.path === `assets/ui/fx/${file}` && asset.generated === true), `${file} must be tracked as a generated VFX asset.`);
 }
+const mvpAuraAssets = [
+  'assets/ui/fx/mvp-aura-early.png',
+  'assets/ui/fx/mvp-aura-advanced.png',
+];
+for (const file of mvpAuraAssets) {
+  const png = readPngInfo(file);
+  assert.equal(png.colorType, 6, `${file} must be an RGBA sprite sheet with true transparency.`);
+  assert.equal(png.width, 1024, `${file} should contain four 256px aura frames per row.`);
+  assert.equal(png.height, 1024, `${file} should contain four 256px aura frames per column.`);
+  assert.ok(png.size > 8192, `${file} must contain real generated aura frame data.`);
+  assert.ok(battleVfxManifest.assets.some((asset) => asset.path === file && asset.generated === true && asset.spriteSheet === true), `${file} must be tracked as a generated sprite sheet asset.`);
+}
+assert.match(game, /const\s+MVP_INSCRIPTION_AURA_FRAME_COUNT\s*=\s*16/, 'MVP inscription aura playback should use a fixed 16-frame sprite sheet.');
+assert.match(game, /const\s+MVP_INSCRIPTION_AURA_SPRITE_SHEETS\s*=\s*Object\.freeze\(/, 'MVP inscription aura stages should map to generated sprite sheet assets.');
+assert.match(game, /mvp-aura-early\.png/, 'Early MVP inscription stages should use the generated early aura sprite sheet.');
+assert.match(game, /mvp-aura-advanced\.png/, 'Advanced MVP inscription stages should use the generated advanced aura sprite sheet.');
+assert.match(game, /function\s+getMvpInscriptionAuraSprite\s*\(/, 'MVP inscription aura rendering should load the generated sprite sheet through a cache.');
+assert.match(game, /function\s+drawMvpInscriptionAura\s*\(/, 'MVP inscription aura rendering should have a dedicated canvas draw helper.');
+assert.match(game, /getMvpInscriptionView\(\)\?\.stage\?\.id/, 'MVP inscription aura should follow the current breakthrough stage.');
+assert.match(game, /drawMvpInscriptionAura\(ctx,\s*heroX,\s*heroY,\s*time\)[\s\S]*drawHero\(ctx,\s*heroX,\s*heroY/, 'The MVP inscription aura must be drawn below the hero before the hero sprite.');
+assert.doesNotMatch(game, /mvp-aura-[a-z-]+\.gif/i, 'MVP inscription aura playback must not depend on GIF assets.');
 for (const tone of ['physical', 'fire', 'ice', 'shadow', 'holy', 'storm', 'support', 'burn', 'freeze', 'poison', 'snare', 'mark', 'break', 'wound', 'death', 'boss-death', 'loot', 'gold', 'player-heal', 'player-shield', 'player-dodge', 'player-hurt', 'enemy-warning', 'boss-cast', 'boss-impact', 'danger-mark']) {
   assert.ok(battleVfxManifest.plannedElements.some((entry) => entry.tone === tone && entry.promptBasis), `${tone} VFX should have a planned generated prompt basis.`);
 }
@@ -531,7 +554,38 @@ assert.equal(maintenanceSaves, 2, 'State-changing developer maintenance must sav
 assert.equal(maintenanceRenders, 2, 'State-changing developer maintenance must rerender after each operation.');
 globalThis.window = priorWindow;
 
-const itemStats = await importSource(itemStatsSource);
+const statCatalog = await importSource(statCatalogSource);
+assert.equal(statCatalog.canonicalEquipmentStat('critRatePct'), 'crit', 'critRatePct should merge into crit.');
+assert.equal(statCatalog.canonicalEquipmentStat('dodgeRatePct'), 'dodgeRate', 'dodgeRatePct should merge into dodgeRate.');
+assert.equal(statCatalog.canonicalEquipmentStat('baseExpBonus'), 'expBonus', 'baseExpBonus should merge into expBonus.');
+assert.equal(statCatalog.canonicalEquipmentStat('jobExpBonus'), 'expBonus', 'jobExpBonus should merge into expBonus.');
+assert.equal(statCatalog.canonicalEquipmentStat('patrolEfficiency'), 'combatPaceBonus', 'patrolEfficiency should merge into combatPaceBonus.');
+assert.equal(statCatalog.canonicalEquipmentStat('powerPct'), 'combatPaceBonus', 'powerPct should merge into combatPaceBonus.');
+assert.ok(statCatalog.DEPRECATED_EQUIPMENT_STATS.has('antiCrit'), 'antiCrit must stay deprecated.');
+assert.ok(statCatalog.DEPRECATED_EQUIPMENT_STATS.has('hitRate'), 'hitRate must stay deprecated.');
+assert.ok(statCatalog.DEPRECATED_EQUIPMENT_STATS.has('higherLevelDamageBonus'), 'higherLevelDamageBonus must stay deprecated.');
+assert.ok(!statCatalog.ORDINARY_EQUIPMENT_AFFIX_STATS.has('statusResist'), 'statusResist should not roll as ordinary equipment stat.');
+assert.ok(!statCatalog.ORDINARY_EQUIPMENT_AFFIX_STATS.has('offlineEfficiencyBonus'), 'offlineEfficiencyBonus should not roll as ordinary equipment stat.');
+const mergedCatalogStats = statCatalog.canonicalizeEquipmentStats({
+  crit: 0.02,
+  critRatePct: 0.03,
+  dodgeRatePct: 0.04,
+  baseExpBonus: 0.05,
+  jobExpBonus: 0.07,
+  patrolEfficiency: 0.02,
+  powerPct: 0.01,
+  antiCrit: 0.99,
+});
+assert.equal(mergedCatalogStats.crit, 0.05, 'crit aliases should add together.');
+assert.equal(mergedCatalogStats.dodgeRate, 0.04, 'dodge aliases should merge into dodgeRate.');
+assert.equal(mergedCatalogStats.expBonus, 0.12, 'experience aliases should add together.');
+assert.equal(mergedCatalogStats.combatPaceBonus, 0.03, 'pace aliases should add together.');
+assert.equal(mergedCatalogStats.antiCrit, undefined, 'deprecated antiCrit should be stripped.');
+assert.match(equipmentIndexSource, /statCatalog/, 'Equipment index should re-export the stat catalog.');
+
+const statCatalogModuleUrl = `data:text/javascript;base64,${Buffer.from(statCatalogSource).toString('base64')}`;
+const withStatCatalogImport = (source) => source.replace(/from\s+['"]\.\/statCatalog\.js['"]/g, `from '${statCatalogModuleUrl}'`);
+const itemStats = await importSource(withStatCatalogImport(itemStatsSource));
 const itemNaming = await importSource(itemNamingSource);
 const itemFixture = {
   name: 'Test Blade',
@@ -572,6 +626,27 @@ assert.equal(itemNaming.getEquipmentDisplayName(null), '\u672a\u77e5\u88c5\u5907
 assert.ok(Object.values(itemStats.getEffectiveItemStats(null)).every(Number.isFinite), 'Missing item stats must be finite.');
 assert.equal(itemStats.getEffectiveItemStats({ antiCrit: 0.5 }).antiCrit || 0, 0, 'Equipment V2 must not preserve antiCrit as an effective stat.');
 assert.ok(itemStats.getEffectiveItemStats({ blockRate: 0.12 }).blockRate > 0, 'Equipment V2 must preserve blockRate as an effective stat.');
+const canonicalEffective = itemStats.getEffectiveItemStats({
+  atk: 10,
+  crit: 0.02,
+  critRatePct: 0.03,
+  dodgeRatePct: 0.04,
+  baseExpBonus: 0.05,
+  jobExpBonus: 0.07,
+  patrolEfficiency: 0.02,
+  powerPct: 0.01,
+  damageReduction: 0.99,
+  antiCrit: 0.5,
+}, true, {
+  getMechanicAffixEffects: () => ({}),
+  computeCardSocketBonuses: () => ({}),
+});
+assert.equal(canonicalEffective.crit, 0.05, 'Effective stats should merge crit aliases.');
+assert.equal(canonicalEffective.dodgeRate, 0.04, 'Effective stats should merge dodge aliases.');
+assert.equal(canonicalEffective.expBonus, 0.12, 'Effective stats should merge experience aliases.');
+assert.equal(canonicalEffective.combatPaceBonus, 0.03, 'Effective stats should merge pace aliases.');
+assert.equal(canonicalEffective.antiCrit, undefined, 'Effective stats should strip antiCrit.');
+assert.equal(canonicalEffective.damageReduction, undefined, 'Effective stats should strip damageReduction.');
 
 let itemArchetypeSource = '';
 assert.doesNotThrow(() => {
@@ -707,6 +782,16 @@ assert.ok(
 );
 const lineFilters = itemProgression.getEquipmentLineFilterOptions();
 assert.ok(lineFilters.some((entry) => entry.id === 'line:ancientHero' && entry.label === '古代英雄'), 'Equipment filters should expose Ancient Hero line filtering.');
+const affixTierSource = game.slice(game.indexOf('const AFFIX_TIERS'), game.indexOf('const MECHANIC_AFFIXES'));
+const slotAffixPoolSource = game.slice(game.indexOf('const SLOT_AFFIX_POOLS'), game.indexOf('// [DATA->data.js] salvageRewards'));
+for (const stat of ['critRatePct', 'dodgeRatePct', 'baseExpBonus', 'jobExpBonus', 'mutationMaterialDoubleChance', 'statusResist', 'offlineEfficiencyBonus']) {
+  assert.doesNotMatch(affixTierSource, new RegExp(`\\b${stat}\\b`), `${stat} should not be in ordinary affix tiers.`);
+  assert.doesNotMatch(slotAffixPoolSource, new RegExp(`\\b${stat}\\b`), `${stat} should not be in slot affix pools.`);
+}
+assert.match(game, /getSocketCardEffects/, 'Card socket effects should remain available.');
+assert.match(game, /offlineEfficiencyBonus/, 'offlineEfficiencyBonus may remain for cards, VIP, synergy, or non-random systems.');
+assert.match(itemProgressionSource, /expBonus/, 'Progression templates should use expBonus.');
+assert.doesNotMatch(itemProgressionSource, /baseExpBonus|jobExpBonus/, 'Progression templates should not split BASE/JOB exp.');
 const itemSynergy = await import('./../src/systems/equipment/itemSynergy.js');
 assert.equal(Object.keys(itemSynergy.EQUIPMENT_SYNERGY_LINES).length, 10, 'Equipment synergy must define one rule for every progression equipment line.');
 assert.ok(itemSynergy.EQUIPMENT_SYNERGY_LINES.ancientHero, 'Ancient Hero synergy line must exist.');
@@ -824,7 +909,7 @@ assert.match(
 const itemArchetypeModuleUrl = `data:text/javascript;base64,${Buffer.from(itemArchetypeSource).toString('base64')}`;
 const withItemArchetypeImport = (source) => source.replace(/from\s+['"]\.\/itemArchetype\.js['"]/g, `from '${itemArchetypeModuleUrl}'`);
 const itemProgressionModuleUrl = `data:text/javascript;base64,${Buffer.from(itemProgressionSource).toString('base64')}`;
-const withEquipmentProgressionImports = (source) => withItemArchetypeImport(source)
+const withEquipmentProgressionImports = (source) => withStatCatalogImport(withItemArchetypeImport(source))
   .replace(/from\s+['"]\.\/itemProgression\.js['"]/g, `from '${itemProgressionModuleUrl}'`);
 
 let progressionUpgradeSource = '';
@@ -971,6 +1056,15 @@ assert.match(game, /\u88c5\u5907\u8fdb\u9636/, 'Smithy must expose the equipment
 const scoreStandaloneSource = withItemArchetypeImport(itemScoreSource)
   .replace("import { getEffectiveItemStats } from './itemStats.js';", 'const getEffectiveItemStats = (item) => item;')
   .replace("import { isAbyssEquipment } from './itemNaming.js';", "const isAbyssEquipment = (item) => Boolean(item?.abyssForged);");
+assert.doesNotMatch(itemScoreSource, /critRatePct|dodgeRatePct|baseExpBonus|jobExpBonus|abyssBossDamageBonus|abyssMaterialDropBonus|mythicEssenceDropBonus/, 'Equipment scoring should use canonical stats only.');
+const equipmentDetailSource = game.slice(game.indexOf('function groupEquipmentStats'), game.indexOf('function renderSalvagePreviewSection'));
+assert.doesNotMatch(equipmentDetailSource, /meteorCounterChance|mutationMaterialDoubleChance|statusResist|baseExpBonus|jobExpBonus|critRatePct|dodgeRatePct/, 'Equipment detail panel should not list pruned stats as ordinary rows.');
+assert.match(equipmentDetailSource, /基础属性[\s\S]*输出属性[\s\S]*收益属性[\s\S]*特殊效果/, 'Equipment detail panel should use compact main groups and mechanism tags.');
+const battleStatsSource = game.slice(game.indexOf('function calculateBattleStats'), game.indexOf('function calculateDropBonus'));
+assert.doesNotMatch(battleStatsSource, /equip\.critRatePct|equip\.dodgeRatePct|equip\.powerPct/, 'Battle stats should consume canonical crit, dodge, and pace fields.');
+const computeStatsSource = game.slice(game.indexOf('function computeStats'), game.indexOf('function calculateBattleStats'));
+assert.match(computeStatsSource, /equip\.expBonus/, 'Character stats should use canonical equipment expBonus.');
+assert.match(computeStatsSource, /equip\.highTierFind/, 'Character stats should use canonical highTierFind.');
 const itemScore = await importSource(scoreStandaloneSource);
 const scores = itemScore.calculateEquipmentScores({
   atk: 100,
@@ -1580,7 +1674,8 @@ assert.match(game, /gainMvpInscriptionExp/, 'Game runtime must expose MVP inscri
 assert.match(game, /currentMapIndex:\s*payload\.currentMapIndex\s*\?\?\s*payload\.mapIndex\s*\?\?\s*state\.currentMap/, 'MVP kill exp must use the defeated map index instead of live state.currentMap.');
 assert.match(game, /grantMvpInscriptionKillExp[\s\S]*silentBlocked:\s*true/, 'Routine MVP kill grants must not spam breakthrough-blocked logs.');
 assert.match(game, /getMvpInscriptionBonuses/, 'Game stats must merge MVP inscription bonuses.');
-assert.match(game, /\["hpPct", "atkPct", "matkPct", "defPct", "attackSpeedPct", "combatPaceBonus", "hitRate", "critRatePct", "statusResist", "physicalFinalDamageBonus", "normalAttackDamageBonus", "skillDamageBonus"\]\.forEach\(\(stat\) => \{[\s\S]*mvpInscriptionBonuses\[stat\]/, 'Game stats must merge equip-consumed MVP inscription bonuses.');
+assert.match(game, /\["hpPct", "atkPct", "matkPct", "defPct", "attackSpeedPct", "combatPaceBonus", "hitRate", "statusResist", "physicalFinalDamageBonus", "normalAttackDamageBonus", "skillDamageBonus"\]\.forEach\(\(stat\) => \{[\s\S]*mvpInscriptionBonuses\[stat\]/, 'Game stats must merge equip-consumed MVP inscription bonuses.');
+assert.match(game, /equip\.crit[\s\S]*mvpInscriptionBonuses\.critRatePct/, 'MVP inscription crit bonuses should merge into canonical equipment crit.');
 assert.match(characterPageSource, /MVP铭刻/, 'Character page must render the MVP inscription card.');
 assert.match(characterPageSource, /当前地图.*铭刻/, 'Character page should show whether the current map grants inscription exp.');
 assert.match(characterPageSource, /下一突破/, 'Character page should show MVP inscription breakthrough guidance.');

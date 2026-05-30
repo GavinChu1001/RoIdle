@@ -109,8 +109,8 @@ export const EQUIPMENT_SYNERGY_LINES = Object.freeze({
     mechanism('goodEvilJudgmentUpgrade', 5, '善恶审判+', '切换姿态时触发额外技能伤害。', { skillDamageBonus: 0.05, bossDamageReduction: 0.03 }, { stanceBurst: 0.10 }),
   ]),
   nebula: line('nebula', '星云矩阵', 'Nebula Matrix', [
-    mechanism('nebulaMatrix', 4, '星云矩阵', '多段技能与暴击形成矩阵增幅。', { critRatePct: 0.04, critDamageBonus: 0.08 }, { multihitBonus: 0.10, highTierDropBonus: 0.06 }),
-    mechanism('nebulaMatrixUpgrade', 5, '星云矩阵+', '矩阵稳定后提高高阶装备掉落。', { equipmentDrop: 0.06, mythicWeightBonus: 0.03 }, { highTierDropBonus: 0.10 }),
+    mechanism('nebulaMatrix', 4, '星云矩阵', '多段技能与暴击形成矩阵增幅。', { crit: 0.04, critDamageBonus: 0.08 }, { multihitBonus: 0.10, highTierDropBonus: 0.06 }),
+    mechanism('nebulaMatrixUpgrade', 5, '星云矩阵+', '矩阵稳定后提高高阶装备掉落。', { equipmentDrop: 0.06, highTierFind: 0.03 }, { highTierDropBonus: 0.10 }),
   ]),
   muqaddas: line('muqaddas', '莫卡迪斯圣域', 'Muqaddas Sanctuary', [
     mechanism('muqaddasSanctuary', 4, '圣域庇护', '圣域提供持续减伤与反击窗口。', { damageReductionPct: 0.035, skillDamageBonus: 0.05 }, { sanctuaryCounter: 0.12 }),

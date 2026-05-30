@@ -299,7 +299,7 @@ function buildProgressionTemplateStats(slot, archetype, growthTier, stage = {}) 
   }
   if (slot === 'headgear') {
     const main = archetype === 'magic' ? { int: roundStat(2.2 * scale), matk: roundStat(2.4 * scale) } : archetype === 'physical' ? { str: roundStat(2.2 * scale), atk: roundStat(2.4 * scale) } : { str: roundStat(1.2 * scale), int: roundStat(1.2 * scale), dex: roundStat(1.5 * scale) };
-    return { def: roundStat(3.5 * scale, 1), luk: roundStat(1.1 * scale), baseExpBonus: Number((0.006 * scale).toFixed(3)), jobExpBonus: Number((0.006 * scale).toFixed(3)), ...main };
+    return { def: roundStat(3.5 * scale, 1), luk: roundStat(1.1 * scale), expBonus: Number((0.01 * scale).toFixed(3)), ...main };
   }
   if (slot === 'shoes') {
     return { def: roundStat(4.5 * scale, 1), agi: roundStat(2.3 * scale), vit: roundStat(1.4 * scale), aspd: Number((0.008 * scale).toFixed(3)), attackSpeedPct: Number((0.006 * scale).toFixed(3)), combatPaceBonus: Number((0.004 * scale).toFixed(3)) };

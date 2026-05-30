@@ -45,7 +45,6 @@ const PHYSICAL_SIGNAL_STATS = Object.freeze([
   'aspd',
   'attackSpeedPct',
   'crit',
-  'critRatePct',
   'critDamageBonus',
   'ignoreDefense',
   'lifeSteal',
@@ -64,10 +63,10 @@ const MAGIC_SIGNAL_STATS = Object.freeze([
 const STAT_POOLS = Object.freeze({
   physical: Object.freeze({
     primary: Object.freeze(['atkPct', 'atk', 'str', 'dex', 'critDamageBonus']),
-    secondary: Object.freeze(['agi', 'attackSpeedPct', 'critRatePct', 'ignoreDefense']),
+    secondary: Object.freeze(['agi', 'attackSpeedPct', 'crit', 'ignoreDefense']),
     utility: Object.freeze(['hpPct', 'defPct', 'lifeSteal', 'bossDamageBonus']),
     flat: Object.freeze(['atk', 'str', 'dex', 'agi', 'crit', 'aspd']),
-    percent: Object.freeze(['atkPct', 'critRatePct', 'critDamageBonus', 'attackSpeedPct', 'ignoreDefense', 'lifeSteal']),
+    percent: Object.freeze(['atkPct', 'crit', 'critDamageBonus', 'attackSpeedPct', 'ignoreDefense', 'lifeSteal']),
     mechanic: Object.freeze(['splash', 'pursuit', 'breaker']),
   }),
   magic: Object.freeze({
@@ -83,7 +82,7 @@ const STAT_POOLS = Object.freeze({
     secondary: Object.freeze(['hpPct', 'defPct', 'finalDamageBonus', 'bossDamageBonus']),
     utility: Object.freeze(['drop', 'gold', 'rareDropBonus', 'equipmentDrop', 'materialQuantityBonus']),
     flat: Object.freeze(['hp', 'def', 'vit', 'luk']),
-    percent: Object.freeze(['hpPct', 'defPct', 'drop', 'gold', 'rareDropBonus', 'equipmentDrop', 'cardDrop', 'materialQuantityBonus', 'damageReductionPct']),
+    percent: Object.freeze(['hpPct', 'defPct', 'drop', 'gold', 'rareDropBonus', 'equipmentDrop', 'cardDrop', 'materialQuantityBonus', 'damageReductionPct', 'expBonus']),
     mechanic: Object.freeze(['greed', 'thorn', 'recovery']),
   }),
 });
@@ -246,7 +245,6 @@ export function calculateArchetypeScores(item = {}, effectiveStatsOrContext = {}
     statValue(source, 'aspd') * 800 +
     statValue(source, 'attackSpeedPct') * 4200 +
     statValue(source, 'crit') * 3600 +
-    statValue(source, 'critRatePct') * 3600 +
     statValue(source, 'critDamageBonus') * 4200 +
     statValue(source, 'ignoreDefense') * 5200 +
     statValue(source, 'lifeSteal') * 2600;

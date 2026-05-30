@@ -329,7 +329,7 @@ const AFFIX_TIERS = {
     def: { label: "坚固", range: [8, 24] },
     hp: { label: "生命", range: [80, 220] },
     hpRegen: { label: "复苏", range: [2, 8] },
-    dodgeRate: { label: "灵动", range: [0.004, 0.016], cap: 0.05 },
+    dodgeRate: { label: "灵动", range: [0.004, 0.016], cap: 0.12 },
     aspd: { label: "迅捷", range: [0.006, 0.024], cap: 0.08 },
     str: { label: "力量", range: [2, 6] },
     agi: { label: "敏捷", range: [2, 6] },
@@ -341,7 +341,7 @@ const AFFIX_TIERS = {
     drop: { label: "寻宝", range: [0.006, 0.02], cap: 0.1 },
     equipmentDrop: { label: "鉴宝", range: [0.004, 0.014], cap: 0.08 },
     cardDrop: { label: "占星", range: [0.003, 0.012], cap: 0.06 },
-    crit: { label: "会心", range: [0.006, 0.022], cap: 0.08 },
+    crit: { label: "会心", range: [0.006, 0.022], cap: 0.12 },
     critDamageBonus: { label: "锐意", range: [0.02, 0.06], cap: 0.24 },
   },
   percent: {
@@ -350,7 +350,6 @@ const AFFIX_TIERS = {
     hpPct: { label: "坚韧", range: [0.03, 0.075], cap: 0.24 },
     defPct: { label: "铁壁", range: [0.025, 0.065], cap: 0.22 },
     attackSpeedPct: { label: "疾风", range: [0.018, 0.045], cap: 0.16 },
-    critRatePct: { label: "洞察", range: [0.012, 0.032], cap: 0.12 },
     critDamageBonus: { label: "锐利", range: [0.035, 0.09], cap: 0.32 },
     skillDamageBonus: { label: "咏唱", range: [0.025, 0.07], cap: 0.24 },
     monsterDamageBonus: { label: "猎魔", range: [0.025, 0.075], cap: 0.25 },
@@ -358,11 +357,10 @@ const AFFIX_TIERS = {
     ignoreDefense: { label: "破甲", range: [0.015, 0.045], cap: 0.18 },
     damageReductionPct: { label: "守护", range: [0.015, 0.045], cap: 0.16 },
     blockRate: { label: "格挡", range: [0.015, 0.04], cap: 0.18 },
-    dodgeRatePct: { label: "轻身", range: [0.012, 0.035], cap: 0.12 },
+    dodgeRate: { label: "轻身", range: [0.012, 0.035], cap: 0.12 },
     lifeSteal: { label: "汲取", range: [0.01, 0.028], cap: 0.1 },
     hpRegenPct: { label: "回春", range: [0.04, 0.12], cap: 0.35 },
-    baseExpBonus: { label: "研习", range: [0.025, 0.07], cap: 0.22 },
-    jobExpBonus: { label: "历练", range: [0.025, 0.07], cap: 0.22 },
+    expBonus: { label: "历练", range: [0.025, 0.07], cap: 0.24 },
     materialQuantityBonus: { label: "采集", range: [0.025, 0.075], cap: 0.25 },
     rareDropBonus: { label: "珍品", range: [0.006, 0.02], cap: 0.08 },
     equipmentDrop: { label: "鉴宝", range: [0.01, 0.03], cap: 0.12 },
@@ -377,37 +375,37 @@ const MECHANIC_AFFIXES = {
   echo: { label: "回响", description: "技能命中后有 5% 概率追加一次较低倍率伤害。", effects: { echoChance: 0.05 }, slots: ["weapon", "headgear", "trinket"] },
   splash: { label: "溅射", description: "攻击溅射 1 个目标；单体 Boss 战转化为追加伤害。", effects: { splashTargets: 1, splashDamagePct: 0.22 }, slots: ["weapon", "trinket"] },
   pursuit: { label: "追击", description: "普攻后有 5% 概率追加一次火焰追击。", effects: { fireBurstChance: 0.05, fireBurstAtkPct: 0.65 }, slots: ["weapon", "shoes"] },
-  greed: { label: "贪婪", description: "击杀获得材料时有 3% 概率使数量翻倍。", effects: { mutationMaterialDoubleChance: 0.03 }, slots: ["trinket", "shoes"] },
+  greed: { label: "贪婪", description: "材料数量提高。", effects: { materialQuantityBonus: 0.05 }, slots: ["trinket", "shoes"] },
   thorn: { label: "格挡反击", description: "提高格挡率，格挡时按 VIT 造成反击伤害。", effects: { blockRate: 0.04, thornVitMultiplier: 1.2 }, slots: ["armor"] },
   breaker: { label: "破军", description: "攻击时无视怪物 8% 防御。", effects: { ignoreDefense: 0.08 }, slots: ["weapon", "trinket"] },
-  starlight: { label: "星辉", description: "BASE / JOB 经验收益 +8%。", effects: { baseExpBonus: 0.08, jobExpBonus: 0.08 }, slots: ["headgear", "trinket"] },
+  starlight: { label: "星辉", description: "经验收益 +8%。", effects: { expBonus: 0.08 }, slots: ["headgear", "trinket"] },
   recovery: { label: "复苏", description: "生命恢复效果 +15%。", effects: { hpRegenPct: 0.15 }, slots: ["armor", "shoes"] },
 };
 
 const SLOT_AFFIX_POOLS = {
   weapon: {
     flat: ["atk", "matk", "aspd", "crit", "str", "int", "dex"],
-    percent: ["atkPct", "matkPct", "attackSpeedPct", "critRatePct", "critDamageBonus", "ignoreDefense", "skillDamageBonus", "monsterDamageBonus", "bossDamageBonus"],
+    percent: ["atkPct", "matkPct", "attackSpeedPct", "crit", "critDamageBonus", "ignoreDefense", "skillDamageBonus", "bossDamageBonus"],
     mechanic: ["echo", "splash", "pursuit", "breaker"],
   },
   armor: {
     flat: ["def", "hp", "hpRegen", "vit", "dodgeRate"],
-    percent: ["hpPct", "defPct", "damageReductionPct", "blockRate", "dodgeRatePct", "hpRegenPct"],
+    percent: ["hpPct", "defPct", "damageReductionPct", "blockRate", "dodgeRate", "hpRegenPct"],
     mechanic: ["thorn", "recovery"],
   },
   headgear: {
     flat: ["def", "str", "agi", "vit", "int", "dex", "luk"],
-    percent: ["baseExpBonus", "jobExpBonus", "rareDropBonus", "skillDamageBonus", "matkPct", "critRatePct"],
+    percent: ["expBonus", "rareDropBonus", "skillDamageBonus", "matkPct", "crit"],
     mechanic: ["echo", "starlight", "greed"],
   },
   shoes: {
     flat: ["def", "hpRegen", "dodgeRate", "agi", "vit"],
-    percent: ["attackSpeedPct", "combatPaceBonus", "hpRegenPct", "dodgeRatePct", "blockRate", "hpPct"],
+    percent: ["attackSpeedPct", "combatPaceBonus", "hpRegenPct", "dodgeRate", "blockRate", "hpPct"],
     mechanic: ["greed", "pursuit", "recovery"],
   },
   trinket: {
     flat: ["str", "agi", "vit", "int", "dex", "luk", "critDamageBonus", "gold", "drop"],
-    percent: ["critDamageBonus", "gold", "drop", "rareDropBonus", "equipmentDrop", "cardDrop", "materialQuantityBonus", "monsterDamageBonus", "blockRate", "baseExpBonus", "jobExpBonus"],
+    percent: ["critDamageBonus", "gold", "drop", "rareDropBonus", "equipmentDrop", "cardDrop", "materialQuantityBonus", "bossDamageBonus", "blockRate", "expBonus"],
     mechanic: ["echo", "splash", "greed", "breaker", "starlight"],
   },
 };
@@ -1359,6 +1357,24 @@ const jobSpriteSources = {
 
 const jobSpriteExtensions = imageExtensions;
 const jobSpriteCache = {};
+const MVP_INSCRIPTION_AURA_FRAME_COUNT = 16;
+const MVP_INSCRIPTION_AURA_COLUMNS = 4;
+const MVP_INSCRIPTION_AURA_FRAME_SIZE = 256;
+const MVP_INSCRIPTION_AURA_FRAME_RATE = 14;
+const MVP_INSCRIPTION_AURA_SPRITE_SHEETS = Object.freeze({
+  default: "assets/ui/fx/mvp-aura-early.png",
+  kingPoring: "assets/ui/fx/mvp-aura-early.png",
+  goldenThiefBug: "assets/ui/fx/mvp-aura-early.png",
+  moonlightFlower: "assets/ui/fx/mvp-aura-early.png",
+  drake: "assets/ui/fx/mvp-aura-early.png",
+  phreeoni: "assets/ui/fx/mvp-aura-early.png",
+  orcHero: "assets/ui/fx/mvp-aura-early.png",
+  turtleGeneral: "assets/ui/fx/mvp-aura-advanced.png",
+  doppelganger: "assets/ui/fx/mvp-aura-advanced.png",
+  darkLord: "assets/ui/fx/mvp-aura-advanced.png",
+  baphomet: "assets/ui/fx/mvp-aura-advanced.png",
+});
+const mvpInscriptionAuraSpriteCache = {};
 
 const affixPool = [
   { stat: "atk", range: [4, 18], label: "锐利" },
@@ -5336,7 +5352,7 @@ function legacyCreateItem(template, level, forcedTierId = null, context = {}) {
   applyRandomAffixes(item, safeTier, level, itemTier);
   applyAbyssEquipmentBonus(item);
   applyRarityPerk(item, safeTier, template);
-  return item;
+  return canonicalizeLegacyItemAliases(item);
 }
 
 function createItem(template, level, forcedTierId = null, context = {}) {
@@ -5932,7 +5948,52 @@ function addItemStat(item, stat, value, cap = null) {
 }
 
 function canonicalItemStat(stat) {
-  return stat === "luck" ? "luk" : stat;
+  const aliases = {
+    luck: "luk",
+    critRatePct: "crit",
+    dodgeRatePct: "dodgeRate",
+    baseExpBonus: "expBonus",
+    jobExpBonus: "expBonus",
+    patrolEfficiency: "combatPaceBonus",
+    powerPct: "combatPaceBonus",
+    abyssBossDamageBonus: "abyssDamageBonus",
+    abyssSkillDamageBonus: "abyssDamageBonus",
+    abyssMaterialDropBonus: "materialQuantityBonus",
+    mutationMaterialDoubleChance: "materialQuantityBonus",
+    mythicEssenceDropBonus: "highTierFind",
+    mythicWeightBonus: "highTierFind",
+    rebirthPrestigeWeightBonus: "highTierFind",
+  };
+  return aliases[stat] || stat;
+}
+
+function canonicalizeLegacyItemAliases(item = {}) {
+  const aliasKeys = [
+    "luck",
+    "critRatePct",
+    "dodgeRatePct",
+    "baseExpBonus",
+    "jobExpBonus",
+    "patrolEfficiency",
+    "powerPct",
+    "abyssBossDamageBonus",
+    "abyssSkillDamageBonus",
+    "abyssMaterialDropBonus",
+    "mutationMaterialDoubleChance",
+    "mythicEssenceDropBonus",
+    "mythicWeightBonus",
+    "rebirthPrestigeWeightBonus",
+  ];
+  aliasKeys.forEach((stat) => {
+    const value = Number(item[stat] || 0);
+    if (value) {
+      const key = canonicalItemStat(stat);
+      item[key] = Number(((Number(item[key] || 0) || 0) + value).toFixed(statIsPercent(key) ? 3 : 0));
+    }
+    delete item[stat];
+  });
+  ["antiCrit", "hitRate", "higherLevelDamageBonus", "damageReduction"].forEach((stat) => delete item[stat]);
+  return item;
 }
 
 function mergeRange(current, next) {
@@ -7306,9 +7367,10 @@ function computeStats() {
   const cardStats = getCardStats();
   const vipBonuses = getVipBonuses();
   const mvpInscriptionBonuses = window.RuneFrontierMvpInscriptionRuntime?.getMvpInscriptionBonuses?.(state.mvpInscription) || {};
-  ["hpPct", "atkPct", "matkPct", "defPct", "attackSpeedPct", "combatPaceBonus", "hitRate", "critRatePct", "statusResist", "physicalFinalDamageBonus", "normalAttackDamageBonus", "skillDamageBonus"].forEach((stat) => {
+  ["hpPct", "atkPct", "matkPct", "defPct", "attackSpeedPct", "combatPaceBonus", "hitRate", "statusResist", "physicalFinalDamageBonus", "normalAttackDamageBonus", "skillDamageBonus"].forEach((stat) => {
     equip[stat] = (equip[stat] || 0) + (Number(mvpInscriptionBonuses[stat]) || 0);
   });
+  equip.crit = (equip.crit || 0) + (Number(mvpInscriptionBonuses.crit || 0) || 0) + (Number(mvpInscriptionBonuses.critRatePct || 0) || 0);
   const attrBreakdown = calculateFinalStats({ equip });
   const attrs = { ...attrBreakdown.final };
   attributeKeys.forEach((stat) => {
@@ -7323,7 +7385,7 @@ function computeStats() {
   });
   if (isAbyss && setBonuses.abyssDexPct) attrs.dex = Math.round(attrs.dex * (1 + setBonuses.abyssDexPct));
   if (isAbyss && setBonuses.abyssAttackSpeedPct) equip.attackSpeedPct = (equip.attackSpeedPct || 0) + setBonuses.abyssAttackSpeedPct;
-  if (isAbyss && setBonuses.abyssCritRatePct) equip.critRatePct = (equip.critRatePct || 0) + setBonuses.abyssCritRatePct;
+  if (isAbyss && setBonuses.abyssCritRatePct) equip.crit = (equip.crit || 0) + setBonuses.abyssCritRatePct;
   if (isAbyss && setBonuses.abyssMagicDamageBonus) equip.matkPct = (equip.matkPct || 0) + setBonuses.abyssMagicDamageBonus;
   const battleStats = calculateBattleStats({ attrs, equip, passive, cardStats, job, level, jobLevel, setBonuses });
   syncHeroHp({ maxHp: battleStats.maxHp }, false);
@@ -7336,7 +7398,8 @@ function computeStats() {
   const critDamageBonusTotal = setBonuses.critDamagePct + (equip.critDamageBonus || 0) + (passive.critDamageBonus || 0) + (isAbyss ? setBonuses.abyssCritDamageBonus || 0 : 0);
   const damageReductionTotal = setBonuses.damageReductionPct + (equip.damageReductionPct || 0) + (passive.damageReductionPct || 0) + (isAbyss ? (setBonuses.abyssDamageReduction || 0) + (equip.abyssDamageReduction || 0) + (passive.abyssDamageReduction || 0) + (state.enemyBoss ? setBonuses.abyssBossDamageReduction || 0 : 0) : 0);
   const abyssDamageBonusTotal = (setBonuses.abyssDamageBonus || 0) + (equip.abyssDamageBonus || 0) + (passive.abyssDamageBonus || 0);
-  const mythicWeightBonusTotal = (setBonuses.mythicWeightBonus || 0) + (equip.mythicWeightBonus || 0) + (equip.rebirthPrestigeWeightBonus || 0) + getRebirthPrestigeBonuses().mythicWeightBonus + (codexS.mythicQualityWeight || 0);
+  const highTierFind = equip.highTierFind || 0;
+  const mythicWeightBonusTotal = (setBonuses.mythicWeightBonus || 0) + highTierFind + getRebirthPrestigeBonuses().mythicWeightBonus + (codexS.mythicQualityWeight || 0);
 
   return {
     dps,
@@ -7368,7 +7431,7 @@ function computeStats() {
     mutationDamageBonus: setBonuses.mutationDamagePct,
     eliteDamageBonus: setBonuses.eliteDamagePct + (equip.eliteDamageBonus || 0) + (passive.eliteDamageBonus || 0),
     normalAttackBonus: setBonuses.normalAttackPct + (equip.normalAttackDamageBonus || 0),
-    skillDamageBonus: setBonuses.skillDamagePct + (equip.skillDamageBonus || 0) + (passive.skillDamageBonus || 0) + (isAbyss ? (setBonuses.abyssSkillDamageBonus || 0) + (equip.abyssSkillDamageBonus || 0) : 0),
+    skillDamageBonus: setBonuses.skillDamagePct + (equip.skillDamageBonus || 0) + (passive.skillDamageBonus || 0) + (isAbyss ? (setBonuses.abyssSkillDamageBonus || 0) : 0),
     critDamageBonus: critDamageBonusTotal,
     critDamage: 1.85 + critDamageBonusTotal,
     ignoreDefensePct: setBonuses.ignoreDefensePct + (equip.ignoreDefense || 0) + (passive.ignoreDefense || 0) + (isAbyss ? setBonuses.abyssIgnoreDefense || 0 : 0),
@@ -7377,8 +7440,8 @@ function computeStats() {
     lifeSteal: Math.min(0.35, (equip.lifeSteal || 0) + (passive.lifeSteal || passive.lifeStealPct || 0)),
     goldMultiplier: 1 + calculateGoldBonus({ equip, cardStats, passive, vipBonuses }) + explorationBonuses.goldBonus + (isAbyss ? setBonuses.abyssGoldPct || 0 : 0) + (codexS.goldBonus || 0) + (mvpInscriptionBonuses.goldBonus || 0),
     monsterGoldMultiplier: 1 + setBonuses.monsterGoldPct,
-    baseExpMultiplier: 1 + setBonuses.baseExpPct + (equip.baseExpBonus || 0) + (passive.baseExpBonus || 0) + explorationBonuses.expBonus + (isAbyss ? setBonuses.abyssBaseExpPct || 0 : 0) + (codexS.expBonus || 0) + (mvpInscriptionBonuses.baseExpBonus || 0),
-    jobExpMultiplier: 1 + setBonuses.jobExpPct + (equip.jobExpBonus || 0) + (passive.jobExpBonus || 0) + explorationBonuses.expBonus + (isAbyss ? setBonuses.abyssJobExpPct || 0 : 0) + (mvpInscriptionBonuses.jobExpBonus || 0),
+    baseExpMultiplier: 1 + setBonuses.baseExpPct + (equip.expBonus || 0) + (passive.baseExpBonus || 0) + explorationBonuses.expBonus + (isAbyss ? setBonuses.abyssBaseExpPct || 0 : 0) + (codexS.expBonus || 0) + (mvpInscriptionBonuses.baseExpBonus || 0),
+    jobExpMultiplier: 1 + setBonuses.jobExpPct + (equip.expBonus || 0) + (passive.jobExpBonus || 0) + explorationBonuses.expBonus + (isAbyss ? setBonuses.abyssJobExpPct || 0 : 0) + (mvpInscriptionBonuses.jobExpBonus || 0),
     materialQuantityBonus: setBonuses.materialQuantityPct + (equip.materialQuantityBonus || 0) + (passive.materialQuantityBonus || 0),
     damageReductionPct: damageReductionTotal,
     blockRate: Math.min(0.45, (equip.blockRate || 0) + attrs.str * 0.0002),
@@ -7401,12 +7464,12 @@ function computeStats() {
     meteorCounterChance: Math.min(0.25, equip.meteorCounterChance || 0),
     meteorCounterMatkPct: equip.meteorCounterMatkPct || 0,
     abyssDamageBonus: abyssDamageBonusTotal,
-    abyssBossDamageBonus: (setBonuses.abyssBossDamageBonus || 0) + (equip.abyssBossDamageBonus || 0),
+    abyssBossDamageBonus: setBonuses.abyssBossDamageBonus || 0,
     abyssDamageReduction: (isAbyss ? (setBonuses.abyssDamageReduction || 0) + (equip.abyssDamageReduction || 0) + (passive.abyssDamageReduction || 0) + (state.enemyBoss ? setBonuses.abyssBossDamageReduction || 0 : 0) : 0),
-    abyssMaterialDropBonus: (setBonuses.abyssMaterialDropBonus || 0) + (equip.abyssMaterialDropBonus || 0) + (vipMs.abyssMaterialDropBonus || 0),
+    abyssMaterialDropBonus: (setBonuses.abyssMaterialDropBonus || 0) + (vipMs.abyssMaterialDropBonus || 0),
     mythicWeightBonus: mythicWeightBonusTotal,
     bossQualityWeight: codexS.bossQualityWeight || 0,
-    mythicEssenceDropBonus: (equip.mythicEssenceDropBonus || 0) + (vipMs.mythicEssenceDropBonus || 0),
+    mythicEssenceDropBonus: highTierFind + (vipMs.mythicEssenceDropBonus || 0),
     rareDropBonus: (equip.rareDropBonus || 0) + (passive.rareDropBonus || 0) + (vipMs.rareQualityWeightBonus || 0) + attrs.luk * 0.001,
     abyssExecuteDamageBonus: (equip.abyssExecuteDamageBonus || 0) + (passive.abyssExecuteDamageBonus || 0),
     rawCritRate: battleStats.rawCritRate,
@@ -7616,11 +7679,11 @@ function calculateBattleStats({ attrs, equip, passive, cardStats, job, level, jo
   const maxHp = Math.round((job.baseHp + equip.hp + attrs.vit * battleStatConfig.hpPerVit + level * battleStatConfig.hpPerLevel + jobLevel * 10) * (1 + jobHpPct));
   const defense = Math.round((job.baseDef + equip.def + attrs.vit * battleStatConfig.defensePerVit) * (1 + jobDefPct));
   const hpRegen = Math.max(1, Math.round((battleStatConfig.hpRegenBase + (equip.hpRegen || 0) + attrs.vit * battleStatConfig.hpRegenPerVit + level * battleStatConfig.hpRegenPerLevel) * (1 + (equip.hpRegenPct || 0))));
-  const rawCritRate = calculateRawCritRate({ equip, cardStats, passive, attrs }) + (setBonuses.critRatePct || 0) + (equip.critRatePct || 0);
+  const rawCritRate = calculateRawCritRate({ equip, cardStats, passive, attrs }) + (setBonuses.critRatePct || 0);
   const critRate = clampNumber(rawCritRate, 0, PLAYER_CRIT_RATE_CAP);
-  const dodgeRate = clampNumber(calculateDodgeRate({ attrs, level }) + (equip.dodgeRate || 0) + (equip.dodgeRatePct || 0), 0, battleStatConfig.maxDodge);
+  const dodgeRate = clampNumber(calculateDodgeRate({ attrs, level }) + (equip.dodgeRate || 0), 0, battleStatConfig.maxDodge);
   const mainPower = Math.max(physicalAttack, magicAttack);
-  const dps = mainPower * attackSpeed * COMBAT_PACE * (1 + passive.dpsPct + cardStats.dps + (setBonuses.powerPct || 0) + (equip.powerPct || 0) + (equip.combatPaceBonus || 0));
+  const dps = mainPower * attackSpeed * COMBAT_PACE * (1 + passive.dpsPct + cardStats.dps + (setBonuses.powerPct || 0) + (equip.combatPaceBonus || 0));
   return { physicalAttack, magicAttack, maxHp, defense, hpRegen, attackSpeed, dodgeRate, rawCritRate, critRate, dps };
 }
 
@@ -7831,8 +7894,8 @@ function calculatePower({ attrs, equip, battleStats, setBonuses }) {
       (equip.echoChance || 0) * 220 +
       (equip.thornVitMultiplier || 0) * 55 +
       (equip.hpRegenPct || 0) * 180 +
-      (equip.baseExpBonus || 0) * 45 +
-      (equip.jobExpBonus || 0) * 45 +
+      (equip.expBonus || 0) * 90 +
+      (equip.highTierFind || 0) * 180 +
       refinePower +
       rarityPower +
       setPower +
@@ -8554,7 +8617,7 @@ function getCharacterStatBreakdown(stats = computeStats()) {
     },
     sources: {
       "基础/职业": { atk: state.hero.baseLevel * 2, hp: state.hero.baseLevel * 10, def: currentJob().baseDef || 0 },
-      装备: { atk: equip.atk || 0, matk: equip.matk || 0, def: equip.def || 0, hp: equip.hp || 0, critRate: (equip.crit || 0) + (equip.critRatePct || 0), critDamage: equip.critDamageBonus || 0, bossDamage: equip.bossDamageBonus || 0, abyssDamage: equip.abyssDamageBonus || 0 },
+      装备: { atk: equip.atk || 0, matk: equip.matk || 0, def: equip.def || 0, hp: equip.hp || 0, critRate: equip.crit || 0, critDamage: equip.critDamageBonus || 0, bossDamage: equip.bossDamageBonus || 0, abyssDamage: equip.abyssDamageBonus || 0 },
       星炼: estimateRefineSourceStats(),
       卡片: { atk: cardStats.atk || 0, matk: cardStats.matk || 0, hp: cardStats.hp || 0, critRate: cardStats.crit || 0, bossDamage: cardStats.bossDamageBonus || 0 },
       套装: { critRate: setBonuses.critRatePct || 0, critDamage: setBonuses.critDamagePct || 0, bossDamage: setBonuses.bossDamagePct || 0, abyssDamage: setBonuses.abyssDamageBonus || 0, abyssReduction: setBonuses.abyssDamageReduction || 0 },
@@ -11188,11 +11251,14 @@ function drawScene(time) {
   const ctx = canvas.getContext("2d");
   const { width, height } = canvas;
   const map = currentMap();
+  const heroX = 190;
+  const heroY = 344 + Math.sin(time * 3.1) * 4;
 
   ctx.clearRect(0, 0, width, height);
   drawBattleBackdrop(ctx, width, height, map, time);
 
-  drawHero(ctx, 190, 344 + Math.sin(time * 3.1) * 4, currentJob().color, currentJob().id, time);
+  drawMvpInscriptionAura(ctx, heroX, heroY, time);
+  drawHero(ctx, heroX, heroY, currentJob().color, currentJob().id, time);
   drawEnemy(ctx, 680, 340 + Math.sin(time * 2) * 7, state.enemyBoss ? 1.55 : 1, time);
   drawFloatTexts(ctx);
 }
@@ -11617,6 +11683,54 @@ function drawHero(ctx, x, y, color, kind, time) {
     ctx.stroke();
   }
   ctx.restore();
+}
+
+function drawMvpInscriptionAura(ctx, heroX, heroY, time) {
+  const stageId = getMvpInscriptionView()?.stage?.id || "kingPoring";
+  const sprite = getMvpInscriptionAuraSprite(stageId);
+  if (!sprite || !sprite.complete || !sprite.naturalWidth) return false;
+
+  const frame = Math.floor(time * MVP_INSCRIPTION_AURA_FRAME_RATE) % MVP_INSCRIPTION_AURA_FRAME_COUNT;
+  const sx = (frame % MVP_INSCRIPTION_AURA_COLUMNS) * MVP_INSCRIPTION_AURA_FRAME_SIZE;
+  const sy = Math.floor(frame / MVP_INSCRIPTION_AURA_COLUMNS) * MVP_INSCRIPTION_AURA_FRAME_SIZE;
+  const isAdvanced = MVP_INSCRIPTION_AURA_SPRITE_SHEETS[stageId] === MVP_INSCRIPTION_AURA_SPRITE_SHEETS.baphomet;
+  const width = isAdvanced ? 204 : 182;
+  const height = isAdvanced ? 126 : 112;
+  const footY = heroY + 58;
+
+  ctx.save();
+  ctx.globalAlpha = isAdvanced ? 0.88 : 0.78;
+  ctx.globalCompositeOperation = "lighter";
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(
+    sprite,
+    sx,
+    sy,
+    MVP_INSCRIPTION_AURA_FRAME_SIZE,
+    MVP_INSCRIPTION_AURA_FRAME_SIZE,
+    heroX - width / 2,
+    footY - height * 0.56,
+    width,
+    height
+  );
+  ctx.restore();
+  return true;
+}
+
+function getMvpInscriptionAuraSprite(stageId) {
+  if (typeof Image === "undefined") return null;
+  const src = MVP_INSCRIPTION_AURA_SPRITE_SHEETS[stageId] || MVP_INSCRIPTION_AURA_SPRITE_SHEETS.default;
+  if (!src) return null;
+  let image = mvpInscriptionAuraSpriteCache[src];
+  if (!image) {
+    image = new Image();
+    image.src = src;
+    image.onerror = () => {
+      image.failed = true;
+    };
+    mvpInscriptionAuraSpriteCache[src] = image;
+  }
+  return image.failed ? null : image;
 }
 
 function drawAuthorizedJobSprite(ctx, kind, time) {
@@ -12742,41 +12856,19 @@ function mergeStatEntries(effective, statKeys) {
 
 function groupEquipmentStats(item) {
   const effective = getEffectiveItemStats(item, false);
-  var itemFind = mergeStatEntries(effective, ["drop", "rareDropBonus", "equipmentDrop", "cardDrop"]);
-  var goldFind = mergeStatEntries(effective, ["gold", "goldBonus"]);
-  var monsterDmg = mergeStatEntries(effective, ["monsterDamageBonus", "eliteDamageBonus", "normalAttackDamageBonus"]);
-  var abyssPower = mergeStatEntries(effective, ["abyssDamageBonus", "abyssBossDamageBonus", "abyssSkillDamageBonus"]);
-  var expBonus = mergeStatEntries(effective, ["baseExpBonus", "jobExpBonus"]);
   var groups = [
     { title: "基础属性", stats: ["atk", "matk", "def", "hp"] },
     { title: "职业属性", stats: ["str", "agi", "vit", "int", "dex", "luk"] },
-    { title: "输出属性", stats: ["aspd", "crit", "critRatePct", "critDamageBonus", "attackSpeedPct", "finalDamageBonus", "skillDamageBonus", "atkPct", "matkPct"] },
-    { title: "生存属性", stats: ["lifeSteal", "damageReductionPct", "hpRegen", "dodgeRate", "blockRate", "hpPct", "defPct"] },
-    { title: "Boss属性", stats: ["bossDamageBonus", "bossDamageReduction"] },
-    { title: "深渊属性", stats: ["abyssDamageReduction", "abyssMaterialDropBonus", "mythicWeightBonus", "abyssExecuteDamageBonus"] },
-    { title: "收益属性", stats: ["materialQuantityBonus", "offlineEfficiencyBonus"] },
+    { title: "输出属性", stats: ["aspd", "attackSpeedPct", "crit", "critDamageBonus", "ignoreDefense", "atkPct", "matkPct", "skillDamageBonus", "bossDamageBonus", "finalDamageBonus"] },
+    { title: "生存属性", stats: ["hpPct", "defPct", "damageReductionPct", "dodgeRate", "blockRate", "lifeSteal", "hpRegen", "hpRegenPct"] },
+    { title: "收益属性", stats: ["gold", "drop", "rareDropBonus", "equipmentDrop", "cardDrop", "materialQuantityBonus", "expBonus", "highTierFind"] },
+    { title: "深渊属性", stats: ["abyssDamageBonus", "abyssDamageReduction"] },
   ];
-  if (monsterDmg) groups.splice(2, 0, { title: "怪物伤害", value: monsterDmg });
-  if (abyssPower) groups.splice(groups.length - 2, 0, { title: "深渊强度", value: abyssPower });
   return groups
     .map(function (group) {
-      var entries;
-      if (group.value !== undefined) {
-        entries = [{ stat: group.title, label: group.title, value: group.value }];
-      } else {
-        var statsList = group.stats.slice();
-        if (group.title === "收益属性") {
-          if (itemFind) statsList.push("itemFind");
-          if (goldFind) statsList.push("goldFind");
-          if (expBonus) statsList.push("expBonus");
-        }
-        entries = statsList.map(function (stat) {
-          if (stat === "itemFind") return { stat: "itemFind", label: "物品发现", value: itemFind };
-          if (stat === "goldFind") return { stat: "goldFind", label: "金币获取", value: goldFind };
-          if (stat === "expBonus") return { stat: "expBonus", label: "经验加成", value: expBonus };
-          return equipmentStatEntry(effective, stat);
-        }).filter(Boolean);
-      }
+      var entries = group.stats.map(function (stat) {
+        return equipmentStatEntry(effective, stat);
+      }).filter(Boolean);
       return { title: group.title, entries: entries };
     })
     .filter(function (group) { return group.entries.length; });
@@ -12791,16 +12883,17 @@ function renderRarityPerk(item) { const runtime = window.RuneFrontierRenderRunti
 
 function renderEquipmentStatSections(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentStatSections === "function") return runtime.renderEquipmentStatSections(item);
   const statGroups = groupEquipmentStats(item);
-  const specialStats = ["ignoreDefense", "echoChance", "splashTargets", "splashDamagePct", "fireBurstChance", "fireBurstAtkPct", "meteorCounterChance", "meteorCounterMatkPct", "mutationMaterialDoubleChance", "thornVitMultiplier", "combatPaceBonus", "statusResist"]
-    .map((stat) => equipmentStatEntry(getEffectiveItemStats(item, false), stat))
-    .filter(Boolean);
   const abyssStats = Object.entries(item.abyssBonus || {})
     .map(([stat, value]) => ({ stat, label: statLabelName(stat), value }))
     .filter((entry) => entry.value);
   const abyssAffixStats = (item.abyssAffixes || []).flatMap((affix) =>
     Object.entries(affix.effects || {}).map(([stat, value]) => ({ stat, label: affix.name || statLabelName(stat), value, desc: affix.desc || "" })),
   );
-  const mechanicStats = [...(item.affixes || []), ...(item.mechanicAffixes || []).map((id) => `【${MECHANIC_AFFIXES[id]?.label || id}】`)]
+  const mechanicStats = [...new Set([
+    ...(item.mechanicAffixes || []).map((id) => MECHANIC_AFFIXES[id]?.label || id),
+    ...(item.affixDetails || []).filter((entry) => entry.type === "mechanic").map((entry) => entry.label),
+  ].filter(Boolean))]
+    .map((text) => `【${text}】`)
     .filter(Boolean);
   const refineStats = item.refine ? statObjectText(star15Bonus(item)) : "";
   const setText = item.setId ? renderEquipmentSetProgress(item) : "";
@@ -12810,7 +12903,7 @@ function renderEquipmentStatSections(item) { const runtime = window.RuneFrontier
     ${renderRarityPerk(item)}
     ${statGroups.map((group) => `<div class="equip-section equipment-stat-section"><strong class="equipment-section-title">${group.title}</strong>${renderStatChipGrid(group.entries)}</div>`).join("")}
     ${randomStatsHtml(item)}
-    ${(mechanicStats.length || specialStats.length) ? `<div class="equip-section equipment-stat-section"><strong class="equipment-section-title">特殊词条</strong>${renderStatChipGrid(specialStats, "equipment-special-chip")}${mechanicStats.length ? `<div class="equipment-mechanic-tags">${mechanicStats.map((text) => `<span>${escapeHtml(text)}</span>`).join("")}</div>` : ""}</div>` : ""}
+    ${mechanicStats.length ? `<div class="equip-section equipment-stat-section"><strong class="equipment-section-title">特殊效果</strong><div class="equipment-mechanic-tags">${mechanicStats.map((text) => `<span>${escapeHtml(text)}</span>`).join("")}</div></div>` : ""}
     ${(abyssStats.length || abyssAffixStats.length) ? `<div class="equip-section equipment-stat-section equipment-abyss-section"><strong class="equipment-section-title">深渊加成</strong>${renderStatChipGrid(abyssStats, "equipment-special-chip")}${renderStatChipGrid(abyssAffixStats, "equipment-special-chip abyss-affix-chip")}</div>` : ""}
     ${renderEmpowerSection(item)}
     ${renderRefineSection(item, refineStats)}
@@ -13096,8 +13189,8 @@ function star15Bonus(item) {
   const slot = equipmentSlot(item);
   if (slot === "weapon") return item.matk > item.atk ? { atk: 8, matk: 22, skillDamageBonus: 0.03 } : { atk: 22, matk: 8, skillDamageBonus: 0.03 };
   if (slot === "armor") return { hp: 20, damageReductionPct: 0.02 };
-  if (slot === "headgear") return { critRatePct: 0.01, allStats: 2 };
-  if (slot === "shoes") return { dodgeRatePct: 0.01, attackSpeedPct: 0.01 };
+  if (slot === "headgear") return { crit: 0.01, allStats: 2 };
+  if (slot === "shoes") return { dodgeRate: 0.01, attackSpeedPct: 0.01 };
   return { critDamageBonus: 0.04, drop: 0.01, gold: 0.01 };
 }
 
@@ -13110,8 +13203,8 @@ function getRefineMilestoneBonuses(item) {
   const tiers = {
     weapon: [{ str: 2 }, { skillDamageBonus: 0.01 }, { str: 2 }, { bossDamageBonus: 0.02 }, { finalDamageBonus: 0.02 }],
     armor: [{ vit: 2 }, { hp: 20 }, { damageReductionPct: 0.01 }, { hp: 30 }, { damageReductionPct: 0.02 }],
-    headgear: [{ int: 2 }, { critRatePct: 0.005 }, { baseExpBonus: 0.01 }, { allStats: 1 }, { skillDamageBonus: 0.01 }],
-    shoes: [{ agi: 2 }, { dodgeRatePct: 0.01 }, { attackSpeedPct: 0.01 }, { hpRegenPct: 0.02 }, { combatPaceBonus: 0.01 }],
+    headgear: [{ int: 2 }, { crit: 0.005 }, { expBonus: 0.01 }, { allStats: 1 }, { skillDamageBonus: 0.01 }],
+    shoes: [{ agi: 2 }, { dodgeRate: 0.01 }, { attackSpeedPct: 0.01 }, { hpRegenPct: 0.02 }, { combatPaceBonus: 0.01 }],
     trinket: [{ luk: 2 }, { drop: 0.005 }, { gold: 0.01 }, { cardDrop: 0.005 }, { drop: 0.01 }],
   };
   const tier = tiers[slot] || tiers.trinket;
@@ -13189,6 +13282,7 @@ function statLabelName(stat) {
     mythicWeightBonus: "神话权重",
     mythicEssenceDropBonus: "神话精粹掉率",
     rebirthPrestigeWeightBonus: "转生声望加成",
+    highTierFind: "高阶发现",
     abyssExecuteDamageBonus: "深渊斩杀",
     setPowerBonus: "套装战力",
     goldBonus: "金币收益",
@@ -13306,6 +13400,7 @@ function statIsPercent(stat) {
     "mythicWeightBonus",
     "mythicEssenceDropBonus",
     "rebirthPrestigeWeightBonus",
+    "highTierFind",
     "abyssExecuteDamageBonus",
     "setPowerBonus",
     "abyssSkillChanceBonus",
@@ -13493,10 +13588,10 @@ const EQUIPMENT_ARCHETYPE_LABELS = Object.freeze({
 const LEGACY_ARCHETYPE_STAT_POOLS = Object.freeze({
   physical: Object.freeze({
     primary: Object.freeze(["atkPct", "atk", "str", "dex", "critDamageBonus"]),
-    secondary: Object.freeze(["agi", "attackSpeedPct", "critRatePct", "ignoreDefense"]),
+    secondary: Object.freeze(["agi", "attackSpeedPct", "crit", "ignoreDefense"]),
     utility: Object.freeze(["hpPct", "defPct", "lifeSteal", "bossDamageBonus"]),
     flat: Object.freeze(["atk", "str", "dex", "agi", "crit", "aspd"]),
-    percent: Object.freeze(["atkPct", "critRatePct", "critDamageBonus", "attackSpeedPct", "ignoreDefense", "lifeSteal"]),
+    percent: Object.freeze(["atkPct", "crit", "critDamageBonus", "attackSpeedPct", "ignoreDefense", "lifeSteal"]),
     mechanic: Object.freeze(["splash", "pursuit", "breaker"]),
   }),
   magic: Object.freeze({
@@ -13512,7 +13607,7 @@ const LEGACY_ARCHETYPE_STAT_POOLS = Object.freeze({
     secondary: Object.freeze(["hpPct", "defPct", "finalDamageBonus", "bossDamageBonus"]),
     utility: Object.freeze(["drop", "gold", "rareDropBonus", "equipmentDrop", "materialQuantityBonus"]),
     flat: Object.freeze(["hp", "def", "vit", "luk"]),
-    percent: Object.freeze(["hpPct", "defPct", "drop", "gold", "rareDropBonus", "equipmentDrop", "cardDrop", "materialQuantityBonus", "damageReductionPct"]),
+    percent: Object.freeze(["hpPct", "defPct", "drop", "gold", "rareDropBonus", "equipmentDrop", "cardDrop", "materialQuantityBonus", "damageReductionPct", "expBonus"]),
     mechanic: Object.freeze(["greed", "thorn", "recovery"]),
   }),
 });
@@ -13564,10 +13659,10 @@ function getArchetypeStatPools(archetype) {
   const legacyPools = {
     physical: {
       primary: ["atkPct", "atk", "str", "dex", "critDamageBonus"],
-      secondary: ["agi", "attackSpeedPct", "critRatePct", "ignoreDefense"],
+      secondary: ["agi", "attackSpeedPct", "crit", "ignoreDefense"],
       utility: ["hpPct", "defPct", "lifeSteal", "bossDamageBonus"],
       flat: ["atk", "str", "dex", "agi", "crit", "aspd"],
-      percent: ["atkPct", "critRatePct", "critDamageBonus", "attackSpeedPct", "ignoreDefense", "lifeSteal"],
+      percent: ["atkPct", "crit", "critDamageBonus", "attackSpeedPct", "ignoreDefense", "lifeSteal"],
       mechanic: ["splash", "pursuit", "breaker"],
     },
     magic: {
@@ -13583,7 +13678,7 @@ function getArchetypeStatPools(archetype) {
       secondary: ["hpPct", "defPct", "finalDamageBonus", "bossDamageBonus"],
       utility: ["drop", "gold", "rareDropBonus", "equipmentDrop", "materialQuantityBonus"],
       flat: ["hp", "def", "vit", "luk"],
-      percent: ["hpPct", "defPct", "drop", "gold", "rareDropBonus", "equipmentDrop", "cardDrop", "materialQuantityBonus", "damageReductionPct"],
+      percent: ["hpPct", "defPct", "drop", "gold", "rareDropBonus", "equipmentDrop", "cardDrop", "materialQuantityBonus", "damageReductionPct", "expBonus"],
       mechanic: ["greed", "thorn", "recovery"],
     },
   };
@@ -13655,7 +13750,7 @@ function inferEquipmentArchetype(item = {}, context = {}) {
   }
   if (!item || typeof item !== "object") return "general";
   if (Object.hasOwn(item, "archetype")) return normalizeEquipmentArchetype(item.archetype);
-  const physicalSignal = equipmentArchetypeStatSignal(item, ["atk", "atkPct", "str", "agi", "dex", "aspd", "attackSpeedPct", "crit", "critRatePct", "critDamageBonus", "ignoreDefense", "lifeSteal"]);
+  const physicalSignal = equipmentArchetypeStatSignal(item, ["atk", "atkPct", "str", "agi", "dex", "aspd", "attackSpeedPct", "crit", "critDamageBonus", "ignoreDefense", "lifeSteal"]);
   const magicSignal = equipmentArchetypeStatSignal(item, ["matk", "matkPct", "int", "skillDamageBonus", "echoChance"]);
   if (physicalSignal > 0 && magicSignal > 0) return "general";
   if (physicalSignal > 0) return "physical";

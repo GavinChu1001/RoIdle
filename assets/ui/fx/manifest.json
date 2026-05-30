@@ -4,6 +4,7 @@
     "generatedOnly": true,
     "transparentPng": true,
     "noCssDrawnReplacement": true,
+    "noGifSpriteSheets": true,
     "notes": "All image-based battle VFX should be generated as RO-inspired pixel assets, processed to transparent PNG, and then wired into the combat layer. CSS may position, size, tint, and animate generated images, but should not draw replacement slash or burst art."
   },
   "assets": [
@@ -209,6 +210,26 @@
       "generated": true,
       "tone": "danger-mark",
       "usage": ["player-danger-warning", "boss-target-marker"]
+    },
+    {
+      "id": "mvp-aura-early",
+      "path": "assets/ui/fx/mvp-aura-early.png",
+      "generated": true,
+      "spriteSheet": true,
+      "frameSize": 256,
+      "frames": 16,
+      "tone": "mvp-aura-early",
+      "usage": ["mvp-inscription-foot-aura", "early-breakthrough-aura"]
+    },
+    {
+      "id": "mvp-aura-advanced",
+      "path": "assets/ui/fx/mvp-aura-advanced.png",
+      "generated": true,
+      "spriteSheet": true,
+      "frameSize": 256,
+      "frames": 16,
+      "tone": "mvp-aura-advanced",
+      "usage": ["mvp-inscription-foot-aura", "advanced-breakthrough-aura"]
     }
   ],
   "plannedElements": [
@@ -315,6 +336,14 @@
     {
       "tone": "danger-mark",
       "promptBasis": "Compact red warning sigil made of pixels and angular sparks, used near the player as a danger marker."
+    },
+    {
+      "tone": "mvp-aura-early",
+      "promptBasis": "Transparent PNG sprite sheet, 16 frames, pink-white and warm gold RO-like ground aura with thin ring arcs, tiny square motes, and soft alpha glow."
+    },
+    {
+      "tone": "mvp-aura-advanced",
+      "promptBasis": "Transparent PNG sprite sheet, 16 frames, red-gold and violet RO-like ground magic circle with angular rune ticks, dark inner traces, and controlled alpha glow."
     }
   ]
 }

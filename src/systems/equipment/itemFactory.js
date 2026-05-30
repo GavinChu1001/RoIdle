@@ -1,5 +1,6 @@
 import { inferEquipmentArchetype, normalizeEquipmentArchetype, rollEquipmentArchetype } from './itemArchetype.js';
 import { resolveItemProgression } from './itemProgression.js';
+import { DEPRECATED_EQUIPMENT_STATS, applyCanonicalEquipmentStats } from './statCatalog.js';
 
 let runtimeContext = {};
 
@@ -7,8 +8,6 @@ const number = (value, fallback = 0) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
 };
-
-const DEPRECATED_EQUIPMENT_STATS = ['antiCrit'];
 
 const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object || {}, key);
 
@@ -141,24 +140,23 @@ export function createItem(template = {}, level, forcedTierId = null, context = 
     def: Math.round(number(template.def) * statScale),
     hp: Math.round(number(template.hp) * statScale),
     aspd: Number((number(template.aspd) * (1 + safeLevel * 0.018)).toFixed(3)),
-    luck: Math.round(number(template.luck) * statScale),
+    luck: 0,
     str: Math.round(number(template.str) * statScale),
     agi: Math.round(number(template.agi) * statScale),
     vit: Math.round(number(template.vit) * statScale),
     int: Math.round(number(template.int) * statScale),
     dex: Math.round(number(template.dex) * statScale),
-    luk: Math.round(number(template.luk) * statScale),
+    luk: Math.round((number(template.luk) + number(template.luck)) * statScale),
     gold: Number((number(template.gold) * (1 + safeLevel * 0.025)).toFixed(3)),
-    crit: Number((number(template.crit) * (1 + safeLevel * 0.018)).toFixed(3)),
+    crit: Number(((number(template.crit) + number(template.critRatePct)) * (1 + safeLevel * 0.018)).toFixed(3)),
     drop: Number((number(template.drop) * (1 + safeLevel * 0.018)).toFixed(3)),
     hpRegen: Math.round(number(template.hpRegen) * statScale),
-    dodgeRate: Number((number(template.dodgeRate) * (1 + safeLevel * 0.018)).toFixed(3)),
+    dodgeRate: Number(((number(template.dodgeRate) + number(template.dodgeRatePct)) * (1 + safeLevel * 0.018)).toFixed(3)),
     atkPct: number(template.atkPct),
     matkPct: number(template.matkPct),
     hpPct: number(template.hpPct),
     defPct: number(template.defPct),
     attackSpeedPct: number(template.attackSpeedPct),
-    critRatePct: number(template.critRatePct),
     critDamageBonus: number(template.critDamageBonus),
     skillDamageBonus: number(template.skillDamageBonus),
     monsterDamageBonus: number(template.monsterDamageBonus),
@@ -169,20 +167,17 @@ export function createItem(template = {}, level, forcedTierId = null, context = 
     damageReductionPct: number(template.damageReductionPct),
     lifeSteal: number(template.lifeSteal),
     blockRate: number(template.blockRate),
-    dodgeRatePct: number(template.dodgeRatePct),
     hpRegenPct: number(template.hpRegenPct),
     ignoreDefense: number(template.ignoreDefense),
-    baseExpBonus: number(template.baseExpBonus),
-    jobExpBonus: number(template.jobExpBonus),
+    expBonus: number(template.expBonus) + number(template.baseExpBonus) + number(template.jobExpBonus),
     equipmentDrop: number(template.equipmentDrop),
     cardDrop: number(template.cardDrop),
     materialQuantityBonus: number(template.materialQuantityBonus),
     combatPaceBonus: number(template.combatPaceBonus) + number(template.patrolEfficiency) + number(template.powerPct),
     statusResist: number(template.statusResist),
-    abyssDamageBonus: number(template.abyssDamageBonus),
-    abyssBossDamageBonus: number(template.abyssBossDamageBonus),
+    highTierFind: number(template.highTierFind) + number(template.mythicWeightBonus) + number(template.mythicEssenceDropBonus) + number(template.rebirthPrestigeWeightBonus),
     abyssDamageReduction: number(template.abyssDamageReduction),
-    mythicWeightBonus: number(template.mythicWeightBonus),
+    abyssDamageBonus: number(template.abyssDamageBonus) + number(template.abyssBossDamageBonus) + number(template.abyssSkillDamageBonus),
     echoChance: number(template.echoChance),
     mutationMaterialDoubleChance: number(template.mutationMaterialDoubleChance),
     thornVitMultiplier: number(template.thornVitMultiplier),
@@ -192,7 +187,7 @@ export function createItem(template = {}, level, forcedTierId = null, context = 
   runtime.applyRandomAffixes?.(item, safeTier, safeLevel, itemTier);
   runtime.applyAbyssEquipmentBonus?.(item);
   runtime.applyRarityPerk?.(item, safeTier, template);
-  return item;
+  return applyCanonicalEquipmentStats(item);
 }
 
 export function normalizeItem(item = {}, runtime = runtimeContext) {
@@ -268,24 +263,23 @@ export function normalizeItem(item = {}, runtime = runtimeContext) {
     def: item.def ?? Math.round(fallbackPower * 0.25),
     hp: item.hp ?? 0,
     aspd: item.aspd ?? 0,
-    luck: item.luck ?? 0,
+    luck: 0,
     str: item.str ?? 0,
     agi: item.agi ?? 0,
     vit: item.vit ?? 0,
     int: item.int ?? 0,
     dex: item.dex ?? 0,
-    luk: item.luk ?? 0,
+    luk: number(item.luk) + number(item.luck),
     gold: item.gold ?? 0,
-    crit: item.crit ?? 0,
+    crit: number(item.crit) + number(item.critRatePct),
     drop: item.drop ?? 0,
     hpRegen: item.hpRegen ?? 0,
-    dodgeRate: item.dodgeRate ?? 0,
+    dodgeRate: number(item.dodgeRate) + number(item.dodgeRatePct),
     atkPct: item.atkPct ?? 0,
     matkPct: item.matkPct ?? 0,
     hpPct: item.hpPct ?? 0,
     defPct: item.defPct ?? 0,
     attackSpeedPct: item.attackSpeedPct ?? 0,
-    critRatePct: item.critRatePct ?? 0,
     critDamageBonus: item.critDamageBonus ?? 0,
     skillDamageBonus: item.skillDamageBonus ?? 0,
     monsterDamageBonus: item.monsterDamageBonus ?? 0,
@@ -296,16 +290,17 @@ export function normalizeItem(item = {}, runtime = runtimeContext) {
     damageReductionPct: item.damageReductionPct ?? 0,
     lifeSteal: item.lifeSteal ?? 0,
     blockRate: item.blockRate ?? 0,
-    dodgeRatePct: item.dodgeRatePct ?? 0,
     hpRegenPct: item.hpRegenPct ?? 0,
     ignoreDefense: item.ignoreDefense ?? 0,
-    baseExpBonus: item.baseExpBonus ?? 0,
-    jobExpBonus: item.jobExpBonus ?? 0,
+    expBonus: number(item.expBonus) + number(item.baseExpBonus) + number(item.jobExpBonus),
     equipmentDrop: item.equipmentDrop ?? 0,
     cardDrop: item.cardDrop ?? 0,
     materialQuantityBonus: item.materialQuantityBonus ?? 0,
     combatPaceBonus: number(item.combatPaceBonus) + number(item.patrolEfficiency) + number(item.powerPct),
     statusResist: item.statusResist ?? 0,
+    highTierFind: number(item.highTierFind) + number(item.mythicWeightBonus) + number(item.mythicEssenceDropBonus) + number(item.rebirthPrestigeWeightBonus),
+    abyssDamageBonus: number(item.abyssDamageBonus) + number(item.abyssBossDamageBonus) + number(item.abyssSkillDamageBonus),
+    abyssDamageReduction: item.abyssDamageReduction ?? 0,
     echoChance: item.echoChance ?? 0,
     mutationMaterialDoubleChance: item.mutationMaterialDoubleChance ?? 0,
     thornVitMultiplier: item.thornVitMultiplier ?? 0,
@@ -315,7 +310,7 @@ export function normalizeItem(item = {}, runtime = runtimeContext) {
   };
   runtime.applyAbyssEquipmentBonus?.(normalized);
   runtime.applyAbyssSetItemBonus?.(normalized);
-  return clearDeprecatedEquipmentStats(normalized);
+  return clearDeprecatedEquipmentStats(applyCanonicalEquipmentStats(normalized));
 }
 
 export function resetItemForStatV2(item = {}, runtime = runtimeContext) {

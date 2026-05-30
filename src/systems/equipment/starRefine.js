@@ -13,7 +13,7 @@ export function refineGrowthFactorForStat(stat, star = 0) {
   if (!level) return 1;
   const flatStats = new Set(['atk', 'matk', 'def', 'hp', 'hpRegen', 'str', 'agi', 'vit', 'int', 'dex', 'luk', 'luck']);
   if (flatStats.has(stat)) return refineMultiplier(level);
-  const highValueStats = new Set(['finalDamageBonus', 'bossDamageBonus', 'eliteDamageBonus', 'abyssDamageBonus', 'abyssBossDamageBonus', 'abyssDamageReduction', 'rareDropBonus', 'drop', 'gold', 'goldBonus', 'baseExpBonus', 'jobExpBonus', 'expBonus', 'equipmentDrop', 'cardDrop', 'materialQuantityBonus', 'mythicWeightBonus', 'mythicEssenceDropBonus', 'rebirthPrestigeWeightBonus', 'echoChance', 'mutationMaterialDoubleChance']);
+  const highValueStats = new Set(['finalDamageBonus', 'bossDamageBonus', 'eliteDamageBonus', 'abyssDamageBonus', 'abyssDamageReduction', 'rareDropBonus', 'drop', 'gold', 'goldBonus', 'expBonus', 'equipmentDrop', 'cardDrop', 'materialQuantityBonus', 'highTierFind', 'echoChance']);
   if (highValueStats.has(stat)) return 1 + level * 0.006;
   return 1 + level * 0.01;
 }
@@ -24,8 +24,8 @@ export function star15Bonus(item, ctx = starCtx) {
   const slot = slotFn(item);
   if (slot === 'weapon') return item.matk > item.atk ? { atk: 8, matk: 22, skillDamageBonus: 0.03 } : { atk: 22, matk: 8, skillDamageBonus: 0.03 };
   if (slot === 'armor') return { hp: 20, damageReductionPct: 0.02 };
-  if (slot === 'headgear') return { critRatePct: 0.01, allStats: 2 };
-  if (slot === 'shoes') return { dodgeRatePct: 0.01, attackSpeedPct: 0.01 };
+  if (slot === 'headgear') return { crit: 0.01, allStats: 2 };
+  if (slot === 'shoes') return { dodgeRate: 0.01, attackSpeedPct: 0.01 };
   return { critDamageBonus: 0.04, drop: 0.01, gold: 0.01 };
 }
 
@@ -36,8 +36,8 @@ export function getRefineMilestoneBonuses(item, ctx = starCtx) {
   const tiers = {
     weapon: [{ str: 2 }, { skillDamageBonus: 0.01 }, { str: 2 }, { bossDamageBonus: 0.02 }, { finalDamageBonus: 0.02 }],
     armor: [{ vit: 2 }, { hp: 20 }, { damageReductionPct: 0.01 }, { hp: 30 }, { damageReductionPct: 0.02 }],
-    headgear: [{ int: 2 }, { critRatePct: 0.005 }, { baseExpBonus: 0.01 }, { allStats: 1 }, { skillDamageBonus: 0.01 }],
-    shoes: [{ agi: 2 }, { dodgeRatePct: 0.01 }, { attackSpeedPct: 0.01 }, { hpRegenPct: 0.02 }, { combatPaceBonus: 0.01 }],
+    headgear: [{ int: 2 }, { crit: 0.005 }, { expBonus: 0.01 }, { allStats: 1 }, { skillDamageBonus: 0.01 }],
+    shoes: [{ agi: 2 }, { dodgeRate: 0.01 }, { attackSpeedPct: 0.01 }, { hpRegenPct: 0.02 }, { combatPaceBonus: 0.01 }],
     trinket: [{ luk: 2 }, { drop: 0.005 }, { gold: 0.01 }, { cardDrop: 0.005 }, { drop: 0.01 }],
   };
   const tier = tiers[slot] || tiers.trinket;

@@ -33,12 +33,11 @@ export function calculateEquipmentScores(item, job) {
     attrTotal * 8 +
     statValue(stats, 'aspd') * 900 +
     statValue(stats, 'attackSpeedPct') * 2600 +
-    statValue(stats, 'crit') * 3500 +
-    statValue(stats, 'critRatePct') * 3500 +
+    statValue(stats, 'crit') * 4200 +
     statValue(stats, 'critDamageBonus') * 4200 +
+    statValue(stats, 'ignoreDefense') * 5200 +
     statValue(stats, 'finalDamageBonus') * 6200 +
-    statValue(stats, 'skillDamageBonus') * 4200 +
-    statValue(stats, 'monsterDamageBonus') * 3600;
+    statValue(stats, 'skillDamageBonus') * 4200;
   const survival =
     statValue(stats, 'hp') * 0.35 +
     statValue(stats, 'def') * 2.6 +
@@ -49,13 +48,11 @@ export function calculateEquipmentScores(item, job) {
     statValue(stats, 'lifeSteal') * 7000 +
     statValue(stats, 'hpRegen') * 3 +
     statValue(stats, 'hpRegenPct') * 2800 +
-    statValue(stats, 'dodgeRate') * 3000 +
-    statValue(stats, 'dodgeRatePct') * 2600 +
+    statValue(stats, 'dodgeRate') * 3600 +
     statValue(stats, 'blockRate') * 3200;
   const boss =
     output * 0.28 +
     statValue(stats, 'bossDamageBonus') * 8500 +
-    statValue(stats, 'eliteDamageBonus') * 6200 +
     statValue(stats, 'bossDamageReduction') * 5000 +
     statValue(stats, 'finalDamageBonus') * 4200 +
     statValue(stats, 'critDamageBonus') * 2400 +
@@ -66,10 +63,7 @@ export function calculateEquipmentScores(item, job) {
     (isAbyssEquipment(item) ? 900 : 0) +
     statValue(stats, 'abyssDamageBonus') * 12000 +
     statValue(stats, 'abyssDamageReduction') * 14000 +
-    statValue(stats, 'abyssBossDamageBonus') * 9500 +
-    statValue(stats, 'abyssResist') * 8000 +
-    statValue(stats, 'abyssPower') * 5000 +
-    statValue(stats, 'mythicWeightBonus') * 11000;
+    statValue(stats, 'highTierFind') * 9000;
   const treasure =
     statValue(stats, 'drop') * 3600 +
     statValue(stats, 'gold') * 2000 +
@@ -77,11 +71,9 @@ export function calculateEquipmentScores(item, job) {
     statValue(stats, 'rareDropBonus') * 5200 +
     statValue(stats, 'equipmentDrop') * 4600 +
     statValue(stats, 'cardDrop') * 3800 +
-    statValue(stats, 'materialQuantityBonus') * 3200 +
-    statValue(stats, 'baseExpBonus') * 1800 +
-    statValue(stats, 'jobExpBonus') * 1800 +
-    statValue(stats, 'abyssMaterialDropBonus') * 3200 +
-    statValue(stats, 'mythicEssenceDropBonus') * 6000;
+    statValue(stats, 'materialQuantityBonus') * 3600 +
+    statValue(stats, 'expBonus') * 2400 +
+    statValue(stats, 'highTierFind') * 6800;
   const physicalScore = finiteScore(archetypeScores.physicalScore);
   const magicScore = finiteScore(archetypeScores.magicScore);
   const generalScore = finiteScore(archetypeScores.generalScore);

@@ -9,6 +9,7 @@ import { configureSocketContext, getMaxEquipmentCardSlots, getEquipmentCardSlotC
 import { EQUIPMENT_ARCHETYPES, normalizeEquipmentArchetype, getArchetypeLabel, getEquipmentArchetypeLabel, getJobPreferredArchetype, getJobArchetypeRoute, inferEquipmentArchetype, getArchetypeStatPools, rollEquipmentArchetype, calculateArchetypeScores, getEquipmentFitTags, shouldProtectEquipmentByArchetype, getReforgeCost } from './itemArchetype.js';
 import { EQUIPMENT_GROWTH_TIERS, EQUIPMENT_SERIES, EQUIPMENT_LINE_MATERIALS, MAP_EQUIPMENT_PROGRESSION, PROGRESSION_EQUIPMENT_SLOTS, normalizeGrowthTier, normalizeEquipmentSeries, getEquipmentSeriesConfig, getEquipmentLineMaterials, getMapEquipmentProgression, getProgressionEquipmentTemplates, getProgressionEquipmentTemplate, getProgressionEquipmentDropTable, getEquipmentLineFilterOptions, formatEquipmentProgressionSummary, resolveEquipmentProgressionContext, resolveItemProgression, getProgressionMaterialDrops, getNextEquipmentUpgrade, getEquipmentUpgradeCost, getEquipmentProgressionTags } from './itemProgression.js';
 import { EQUIPMENT_SYNERGY_LINES, ROUTE_SKILL_ENHANCEMENTS, computeEquipmentSynergies, getEquipmentSynergySummary, getProfessionRoute, getProfessionRouteTier } from './itemSynergy.js';
+import { DEPRECATED_EQUIPMENT_STATS, ORDINARY_EQUIPMENT_AFFIX_STATS, SPECIAL_MECHANIC_STATS, EQUIPMENT_MAIN_STAT_GROUPS, canonicalEquipmentStat, canonicalizeEquipmentStats, applyCanonicalEquipmentStats } from './statCatalog.js';
 import { canUpgradeEquipmentProgression, upgradeEquipmentProgression } from './progressionUpgrade.js';
 
 export * from './itemFactory.js';
@@ -20,6 +21,7 @@ export * from './itemNaming.js';
 export * from './itemArchetype.js';
 export * from './itemProgression.js';
 export * from './itemSynergy.js';
+export * from './statCatalog.js';
 export * from './progressionUpgrade.js';
 export * from './refine.js';
 export * from './starRefine.js';
@@ -77,6 +79,13 @@ export function installEquipmentRuntime(context = {}) {
     getEquipmentSynergySummary,
     getProfessionRoute,
     getProfessionRouteTier,
+    DEPRECATED_EQUIPMENT_STATS,
+    ORDINARY_EQUIPMENT_AFFIX_STATS,
+    SPECIAL_MECHANIC_STATS,
+    EQUIPMENT_MAIN_STAT_GROUPS,
+    canonicalEquipmentStat,
+    canonicalizeEquipmentStats,
+    applyCanonicalEquipmentStats,
     canUpgradeEquipmentProgression,
     upgradeEquipmentProgression: (itemId) => upgradeEquipmentProgression(itemId, context),
     createItem,

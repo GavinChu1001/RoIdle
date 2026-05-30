@@ -4,12 +4,11 @@ const RARITY_ORDER = ['normal', 'fine', 'rare', 'epic', 'legend', 'darkGold', 'm
 const SCALE_KEYS = [
   'atk', 'matk', 'def', 'hp', 'hpRegen', 'str', 'agi', 'vit', 'int', 'dex', 'luk', 'luck',
   'aspd', 'crit', 'drop', 'gold', 'dodgeRate', 'atkPct', 'matkPct', 'hpPct', 'defPct',
-  'attackSpeedPct', 'critRatePct', 'critDamageBonus', 'skillDamageBonus', 'monsterDamageBonus',
-  'bossDamageBonus', 'finalDamageBonus', 'eliteDamageBonus', 'rareDropBonus', 'damageReductionPct',
-  'lifeSteal', 'blockRate', 'dodgeRatePct', 'hpRegenPct', 'ignoreDefense', 'baseExpBonus',
-  'jobExpBonus', 'equipmentDrop', 'cardDrop', 'materialQuantityBonus', 'combatPaceBonus',
-  'statusResist', 'abyssDamageBonus', 'abyssBossDamageBonus', 'abyssDamageReduction',
-  'mythicWeightBonus', 'echoChance', 'mutationMaterialDoubleChance', 'thornVitMultiplier',
+  'attackSpeedPct', 'critDamageBonus', 'skillDamageBonus', 'bossDamageBonus',
+  'finalDamageBonus', 'rareDropBonus', 'damageReductionPct', 'lifeSteal',
+  'blockRate', 'hpRegenPct', 'ignoreDefense', 'expBonus', 'equipmentDrop',
+  'cardDrop', 'materialQuantityBonus', 'combatPaceBonus', 'abyssDamageBonus',
+  'abyssDamageReduction', 'highTierFind', 'echoChance', 'thornVitMultiplier',
 ];
 
 function finite(value, fallback = 0) {
