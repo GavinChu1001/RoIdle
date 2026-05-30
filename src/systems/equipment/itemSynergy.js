@@ -52,9 +52,9 @@ export const ROUTE_SKILL_ENHANCEMENTS = Object.freeze(Object.fromEntries(
 
 function thresholds() {
   return Object.freeze({
-    refine10: Object.freeze({ id: 'refine10', refineTotal: 10, routeTier: 1, label: '一转技能联动', effects: Object.freeze({ skillDamageBonus: 0.02 }) }),
-    refine20: Object.freeze({ id: 'refine20', refineTotal: 20, routeTier: 2, label: '二转技能联动', effects: Object.freeze({ skillDamageBonus: 0.03 }) }),
-    refine30: Object.freeze({ id: 'refine30', refineTotal: 30, routeTier: 3, label: '三转技能联动', effects: Object.freeze({ skillDamageBonus: 0.04 }) }),
+    refine10: Object.freeze({ id: 'refine10', enhanceTotal: 10, routeTier: 1, label: '一转技能联动', effects: Object.freeze({ skillDamageBonus: 0.02 }) }),
+    refine20: Object.freeze({ id: 'refine20', enhanceTotal: 20, routeTier: 2, label: '二转技能联动', effects: Object.freeze({ skillDamageBonus: 0.03 }) }),
+    refine30: Object.freeze({ id: 'refine30', enhanceTotal: 30, routeTier: 3, label: '三转技能联动', effects: Object.freeze({ skillDamageBonus: 0.04 }) }),
   });
 }
 
@@ -164,8 +164,8 @@ function itemSeries(item = {}) {
   return item.series || item.equipmentSeries || item.progressionSeries || item.line || '';
 }
 
-function itemRefine(item = {}) {
-  return Math.max(0, number(item.refine ?? item.star ?? item.starRefine ?? 0));
+function itemEnhance(item = {}) {
+  return Math.max(0, number(item.enhanceLevel ?? item.enhance ?? 0));
 }
 
 function itemUpgradeStage(item = {}) {
@@ -205,7 +205,7 @@ function routeEnhancementsFor(state, threshold) {
     ...enhancement,
     thresholdId: threshold.id,
     thresholdLabel: threshold.label,
-    refineTotalRequired: threshold.refineTotal,
+    enhanceTotalRequired: threshold.enhanceTotal,
   }];
 }
 
@@ -215,10 +215,10 @@ export function computeEquipmentSynergies(state = {}) {
     const series = itemSeries(item);
     const config = EQUIPMENT_SYNERGY_LINES[series];
     if (!config) return;
-    const group = groups.get(series) || { series, config, items: [], pieceCount: 0, refineTotal: 0, upgradeStageTotal: 0 };
+    const group = groups.get(series) || { series, config, items: [], pieceCount: 0, enhanceTotal: 0, upgradeStageTotal: 0 };
     group.items.push(item);
     group.pieceCount += 1;
-    group.refineTotal += itemRefine(item);
+    group.enhanceTotal += itemEnhance(item);
     group.upgradeStageTotal += itemUpgradeStage(item);
     groups.set(series, group);
   });
@@ -234,7 +234,7 @@ export function computeEquipmentSynergies(state = {}) {
       group.averageUpgradeStage = averageUpgradeStage;
       const activeMechanisms = group.config.mechanisms.filter((entry) => mechanismIsActiveForGroup(entry, group));
       const routeEnhancements = Object.values(group.config.thresholds)
-        .filter((threshold) => group.refineTotal >= threshold.refineTotal)
+        .filter((threshold) => group.enhanceTotal >= threshold.enhanceTotal)
         .flatMap((threshold) => routeEnhancementsFor(state, threshold));
       activeMechanisms.forEach((entry) => {
         addStats(stats, entry.effects);
@@ -249,17 +249,17 @@ export function computeEquipmentSynergies(state = {}) {
         label: group.config.label,
         summaryName: group.config.summaryName,
         pieceCount: group.pieceCount,
-        refineTotal: group.refineTotal,
+        enhanceTotal: group.enhanceTotal,
         upgradeStageTotal: group.upgradeStageTotal,
         averageUpgradeStage,
         items: group.items,
         activeMechanisms,
         routeEnhancements,
         nextMechanism: group.config.mechanisms.find((entry) => !mechanismIsActiveForGroup(entry, group)) || null,
-        nextThreshold: Object.values(group.config.thresholds).find((entry) => group.refineTotal < entry.refineTotal) || null,
+        nextThreshold: Object.values(group.config.thresholds).find((entry) => group.enhanceTotal < entry.enhanceTotal) || null,
       };
     })
-    .sort((a, b) => (b.pieceCount - a.pieceCount) || (b.refineTotal - a.refineTotal));
+    .sort((a, b) => (b.pieceCount - a.pieceCount) || (b.enhanceTotal - a.enhanceTotal));
 
   return {
     activeLines,
@@ -277,5 +277,5 @@ export function getEquipmentSynergySummary(synergy = {}) {
   const lineEntry = synergy.bestLine || synergy.activeLines?.[0];
   if (!lineEntry) return 'No active equipment synergy';
   const routeText = lineEntry.routeEnhancements?.length ? `, route +${lineEntry.routeEnhancements.length}` : '';
-  return `${lineEntry.summaryName || lineEntry.label}: ${lineEntry.pieceCount}/5 pieces, refine +${lineEntry.refineTotal}${routeText}`;
+  return `${lineEntry.summaryName || lineEntry.label}: ${lineEntry.pieceCount}/5 pieces, enhance +${lineEntry.enhanceTotal}${routeText}`;
 }

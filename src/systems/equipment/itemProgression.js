@@ -459,26 +459,30 @@ export function getEquipmentLineMaterialOverview(series = '') {
   if (!id || id === 'oldWorld') return null;
   const config = getEquipmentSeriesConfig(id);
   const materials = getEquipmentLineMaterials(id);
-  const sources = [];
+  const directSources = [];
+  const salvageSources = [];
   Object.entries(MAP_EQUIPMENT_PROGRESSION).forEach(([mapId, difficulties]) => {
     Object.entries(difficulties || {}).forEach(([difficulty, progression]) => {
       const materialSeries = normalizeList(progression.materialSeries, []);
       const equipmentSeries = normalizeList(progression.series, []);
-      if (!materialSeries.includes(id) && !equipmentSeries.includes(id)) return;
-      sources.push({
+      const source = {
         mapId,
         difficulty,
         materialKinds: normalizeList(progression.materialKinds, []),
         tiers: normalizeList(progression.tiers, []),
         series: equipmentSeries,
-      });
+      };
+      if (materialSeries.includes(id)) directSources.push({ ...source, sourceType: 'direct' });
+      if (equipmentSeries.includes(id)) salvageSources.push({ ...source, sourceType: 'salvage' });
     });
   });
   return {
     series: id,
     label: config.label,
     materials,
-    sources,
+    directSources,
+    salvageSources,
+    sources: [...directSources, ...salvageSources],
   };
 }
 

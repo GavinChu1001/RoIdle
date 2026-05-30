@@ -932,7 +932,7 @@ export function tickSkillSystem(dt, stats, ctx = mechContext) {
     const mech = skill.mechanism;
     if (!mech) continue;
 
-    var skillLevel = (state.hero && state.hero.skillLevels && state.hero.skillLevels[skill.id]) || 1;
+    var skillLevel = ctx.getSkillGrowthEntry?.(skill)?.level || (state.hero && state.hero.skillLevels && state.hero.skillLevels[skill.id]) || 1;
     var levelScaling = skill.levelScaling || {};
     var cdMult = Math.pow(levelScaling.cooldownPerLevel || 0.94, skillLevel - 1);
     var dmgMult = Math.pow(levelScaling.multiplierPerLevel || 1.12, skillLevel - 1);

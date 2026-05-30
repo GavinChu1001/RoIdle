@@ -89,6 +89,10 @@ assert.ok(classicDataContext.HARD_MAP_TIER_SCALE.grass.recommendedPower < classi
 assert.ok(classicDataContext.ABYSS_MAP_TIER_SCALE.grass.recommendedPower < classicDataContext.mapLevelRanges.sky.recommendedPower, 'Abyss grass must not be harder than normal sky after map difficulty V2.');
 assert.ok(classicDataContext.HARD_MAP_TIER_SCALE.grass.recommendedPower >= classicDataContext.mapLevelRanges.sewer.recommendedPower, 'Hard grass should roughly start around the next-map challenge band.');
 assert.ok(classicDataContext.ABYSS_MAP_TIER_SCALE.grass.recommendedPower >= classicDataContext.mapLevelRanges.orc_village.recommendedPower, 'Abyss grass should roughly start around a later normal-map challenge band.');
+assert.equal(classicDataContext.DIFFICULTY_CONFIG.hard.gold, 2.05, 'Hard difficulty gold should support repeat-challenge income.');
+assert.equal(classicDataContext.DIFFICULTY_CONFIG.abyss.gold, 3.25, 'Abyss difficulty gold should support endgame repeat income.');
+assert.equal(classicDataContext.HARD_BASELINE.gold, 165, 'Hard baseline gold should make early hard maps feel rewarding.');
+assert.equal(classicDataContext.ABYSS_BASELINE.gold, 330, 'Abyss baseline gold should make endgame maps feel rewarding.');
 for (const mapId of classicDataContext.mapOrder || []) {
   const rows = classicDataContext.materialDropTables?.[mapId] || [];
   assert.ok(rows.some((row) => row.materialId === 'oridecon' && row.dropRate > 0), `${mapId} must drop oridecon for early refine access.`);
@@ -112,6 +116,9 @@ for (const name of requiredLegacyFunctions) {
 assert.match(main, /window\.RuneFrontierDevBridge\s*=/, 'Developer diagnostics bridge must remain available (now installed via main.js).');
 assert.doesNotMatch(main, /state:\s*window\.state\s*\|\|\s*\{\}/, 'Developer diagnostics must not capture an unrelated window.state snapshot.');
 assert.match(main, /RuneFrontierLegacyDevContext/, 'Developer diagnostics must obtain its live legacy context.');
+assert.match(game, /getBossCycleGoldBonus/, 'Combat settlement context should provide Boss cycle gold bonuses.');
+assert.match(mapPageSource, /周回挑战/, 'Map difficulty UI should explain hard mode as a repeat challenge.');
+assert.match(mapPageSource, /终局挑战/, 'Map difficulty UI should explain abyss mode as an endgame challenge.');
 assert.match(html, /id="enemyStatusBar"/, 'Adventure battle UI must expose the enemy status strip.');
 assert.match(html, /id="skillCastBanner"/, 'Adventure battle UI must expose a visible skill cast banner.');
 assert.match(html, /class="page-tabs[^"]*ro-main-tabs/, 'main tabs should opt into RO navigation styling');
@@ -401,9 +408,9 @@ assert.match(game, /const EQUIPMENT_STAT_VERSION\s*=\s*2/, 'Equipment V2 must de
 assert.match(game, /equipmentStatVersion:\s*EQUIPMENT_STAT_VERSION/, 'Default state must mark fresh saves as Equipment V2.');
 assert.match(game, /equipmentLineMastery:\s*\{\}/, 'Default state must initialize equipment line mastery.');
 assert.match(game, /equipmentLineMastery:\s*window\.RuneFrontierEquipmentRuntime\?\.normalizeLineMasteryState\?\.\(saved\.equipmentLineMastery\)/, 'Saved state merge must normalize equipment line mastery.');
-assert.match(game, /equipmentReforgeTicket/, 'Equipment V2 migration must grant reforge tickets.');
+assert.doesNotMatch(game, /EQUIPMENT_V2_REFORGE_TICKET_ID|equipmentReforgeTicket/, 'Equipment reforge tickets should be removed with the reforge feature.');
 assert.doesNotMatch(game, /antiCrit:\s*"抗暴"/, 'Equipment V2 UI labels must not expose antiCrit.');
-assert.match(game, /reforgeEquipmentV2/, 'Equipment V2 must expose a reforge-ticket action.');
+assert.doesNotMatch(game, /data-reforge-v2-item|function\s+reforgeEquipmentV2|reforgeEquipmentV2\(/, 'Equipment page must not expose direct reforge actions.');
 assert.match(game, /blockRate:\s*\{\s*label:\s*"格挡"/, 'Equipment V2 random affixes must include real blockRate.');
 assert.doesNotMatch(game, /percent:\s*\[[^\]]*"powerPct"/s, 'Equipment V2 random pools must not roll powerPct as a separate equipment stat.');
 assert.doesNotMatch(game, /percent:\s*\[[^\]]*"patrolEfficiency"/s, 'Equipment V2 random pools must not roll patrolEfficiency as a separate equipment stat.');
@@ -418,6 +425,9 @@ assert.match(main, /migrated:\s*\[[^\]]*'kill-and-boss-settlement'/s, 'Combat se
 assert.match(stateSurface, /loadGame/);
 assert.match(stateSurface, /migrateSave/);
 assert.match(stateSurface, /normalizePlayerState/);
+assert.match(characterPageSource, /renderV3SkillEntry\(entry,\s*job,\s*cds,\s*growthFn\)/, 'V3 skill cards should receive the skill growth resolver so they can show levels.');
+assert.match(skillMechanicsSource, /ctx\.getSkillGrowthEntry\?\.\(skill\)\?\.level/, 'V3 combat scaling should read skillGrowth levels, not the deprecated hero.skillLevels map.');
+assert.match(game, /function\s+isDisplayZeroStatDelta\s*\(/, 'Refine result rendering should hide stat deltas that format to +0.');
 
 assert.equal((game.match(/^function\s+init\s*\(/gm) || []).length, 1, 'Classic runtime must declare one init function.');
 assert.equal((game.match(/^init\(\);/gm) || []).length, 0, 'Classic runtime must not auto-start before modules are installed.');
@@ -427,6 +437,8 @@ assert.match(game, /RuneFrontierLegacyEquipmentContext/, 'Legacy runtime must ex
 assert.match(game, /applyRarityPerk,/, 'Classic equipment context must expose rarity perk completion to modules.');
 assert.match(game, /RuneFrontierEquipmentRuntime/, 'Classic equipment entry points must forward to module implementations.');
 assert.match(game, /showSalvageResult\(title,\s*count,\s*rewards\)/, 'Dismantle result dialog must receive title, count, and material rewards.');
+assert.match(game, /getSalvageRewardsPreview\(item\)[\s\S]*getSalvageRewards/, 'Salvage preview should use the same reward rules as actual dismantle.');
+assert.match(game, /preview:\s*true/, 'Salvage preview should request deterministic preview rewards.');
 assert.match(game, /\n\s*renderAll,\s*\n\s*render:\s*renderAll,/, 'Equipment mutations must be able to rerender after state changes.');
 assert.match(game, /RuneFrontierLegacyDropsContext/, 'Legacy runtime must expose online drop dependencies.');
 assert.match(game, /RuneFrontierDropsRuntime/, 'Classic online drop entry points must forward to module implementations.');
@@ -838,14 +850,7 @@ assert.ok(Array.from(generalPools.primary || []).includes('int'), 'General prima
 assert.equal(itemArchetype.rollEquipmentArchetype({ slot: 'weapon' }, { currentJobId: 'swordman', rng: () => 0 }), 'physical', 'Swordman rolls must be predictable as physical with fixed rng.');
 assert.equal(itemArchetype.rollEquipmentArchetype({ slot: 'weapon' }, { currentJobId: 'mage', rng: () => 0 }), 'magic', 'Mage rolls must be predictable as magic with fixed rng.');
 assert.equal(itemArchetype.rollEquipmentArchetype({ slot: 'weapon', archetype: 'magic' }, { currentJobId: 'swordman', rng: () => 0 }), 'magic', 'Template archetype should override job preference.');
-const physicalReforgeCost = itemArchetype.getReforgeCost('physical');
-const magicReforgeCost = itemArchetype.getReforgeCost('magic');
-const generalReforgeCost = itemArchetype.getReforgeCost('general');
-const reforgeCostTotal = (cost = {}) => Number(cost.ticket || 0) + Number(cost.gold || 0) + Object.values(cost.materials || {}).reduce((sum, amount) => sum + Number(amount || 0), 0);
-assert.ok(physicalReforgeCost && typeof physicalReforgeCost === 'object', 'Physical reforge cost must be an object.');
-assert.ok('ticket' in physicalReforgeCost && 'materials' in physicalReforgeCost && 'gold' in physicalReforgeCost, 'Directed reforge cost must expose ticket/materials/gold.');
-assert.ok(reforgeCostTotal(generalReforgeCost) <= reforgeCostTotal(physicalReforgeCost), 'General reforge cost must not exceed physical directed cost.');
-assert.ok(reforgeCostTotal(generalReforgeCost) <= reforgeCostTotal(magicReforgeCost), 'General reforge cost must not exceed magic directed cost.');
+assert.doesNotMatch(equipmentIndexSource, /\bgetReforgeCost\b/, 'Equipment runtime should not export reforge costs after reforge removal.');
 const physicalArchetypeScores = itemArchetype.calculateArchetypeScores({ archetype: 'physical', atk: 100, matk: 0 }, { currentJobId: 'swordman' });
 const magicArchetypeScores = itemArchetype.calculateArchetypeScores({ archetype: 'magic', matk: 100 }, { currentJobId: 'mage' });
 for (const key of ['physicalScore', 'magicScore', 'generalScore', 'currentJobScore', 'archetypeFit']) {
@@ -949,6 +954,10 @@ assert.equal(ancientHeroOverview.materials.core.id, 'mythicHeroCore', 'Overview 
 assert.ok(ancientHeroOverview.sources.some((source) => source.mapId === 'grass' && source.difficulty === 'hard'), 'Overview should expose hard grass as Ancient Hero source.');
 assert.ok(ancientHeroOverview.sources.some((source) => source.mapId === 'grass' && source.difficulty === 'abyss'), 'Overview should expose abyss grass as Ancient Hero source.');
 assert.ok(ancientHeroOverview.sources.every((source) => Array.isArray(source.materialKinds) && Array.isArray(source.tiers)), 'Material overview sources should normalize list fields.');
+assert.ok(ancientHeroOverview.directSources.some((source) => source.mapId === 'grass' && source.difficulty === 'hard' && source.materialKinds.includes('basic')), 'Overview should mark hard grass as a direct Ancient Hero material source.');
+assert.ok(ancientHeroOverview.directSources.some((source) => source.mapId === 'grass' && source.difficulty === 'abyss' && source.materialKinds.includes('advanced')), 'Overview should mark abyss grass as a direct Hero Reform Inscription source.');
+assert.ok(ancientHeroOverview.salvageSources.some((source) => source.mapId === 'sewer' && source.difficulty === 'hard' && source.series.includes('ancientHero')), 'Overview should mark Ancient Hero equipment drop maps as salvage sources.');
+assert.ok(!ancientHeroOverview.directSources.some((source) => source.mapId === 'sewer' && source.difficulty === 'hard'), 'Direct material sources must not include maps that only drop the equipment line.');
 const allLineOverviews = itemProgression.getAllEquipmentLineMaterialOverviews();
 assert.ok(allLineOverviews.length >= 9, 'All material overviews should cover progression lines.');
 assert.ok(!allLineOverviews.some((overview) => overview.series === 'oldWorld'), 'Old-world temporary gear should not appear in material overviews.');
@@ -1038,7 +1047,7 @@ assert.equal(
 );
 const rebuiltGrowthStats = equipmentGrowth.rebuildGrowthStatsFromTemplate(
   {
-    atk: 9999,
+    atk: 120,
     magicDamageReduction: 0.4,
     affixDetails: [{ type: 'flat', stat: 'atk', value: 5 }],
     rarityPerk: { id: 'epic-life', type: 'specialAffix', stat: 'lifeSteal', value: 0.05 },
@@ -1207,11 +1216,11 @@ assert.equal(itemSynergy.EQUIPMENT_SYNERGY_LINES.ancientHero.thresholds.refine20
 assert.equal(itemSynergy.EQUIPMENT_SYNERGY_LINES.ancientHero.thresholds.refine30.routeTier, 3, 'Refine +30 must unlock third-job route enhancement.');
 const synergyState = {
   inventory: [
-    { id: 'w', series: 'ancientHero', refine: 8, upgradeStage: 2 },
-    { id: 'a', series: 'ancientHero', refine: 7, upgradeStage: 2 },
-    { id: 'h', series: 'ancientHero', refine: 6, upgradeStage: 2 },
-    { id: 's', series: 'ancientHero', refine: 5, upgradeStage: 2 },
-    { id: 't', series: 'ancientHero', refine: 4, upgradeStage: 2 },
+    { id: 'w', series: 'ancientHero', refine: 99, enhanceLevel: 8, upgradeStage: 2 },
+    { id: 'a', series: 'ancientHero', refine: 99, enhanceLevel: 7, upgradeStage: 2 },
+    { id: 'h', series: 'ancientHero', refine: 99, enhanceLevel: 6, upgradeStage: 2 },
+    { id: 's', series: 'ancientHero', refine: 99, enhanceLevel: 5, upgradeStage: 2 },
+    { id: 't', series: 'ancientHero', refine: 99, enhanceLevel: 4, upgradeStage: 2 },
     { id: 'x', series: 'os', refine: 20 },
   ],
   equipped: { weapon: 'w', armor: 'a', headgear: 'h', shoes: 's', trinket: 't' },
@@ -1220,7 +1229,8 @@ const synergyState = {
 const synergy = itemSynergy.computeEquipmentSynergies(synergyState);
 assert.equal(synergy.activeLines[0].series, 'ancientHero', 'Synergy should use the equipped same-line group.');
 assert.equal(synergy.activeLines[0].pieceCount, 5, 'Synergy should count equipped same-line pieces.');
-assert.equal(synergy.activeLines[0].refineTotal, 30, 'Synergy should sum same-line refine values.');
+assert.equal(synergy.activeLines[0].enhanceTotal, 30, 'Synergy should sum same-line enhance levels.');
+assert.notEqual(synergy.activeLines[0].enhanceTotal, 495, 'Synergy must not use star refine values as its threshold total.');
 assert.equal(synergy.activeLines[0].averageUpgradeStage, 2, 'Synergy should expose average upgrade stage for active lines.');
 assert.ok(synergy.activeLines[0].activeMechanisms.some((entry) => entry.id === 'heroBurst'), 'Four-piece core mechanism should activate.');
 assert.ok(synergy.activeLines[0].activeMechanisms.some((entry) => entry.id === 'heroBurstUpgrade'), 'Five-piece mechanism upgrade should activate.');
@@ -1444,7 +1454,7 @@ const recompositionResult = progressionUpgrade.upgradeEquipmentProgression('lega
 });
 assert.equal(recompositionResult.ok, true, 'Legacy progression upgrade should succeed.');
 assert.equal(recompositionState.inventory[0].growthModel, 'progression-v2', 'Upgraded legacy equipment should enter growth-v2.');
-assert.equal(recompositionState.inventory[0].atk, 40, 'Upgrade should rebuild base growth stats from the target template instead of multiplying legacy stats.');
+assert.ok(recompositionState.inventory[0].atk > 120, 'Progression upgrade should never lower a visible growth stat and should still provide stage growth.');
 assert.equal(recompositionState.inventory[0].refine, 7, 'Upgrade should preserve refine investment.');
 assert.equal(recompositionState.inventory[0].empower, 3, 'Upgrade should preserve empower investment.');
 assert.equal(recompositionState.inventory[0].cardSlots[0].cardId, 'card-a', 'Upgrade should preserve socketed cards.');
@@ -1755,14 +1765,13 @@ assert.match(equipmentPageSource, /equipmentArchetype|archetypeFilter|data-equip
 for (const key of ['physical', 'magic', 'general']) {
   assert.match(equipmentPageSource, new RegExp(`['"]${key}['"]|\\b${key}\\b`), `Equipment page must expose ${key} filter entry.`);
 }
-assert.match(
+assert.doesNotMatch(
   game,
   /data-reforge-archetype|data-archetype-reforge|reforgeArchetype/i,
-  'Directed reforge buttons must mark their target archetype.'
+  'Directed reforge buttons should be removed from the equipment UI.'
 );
-assert.match(game, /inferEquipmentArchetype\(source\)/, 'V2 migration must infer archetype for old equipment without an explicit archetype.');
-assert.match(game, /getReforgeCost\(item,\s*normalizedTarget/, 'Directed reforge must calculate cost from the normalized target archetype.');
-for (const marker of ['getArchetypeStatPools', 'targetArchetype', 'getReforgeCost', 'equipmentAutoEquipScore', 'shouldProtectEquipment']) {
+assert.match(game, /inferEquipmentArchetype/, 'Equipment runtime must still infer archetype for scoring and filtering.');
+for (const marker of ['getArchetypeStatPools', 'equipmentAutoEquipScore', 'shouldProtectEquipment']) {
   assert.match(game, new RegExp(marker), `Equipment V3 game runtime must expose ${marker}.`);
 }
 const equipmentCardScoreSource = game.slice(game.indexOf('function renderEquipmentCardScore'), game.indexOf('function renderEquipmentStateBadges'));
@@ -1887,6 +1896,83 @@ assert.equal(mutationState.materials.dust, 2, 'Manual dismantle must add its mat
 assert.deepEqual(manualSalvageDialog, ['\u5206\u89e3\u5b8c\u6210', 1, { dust: 1 }], 'Manual dismantle dialog must receive its reward summary.');
 assert.equal(manualSalvageRenders, 1, 'Manual dismantle must immediately rerender resource and equipment displays.');
 assert.equal(manualSalvageSaves, 1, 'Manual dismantle must save its reward changes.');
+const lineSalvageState = {
+  inventory: [],
+  materials: {},
+  autoSalvage: { enabled: true, maxRarity: 'legend', autoDismantleAbyss: true },
+};
+const lineSalvageContext = {
+  ...mutationContext,
+  getState: () => lineSalvageState,
+  getEquipmentLineMaterials: (series) => ({
+    ancientHero: {
+      basic: { id: 'ancientHeroShard' },
+      advanced: { id: 'heroReformInscription' },
+      core: { id: 'mythicHeroCore' },
+    },
+    os: {
+      basic: { id: 'osGear' },
+      advanced: { id: 'illusionModule' },
+      core: { id: 'osAdCore' },
+    },
+  })[series] || {},
+  normalizeEquipmentSeries: (series, fallback = 'oldWorld') => (
+    ['oldWorld', 'ancientHero', 'os'].includes(series) ? series : fallback
+  ),
+  getSalvageTable: () => ({ dust: [1, 1] }),
+  randomInt: (min) => min,
+};
+const ancientBaseRewards = dismantle.getSalvageRewards({
+  id: 'hero-base',
+  rarity: 'rare',
+  level: 100,
+  series: 'ancientHero',
+  growthTier: 'T2',
+  upgradeStage: 0,
+}, lineSalvageContext);
+assert.deepEqual(
+  ancientBaseRewards,
+  { dust: 9, ancientHeroShard: 3 },
+  'T2 line equipment should salvage into its own basic line material plus ordinary salvage.',
+);
+const ancientAdvancedRewards = dismantle.getSalvageRewards({
+  id: 'hero-reform',
+  rarity: 'epic',
+  level: 130,
+  series: 'ancientHero',
+  growthTier: 'T2',
+  upgradeStage: 1,
+}, lineSalvageContext);
+assert.ok(ancientAdvancedRewards.heroReformInscription >= 1, 'Upgraded line equipment should return its own advanced material.');
+assert.ok(ancientAdvancedRewards.ancientHeroShard >= 1, 'Upgraded line equipment should still return some basic line material.');
+const ancientCoreRewards = dismantle.getSalvageRewards({
+  id: 'hero-lt',
+  rarity: 'legend',
+  level: 160,
+  series: 'ancientHero',
+  growthTier: 'T3',
+  upgradeStage: 2,
+}, lineSalvageContext);
+assert.ok(ancientCoreRewards.mythicHeroCore >= 1, 'Core-stage line equipment should return its own core material.');
+const oldWorldLineRewards = dismantle.getSalvageRewards({
+  id: 'old',
+  rarity: 'rare',
+  level: 60,
+  series: 'oldWorld',
+  growthTier: 'T1',
+}, lineSalvageContext);
+assert.equal(oldWorldLineRewards.ancientHeroShard, undefined, 'Old-world temporary equipment must not return progression line materials.');
+const abyssLineRewards = dismantle.getSalvageRewards({
+  id: 'abyss-hero',
+  rarity: 'epic',
+  level: 150,
+  series: 'ancientHero',
+  growthTier: 'T3',
+  upgradeStage: 1,
+  abyssForged: true,
+}, lineSalvageContext);
+assert.ok(abyssLineRewards.heroReformInscription >= 1, 'Abyss line equipment should keep returning its own line materials.');
+assert.ok(abyssLineRewards.abyssShard > 0, 'Abyss line equipment should still return abyss salvage materials.');
 
 const taskPage = await importSource(taskPageSource);
 const cardPage = await importSource(cardPageSource);
@@ -2703,6 +2789,27 @@ assert.equal(bossState.mapDifficultyProgress.forest.normal.unlocked, true, 'Norm
 assert.equal(bossVipExp, 100, 'First Boss honor reward changed.');
 settlement.settleBossVictory({ map: { id: 'grass', name: 'Grass' }, difficulty: 'normal' }, bossContext);
 assert.equal(bossVipExp, 100, 'First Boss honor reward must not be issued twice.');
+
+const cycleGoldState = { ...bossState, gold: 0, totalKills: 0, areaKills: 10, monsterCodex: {}, materials: {}, vip: { bossFirstKills: { grass_hard: true } }, mapDifficultyProgress: {} };
+const cycleGoldResult = settlement.settleDefeatedEnemy({
+  map: { id: 'grass', name: 'Grass' },
+  monster: { id: 'boss', gold: 100, exp: 0, jobExp: 0 },
+  isBoss: true,
+  difficulty: 'hard',
+}, {
+  ...bossContext,
+  getState: () => cycleGoldState,
+  getBossCycleGoldBonus: ({ map, difficulty }) => {
+    assert.equal(map.id, 'grass', 'Boss cycle gold bonus should receive the defeated map.');
+    assert.equal(difficulty, 'hard', 'Boss cycle gold bonus should receive the defeated difficulty.');
+    return 55;
+  },
+  rollDrops: () => 0,
+});
+assert.equal(cycleGoldResult.bossCycleGoldBonus, 55, 'Boss cycle gold bonus should be reported by settlement.');
+assert.equal(cycleGoldState.gold, 255, 'Boss cycle gold bonus should add to the Boss payout once.');
+assert.equal(cycleGoldState.mapDifficultyProgress.grass.abyss.unlocked, true, 'Hard Boss victory must unlock abyss only for the cleared map.');
+assert.equal(cycleGoldState.mapDifficultyProgress.forest?.abyss?.unlocked, undefined, 'Hard Boss victory must not require or unlock every map abyss at once.');
 
 const goldPassiveWindow = globalThis.window;
 globalThis.window = {

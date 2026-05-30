@@ -177,8 +177,13 @@ var JOB_EXP_GLOBAL_MULTIPLIER = 1;
 var BOSS_EXP_MULTIPLIER = 1;
 var DIFFICULTY_CONFIG = {
   normal: { label: "普通", power: 1, hp: 1, attack: 1, defense: 1, exp: 1, jobExp: 1, gold: 1, equipmentDrop: 1, materialDrop: 1, cardDrop: 1, mutationChance: 0.05 },
-  hard: { label: "困难", power: 2.65, hp: 2.35, attack: 2.05, defense: 1.85, exp: 1.9, jobExp: 1.9, gold: 1.8, equipmentDrop: 1.45, materialDrop: 1.45, cardDrop: 1.25, mutationChance: 0.12 },
-  abyss: { label: "深渊", power: 5.4, hp: 6.2, attack: 4.9, defense: 3.7, exp: 3.4, jobExp: 3.4, gold: 2.9, equipmentDrop: 2.1, materialDrop: 2.05, cardDrop: 1.65, mutationChance: 0.2, mythicDrop: 1 },
+  hard: { label: "困难", power: 2.65, hp: 2.35, attack: 2.05, defense: 1.85, exp: 1.9, jobExp: 1.9, gold: 2.05, equipmentDrop: 1.45, materialDrop: 1.45, cardDrop: 1.25, mutationChance: 0.12 },
+  abyss: { label: "深渊", power: 5.4, hp: 6.2, attack: 4.9, defense: 3.7, exp: 3.4, jobExp: 3.4, gold: 3.25, equipmentDrop: 2.1, materialDrop: 2.05, cardDrop: 1.65, mutationChance: 0.2, mythicDrop: 1 },
+};
+var BOSS_CYCLE_GOLD_BONUS_RATE = {
+  normal: 0.35,
+  hard: 0.55,
+  abyss: 0.75,
 };
 
 var MAX_EQUIPMENT_LEVEL = 220;
@@ -295,7 +300,7 @@ var ABYSS_BASELINE = {
   defense: 120,
   baseExp: 520,
   jobExp: 460,
-  gold: 260,
+  gold: 330,
 };
 var HARD_BASELINE = {
   minLevel: 18,
@@ -304,7 +309,7 @@ var HARD_BASELINE = {
   defense: 45,
   baseExp: 260,
   jobExp: 220,
-  gold: 140,
+  gold: 165,
 };
 var HARD_MAP_TIER_SCALE = {
   grass: { hp: 1, attack: 1, defense: 1, exp: 1, gold: 1, recommendedPower: 600 },

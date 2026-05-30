@@ -382,15 +382,16 @@ export function renderCharacterStatBreakdown(stats, ctx = charCtx) {
 
 export function renderSkillPanel(ctx = charCtx) {
   var state = ctx.getState?.() || {};
-  var v3Skills = (typeof getV3CombatSkills === 'function' ? getV3CombatSkills(state.hero.jobId) : []);
-  var maxLevel = (typeof getSkillMaxLevel === 'function' ? getSkillMaxLevel(state.hero.jobId) : 5);
+  var v3Skills = ctx.getV3CombatSkills?.(state.hero?.jobId) || (typeof getV3CombatSkills === 'function' ? getV3CombatSkills(state.hero.jobId) : []);
+  var maxLevel = ctx.getSkillMaxLevel?.(state.hero?.jobId) || (typeof getSkillMaxLevel === 'function' ? getSkillMaxLevel(state.hero.jobId) : 5);
   var fragments = (state.materials && state.materials.skillFragment) || 0;
   var activeV3 = v3Skills.filter(function (s) { return s.kind === '主动'; });
   var passiveV3 = v3Skills.filter(function (s) { return s.kind === '被动'; });
   var levelMap = state.hero.skillLevels || {};
+  var growthFn = ctx.getSkillGrowthEntry || ((skill) => ({ level: levelMap[skill.id] || 1 }));
   function skillLevelRow(skill) {
-    var lvl = levelMap[skill.id] || 1;
-    var cost = (typeof getSkillFragmentCost === 'function' ? getSkillFragmentCost(skill) : Infinity);
+    var lvl = growthFn(skill)?.level || levelMap[skill.id] || 1;
+    var cost = ctx.getSkillFragmentCost?.(skill) || (typeof getSkillFragmentCost === 'function' ? getSkillFragmentCost(skill) : Infinity);
     var canUpgrade = lvl < maxLevel && fragments >= cost;
     return '<div class="skill-level-row"><span class="skill-level-name">' + esc(skill.name) + '</span><span class="skill-level-badge">Lv.' + lvl + '</span>' + (canUpgrade ? '<button class="skill-upgrade-btn" data-skill-upgrade="' + esc(skill.id) + '" type="button">' + cost + ' 碎片</button>' : lvl >= maxLevel ? '<span class="skill-max-tag">MAX</span>' : '<span class="skill-locked-tag">' + cost + ' 碎片</span>') + '</div>';
   }
@@ -449,7 +450,7 @@ export function renderJobSkills(ctx = charCtx) {
   if (v3Skills.length) {
     return `<section class="job-skills-section skill-v3-section"><strong>技能机制</strong>
       <p class="codex-desc">技能伤害 = ATK/MATK × 总倍率 × 暴击期望修正 × 怪物减伤修正</p>
-      <div class="stat-grid">${v3Skills.map((entry) => renderV3SkillEntry(entry, job, cds)).join('')}</div>
+      <div class="stat-grid">${v3Skills.map((entry) => renderV3SkillEntry(entry, job, cds, growthFn)).join('')}</div>
     </section>`;
   }
 
@@ -471,8 +472,10 @@ export function renderJobSkills(ctx = charCtx) {
   </section>`;
 }
 
-function renderV3SkillEntry(entry, job, cooldowns) {
+function renderV3SkillEntry(entry, job, cooldowns, growthFn) {
   const isPassive = entry.kind === '被动';
+  const growth = growthFn?.(entry) || {};
+  const level = Math.max(1, F(growth.level || 1));
   const cooldown = Math.max(0, F(entry.cooldown));
   const remaining = Math.max(0, F(cooldowns?.[entry.id]));
   const progress = cooldown > 0 ? Math.max(0, Math.min(100, (1 - remaining / cooldown) * 100)) : 100;
@@ -488,7 +491,7 @@ function renderV3SkillEntry(entry, job, cooldowns) {
 
   return `<article class="skill-entry skill-v3-entry ${isPassive ? 'is-passive' : 'is-active'}">
     <div class="skill-title-row">
-      <strong>${esc(entry.name)}</strong>
+      <strong>${esc(entry.name)} <span class="skill-level-badge">Lv.${fmtn(level)}</span></strong>
       <small class="skill-kind">${typeText}</small>
     </div>
     <p class="codex-desc">${esc(entry.description || '暂无技能说明')}</p>

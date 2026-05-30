@@ -1,6 +1,7 @@
 import { getEquipmentUpgradeCost } from './itemProgression.js';
 import {
   EQUIPMENT_GROWTH_MODEL,
+  GROWTH_STAT_KEYS,
   rebuildGrowthStatsFromTemplate,
 } from './equipmentGrowth.js';
 
@@ -51,6 +52,25 @@ function scaleItemStats(item, multiplier) {
   });
 }
 
+function snapshotGrowthStats(item = {}) {
+  const snapshot = {};
+  GROWTH_STAT_KEYS.forEach((key) => {
+    const value = Number(item[key]);
+    if (Number.isFinite(value) && value !== 0) snapshot[key] = value;
+  });
+  return snapshot;
+}
+
+function applyUpgradeStatFloors(item = {}, before = {}, multiplier = 1) {
+  const factor = Math.max(1, finite(multiplier, 1));
+  Object.entries(before).forEach(([key, value]) => {
+    if (value <= 0) return;
+    const floor = Math.abs(value) < 1 ? Number((value * factor).toFixed(3)) : Math.round(value * factor);
+    const current = Number(item[key] || 0);
+    if (!Number.isFinite(current) || current < floor) item[key] = floor;
+  });
+}
+
 export function canUpgradeEquipmentProgression(item, context = {}) {
   const state = context.getState?.() || {};
   const cost = getEquipmentUpgradeCost(item);
@@ -75,6 +95,7 @@ export function upgradeEquipmentProgression(itemId, context = {}) {
   }
 
   consumeCost(state, cost);
+  const previousGrowthStats = snapshotGrowthStats(item);
   const next = cost.next;
   item.series = next.series;
   item.upgradePathId = next.upgradePathId;
@@ -97,6 +118,7 @@ export function upgradeEquipmentProgression(itemId, context = {}) {
     scaleItemStats(item, next.statMultiplier);
     item.growthModel = EQUIPMENT_GROWTH_MODEL.PROGRESSION_V2;
   }
+  applyUpgradeStatFloors(item, previousGrowthStats, next.statMultiplier);
   context.applyRarityUpgradeRewards?.(item, item.rarity);
 
   context.addLog?.(`${item.name || '装备'} 进阶为 ${next.label}。`);

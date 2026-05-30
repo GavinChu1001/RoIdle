@@ -328,21 +328,3 @@ export function shouldProtectEquipmentByArchetype(item = {}, context = {}) {
   const scores = calculateArchetypeScores(item, context);
   return scores.archetypeFit >= 0.75 && scores.currentJobScore >= 500;
 }
-
-export function getReforgeCost(itemOrArchetype, targetArchetype = null, options = {}) {
-  const item = itemOrArchetype && typeof itemOrArchetype === 'object' ? itemOrArchetype : null;
-  const target = item ? targetArchetype : itemOrArchetype;
-  const archetype = normalizeEquipmentArchetype(target);
-  const directed = archetype !== 'general';
-  const rarity = String(item?.rarity || item?.tier || '').toLowerCase();
-  const rarityMultiplier = rarity === 'mythic' ? 2 : rarity === 'darkgold' ? 1.6 : rarity === 'legend' ? 1.35 : rarity === 'epic' ? 1.15 : 1;
-  const levelMultiplier = 1 + Math.max(0, number(item?.requiredLevel || item?.level || options.level || 1) - 1) * 0.01;
-  const multiplier = rarityMultiplier * levelMultiplier;
-  return {
-    ticket: Math.ceil((directed ? 2 : 1) * multiplier),
-    gold: Math.round((directed ? 1200 : 700) * multiplier),
-    materials: directed
-      ? { ore: Math.ceil(8 * multiplier), crystal: Math.ceil(2 * multiplier) }
-      : { ore: Math.ceil(5 * multiplier) },
-  };
-}

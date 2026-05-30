@@ -221,6 +221,8 @@ const characterRenderContext = {
   titleEffectText: window.titleEffectText,
   getUnlockedSkills: window.getUnlockedSkills,
   getV3CombatSkills: window.getV3CombatSkills,
+  getSkillMaxLevel: window.getSkillMaxLevel,
+  getSkillFragmentCost: window.getSkillFragmentCost,
   getPassiveSkillTotals: window.getPassiveSkillTotals,
   getSkillGrowthEntry: window.getSkillGrowthEntry,
   getSkillMilestoneBonuses: window.getSkillMilestoneBonuses,

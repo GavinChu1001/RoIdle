@@ -3177,6 +3177,9 @@ button.ghost {
 }
 
 .equipment-name-row {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
   overflow-wrap: anywhere;
   line-height: 1.25;
 }

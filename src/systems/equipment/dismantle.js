@@ -2,6 +2,53 @@ let mutationCtx = {};
 
 function finite(v) { const n = Number(v || 0); return Number.isFinite(n) ? n : 0; }
 
+function addReward(rewards, materialId, amount) {
+  const qty = Math.max(0, Math.floor(finite(amount)));
+  if (!materialId || qty <= 0) return;
+  rewards[materialId] = finite(rewards[materialId]) + qty;
+}
+
+function rarityRank(item, ctx = mutationCtx) {
+  return Math.max(0, ctx.rarityRank?.(item?.rarity) || 0);
+}
+
+function lineMaterialBaseAmount(item, rank) {
+  const levelBonus = Math.floor(finite(item.level) / 100);
+  return Math.max(1, 1 + Math.floor(rank / 2) + levelBonus);
+}
+
+function getProgressionSalvageRewards(item = {}, ctx = mutationCtx) {
+  const normalizeSeries = ctx.normalizeEquipmentSeries || ((series, fallback = 'oldWorld') => series || fallback);
+  const series = normalizeSeries(item.series || item.upgradePathId || '', '');
+  if (!series || series === 'oldWorld') return {};
+  const materials = ctx.getEquipmentLineMaterials?.(series) || {};
+  const rewards = {};
+  const rank = rarityRank(item, ctx);
+  const stage = Math.max(0, Math.floor(finite(item.upgradeStage)));
+  const baseAmount = lineMaterialBaseAmount(item, rank);
+
+  addReward(rewards, materials.basic?.id, baseAmount + stage);
+  if (stage >= 1 || rank >= 3) addReward(rewards, materials.advanced?.id, Math.max(1, Math.floor(baseAmount / 2)));
+  if (stage >= 2 || rank >= 4) addReward(rewards, materials.core?.id, Math.max(1, Math.floor(baseAmount / 3)));
+
+  return rewards;
+}
+
+function mergeRewards(target, source) {
+  Object.entries(source || {}).forEach(([materialId, amount]) => {
+    addReward(target, materialId, amount);
+  });
+  return target;
+}
+
+function looksLikeContext(value) {
+  return Boolean(value && typeof value === 'object' && (
+    typeof value.getState === 'function' ||
+    typeof value.getSalvageTable === 'function' ||
+    typeof value.randomInt === 'function'
+  ));
+}
+
 export function configureEquipmentMutationContext(ctx = {}) { mutationCtx = ctx || {}; }
 
 export function addEquipmentToInventory(item, options = {}, ctx = mutationCtx) {
@@ -9,7 +56,7 @@ export function addEquipmentToInventory(item, options = {}, ctx = mutationCtx) {
   if (!state) return { added: false };
   const normalized = ctx.normalizeItem?.(item) || item;
   if (shouldAutoSalvage(normalized, ctx)) {
-    const rewards = getSalvageRewards(normalized, ctx);
+    const rewards = getSalvageRewards(normalized, {}, ctx);
     ctx.addMaterials?.(rewards);
     if (!options.offline) ctx.recordSessionReward?.({ autoSalvaged: 1, materials: Object.values(rewards).reduce((s, a) => s + Number(a || 0), 0) });
     if (!options.offline) ctx.recordRecentLoot?.({ autoSalvagedMaterials: rewards, salvagedMaterials: rewards }, '自动分解');
@@ -40,19 +87,27 @@ export function addEquipmentToInventory(item, options = {}, ctx = mutationCtx) {
   return { added: true };
 }
 
-export function getSalvageRewards(item, ctx = mutationCtx) {
+export function getSalvageRewards(item, options = {}, ctx = mutationCtx) {
+  if (looksLikeContext(options)) {
+    ctx = options;
+    options = {};
+  }
   const tier = item.tier || item.rarity || 'normal';
   const table = ctx.getSalvageTable?.(tier) || ctx.getSalvageTable?.() || {};
   const tbl = (table[tier] || table.normal || table);
   const rewards = {};
   Object.entries(tbl).forEach(([material, range]) => {
     const r = Array.isArray(range) ? range : [1, 1];
-    rewards[material] = ctx.randomInt?.(r[0], r[1]) + Math.floor(finite(item.level) / 12);
+    const base = options.preview ? r[0] : ctx.randomInt?.(r[0], r[1]);
+    rewards[material] = finite(base || r[0]) + Math.floor(finite(item.level) / 12);
   });
+  mergeRewards(rewards, getProgressionSalvageRewards(item, ctx));
   if (ctx.isAbyssEquipment?.(item)) {
     const rank = Math.max(0, ctx.rarityRank?.(item.rarity) || 0);
-    rewards.abyssShard = finite(rewards.abyssShard) + 2 + Math.floor(finite(item.level) / 20) + rank;
-    if (rank >= (ctx.rarityRank?.('epic') || 2)) rewards.abyssCore = finite(rewards.abyssCore) + (rank >= (ctx.rarityRank?.('mythic') || 4) ? 3 : rank >= (ctx.rarityRank?.('darkGold') || 3) ? 2 : 1);
+    addReward(rewards, 'abyssShard', 2 + Math.floor(finite(item.level) / 20) + rank);
+    if (rank >= (ctx.rarityRank?.('epic') || 2)) {
+      addReward(rewards, 'abyssCore', rank >= (ctx.rarityRank?.('mythic') || 4) ? 3 : rank >= (ctx.rarityRank?.('darkGold') || 3) ? 2 : 1);
+    }
   }
   return rewards;
 }
@@ -74,7 +129,7 @@ export function salvageItem(id, options = {}, ctx = mutationCtx) {
   if (!item) return { ok: false };
   if (item.locked) { if (!options.silent) ctx.showToast?.('已锁定的装备不能分解'); return { ok: false }; }
   if (Object.values(state.equipped || {}).includes(id)) { if (!options.silent) ctx.showToast?.('已装备的物品不能分解'); return { ok: false }; }
-  const rewards = getSalvageRewards(item, ctx);
+  const rewards = getSalvageRewards(item, {}, ctx);
   ctx.addMaterials?.(rewards);
   state.inventory = (state.inventory || []).filter((e) => e.id !== id);
   const name = ctx.getDisplayItemName?.(item) || item.name || '装备';
@@ -94,7 +149,7 @@ export function salvageAllUnequipped(ctx = mutationCtx) {
   const targetIds = new Set(targets.map((item) => item.id));
   const totals = {};
   targets.forEach((item) => {
-    const rewards = getSalvageRewards(item, ctx);
+    const rewards = getSalvageRewards(item, {}, ctx);
     Object.entries(rewards).forEach(([material, amount]) => {
       totals[material] = finite(totals[material]) + amount;
       state.materials[material] = finite(state.materials?.[material]) + amount;
