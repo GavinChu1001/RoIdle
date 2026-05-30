@@ -1029,11 +1029,11 @@ assert.equal(itemSynergy.EQUIPMENT_SYNERGY_LINES.ancientHero.thresholds.refine20
 assert.equal(itemSynergy.EQUIPMENT_SYNERGY_LINES.ancientHero.thresholds.refine30.routeTier, 3, 'Refine +30 must unlock third-job route enhancement.');
 const synergyState = {
   inventory: [
-    { id: 'w', series: 'ancientHero', refine: 8 },
-    { id: 'a', series: 'ancientHero', refine: 7 },
-    { id: 'h', series: 'ancientHero', refine: 6 },
-    { id: 's', series: 'ancientHero', refine: 5 },
-    { id: 't', series: 'ancientHero', refine: 4 },
+    { id: 'w', series: 'ancientHero', refine: 8, upgradeStage: 2 },
+    { id: 'a', series: 'ancientHero', refine: 7, upgradeStage: 2 },
+    { id: 'h', series: 'ancientHero', refine: 6, upgradeStage: 2 },
+    { id: 's', series: 'ancientHero', refine: 5, upgradeStage: 2 },
+    { id: 't', series: 'ancientHero', refine: 4, upgradeStage: 2 },
     { id: 'x', series: 'os', refine: 20 },
   ],
   equipped: { weapon: 'w', armor: 'a', headgear: 'h', shoes: 's', trinket: 't' },
@@ -1043,10 +1043,27 @@ const synergy = itemSynergy.computeEquipmentSynergies(synergyState);
 assert.equal(synergy.activeLines[0].series, 'ancientHero', 'Synergy should use the equipped same-line group.');
 assert.equal(synergy.activeLines[0].pieceCount, 5, 'Synergy should count equipped same-line pieces.');
 assert.equal(synergy.activeLines[0].refineTotal, 30, 'Synergy should sum same-line refine values.');
+assert.equal(synergy.activeLines[0].averageUpgradeStage, 2, 'Synergy should expose average upgrade stage for active lines.');
 assert.ok(synergy.activeLines[0].activeMechanisms.some((entry) => entry.id === 'heroBurst'), 'Four-piece core mechanism should activate.');
 assert.ok(synergy.activeLines[0].activeMechanisms.some((entry) => entry.id === 'heroBurstUpgrade'), 'Five-piece mechanism upgrade should activate.');
 assert.deepEqual(synergy.activeLines[0].routeEnhancements.map((entry) => entry.routeTier), [1, 2, 3], 'Refine milestones should unlock route tiers 1/2/3.');
 assert.ok(itemSynergy.getEquipmentSynergySummary(synergy).includes('Hero Resonance'), 'Synergy summary should be readable for UI.');
+const lowStageHeroSynergy = itemSynergy.computeEquipmentSynergies({
+  inventory: [
+    { id: 'lw', series: 'ancientHero', refine: 1, upgradeStage: 0 },
+    { id: 'la', series: 'ancientHero', refine: 1, upgradeStage: 0 },
+    { id: 'lh', series: 'ancientHero', refine: 1, upgradeStage: 0 },
+    { id: 'ls', series: 'ancientHero', refine: 1, upgradeStage: 0 },
+    { id: 'lt', series: 'ancientHero', refine: 1, upgradeStage: 0 },
+  ],
+  equipped: { weapon: 'lw', armor: 'la', headgear: 'lh', shoes: 'ls', trinket: 'lt' },
+  hero: { jobId: 'runeKnight' },
+});
+const lowStageHeroLine = lowStageHeroSynergy.activeLines[0];
+assert.equal(lowStageHeroLine.averageUpgradeStage, 0, 'Low-stage Ancient Hero synergy should report average upgrade stage 0.');
+assert.ok(lowStageHeroLine.activeMechanisms.some((entry) => entry.id === 'heroBurst'), 'Low-stage Ancient Hero should keep the basic hero burst.');
+assert.ok(!lowStageHeroLine.activeMechanisms.some((entry) => entry.id === 'heroBurstUpgrade'), 'Low-stage Ancient Hero should not unlock the upgrade burst early.');
+assert.ok(!lowStageHeroLine.activeMechanisms.some((entry) => entry.unlockPieces >= 5), 'Low-stage Ancient Hero should not unlock five-piece mechanisms early.');
 assert.match(equipmentIndexSource, /computeEquipmentSynergies/, 'Equipment runtime must expose synergy computation.');
 assert.match(game, /function computeEquipmentSynergyState\(\)/, 'game.js must wrap equipment synergy computation for classic runtime use.');
 assert.match(game, /computeEquipmentSynergies\?\.\(state\)/, 'Equipment synergy computation should read the current game state.');

@@ -168,6 +168,21 @@ function itemRefine(item = {}) {
   return Math.max(0, number(item.refine ?? item.star ?? item.starRefine ?? 0));
 }
 
+function itemUpgradeStage(item = {}) {
+  return Math.max(0, number(item.upgradeStage, 0));
+}
+
+function mechanismMeetsUpgradeStage(mechanismEntry, averageUpgradeStage) {
+  if (mechanismEntry.unlockPieces >= 5) return averageUpgradeStage >= 2;
+  if (mechanismEntry.unlockPieces >= 4 && String(mechanismEntry.id || '').endsWith('Upgrade')) return averageUpgradeStage >= 1;
+  return true;
+}
+
+function mechanismIsActiveForGroup(mechanismEntry, group) {
+  return group.pieceCount >= mechanismEntry.unlockPieces
+    && mechanismMeetsUpgradeStage(mechanismEntry, group.averageUpgradeStage || 0);
+}
+
 export function getProfessionRoute(jobOrState = {}) {
   const hero = jobOrState?.hero || jobOrState || {};
   const jobId = String(hero.jobId || jobOrState || '');
@@ -200,10 +215,11 @@ export function computeEquipmentSynergies(state = {}) {
     const series = itemSeries(item);
     const config = EQUIPMENT_SYNERGY_LINES[series];
     if (!config) return;
-    const group = groups.get(series) || { series, config, items: [], pieceCount: 0, refineTotal: 0 };
+    const group = groups.get(series) || { series, config, items: [], pieceCount: 0, refineTotal: 0, upgradeStageTotal: 0 };
     group.items.push(item);
     group.pieceCount += 1;
     group.refineTotal += itemRefine(item);
+    group.upgradeStageTotal += itemUpgradeStage(item);
     groups.set(series, group);
   });
 
@@ -214,7 +230,9 @@ export function computeEquipmentSynergies(state = {}) {
   const activeLines = [...groups.values()]
     .filter((group) => group.pieceCount >= 2)
     .map((group) => {
-      const activeMechanisms = group.config.mechanisms.filter((entry) => group.pieceCount >= entry.unlockPieces);
+      const averageUpgradeStage = group.pieceCount ? group.upgradeStageTotal / group.pieceCount : 0;
+      group.averageUpgradeStage = averageUpgradeStage;
+      const activeMechanisms = group.config.mechanisms.filter((entry) => mechanismIsActiveForGroup(entry, group));
       const routeEnhancements = Object.values(group.config.thresholds)
         .filter((threshold) => group.refineTotal >= threshold.refineTotal)
         .flatMap((threshold) => routeEnhancementsFor(state, threshold));
@@ -232,10 +250,12 @@ export function computeEquipmentSynergies(state = {}) {
         summaryName: group.config.summaryName,
         pieceCount: group.pieceCount,
         refineTotal: group.refineTotal,
+        upgradeStageTotal: group.upgradeStageTotal,
+        averageUpgradeStage,
         items: group.items,
         activeMechanisms,
         routeEnhancements,
-        nextMechanism: group.config.mechanisms.find((entry) => group.pieceCount < entry.unlockPieces) || null,
+        nextMechanism: group.config.mechanisms.find((entry) => !mechanismIsActiveForGroup(entry, group)) || null,
         nextThreshold: Object.values(group.config.thresholds).find((entry) => group.refineTotal < entry.refineTotal) || null,
       };
     })
