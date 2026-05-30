@@ -12683,8 +12683,8 @@ function itemRangeTooltip(item) {
   const empowerInfo = empowerNext <= 10 ? `${empowerNext}阶消耗 ${materialText(getEmpowerCost(item))}` : "已满阶";
   const starBonus = star15Bonus(item);
   const starInfo = item.refine >= 15 && Object.keys(starBonus).length ? `\n15星附加\n${statObjectText(starBonus)}` : "";
-  const tierInfo = inferItemTier(item);
-  const basicInfo = `基础信息\n品质：${rarityName(item.rarity)}\n等阶：${item.itemTier || tierInfo.id}（Lv.${tierInfo.minLevel}-${tierInfo.maxLevel}）\n等级：${item.level || 1}\n部位：${slotName(equipmentSlot(item))}\n${SLOT_ROLE_DESCRIPTIONS[equipmentSlot(item)] || ""}`;
+  const progressionTags = getEquipmentProgressionTags(item).join(" / ") || "旧世过渡";
+  const basicInfo = `基础信息\n品质：${rarityName(item.rarity)}\n成长：${progressionTags}\n来源强度：${item.dropLevel || item.level || 1}\n部位：${slotName(equipmentSlot(item))}\n${SLOT_ROLE_DESCRIPTIONS[equipmentSlot(item)] || ""}`;
   const attrInfo = `基础属性\n${itemAttrText(item)}`;
   const affixInfo = (item.affixes || []).length ? (item.affixes || []).join("\n") : "无随机词条";
   const mechanicInfo = (item.mechanicAffixes || []).length

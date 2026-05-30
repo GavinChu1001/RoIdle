@@ -192,6 +192,9 @@ assert.match(main, /getMvpInscriptionView:\s*window\.getMvpInscriptionView/, 'Ch
 assert.match(main, /canGainMvpInscriptionOnCurrentMap:\s*window\.canGainMvpInscriptionOnCurrentMap/, 'Character page runtime must receive the live MVP inscription map eligibility helper.');
 assert.match(html, /src="\.\/src\/main\.js\?v=20260529-mvp-inscription-v2"/, 'MVP inscription runtime must use a fresh module cache-busting version.');
 assert.doesNotMatch(game, /renderItemName\(item,\s*`Lv\.\$\{item\.level\}/, 'Equipment list and equipped slot names should not expose internal item level.');
+assert.doesNotMatch(game, /等级：\$\{item\.level \|\| 1\}/, 'Equipment detail tooltips should not label internal item level as player-facing level.');
+assert.match(game, /来源强度：\$\{item\.dropLevel \|\| item\.level \|\| 1\}/, 'Equipment detail tooltips should preserve internal strength as source strength.');
+assert.match(game, /成长：\$\{progressionTags\}|旧世过渡/, 'Equipment detail tooltips should expose progression tags with an old-world fallback.');
 assert.doesNotMatch(offlineLootSource, /等级\s*\$\{fmtn\(item\?\.level,\s*ctx\)\}/, 'Offline equipment loot should not expose internal item level.');
 for (const file of [
   'assets/ui/fx/hit-slash.png',
