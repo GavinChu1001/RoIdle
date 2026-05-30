@@ -94,6 +94,9 @@ assert.ok(classicDataContext.getV3CombatSkills('swordman').some((entry) => Array
 assert.ok(classicDataContext.getV3CombatSkills('runeKnight').some((entry) => Array.isArray(entry.circuits) && entry.circuits.some((node) => node.level === 30)), 'Third-job routes should expose final circuit nodes.');
 assert.match(game, /getUnlockedSkillCircuits/, 'game.js must expose unlocked skill circuit helper.');
 assert.doesNotMatch(game, /SKILL_MAX_LEVEL_BY_RANK\s*=\s*\{\s*novice:\s*5,\s*first:\s*5,\s*second:\s*10,\s*third:\s*15\s*\}/, 'Old V3 max level caps should be replaced.');
+assert.match(characterPageSource, /renderSkillCircuitNodes/, 'Character page must render V3 skill circuit nodes.');
+assert.match(characterPageSource, /技能回路/, 'Character page should label circuit nodes in Chinese.');
+assert.match(styles, /\.skill-circuit-node/, 'Styles must include skill circuit node classes.');
 assert.doesNotMatch(game, /\bgetSkillSpecializationOptions\b/, 'Legacy skill specialization option helper should be removed.');
 assert.doesNotMatch(game, /\bselectSkillSpecialization\b/, 'Legacy skill specialization setter should be removed.');
 assert.doesNotMatch(game, /data-skill-spec/, 'Legacy skill specialization buttons should be removed from game.js.');
@@ -439,7 +442,7 @@ assert.match(main, /migrated:\s*\[[^\]]*'kill-and-boss-settlement'/s, 'Combat se
 assert.match(stateSurface, /loadGame/);
 assert.match(stateSurface, /migrateSave/);
 assert.match(stateSurface, /normalizePlayerState/);
-assert.match(characterPageSource, /renderV3SkillEntry\(entry,\s*job,\s*cds,\s*growthFn\)/, 'V3 skill cards should receive the skill growth resolver so they can show levels.');
+assert.match(characterPageSource, /renderV3SkillEntry\(entry,\s*job,\s*cds,\s*growthFn(?:,\s*ctx)?\)/, 'V3 skill cards should receive the skill growth resolver so they can show levels.');
 assert.match(skillMechanicsSource, /ctx\.getSkillGrowthEntry\?\.\(skill\)\?\.level/, 'V3 combat scaling should read skillGrowth levels, not the deprecated hero.skillLevels map.');
 assert.match(game, /function\s+isDisplayZeroStatDelta\s*\(/, 'Refine result rendering should hide stat deltas that format to +0.');
 

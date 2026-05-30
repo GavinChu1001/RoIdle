@@ -450,7 +450,7 @@ export function renderJobSkills(ctx = charCtx) {
   if (v3Skills.length) {
     return `<section class="job-skills-section skill-v3-section"><strong>技能机制</strong>
       <p class="codex-desc">技能伤害 = ATK/MATK × 总倍率 × 暴击期望修正 × 怪物减伤修正</p>
-      <div class="stat-grid">${v3Skills.map((entry) => renderV3SkillEntry(entry, job, cds, growthFn)).join('')}</div>
+      <div class="stat-grid">${v3Skills.map((entry) => renderV3SkillEntry(entry, job, cds, growthFn, ctx)).join('')}</div>
     </section>`;
   }
 
@@ -470,7 +470,23 @@ export function renderJobSkills(ctx = charCtx) {
   </section>`;
 }
 
-function renderV3SkillEntry(entry, job, cooldowns, growthFn) {
+function renderSkillCircuitNodes(entry, growth, ctx = charCtx) {
+  const circuits = entry.circuits || [];
+  if (!circuits.length) return '';
+  const active = new Set((ctx.getUnlockedSkillCircuits?.(entry) || []).map((node) => node.id));
+  return `<div class="skill-circuit-list" aria-label="技能回路">
+    <strong>技能回路</strong>
+    ${circuits.map((node) => {
+      const unlocked = active.has(node.id) || Number(growth?.level || 1) >= Number(node.level || 0);
+      return `<span class="skill-circuit-node ${unlocked ? 'active' : 'locked'}">
+        <small>Lv.${fmtn(node.level)}</small>
+        <b>${esc(node.label || node.id)}</b>
+      </span>`;
+    }).join('')}
+  </div>`;
+}
+
+function renderV3SkillEntry(entry, job, cooldowns, growthFn, ctx = charCtx) {
   const isPassive = entry.kind === '被动';
   const growth = growthFn?.(entry) || {};
   const level = Math.max(1, F(growth.level || 1));
@@ -497,6 +513,7 @@ function renderV3SkillEntry(entry, job, cooldowns, growthFn) {
       <span>机制：${esc(mechanismText)} · ${attackTypeText}</span>
       <span class="skill-status ${statusClass}">${statusText}</span>
     </div>
+    ${renderSkillCircuitNodes(entry, growth, ctx)}
     ${!isPassive && cooldown > 0 ? `<div class="skill-cd-bar" aria-label="冷却状态"><div style="width:${progress}%"></div></div>` : ''}
     ${awakeningText}
   </article>`;
