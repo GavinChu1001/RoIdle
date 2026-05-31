@@ -30,10 +30,8 @@ export function renderPartyList() {
   const stats = adventureCtx.computeStats?.() || {};
   const job = adventureCtx.currentJob?.() || {};
   const growthSummary = job.growth ? adventureCtx.jobSummary?.(job) || '' : '';
-  const advice = adventureCtx.renderAdvicePanel?.(stats) || '';
   const sessionRewards = adventureCtx.renderSessionRewardPanel?.() || '';
   els.partyList.innerHTML = `
-    ${advice}
     <div class="party-item">
       <span class="party-name">主角 · ${esc(job.name || '')}</span>
       <p class="party-meta">BASE ${state.hero.baseLevel} · JOB ${state.hero.jobLevel} · 输出 ${fmtn(stats.dps)}</p>

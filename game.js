@@ -8224,6 +8224,11 @@ function renderDungeons() {
   if (runtime && typeof runtime.renderDungeonPage === "function") return runtime.renderDungeonPage();
 }
 
+function renderAdventureHandbook() {
+  const runtime = window.RuneFrontierRenderRuntime;
+  if (runtime && typeof runtime.renderAdventureHandbookPage === "function") return runtime.renderAdventureHandbookPage();
+}
+
 function renderActivePage() {
   document.documentElement.dataset.runeRenderStage = activePage;
   switch (activePage) {
@@ -8261,6 +8266,9 @@ function renderActivePage() {
       break;
     case "tasks":
       renderTasks();
+      break;
+    case "handbook":
+      renderAdventureHandbook();
       break;
     case "dungeons":
       renderDungeons();
@@ -11284,7 +11292,6 @@ function renderPartyList() { const runtime = window.RuneFrontierRenderRuntime; i
   if (!els.partyList) return;
   const stats = computeStats();
   els.partyList.innerHTML = `
-    ${renderAdvicePanel(stats)}
     <div class="party-item">
       <span class="party-name">主角 · ${currentJob().name}</span>
       <p class="party-meta">BASE ${state.hero.baseLevel} · JOB ${state.hero.jobLevel} · 输出 ${formatNumber(stats.dps)}</p>
@@ -15485,6 +15492,7 @@ Object.assign(window, {
   getRecommendedActions,
   getCurrentRecommendedScoreGap,
   renderDungeons,
+  renderAdventureHandbook,
   renderAll,
 });
 window.specialStatKeys = ["ignoreDefense", "echoChance", "splashTargets", "splashDamagePct", "fireBurstChance", "fireBurstAtkPct", "meteorCounterChance", "meteorCounterMatkPct", "skillCooldownPenalty", "mutationMaterialDoubleChance", "thornVitMultiplier", "combatPaceBonus", "statusResist", "setPowerBonus"];

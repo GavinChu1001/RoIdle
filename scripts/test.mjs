@@ -68,6 +68,7 @@ const onboardingSource = read('src/systems/onboarding.js');
 const onboardingGuideSource = read('src/ui/onboardingGuide.js');
 const adventurePageSource = read('src/ui/adventurePage.js');
 const adventureHandbookSource = read('src/systems/adventureHandbook.js');
+const adventureHandbookPageSource = read('src/ui/adventureHandbookPage.js');
 const dungeonSystemSource = read('src/systems/dungeons.js');
 const dungeonPageSource = read('src/ui/dungeonPage.js');
 
@@ -221,6 +222,13 @@ assert.match(dismantleSource, /recordAdventureHandbookProgress\?\.\('daily_salva
 assert.match(dismantleSource, /recordAdventureHandbookProgress\?\.\('weekly_equipment'/, 'Salvage should feed handbook weekly equipment progress.');
 assert.match(main, /installAdventureHandbookRuntime/, 'Main should install Adventure Handbook runtime.');
 assert.match(game, /RuneFrontierLegacyAdventureHandbookContext/, 'Classic runtime should expose Adventure Handbook legacy context.');
+assert.match(adventureHandbookPageSource, /export function renderAdventureHandbookPage/, 'Adventure handbook page renderer should exist.');
+assert.match(adventureHandbookPageSource, /data-claim-handbook-goal/, 'Adventure handbook goals should expose claim buttons.');
+assert.match(adventureHandbookPageSource, /handbook-section/, 'Adventure handbook renderer should use handbook sections.');
+assert.doesNotMatch(adventurePageSource, /renderAdvicePanel/, 'Adventure page should no longer render current advice.');
+assert.doesNotMatch(game, /renderAdvicePanel\(stats\)[\s\S]{0,120}<div class="party-item">/, 'Classic adventure fallback should no longer render advice before party status.');
+assert.match(game, /function\s+renderAdventureHandbook\s*\(/, 'Classic runtime should expose adventure handbook render function.');
+assert.match(main, /installAdventureHandbookRenderRuntime/, 'Main should install Adventure Handbook render runtime.');
 {
   const handbook = await importSource(adventureHandbookSource);
   const fresh = handbook.defaultAdventureHandbookState('2026-05-31', '2026-W23');

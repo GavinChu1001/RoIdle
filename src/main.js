@@ -49,6 +49,7 @@ import { installOnboardingGuideRuntime } from './ui/onboardingGuide.js';
 import { installAdventureRenderRuntime } from './ui/adventurePage.js';
 import { installTaskRenderRuntime } from './ui/taskPage.js';
 import { installDungeonRenderRuntime } from './ui/dungeonPage.js';
+import { installAdventureHandbookRenderRuntime } from './ui/adventureHandbookPage.js';
 import { installLogRenderRuntime } from './ui/logPanel.js';
 import { installAdviceRenderRuntime } from './ui/components/actionButton.js';
 
@@ -396,7 +397,6 @@ installAdventureRenderRuntime({
   computeStats: window.computeStats,
   currentJob: window.currentJob,
   jobSummary: window.jobSummary,
-  renderAdvicePanel: window.renderAdvicePanel,
   renderSessionRewardPanel: window.renderSessionRewardPanel,
   getSkillDpsRows(limit) { return window.RuneFrontierCombatRuntime?.getSkillDpsRows?.(limit) || []; },
 });
@@ -416,6 +416,21 @@ installDungeonRenderRuntime({
   getDungeonCards() { return window.RuneFrontierDungeonRuntime?.getDungeonCards?.(window.state || {}) || []; },
 });
 document.documentElement.dataset.runeModuleStatus = 'dungeon-render-ready';
+
+installAdventureHandbookRenderRuntime({
+  getState() { return window.state || {}; },
+  getEls() { return window.els || {}; },
+  escapeHtml: window.escapeHtml,
+  formatNumber: window.formatNumber,
+  getMaterialName: (id) => (window.materialNames || {})[id] || id,
+  getAdventureHandbookModel(state) {
+    return window.RuneFrontierAdventureHandbookRuntime?.buildAdventureHandbookModel?.(
+      state,
+      window.RuneFrontierLegacyAdventureHandbookContext?.(),
+    ) || {};
+  },
+});
+document.documentElement.dataset.runeModuleStatus = 'adventure-handbook-render-ready';
 
 const taskRenderContext = { getState() { return window.state || {}; }, getEls() { return window.els || {}; }, escapeHtml: window.escapeHtml, formatNumber: window.formatNumber, normalizeDailyGoals: window.normalizeDailyGoals, achievementRewardText: window.achievementRewardText, questRewardText: window.questRewardText, getAchievementDb() { return window.ACHIEVEMENT_DB || []; }, getAchievementEntry: window.getAchievementEntry, };
 installTaskRenderRuntime(taskRenderContext);
