@@ -667,6 +667,29 @@ assert.match(styles, /\.handbook-goal-card/, 'Styles should include Adventure Ha
   });
   assert.deepEqual(craftingSourceModel.materials[0].sources, [{ mapId: 'mining', mapName: 'Mining', difficulty: 'production' }], 'Handbook material recommendations should prefer crafting source hints.');
 
+  const refinedOreModel = handbook.buildAdventureHandbookModel({
+    materials: {},
+    production: { mining: {}, artisan: {}, crafting: {} },
+    adventureHandbook: progressState.adventureHandbook,
+  }, {
+    date: '2026-05-31',
+    weekKey: '2026-W23',
+    computeStats: () => ({}),
+    getMaterialName: (id) => ({ refinedOre: '精炼矿' })[id] || id,
+    getCraftingMaterialSources: (id) => (id === 'refinedOre'
+      ? [{ mapId: 'mining', mapName: '采矿', difficulty: '生产', note: '采矿长期产出' }]
+      : []),
+    getMaterialDropSources: () => [{ mapId: 'grass', mapName: '南门青草地', difficulty: 'normal' }],
+  });
+  const refinedOreRecommendation = refinedOreModel.materials.find((row) => row.id === 'refinedOre');
+  assert.ok(refinedOreRecommendation, 'Handbook material recommendations should include refined ore.');
+  assert.deepEqual(refinedOreRecommendation.sources[0], {
+    mapId: 'mining',
+    mapName: '采矿',
+    difficulty: '生产',
+    note: '采矿长期产出',
+  }, 'Refined ore recommendation should use its production mining source first.');
+
   const model = handbook.buildAdventureHandbookModel({
     hero: { baseLevel: 12, jobLevel: 5 },
     materials: { ore: 4 },

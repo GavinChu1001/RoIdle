@@ -58,7 +58,7 @@ const WEEKLY_GOALS = [
 const MATERIAL_TARGETS = [
   { id: 'heroReformInscription', target: 6, reason: '装备进阶常用材料。' },
   { id: 'ancientHeroShard', target: 20, reason: '古代英雄装备升级材料。' },
-  { id: 'ore', target: 80, reason: '精炼和早期装备成长的基础材料。' },
+  { id: 'refinedOre', target: 80, reason: '打造和工匠任务的基础矿材。' },
   { id: 'bossSoul', target: 5, reason: '用于 Boss 相关兑换和研究。' },
   { id: 'ancientCore', target: 3, reason: '高级装备线的关键材料。' },
 ];
