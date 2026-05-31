@@ -517,6 +517,49 @@ assert.match(adventureHandbookSource, /craftingTargets/, 'Adventure handbook mod
 assert.match(adventureHandbookSource, /productionSuggestions/, 'Adventure handbook model should include production suggestions.');
 assert.match(adventureHandbookPageSource, /craftingTargets/, 'Adventure handbook page should render crafting targets.');
 assert.match(adventureHandbookPageSource, /productionSuggestions/, 'Adventure handbook page should render production suggestions.');
+{
+  const handbookPage = await importSource(adventureHandbookPageSource);
+  const previousWindow = globalThis.window;
+  const els = { adventureHandbookPage: { innerHTML: '' } };
+  const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[char]));
+  globalThis.window = {};
+  handbookPage.installAdventureHandbookRenderRuntime({
+    getEls: () => els,
+    getState: () => ({}),
+    getAdventureHandbookModel: () => ({
+      materials: [
+        {
+          id: 'tierOre',
+          name: 'Tier Ore',
+          missing: 3,
+          sources: [{ mapName: 'Mining', difficulty: 'production', note: 'steady <output>' }],
+        },
+        {
+          id: 'rareOre',
+          name: 'Rare Ore',
+          missing: 1,
+          sources: [{ mapName: 'Deep Mine', difficulty: 'production' }],
+        },
+      ],
+    }),
+    escapeHtml,
+    formatNumber: String,
+  });
+  handbookPage.renderAdventureHandbookPage();
+  assert.match(els.adventureHandbookPage.innerHTML, /Mining \/ production · steady &lt;output&gt;/, 'Handbook material source rows should render escaped source notes.');
+  assert.match(els.adventureHandbookPage.innerHTML, /Deep Mine \/ production<\/span>/, 'Handbook material source rows without notes should keep the compact source label.');
+  if (previousWindow === undefined) {
+    delete globalThis.window;
+  } else {
+    globalThis.window = previousWindow;
+  }
+}
 assert.doesNotMatch(adventurePageSource, /renderAdvicePanel/, 'Adventure page should no longer render current advice.');
 assert.doesNotMatch(game, /renderAdvicePanel\(stats\)[\s\S]{0,120}<div class="party-item">/, 'Classic adventure fallback should no longer render advice before party status.');
 assert.match(game, /function\s+renderAdventureHandbook\s*\(/, 'Classic runtime should expose adventure handbook render function.');

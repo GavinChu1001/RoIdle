@@ -87,12 +87,13 @@ function renderGoalCard(goal) {
 
 function renderMaterialRow(row) {
   const source = (row.sources || [])[0];
-  const sourceText = source
-    ? `${source.mapName || source.mapId || TEXT.defaultMapName} / ${source.difficulty || "normal"}`
-    : TEXT.sourceUnknown;
+  const mapName = source ? esc(source.mapName || source.mapId || TEXT.defaultMapName) : "";
+  const difficulty = source ? esc(source.difficulty || "normal") : "";
+  const note = source?.note ? ` · ${esc(source.note)}` : "";
+  const sourceText = source ? `${mapName} / ${difficulty}${note}` : TEXT.sourceUnknown;
   return `<div class="handbook-rec-row">
     <div><strong>${esc(row.name || row.id)}</strong><small>${esc(row.reason || "")}</small></div>
-    <span>${TEXT.missing} ${fmtn(row.missing)} / ${esc(sourceText)}</span>
+    <span>${TEXT.missing} ${fmtn(row.missing)} / ${sourceText}</span>
   </div>`;
 }
 
