@@ -49,11 +49,13 @@ const lootModelSource = read('src/systems/drops/lootModel.js');
 const offlineSource = read('src/systems/offline.js');
 const offlineLootSource = read('src/ui/offlineLoot.js');
 const devBridgeSource = read('src/dev/devBridge.js');
+const combatIndexSource = read('src/systems/combat/index.js');
 const settlementSource = read('src/systems/combat/settlement.js');
 const bossCombatSource = read('src/systems/combat/bossCombat.js');
 const damageSource = read('src/systems/combat/damage.js');
 const skillsSource = read('src/systems/combat/skills.js');
 const skillMechanicsSource = read('src/systems/combat/skillMechanics.js');
+const skillDpsSource = read('src/systems/combat/skillDps.js');
 const normalCombatSource = read('src/systems/combat/normalCombat.js');
 const encounterSource = read('src/systems/combat/encounter.js');
 const monsterSource = read('src/systems/combat/monster.js');
@@ -178,6 +180,15 @@ assert.match(game, /options\.suffix\s*\|\|\s*""/, 'Combat damage text should app
 assert.match(game, /const\s+runSimulation\s*=\s*\(\)\s*=>\s*\{[\s\S]*updateCombat\(combatStep\)[\s\S]*withSuppressedCombatFeedback\(runSimulation\)/, 'Combat catch-up should wrap the simulation loop when visual feedback is suppressed.');
 assert.match(skillMechanicsSource, /function\s+applyDamage\s*\([^)]*skillOrName[\s\S]*showDamageNumber\?\.\('monster',\s*damage,\s*'skill',\s*\{\s*skillName\s*\}/, 'Skill damage batching should key damage numbers by the current skill name.');
 assert.doesNotMatch(skillMechanicsSource, /applyDamage\([^,\n]+,\s*state,\s*ctx\)/, 'Skill damage callers should pass skill context into applyDamage.');
+assert.match(skillDpsSource, /SKILL_DPS_WINDOW_MS\s*=\s*30000/, 'Skill DPS tracker should use a 30 second rolling window.');
+assert.match(skillDpsSource, /export function createSkillDpsTracker/, 'Skill DPS tracker should expose a factory for tests and runtime use.');
+assert.match(skillDpsSource, /recordSkillDamage/, 'Skill DPS tracker should expose skill damage recording.');
+assert.match(skillDpsSource, /getSkillDpsRows/, 'Skill DPS tracker should expose sorted DPS rows.');
+assert.match(skillDpsSource, /skillDamage\s*\/\s*30/, 'Skill DPS should use the fixed 30 second display denominator.');
+assert.match(combatIndexSource, /getSkillDpsRows/, 'Combat runtime should expose Skill DPS rows.');
+assert.match(combatIndexSource, /recordSkillDamage/, 'Combat runtime should expose Skill DPS recording.');
+assert.match(skillMechanicsSource, /recordSkillDamage\?\.\(skillName,\s*damage\)/, 'V3 skill damage should feed the DPS tracker from applyDamage.');
+assert.match(game, /RuneFrontierCombatRuntime\?\.recordSkillDamage\?\.\(name,\s*damage\)/, 'Legacy skill casts should feed the DPS tracker.');
 {
   const skillFeedbackSource = game.match(/function\s+showSkillCastFeedback\s*\([^)]*\)\s*\{[\s\S]*?\n\}/)?.[0] || '';
   assert.ok(

@@ -4030,6 +4030,7 @@ function skillAttributeMultiplier(active = {}, stats = {}) {
 }
 
 function noteSkillCast(name, damage) {
+  window.RuneFrontierCombatRuntime?.recordSkillDamage?.(name, damage);
   const text = `${name} 造成 ${formatNumber(sanitizeDamage(damage))} 伤害`;
   state.skillLog.unshift(text);
   state.skillLog = state.skillLog.slice(0, 6);
