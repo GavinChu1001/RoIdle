@@ -1417,9 +1417,13 @@ for (const name of [
   assert.match(equipmentCraftingSource, new RegExp(`export\\s+function\\s+${name}\\b`), `Equipment crafting module must export ${name}.`);
 }
 assert.match(equipmentIndexSource, /export\s+\*\s+from\s+['"]\.\/crafting\.js['"]/, 'Equipment index must re-export equipment crafting.');
-assert.match(equipmentIndexSource, /craftEquipment:\s*\(request\)\s*=>\s*craftEquipment\(request,\s*context\)/, 'Equipment runtime must expose craftEquipment through context.');
+assert.match(equipmentIndexSource, /createItem:\s*\(template,\s*level,\s*rarity,\s*itemContext\)\s*=>\s*createItem\(template,\s*level,\s*rarity,\s*itemContext,\s*context\)/, 'Equipment runtime crafting context must bridge module createItem.');
+assert.match(equipmentIndexSource, /canCraftEquipment:\s*\(request\)\s*=>\s*canCraftEquipment\(request,\s*craftingContext\)/, 'Equipment runtime must validate crafting through enhanced crafting context.');
+assert.match(equipmentIndexSource, /craftEquipment:\s*\(request\)\s*=>\s*craftEquipment\(request,\s*craftingContext\)/, 'Equipment runtime must craft through enhanced crafting context.');
 const equipmentCraftingItemProgressionUrl = `data:text/javascript;base64,${Buffer.from(itemProgressionSource).toString('base64')}`;
-const equipmentCrafting = await importSource(equipmentCraftingSource.replace(/from\s+['"]\.\/itemProgression\.js['"]/g, `from '${equipmentCraftingItemProgressionUrl}'`));
+const equipmentCraftingTestSource = equipmentCraftingSource.replace(/from\s+['"]\.\/itemProgression\.js['"]/g, `from '${equipmentCraftingItemProgressionUrl}'`);
+const equipmentCraftingModuleUrl = `data:text/javascript;base64,${Buffer.from(equipmentCraftingTestSource).toString('base64')}`;
+const equipmentCrafting = await importSource(equipmentCraftingTestSource);
 const mythicCraftRequest = { series: 'ancientHero', growthTier: 'T2', slot: 'weapon', archetype: 'physical', rarity: 'mythic' };
 const mythicCraftRecipe = equipmentCrafting.getEquipmentCraftingRecipe(mythicCraftRequest);
 const makeCraftMaterials = (recipe) => Object.fromEntries(Object.entries(recipe.materials).map(([id, amount]) => [id, amount]));
@@ -1530,6 +1534,71 @@ const assertCraftBlockedWithoutConsumption = (label, state, context, expectedRea
 {
   const state = makeCraftState();
   assertCraftBlockedWithoutConsumption('Create item failure', state, makeCraftContext(state, { createItem: () => null }), 'creation_failed');
+}
+{
+  const osCraftRequest = { series: 'os', growthTier: 'T3', slot: 'weapon', archetype: 'physical', rarity: 'rare' };
+  const osCraftRecipe = equipmentCrafting.getEquipmentCraftingRecipe(osCraftRequest);
+  const runtimeState = {
+    gold: osCraftRecipe.gold,
+    materials: makeCraftMaterials(osCraftRecipe),
+    inventory: [],
+    production: { crafting: { level: 1, exp: 0, totalCrafts: 0, masterCrafts: 0 }, blueprints: { known: [], fragments: {} } },
+  };
+  const craftingNames = new Set(['getEquipmentCraftingRecipe', 'canCraftEquipment', 'craftEquipment']);
+  const importedIndexNames = [...equipmentIndexSource.matchAll(/import\s+\{([^}]+)\}\s+from\s+['"][^'"]+['"];/g)]
+    .flatMap((match) => match[1].split(','))
+    .map((name) => name.trim().split(/\s+as\s+/).pop().trim())
+    .filter((name) => name && !craftingNames.has(name));
+  const indexStubSource = [...new Set(importedIndexNames)].map((name) => {
+    if (name === 'createItem') {
+      return `function createItem(template, level, rarity, itemContext, runtime) {
+        globalThis.__equipmentRuntimeCreateItemCalls.push({ template, level, rarity, itemContext, runtime });
+        return { id: 'runtime-crafted', templateId: template.id, rarity };
+      }`;
+    }
+    if (name === 'getProgressionEquipmentTemplate') {
+      return `function getProgressionEquipmentTemplate(id) {
+        return id === 'prog_os_os_physical_weapon'
+          ? { id, series: 'os', growthTier: 'T3', slot: 'weapon', equipSlot: 'weapon', archetype: 'physical', requiredLevel: 130, source: 'progression_drop' }
+          : null;
+      }`;
+    }
+    if (name === 'getProgressionEquipmentTemplates') {
+      return 'function getProgressionEquipmentTemplates() { return []; }';
+    }
+    if (name === 'getEquipmentLineMaterials') {
+      return 'function getEquipmentLineMaterials() { return {}; }';
+    }
+    if (name === 'normalizeEquipmentSeries') {
+      return "function normalizeEquipmentSeries(value) { return value || 'oldWorld'; }";
+    }
+    return `function ${name}(...args) { return args[0] && typeof args[0] === 'object' ? args[0] : null; }`;
+  }).join('\n');
+  const equipmentIndexRuntimeTestSource = equipmentIndexSource
+    .replace(/import\s+\{[^}]+\}\s+from\s+['"][^'"]+['"];\s*/g, '')
+    .replace(/export\s+\*\s+from\s+['"][^'"]+['"];\s*/g, '');
+  globalThis.__equipmentRuntimeCreateItemCalls = [];
+  const previousWindow = globalThis.window;
+  globalThis.window = {};
+  try {
+    const equipmentIndexRuntime = await importSource(`import { getEquipmentCraftingRecipe, canCraftEquipment, craftEquipment } from '${equipmentCraftingModuleUrl}';\n${indexStubSource}\n${equipmentIndexRuntimeTestSource}`);
+    const runtime = equipmentIndexRuntime.installEquipmentRuntime({
+      getState: () => runtimeState,
+      getEquipmentTemplate: () => null,
+    });
+    const result = runtime.craftEquipment(osCraftRequest);
+    assert.equal(result.ok, true, 'Installed equipment runtime should craft even when legacy context lacks createItem.');
+    assert.equal(globalThis.__equipmentRuntimeCreateItemCalls[0]?.itemContext.series, 'os', 'Runtime crafting should pass series into the module createItem bridge.');
+    assert.equal(globalThis.__equipmentRuntimeCreateItemCalls[0]?.itemContext.growthTier, 'T3', 'Runtime crafting should pass growth tier into the module createItem bridge.');
+    assert.equal(runtimeState.inventory[0], result.item, 'Runtime crafting should add the crafted item to inventory.');
+  } finally {
+    if (previousWindow === undefined) {
+      delete globalThis.window;
+    } else {
+      globalThis.window = previousWindow;
+    }
+    delete globalThis.__equipmentRuntimeCreateItemCalls;
+  }
 }
 const equipmentGrowth = await importSource(equipmentGrowthSource);
 assert.equal(

@@ -58,6 +58,16 @@ export function installEquipmentRuntime(context = {}) {
   configureRefineContext(context);
   configureStarRefineContext(context);
   configureSocketContext(context);
+  const productionRuntime = () => (typeof window !== 'undefined' ? window.RuneFrontierProductionRuntime : null);
+  const craftingContext = {
+    ...context,
+    createItem: (template, level, rarity, itemContext) => createItem(template, level, rarity, itemContext, context),
+    getProgressionEquipmentTemplate,
+    getProgressionEquipmentTemplates,
+    getEquipmentLineMaterials,
+    normalizeEquipmentSeries,
+    addCraftingExperience: (production, amount) => productionRuntime()?.addCraftingExperience?.(production, amount),
+  };
   const runtime = Object.freeze({
     getEquipmentDisplayName,
     getEffectiveItemStats,
@@ -113,8 +123,8 @@ export function installEquipmentRuntime(context = {}) {
     getAbyssTemperingBonus,
     temperAbyssItem: (itemId, mode) => temperAbyssItem(itemId, mode, context),
     getEquipmentCraftingRecipe,
-    canCraftEquipment: (request) => canCraftEquipment(request, context),
-    craftEquipment: (request) => craftEquipment(request, context),
+    canCraftEquipment: (request) => canCraftEquipment(request, craftingContext),
+    craftEquipment: (request) => craftEquipment(request, craftingContext),
     EQUIPMENT_SYNERGY_LINES,
     ROUTE_SKILL_ENHANCEMENTS,
     computeEquipmentSynergies,
