@@ -208,6 +208,19 @@ assert.match(adventureHandbookSource, /export function buildAdventureHandbookMod
 assert.match(adventureHandbookSource, /export function recordAdventureHandbookProgress/, 'Adventure handbook system should expose progress tracking.');
 assert.match(adventureHandbookSource, /export function claimAdventureHandbookGoal/, 'Adventure handbook system should expose reward claims.');
 assert.match(adventureHandbookSource, /export function installAdventureHandbookRuntime/, 'Adventure handbook system should expose runtime installation.');
+assert.match(game, /adventureHandbook:\s*defaultAdventureHandbookState\(\)/, 'Default state should include adventure handbook.');
+assert.match(game, /adventureHandbook:\s*normalizeAdventureHandbookState\(saved\.adventureHandbook\s*\|\|\s*base\.adventureHandbook\)/, 'Saved state merge should normalize adventure handbook.');
+assert.match(game, /state\.adventureHandbook\s*=\s*normalizeAdventureHandbookState\(state\.adventureHandbook\)/, 'Sanitize should keep adventure handbook normalized.');
+assert.match(game, /function\s+recordAdventureHandbookProgress\s*\(/, 'Classic runtime should expose handbook progress helper.');
+assert.match(game, /function\s+claimAdventureHandbookGoal\s*\(/, 'Classic runtime should expose handbook claim helper.');
+assert.match(settlementSource, /recordAdventureHandbookProgress\?\.\('daily_kills'/, 'Combat settlement should feed handbook kill progress.');
+assert.match(settlementSource, /recordAdventureHandbookProgress\?\.\('weekly_bosses'/, 'Combat settlement should feed handbook weekly boss progress.');
+assert.match(dungeonSystemSource, /recordAdventureHandbookProgress\?\.\('daily_dungeon'/, 'Dungeon completion should feed handbook daily dungeon progress.');
+assert.match(dungeonSystemSource, /recordAdventureHandbookProgress\?\.\('weekly_dungeons'/, 'Dungeon completion should feed handbook weekly dungeon progress.');
+assert.match(dismantleSource, /recordAdventureHandbookProgress\?\.\('daily_salvage'/, 'Manual salvage should feed handbook salvage progress.');
+assert.match(dismantleSource, /recordAdventureHandbookProgress\?\.\('weekly_equipment'/, 'Salvage should feed handbook weekly equipment progress.');
+assert.match(main, /installAdventureHandbookRuntime/, 'Main should install Adventure Handbook runtime.');
+assert.match(game, /RuneFrontierLegacyAdventureHandbookContext/, 'Classic runtime should expose Adventure Handbook legacy context.');
 {
   const handbook = await importSource(adventureHandbookSource);
   const fresh = handbook.defaultAdventureHandbookState('2026-05-31', '2026-W23');
@@ -251,15 +264,45 @@ assert.match(adventureHandbookSource, /export function installAdventureHandbookR
 
   progressState.adventureHandbook.daily.daily_kills.progress = 30;
   let grantedReward = null;
+  let rewardCalls = 0;
   const claimResult = handbook.claimAdventureHandbookGoal(progressState, 'daily_kills', {
     date: '2026-05-31',
     weekKey: '2026-W23',
-    grantReward: (reward) => { grantedReward = reward; },
+    grantReward: (reward) => { rewardCalls += 1; grantedReward = reward; },
   });
   assert.equal(claimResult.ok, true, 'Completed handbook goal should be claimable.');
   assert.equal(progressState.adventureHandbook.daily.daily_kills.claimed, true, 'Claimed handbook goal should set claimed flag.');
   assert.equal(progressState.adventureHandbook.researchPoints, 1, 'Claim should grant adventure research points.');
   assert.equal(grantedReward.gold, 1200, 'Claim should pass configured reward to grantReward.');
+  const repeatedClaim = handbook.claimAdventureHandbookGoal(progressState, 'daily_kills', {
+    date: '2026-05-31',
+    weekKey: '2026-W23',
+    grantReward: () => { rewardCalls += 1; },
+  });
+  assert.equal(repeatedClaim.reason, 'claimed', 'Repeated handbook claims should be rejected as claimed.');
+  assert.equal(progressState.adventureHandbook.researchPoints, 1, 'Repeated claims should not grant more research points.');
+  assert.equal(rewardCalls, 1, 'Repeated claims should not grant rewards again.');
+
+  const cappedProgressState = { adventureHandbook: handbook.defaultAdventureHandbookState('2026-05-31', '2026-W23') };
+  handbook.recordAdventureHandbookProgress(cappedProgressState, 'daily_kills', 999, { date: '2026-05-31', weekKey: '2026-W23' });
+  assert.equal(cappedProgressState.adventureHandbook.daily.daily_kills.progress, 30, 'Handbook progress should cap at the goal target.');
+  handbook.recordAdventureHandbookProgress(cappedProgressState, 'daily_kills', -5, { date: '2026-05-31', weekKey: '2026-W23' });
+  assert.equal(cappedProgressState.adventureHandbook.daily.daily_kills.progress, 30, 'Negative progress should not reduce handbook progress.');
+  cappedProgressState.adventureHandbook.daily.daily_kills.claimed = true;
+  handbook.recordAdventureHandbookProgress(cappedProgressState, 'daily_kills', 1, { date: '2026-05-31', weekKey: '2026-W23' });
+  assert.equal(cappedProgressState.adventureHandbook.daily.daily_kills.progress, 30, 'Claimed goals should not keep accumulating progress.');
+
+  const failedRewardState = { adventureHandbook: handbook.defaultAdventureHandbookState('2026-05-31', '2026-W23') };
+  failedRewardState.adventureHandbook.daily.daily_kills.progress = 30;
+  const failedReward = handbook.claimAdventureHandbookGoal(failedRewardState, 'daily_kills', {
+    date: '2026-05-31',
+    weekKey: '2026-W23',
+    grantReward: () => { throw new Error('reward failed'); },
+  });
+  assert.equal(failedReward.reason, 'reward_failed', 'Reward failures should be reported explicitly.');
+  assert.equal(failedRewardState.adventureHandbook.daily.daily_kills.claimed, false, 'Reward failures should not mark goals as claimed.');
+  assert.equal(failedRewardState.adventureHandbook.researchPoints, 0, 'Reward failures should not grant research points.');
+  assert.doesNotThrow(() => handbook.buildAdventureHandbookModel(null, null), 'Handbook model should tolerate null state and context.');
 
   const model = handbook.buildAdventureHandbookModel({
     hero: { baseLevel: 12, jobLevel: 5 },

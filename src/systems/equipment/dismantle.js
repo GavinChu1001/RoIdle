@@ -58,6 +58,10 @@ export function addEquipmentToInventory(item, options = {}, ctx = mutationCtx) {
   if (shouldAutoSalvage(normalized, ctx)) {
     const rewards = getSalvageRewards(normalized, {}, ctx);
     ctx.addMaterials?.(rewards);
+    if (!options.offline) {
+      ctx.recordAdventureHandbookProgress?.('daily_salvage', 1);
+      ctx.recordAdventureHandbookProgress?.('weekly_equipment', 1);
+    }
     if (!options.offline) ctx.recordSessionReward?.({ autoSalvaged: 1, materials: Object.values(rewards).reduce((s, a) => s + Number(a || 0), 0) });
     if (!options.offline) ctx.recordRecentLoot?.({ autoSalvagedMaterials: rewards, salvagedMaterials: rewards }, '自动分解');
     if (!options.offline) ctx.recordAutoSalvageBatch?.(rewards);
@@ -83,6 +87,7 @@ export function addEquipmentToInventory(item, options = {}, ctx = mutationCtx) {
   if (!options.offline) {
     const source = ctx.isAbyssEquipment?.(normalized) ? '深渊装备掉落' : ctx.isBossEncounter?.() ? 'Boss装备掉落' : '装备掉落';
     ctx.recordRecentLoot?.({ equipments: [normalized], equipment: [normalized] }, source);
+    ctx.recordAdventureHandbookProgress?.('weekly_equipment', 1);
   }
   return { added: true };
 }
@@ -137,6 +142,8 @@ export function salvageItem(id, options = {}, ctx = mutationCtx) {
   const rewards = getSalvageRewards(item, {}, ctx);
   ctx.addMaterials?.(rewards);
   state.inventory = (state.inventory || []).filter((e) => e.id !== id);
+  ctx.recordAdventureHandbookProgress?.('daily_salvage', 1);
+  ctx.recordAdventureHandbookProgress?.('weekly_equipment', 1);
   const name = ctx.getDisplayItemName?.(item) || item.name || '装备';
   ctx.addLog?.(`分解 ${name}，获得 ${ctx.materialText?.(rewards) || ''}。`);
   if (!options.silent) ctx.showSalvageResult?.('分解完成', 1, rewards);
@@ -161,6 +168,8 @@ export function salvageAllUnequipped(ctx = mutationCtx) {
     });
   });
   state.inventory = (state.inventory || []).filter((item) => !targetIds.has(item.id));
+  ctx.recordAdventureHandbookProgress?.('daily_salvage', targets.length);
+  ctx.recordAdventureHandbookProgress?.('weekly_equipment', targets.length);
   ctx.addLog?.(`批量分解 ${targets.length} 件未穿戴装备，获得 ${ctx.materialText?.(totals) || ''}。`);
   ctx.showSalvageResult?.('批量分解完成', targets.length, totals);
   ctx.renderAll?.();

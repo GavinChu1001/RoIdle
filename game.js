@@ -1668,6 +1668,65 @@ function normalizeDungeonState(dungeons = {}) {
   return { date: dungeons.date, entries: dungeons.entries || {} };
 }
 
+function adventureDateKey(date = new Date()) {
+  const value = date instanceof Date ? date : new Date(date);
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function adventureWeekKey(date = new Date()) {
+  const value = new Date(date.getTime ? date.getTime() : date);
+  value.setHours(0, 0, 0, 0);
+  const day = value.getDay() || 7;
+  value.setDate(value.getDate() + 4 - day);
+  const yearStart = new Date(value.getFullYear(), 0, 1);
+  const week = Math.ceil((((value - yearStart) / 86400000) + 1) / 7);
+  return `${value.getFullYear()}-W${String(week).padStart(2, "0")}`;
+}
+
+function defaultAdventureHandbookState() {
+  const runtime = window.RuneFrontierAdventureHandbookRuntime;
+  if (runtime && typeof runtime.defaultAdventureHandbookState === "function") return runtime.defaultAdventureHandbookState();
+  return { version: 1, date: adventureDateKey(), weekKey: adventureWeekKey(), researchPoints: 0, daily: {}, weekly: {} };
+}
+
+function normalizeAdventureHandbookState(handbook = {}) {
+  const runtime = window.RuneFrontierAdventureHandbookRuntime;
+  if (runtime && typeof runtime.normalizeAdventureHandbookState === "function") return runtime.normalizeAdventureHandbookState(handbook);
+  return {
+    ...defaultAdventureHandbookState(),
+    ...(handbook && typeof handbook === "object" ? handbook : {}),
+    researchPoints: Math.max(0, Math.floor(Number(handbook?.researchPoints || 0))),
+  };
+}
+
+function recordAdventureHandbookProgress(goalId, amount = 1) {
+  const runtime = window.RuneFrontierAdventureHandbookRuntime;
+  if (runtime && typeof runtime.recordAdventureHandbookProgress === "function") {
+    return runtime.recordAdventureHandbookProgress(state, goalId, amount);
+  }
+  return false;
+}
+
+function claimAdventureHandbookGoal(goalId) {
+  const runtime = window.RuneFrontierAdventureHandbookRuntime;
+  if (!runtime || typeof runtime.claimAdventureHandbookGoal !== "function") {
+    showToast("冒险手册尚未就绪");
+    return;
+  }
+  const result = runtime.claimAdventureHandbookGoal(state, goalId, {
+    grantReward: grantGenericReward,
+    addLog,
+    save,
+    renderAll,
+  });
+  if (!result.ok) {
+    showToast(result.reason === "incomplete" ? "目标尚未完成" : result.reason === "claimed" ? "该奖励已领取" : "目标数据异常");
+  }
+}
+
 function normalizeDailyGoals(dailyGoals = {}) {
   if (dailyGoals.date !== todayKey()) return defaultDailyGoals();
   const defaults = defaultDailyGoals();
@@ -2079,6 +2138,7 @@ function createDefaultState() {
     lastLootUpdatedAt: 0,
     dailyGoals: defaultDailyGoals(),
     dungeons: defaultDungeonState(),
+    adventureHandbook: defaultAdventureHandbookState(),
     vip: defaultVipState(),
     mvpInscription: defaultMvpInscriptionState(),
     quests: defaultQuestState(),
@@ -2240,6 +2300,11 @@ function bindEvents() {
     const button = event.target.closest("button[data-enter-dungeon]");
     if (!button) return;
     window.RuneFrontierDungeonRuntime?.enterDungeon?.(button.dataset.enterDungeon);
+  });
+  document.addEventListener("click", (event) => {
+    const claimButton = event.target.closest("[data-claim-handbook-goal]");
+    if (!claimButton) return;
+    claimAdventureHandbookGoal(claimButton.dataset.claimHandbookGoal);
   });
 
   els.pauseButton.addEventListener("click", () => {
@@ -3085,6 +3150,7 @@ function mergeState(base, saved) {
     lastLootUpdatedAt: Number(saved.lastLootUpdatedAt || 0),
     dailyGoals: normalizeDailyGoals(saved.dailyGoals || base.dailyGoals),
     dungeons: normalizeDungeonState(saved.dungeons || base.dungeons),
+    adventureHandbook: normalizeAdventureHandbookState(saved.adventureHandbook || base.adventureHandbook),
     vip: { ...base.vip, ...(saved.vip || {}) },
     quests: normalizeQuests(saved.quests || base.quests),
     onboarding: normalizeOnboarding(saved.onboarding || base.onboarding),
@@ -3178,6 +3244,7 @@ function sanitizeProgression() {
   state.lastLootViewedAt = Number(state.lastLootViewedAt || 0);
   state.lastLootUpdatedAt = Number(state.lastLootUpdatedAt || 0);
   state.dungeons = normalizeDungeonState(state.dungeons);
+  state.adventureHandbook = normalizeAdventureHandbookState(state.adventureHandbook);
   ensureSettings();
   state.zodiacCollection = normalizeZodiacCollection(state.zodiacCollection);
   state.costumes = normalizeCostumes(state.costumes);
@@ -14594,6 +14661,7 @@ window.RuneFrontierLegacyEquipmentContext = () => Object.freeze({
   },
   getInventoryLimit,
   addMaterials,
+  recordAdventureHandbookProgress,
   recordSessionReward,
   recordRecentLoot,
   recordAutoSalvageBatch(rewards) {
@@ -14742,6 +14810,7 @@ window.RuneFrontierLegacyDropsContext = () => Object.freeze({
   renderItemName,
   addLogHtml,
   applyMaterialQuantityBonus,
+  recordAdventureHandbookProgress,
   recordSessionReward,
   recordRecentLoot,
   addLog,
@@ -15037,6 +15106,7 @@ window.RuneFrontierLegacyCombatContext = () => Object.freeze({
   getAutoBossEnabled,
   bossRequirement,
   updateDailyGoalProgress,
+  recordAdventureHandbookProgress,
   recordSessionReward,
   recordRecentLoot,
   addLog,
@@ -15152,12 +15222,54 @@ window.RuneFrontierLegacyDungeonContext = () => Object.freeze({
   getState() { return state; },
   computeStats,
   grantGenericReward,
+  recordAdventureHandbookProgress,
   addLog,
   showToast,
   renderAll,
   save,
   formatNumber,
   getMaterialName(materialId) { return materialNames[materialId] || materialId; },
+});
+
+// [AUTHORITY] adventure-handbook-runtime: handbook state, progress, claims, and model bridge.
+window.RuneFrontierLegacyAdventureHandbookContext = () => Object.freeze({
+  getState() { return state; },
+  getDateKey() { return adventureDateKey(); },
+  getWeekKey() { return adventureWeekKey(); },
+  computeStats,
+  getMaps() { return maps; },
+  currentMap,
+  isBossChallengeReady,
+  getMaterialName(materialId) { return materialNames[materialId] || materialId; },
+  getMaterialDropSources(materialId) {
+    const ordinarySources = Object.entries(materialDropTables || {}).flatMap(([mapId, rows]) => {
+      const map = maps.find((entry) => entry.id === mapId);
+      return (rows || [])
+        .filter((row) => row.materialId === materialId)
+        .map(() => ({ mapId, mapName: map?.name || mapId, difficulty: "normal" }));
+    });
+    const progressionSources = maps.flatMap((map) => ["normal", "hard", "abyss"].flatMap((difficulty) => {
+      const drops = window.RuneFrontierEquipmentRuntime?.getProgressionMaterialDrops?.(map.id, difficulty, {}) || [];
+      return drops
+        .filter((row) => row.materialId === materialId)
+        .map(() => ({ mapId: map.id, mapName: map.name, difficulty }));
+    }));
+    const seen = new Set();
+    return [...ordinarySources, ...progressionSources].filter((source) => {
+      const key = `${source.mapId}:${source.difficulty}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).slice(0, 3);
+  },
+  getDungeonCards(stateArg = state) {
+    return window.RuneFrontierDungeonRuntime?.getDungeonCards?.(stateArg) || [];
+  },
+  getNextEquipmentUpgrade,
+  grantReward: grantGenericReward,
+  addLog,
+  save,
+  renderAll,
 });
 
 // [AUTHORITY] state-runtime: Not yet module-owned. Delegation bridges exist on load/save/mergeState/sanitizeProgression/createDefaultState/resetSave.
@@ -15360,6 +15472,10 @@ Object.assign(window, {
   rarityRank,
   defaultDungeonState,
   normalizeDungeonState,
+  defaultAdventureHandbookState,
+  normalizeAdventureHandbookState,
+  recordAdventureHandbookProgress,
+  claimAdventureHandbookGoal,
   normalizeDailyGoals,
   achievementRewardText,
   questRewardText,

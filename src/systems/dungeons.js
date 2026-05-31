@@ -104,6 +104,8 @@ export function enterDungeon(dungeonId, context = dungeonCtx) {
   const power = finite((context.computeStats?.() || {}).power);
   entry.used += 1;
   entry.bestClearPower = Math.max(finite(entry.bestClearPower), power);
+  context.recordAdventureHandbookProgress?.('daily_dungeon', 1);
+  context.recordAdventureHandbookProgress?.('weekly_dungeons', 1);
   context.grantGenericReward?.(dungeon.rewards);
   context.addLog?.(`完成副本：${dungeon.name}。`);
   context.showToast?.(`完成：${dungeon.name}`);

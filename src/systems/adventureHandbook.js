@@ -87,11 +87,13 @@ function localWeekKey(date = new Date()) {
 }
 
 function currentDate(context = handbookCtx) {
-  return context.date || context.getDateKey?.() || localDateKey();
+  const ctx = context && typeof context === 'object' ? context : {};
+  return ctx.date || ctx.getDateKey?.() || localDateKey();
 }
 
 function currentWeekKey(context = handbookCtx) {
-  return context.weekKey || context.getWeekKey?.() || localWeekKey();
+  const ctx = context && typeof context === 'object' ? context : {};
+  return ctx.weekKey || ctx.getWeekKey?.() || localWeekKey();
 }
 
 function normalizeProgress(value, target) {
@@ -174,6 +176,7 @@ export function recordAdventureHandbookProgress(state, goalId, amount = 1, conte
 }
 
 export function claimAdventureHandbookGoal(state, goalId, context = handbookCtx) {
+  const ctx = context && typeof context === 'object' ? context : {};
   if (!state || !goalId) return { ok: false, reason: 'state_missing' };
   const match = findGoal(goalId);
   if (!match) return { ok: false, reason: 'goal_missing' };
@@ -188,26 +191,39 @@ export function claimAdventureHandbookGoal(state, goalId, context = handbookCtx)
   if (entry.claimed) return { ok: false, reason: 'claimed' };
   if (finite(entry.progress) < match.goal.target) return { ok: false, reason: 'incomplete' };
 
-  entry.claimed = true;
   const reward = match.goal.reward || {};
+  const grantReward = {
+    gold: Math.max(0, Math.floor(finite(reward.gold))),
+    materials: Object.fromEntries(Object.entries(reward.materials || {})
+      .map(([id, amount]) => [id, Math.max(0, Math.floor(finite(amount)))])
+      .filter(([, amount]) => amount > 0)),
+  };
+  try {
+    ctx.grantReward?.(grantReward);
+  } catch (error) {
+    return { ok: false, reason: 'reward_failed', error };
+  }
+
+  entry.claimed = true;
   state.adventureHandbook.researchPoints += Math.max(0, Math.floor(finite(reward.researchPoints)));
-  context.grantReward?.({ gold: reward.gold || 0, materials: reward.materials || {} });
-  context.addLog?.(`冒险手册目标完成：${match.goal.title}。`);
-  context.save?.();
-  context.renderAll?.();
+  ctx.addLog?.(`冒险手册目标完成：${match.goal.title}。`);
+  ctx.save?.();
+  ctx.renderAll?.();
   return { ok: true, goal: match.goal, bucket: match.bucket };
 }
 
 function materialRecommendations(state = {}, context = handbookCtx) {
+  const safeState = state && typeof state === 'object' ? state : {};
+  const ctx = context && typeof context === 'object' ? context : {};
   return MATERIAL_TARGETS
     .map((target) => {
-      const owned = finite(state.materials?.[target.id]);
+      const owned = finite(safeState.materials?.[target.id]);
       return {
         ...target,
-        name: context.getMaterialName?.(target.id) || target.id,
+        name: ctx.getMaterialName?.(target.id) || target.id,
         owned,
         missing: Math.max(0, target.target - owned),
-        sources: context.getMaterialDropSources?.(target.id) || [],
+        sources: ctx.getMaterialDropSources?.(target.id) || [],
       };
     })
     .filter((target) => target.missing > 0)
@@ -215,30 +231,34 @@ function materialRecommendations(state = {}, context = handbookCtx) {
 }
 
 function defaultMapRecommendation(state = {}, context = handbookCtx) {
-  const maps = context.getMaps?.() || [];
-  const index = Math.max(0, Math.min(maps.length - 1, Math.floor(finite(state.currentMap))));
+  const safeState = state && typeof state === 'object' ? state : {};
+  const ctx = context && typeof context === 'object' ? context : {};
+  const maps = ctx.getMaps?.() || [];
+  const index = Math.max(0, Math.min(maps.length - 1, Math.floor(finite(safeState.currentMap))));
   const current = maps[index] || maps[0] || null;
   return {
     mapId: current?.id || '',
     name: current?.name || '当前地图',
-    difficulty: state.currentDifficulty || 'normal',
-    reason: context.isBossChallengeReady?.()
+    difficulty: safeState.currentDifficulty || 'normal',
+    reason: ctx.isBossChallengeReady?.()
       ? 'Boss 进度已满，优先挑战本地图 Boss。'
       : '继续刷当前地图，积累 Boss 进度和阶段材料。',
   };
 }
 
 function defaultEquipmentTarget(state = {}, context = handbookCtx) {
-  const equippedIds = Object.values(state.equipped || {}).filter(Boolean);
+  const safeState = state && typeof state === 'object' ? state : {};
+  const ctx = context && typeof context === 'object' ? context : {};
+  const equippedIds = Object.values(safeState.equipped || {}).filter(Boolean);
   if (!equippedIds.length) {
     return { title: '补齐装备栏', desc: '优先补齐武器、防具、鞋子和饰品。' };
   }
 
-  const inventory = state.inventory || [];
+  const inventory = safeState.inventory || [];
   const equippedItems = equippedIds
     .map((id) => inventory.find((item) => item?.id === id))
     .filter(Boolean);
-  const upgrade = equippedItems.map((item) => context.getNextEquipmentUpgrade?.(item)).find(Boolean);
+  const upgrade = equippedItems.map((item) => ctx.getNextEquipmentUpgrade?.(item)).find(Boolean);
   if (upgrade) {
     return { title: '推进装备阶级', desc: '至少一件已穿戴装备还可以继续进阶。' };
   }
@@ -246,24 +266,26 @@ function defaultEquipmentTarget(state = {}, context = handbookCtx) {
 }
 
 export function buildAdventureHandbookModel(state = handbookCtx.getState?.() || {}, context = handbookCtx) {
+  const safeState = state && typeof state === 'object' ? state : {};
+  const ctx = context && typeof context === 'object' ? context : {};
   const normalized = normalizeAdventureHandbookState(
-    state.adventureHandbook,
-    currentDate(context),
-    currentWeekKey(context),
+    safeState.adventureHandbook,
+    currentDate(ctx),
+    currentWeekKey(ctx),
   );
-  const stats = context.computeStats?.() || {};
+  const stats = ctx.computeStats?.() || {};
   return {
     researchPoints: normalized.researchPoints,
     power: finite(stats.power),
     stats,
     dailyGoals: goalRows(DAILY_GOALS, normalized.daily),
     weeklyGoals: goalRows(WEEKLY_GOALS, normalized.weekly),
-    mapRecommendation: context.getMapRecommendation?.(state, stats) || defaultMapRecommendation(state, context),
-    materials: materialRecommendations(state, context),
-    dungeons: (context.getDungeonCards?.(state, stats) || [])
+    mapRecommendation: ctx.getMapRecommendation?.(safeState, stats) || defaultMapRecommendation(safeState, ctx),
+    materials: materialRecommendations(safeState, ctx),
+    dungeons: (ctx.getDungeonCards?.(safeState, stats) || [])
       .filter((entry) => finite(entry.remaining) > 0)
       .slice(0, 3),
-    equipmentTarget: context.getEquipmentTarget?.(state, stats) || defaultEquipmentTarget(state, context),
+    equipmentTarget: ctx.getEquipmentTarget?.(safeState, stats) || defaultEquipmentTarget(safeState, ctx),
   };
 }
 

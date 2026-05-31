@@ -32,6 +32,7 @@ import { installCodexRuntime } from './systems/codex.js';
 import { installShopRuntime } from './systems/shop.js';
 import { installOnboardingRuntime } from './systems/onboarding.js';
 import { installDungeonRuntime } from './systems/dungeons.js';
+import { installAdventureHandbookRuntime } from './systems/adventureHandbook.js';
 
 // UI layer (delegates to game.js via window)
 import './ui/index.js';
@@ -104,6 +105,11 @@ const dungeonContext = typeof window.RuneFrontierLegacyDungeonContext === 'funct
   : {};
 installDungeonRuntime(dungeonContext);
 document.documentElement.dataset.runeModuleStatus = 'dungeon-system-ready';
+const adventureHandbookContext = typeof window.RuneFrontierLegacyAdventureHandbookContext === 'function'
+  ? window.RuneFrontierLegacyAdventureHandbookContext()
+  : {};
+installAdventureHandbookRuntime(adventureHandbookContext);
+document.documentElement.dataset.runeModuleStatus = 'adventure-handbook-system-ready';
 document.documentElement.dataset.runeModuleStatus = 'systems-ready';
 
 const lootContext = {

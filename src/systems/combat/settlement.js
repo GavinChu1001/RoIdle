@@ -144,7 +144,12 @@ export function settleDefeatedEnemy(payload = {}, context = runtimeContext) {
     isBoss ? 'Boss战利品' : difficulty === 'abyss' ? '深渊战利品' : '战斗战利品',
   );
   context.updateDailyGoalProgress?.('daily_kills', 1);
-  if (isBoss) context.updateDailyGoalProgress?.('daily_boss', 1);
+  context.recordAdventureHandbookProgress?.('daily_kills', 1);
+  if (isBoss) {
+    context.updateDailyGoalProgress?.('daily_boss', 1);
+    context.recordAdventureHandbookProgress?.('daily_boss', 1);
+    context.recordAdventureHandbookProgress?.('weekly_bosses', 1);
+  }
   if (monster.id) {
     state.monsterCodex = state.monsterCodex || {};
     state.monsterCodex[monster.id] = state.monsterCodex[monster.id] || { killCount: 0, firstKilled: false, rewardsClaimed: {} };
