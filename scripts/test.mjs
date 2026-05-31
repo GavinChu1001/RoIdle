@@ -3739,6 +3739,60 @@ assert.match(characterPageSource, /mvpInscriptionBonusEntries\(mvpInscription\.b
 assert.match(characterPageSource, /ro-character-inscription-bonuses/, 'Character page should render MVP inscription bonus chips.');
 assert.equal(offline.shouldSettleBackgroundOffline(14999), false, 'Short background pauses should resume normal combat without offline settlement.');
 assert.equal(offline.shouldSettleBackgroundOffline(15000), true, 'Background pauses at the threshold should settle through offline rewards.');
+{
+  const explicitMapState = {
+    hero: { currentHp: 100 },
+    inventory: [],
+    currentDifficulty: 'normal',
+  };
+  const explicitMapContext = {
+    getState: () => explicitMapState,
+    createEmptyRewards: () => ({ seconds: 0, gold: 0, baseExp: 0, jobExp: 0, equipments: [], cards: [], materials: [], autoSalvagedMaterials: {}, skippedEquipment: 0 }),
+    currentMap: () => ({ id: 'sewer', minLevel: 1, maxLevel: 1, monsters: [{ id: 'sewer-bug', levelRange: [1, 1] }] }),
+    getMaps: () => [
+      { id: 'grass', minLevel: 1, maxLevel: 1, monsters: [{ id: 'poring', levelRange: [1, 1] }] },
+      { id: 'sewer', minLevel: 1, maxLevel: 1, monsters: [{ id: 'sewer-bug', levelRange: [1, 1] }] },
+    ],
+    computeStats: () => ({
+      dps: 10,
+      maxHp: 100,
+      goldMultiplier: 1,
+      monsterGoldMultiplier: 1,
+      baseExpMultiplier: 1,
+      jobExpMultiplier: 1,
+      offlineEfficiencyBonus: 0,
+    }),
+    getDifficultyConfig: () => ({ cardDrop: 0, materialDrop: 1 }),
+    getVipMilestoneBonuses: () => ({}),
+    getOfflineEfficiency: () => 1,
+    getOfflineMaxKills: () => 1,
+    getMaxOfflineSeconds: () => 60,
+    estimateMapAverageMonsterHp: () => 1,
+    buildMonsterStats: (_map) => ({ maxHp: 1, gold: _map.id === 'grass' ? 3 : 9, exp: 1, jobExp: 1 }),
+    pickMonsterTemplate: (map) => map.monsters[0],
+    rollMonsterLevel: () => 1,
+    rollMonsterMutation: () => null,
+    getProgressionEquipmentDropTable: () => [],
+    getCardDropTable: () => [],
+    getMaterialDropTable: (mapId) => [{ materialId: `${mapId}Ore`, dropRate: 1, minQty: 2, maxQty: 2 }],
+    getMaterialName: (id) => id,
+    getMaterialRarity: () => 'normal',
+    getZodiacSetIds: () => [],
+    getMythicDropRates: () => ({ abyssNormal: 0 }),
+    getMutationExtraDrops: () => ({ materialBonusRate: 0, rareMaterialBonusRate: 0 }),
+    getOfflineEquipmentDropRateMultiplier: () => 1,
+    random: () => 0,
+    randomInt: (min) => min,
+    applyMaterialQuantityBonus: (qty) => qty,
+    calculateMvpInscriptionOnlinePerMinute: () => 0,
+    calculateMvpInscriptionMonsterExp: () => 0,
+    gainMapExploration: () => {},
+  };
+  const explicitMapRewards = offline.calculateOfflineRewards(explicitMapState.hero, 1000, 'grass', explicitMapContext);
+  assert.equal(explicitMapRewards.mapId, 'grass', 'Explicit offline mapId should override the live current map.');
+  assert.equal(explicitMapRewards.materials[0].materialId, 'grassOre', 'Offline material rewards should come from the explicit map.');
+  assert.equal(explicitMapRewards.materials[0].mapId, 'grass', 'Offline material mastery map should follow the explicit map.');
+}
 const backgroundOfflineState = {
   hero: { currentHp: 100 },
   inventory: [],

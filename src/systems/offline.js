@@ -107,7 +107,8 @@ export function calculateOfflineRewards(character, offlineMs, mapId, context = r
   rewards.durationMs = durationMs;
   rewards.cappedDurationMs = cappedDurationMs;
   rewards.seconds = Math.floor(cappedDurationMs / 1000);
-  const map = (currentMapFn()?.id || mapId) ? currentMapFn() : (maps.find((m) => m.id === mapId) || currentMapFn());
+  const explicitMap = mapId ? maps.find((m) => m.id === mapId) : null;
+  const map = explicitMap || currentMapFn() || maps[0] || {};
   rewards.mapId = map?.id || mapId || "";
   rewards.calculatedAt = new Date().toISOString();
   if (cappedDurationMs <= 0) return rewards;
