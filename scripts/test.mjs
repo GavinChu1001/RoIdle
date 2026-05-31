@@ -244,7 +244,28 @@ assert.match(combatIndexSource, /getSkillDpsRows/, 'Combat runtime should expose
 assert.match(combatIndexSource, /recordSkillDamage/, 'Combat runtime should expose Skill DPS recording.');
 assert.match(skillMechanicsSource, /ctx\.recordSkillDamage\s*\|\|\s*mechContext\.recordSkillDamage/, 'V3 skill DPS recording should fall back to the installed mechanics context when runtime ctx lacks a recorder.');
 assert.match(skillMechanicsSource, /recordSkillDamage\(ctx,\s*skillName,\s*damage\)/, 'V3 skill damage should feed the DPS tracker from applyDamage.');
+assert.match(combatIndexSource, /configureNormalCombatContext\(\{\s*\.\.\.context,\s*recordSkillDamage/s, 'Normal combat context should receive Skill DPS recording.');
+assert.match(combatIndexSource, /configureEncounterContext\(\{\s*\.\.\.context,\s*recordSkillDamage/s, 'Encounter context should receive Skill DPS recording.');
+assert.match(normalCombatSource, /recordSkillDamage\?\.\('溅射转化',\s*convertedSplash\)/, 'Converted splash damage should feed the Skill DPS tracker.');
+assert.match(normalCombatSource, /recordSkillDamage\?\.\('火焰爆发',\s*burstDamage\)/, 'Fire burst damage should feed the Skill DPS tracker.');
+assert.match(normalCombatSource, /recordSkillDamage\?\.\('陨石反击',\s*meteorDamage\)/, 'Meteor counter damage should feed the Skill DPS tracker.');
+assert.match(encounterSource, /recordSkillDamage\?\.\('溅射',\s*totalSplashDamage\)/, 'Encounter splash damage should feed the Skill DPS tracker.');
+assert.match(encounterSource, /recordSkillDamage\?\.\(skillName,\s*totalSplashDamage\)/, 'V3 skill splash damage should feed the Skill DPS tracker.');
 assert.match(game, /RuneFrontierCombatRuntime\?\.recordSkillDamage\?\.\(name,\s*damage\)/, 'Legacy skill casts should feed the DPS tracker.');
+{
+  const skillDpsModule = await importSource(skillDpsSource);
+  let skillClock = 100000;
+  const tracker = skillDpsModule.createSkillDpsTracker({ now: () => skillClock, windowMs: 30000 });
+  tracker.recordSkillDamage('Stone', 300);
+  tracker.recordSkillDamage('Fire', 900);
+  tracker.recordSkillDamage('Stone', 300);
+  const rows = tracker.getSkillDpsRows(5);
+  assert.deepEqual(rows.map((row) => row.name), ['Fire', 'Stone'], 'Skill DPS rows should sort by recent damage total.');
+  assert.equal(rows[0].dps, 30, 'Skill DPS should divide total damage by 30 seconds.');
+  assert.equal(rows[1].share, 0.4, 'Skill DPS share should use total recent skill damage.');
+  skillClock += 31000;
+  assert.deepEqual(tracker.getSkillDpsRows(5), [], 'Skill DPS rows should expire events outside the rolling window.');
+}
 {
   const skillFeedbackSource = game.match(/function\s+showSkillCastFeedback\s*\([^)]*\)\s*\{[\s\S]*?\n\}/)?.[0] || '';
   assert.ok(
@@ -314,8 +335,8 @@ assert.match(styles, /@media\s*\(max-width:\s*640px\)[\s\S]*\.combat-impact-play
 for (const bossAction of ['boss-cast', 'boss-impact', 'danger-mark']) {
   assert.match(styles, new RegExp(`url\\("/assets/ui/fx/${bossAction}\\.png"\\)`), `${bossAction} should use an absolute asset URL to avoid short-path 404s.`);
 }
-assert.match(html, /styles\.css\?v=20260529-battle-effects-v11/, 'Battle effect CSS should use a fresh cache-busting version.');
-assert.match(html, /game\.js\?v=20260531-salvage-v1/, 'Batch salvage runtime should use a fresh cache-busting version.');
+assert.match(html, /styles\.css\?v=20260531-adventure-dps-dungeon-v2/, 'Adventure DPS and dungeon CSS must use a fresh cache-busting version.');
+assert.match(html, /game\.js\?v=20260531-adventure-dps-dungeon-v2/, 'Adventure DPS and dungeon classic runtime must use a fresh cache-busting version.');
 assert.match(game, /function\s+releaseFocusBeforeHiding\s*\(/, 'Modal close flow should release focus before hiding the active modal.');
 assert.match(game, /setModalVisibility\(els\.offlineRewardModal,\s*visible\)/, 'Offline reward modal should use the shared focus-safe visibility helper.');
 assert.match(game, /setModalVisibility\(els\.refineResultModal,\s*visible\)/, 'Refine result modal should use the shared focus-safe visibility helper.');
@@ -323,7 +344,7 @@ assert.match(html, /id="offlineRewardModal"[^>]*inert/, 'Offline reward modal sh
 assert.match(html, /id="refineResultModal"[^>]*inert/, 'Refine result modal should start inert while hidden.');
 assert.match(main, /getMvpInscriptionView:\s*window\.getMvpInscriptionView/, 'Character page runtime must receive the live MVP inscription view helper.');
 assert.match(main, /canGainMvpInscriptionOnCurrentMap:\s*window\.canGainMvpInscriptionOnCurrentMap/, 'Character page runtime must receive the live MVP inscription map eligibility helper.');
-assert.match(html, /src="\.\/src\/main\.js\?v=20260531-adventure-dps-dungeon-v1"/, 'Adventure DPS and dungeon runtime must use a fresh module cache-busting version.');
+assert.match(html, /src="\.\/src\/main\.js\?v=20260531-adventure-dps-dungeon-v2"/, 'Adventure DPS and dungeon runtime must use a fresh module cache-busting version.');
 assert.doesNotMatch(game, /renderItemName\(item,\s*`Lv\.\$\{item\.level\}/, 'Equipment list and equipped slot names should not expose internal item level.');
 assert.doesNotMatch(game, /等级：\$\{item\.level \|\| 1\}/, 'Equipment detail tooltips should not label internal item level as player-facing level.');
 assert.match(game, /来源强度：\$\{item\.dropLevel \|\| item\.level \|\| 1\}/, 'Equipment detail tooltips should preserve internal strength as source strength.');
@@ -547,6 +568,9 @@ assert.match(adventurePageSource, /jobSummary\?\.\(job\)/, 'Adventure party pane
 assert.match(adventurePageSource, /BASE\s+\$\{state\.hero\.baseLevel\}[\s\S]*JOB\s+\$\{state\.hero\.jobLevel\}[\s\S]*fmtn\(stats\.dps\)/, 'Adventure party panel should retain BASE/JOB/output summary.');
 assert.match(game, /button\[data-adventure-page\]/, 'Adventure delegated page navigation should be scoped to adventure page buttons.');
 assert.match(game, /button\.dataset\.adventurePage/, 'Adventure delegated page navigation should read the scoped page target.');
+assert.doesNotMatch(game, /<span class="quest-name">当前首领<\/span>/, 'Classic fallback current target should no longer show the current boss row.');
+assert.match(game, /renderFallbackSkillDpsPanel/, 'Classic fallback party panel should include Skill DPS display.');
+assert.match(game, /renderFallbackDungeonEntryPanel/, 'Classic fallback party panel should include the dungeon entry.');
 assert.match(styles, /\.skill-dps-panel/, 'Styles should include the Skill DPS panel.');
 assert.match(styles, /\.dungeon-entry-panel/, 'Styles should include the adventure dungeon entry panel.');
 assert.match(styles, /\.skill-dps-row\s*>\s*div\s*\{[\s\S]*min-width:\s*0/, 'Skill DPS row text column should be allowed to shrink.');

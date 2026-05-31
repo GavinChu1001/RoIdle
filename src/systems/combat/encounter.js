@@ -234,14 +234,18 @@ export function applySplashDamageToEncounter(baseDamage, stats = {}) {
   if (!group?.monsters?.length) return;
   const splashDamage = normalizeDamage(baseDamage * ratio);
   if (splashDamage <= 0) return;
+  let totalSplashDamage = 0;
   group.monsters
     .map((monster, index) => ({ monster, index }))
     .filter((entry) => entry.index !== group.activeIndex && entry.monster.alive)
     .slice(0, targets)
     .forEach(({ monster }) => {
-      monster.currentHp = Math.max(1, Number(monster.currentHp || monster.maxHp || 1) - splashDamage);
+      const before = Number(monster.currentHp || monster.maxHp || 1);
+      monster.currentHp = Math.max(1, before - splashDamage);
+      totalSplashDamage += Math.max(0, before - monster.currentHp);
       monster.alive = monster.currentHp > 0;
     });
+  encounterContext.recordSkillDamage?.('溅射', totalSplashDamage);
   encounterContext.showDamageNumber?.('monster', splashDamage, 'skill', { skillName: '溅射' });
 }
 
@@ -251,11 +255,16 @@ export function applySkillSplashDamageToEncounter(splashDamage, skillName = '技
   updateActiveEnemyHpInGroup(encounterContext);
   const group = state.enemyGroup;
   if (!group?.monsters?.length) return;
+  const amount = Number(splashDamage || 0);
+  let totalSplashDamage = 0;
   group.monsters
     .filter((monster, index) => index !== group.activeIndex && monster.alive)
     .forEach((monster) => {
-      monster.currentHp = Math.max(1, Number(monster.currentHp || monster.maxHp || 1) - Number(splashDamage || 0));
+      const before = Number(monster.currentHp || monster.maxHp || 1);
+      monster.currentHp = Math.max(1, before - amount);
+      totalSplashDamage += Math.max(0, before - monster.currentHp);
       monster.alive = monster.currentHp > 0;
     });
+  encounterContext.recordSkillDamage?.(skillName, totalSplashDamage);
   encounterContext.showDamageNumber?.('monster', splashDamage, 'skill', { skillName });
 }

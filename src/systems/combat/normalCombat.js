@@ -131,11 +131,13 @@ export function updateCombat(dt, context = runtimeContext) {
       if (hasSplash && state.enemyHp > 0 && (state.enemyBoss || livingAdds <= 0)) {
         const convertedSplash = normalizeDamage(adjustedDamage * Math.min(0.35, splashRatio * 0.45));
         state.enemyHp -= convertedSplash;
+        context.recordSkillDamage?.('溅射转化', convertedSplash);
         context.showDamageNumber?.('monster', convertedSplash, 'skill', { skillName: '溅射转化' });
       }
       if (stats.fireBurstChance && context.random?.() < stats.fireBurstChance && state.enemyHp > 0) {
         const burstDamage = normalizeDamage(finite(stats.physicalAttack) * finite(stats.fireBurstAtkPct || 0.8) * (1 + targetBonus) * (1 - monsterGuard));
         state.enemyHp -= burstDamage;
+        context.recordSkillDamage?.('火焰爆发', burstDamage);
         context.showDamageNumber?.('monster', burstDamage, 'skill', { skillName: '火焰爆发' });
         context.showSkillCastFeedback?.('火焰爆发');
       }
@@ -252,6 +254,7 @@ export function updateMonsterAttack(dt, stats = {}, context = runtimeContext, v3
   if (state.enemyHp > 0 && stats.meteorCounterChance && context.random?.() < stats.meteorCounterChance) {
     const meteorDamage = normalizeDamage(finite(stats.magicAttack || stats.matkPower) * finite(stats.meteorCounterMatkPct || 1));
     state.enemyHp -= meteorDamage;
+    context.recordSkillDamage?.('陨石反击', meteorDamage);
     context.showDamageNumber?.('monster', meteorDamage, 'skill', { skillName: '陨石反击' });
     context.showSkillCastFeedback?.('陨石反击');
   }

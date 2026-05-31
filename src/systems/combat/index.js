@@ -47,17 +47,24 @@ import { configureFailureReasonContext, getDifficultyFailureHint } from './failu
 
 export function installCombatRuntime(context = {}) {
   const skillDpsTracker = createSkillDpsTracker();
+  const recordSkillDamage = (...args) => skillDpsTracker.recordSkillDamage(...args);
   configureCombatSettlementContext(context);
   configureBossCombatContext(context);
   configureDamageContext(context);
   configureSkillsContext(context);
-  configureNormalCombatContext(context);
+  configureNormalCombatContext({
+    ...context,
+    recordSkillDamage,
+  });
   configureMonsterContext(context);
-  configureEncounterContext(context);
+  configureEncounterContext({
+    ...context,
+    recordSkillDamage,
+  });
   configureSkillMechanicsContext({
     ...context,
     getTargetDamageBonus,
-    recordSkillDamage: (...args) => skillDpsTracker.recordSkillDamage(...args),
+    recordSkillDamage,
   });
   configureFailureReasonContext(context);
   const runtime = Object.freeze({

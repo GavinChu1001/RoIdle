@@ -11192,14 +11192,25 @@ function renderQuestList() { const runtime = window.RuneFrontierRenderRuntime; i
       <p class="quest-meta">${state.enemyBoss ? progress : `${progress} 后可挑战本地图首领`}</p>
     </div>
     <div class="quest-item">
-      <span class="quest-name">当前首领</span>
-      <p class="quest-meta">${bossDisplayName(currentMap())} · ${currentMap().bossSkill}</p>
-    </div>
-    <div class="quest-item">
       <span class="quest-name">技能触发</span>
       <p class="quest-meta">${state.skillLog[0] || "挂机时会按概率释放已解锁主动技能"}</p>
     </div>
   `;
+}
+
+function renderFallbackSkillDpsPanel() {
+  const rows = window.RuneFrontierCombatRuntime?.getSkillDpsRows?.(5) || [];
+  if (!rows.length) {
+    return `<section class="skill-dps-panel"><div class="panel-heading compact"><div><p class="eyebrow">技能输出</p><h2>最近 30 秒</h2></div></div><p class="quest-meta">暂无技能伤害记录</p></section>`;
+  }
+  return `<section class="skill-dps-panel"><div class="panel-heading compact"><div><p class="eyebrow">技能输出</p><h2>最近 30 秒</h2></div></div><div class="skill-dps-list">${rows.map((row) => {
+    const share = Math.max(0, Math.min(1, Number(row.share || 0)));
+    return `<div class="skill-dps-row"><div><strong>${escapeHtml(row.name)}</strong><small>${formatNumber(row.dps)} / 秒</small></div><span>${Math.round(share * 100)}%</span><i style="transform:scaleX(${Math.max(0.02, share)})"></i></div>`;
+  }).join("")}</div></section>`;
+}
+
+function renderFallbackDungeonEntryPanel() {
+  return `<section class="dungeon-entry-panel"><div class="panel-heading compact"><div><p class="eyebrow">副本</p><h2>每日挑战</h2></div></div><p class="quest-meta">材料副本与 Boss 试炼已开放。</p><button class="ro-light-control" data-page="dungeons" data-adventure-page="dungeons" type="button">进入副本</button></section>`;
 }
 
 function renderPartyList() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderPartyList === "function") return runtime.renderPartyList();
@@ -11215,6 +11226,8 @@ function renderPartyList() { const runtime = window.RuneFrontierRenderRuntime; i
       <span class="party-name">技能记录</span>
       <p class="party-meta">${state.skillLog.slice(0, 3).join(" / ") || "尚未触发主动技能"}</p>
     </div>
+    ${renderFallbackSkillDpsPanel()}
+    ${renderFallbackDungeonEntryPanel()}
     ${renderSessionRewardPanel()}
   `;
 }
