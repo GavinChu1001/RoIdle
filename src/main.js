@@ -31,6 +31,7 @@ import { installVipRuntime } from './systems/vip.js';
 import { installCodexRuntime } from './systems/codex.js';
 import { installShopRuntime } from './systems/shop.js';
 import { installOnboardingRuntime } from './systems/onboarding.js';
+import { installDungeonRuntime } from './systems/dungeons.js';
 
 // UI layer (delegates to game.js via window)
 import './ui/index.js';
@@ -46,6 +47,7 @@ import { installCardRenderRuntime } from './ui/cardPage.js';
 import { installOnboardingGuideRuntime } from './ui/onboardingGuide.js';
 import { installAdventureRenderRuntime } from './ui/adventurePage.js';
 import { installTaskRenderRuntime } from './ui/taskPage.js';
+import { installDungeonRenderRuntime } from './ui/dungeonPage.js';
 import { installLogRenderRuntime } from './ui/logPanel.js';
 import { installAdviceRenderRuntime } from './ui/components/actionButton.js';
 
@@ -97,6 +99,11 @@ const shopContext = typeof window.RuneFrontierLegacyShopContext === 'function'
 installShopRuntime(shopContext);
 installOnboardingRuntime();
 document.documentElement.dataset.runeModuleStatus = 'onboarding-ready';
+const dungeonContext = typeof window.RuneFrontierLegacyDungeonContext === 'function'
+  ? window.RuneFrontierLegacyDungeonContext()
+  : {};
+installDungeonRuntime(dungeonContext);
+document.documentElement.dataset.runeModuleStatus = 'dungeon-system-ready';
 document.documentElement.dataset.runeModuleStatus = 'systems-ready';
 
 const lootContext = {
@@ -388,6 +395,21 @@ installAdventureRenderRuntime({
   getSkillDpsRows(limit) { return window.RuneFrontierCombatRuntime?.getSkillDpsRows?.(limit) || []; },
 });
 document.documentElement.dataset.runeModuleStatus = 'adventure-render-ready';
+
+installDungeonRenderRuntime({
+  getState() { return window.state || {}; },
+  getEls() { return window.els || {}; },
+  escapeHtml: window.escapeHtml,
+  formatNumber: window.formatNumber,
+  getMaterialName: (id) => {
+    const legacyContext = typeof window.RuneFrontierLegacyDungeonContext === 'function'
+      ? window.RuneFrontierLegacyDungeonContext()
+      : null;
+    return legacyContext?.getMaterialName?.(id) || (window.materialNames || {})[id] || id;
+  },
+  getDungeonCards() { return window.RuneFrontierDungeonRuntime?.getDungeonCards?.(window.state || {}) || []; },
+});
+document.documentElement.dataset.runeModuleStatus = 'dungeon-render-ready';
 
 const taskRenderContext = { getState() { return window.state || {}; }, getEls() { return window.els || {}; }, escapeHtml: window.escapeHtml, formatNumber: window.formatNumber, normalizeDailyGoals: window.normalizeDailyGoals, achievementRewardText: window.achievementRewardText, questRewardText: window.questRewardText, getAchievementDb() { return window.ACHIEVEMENT_DB || []; }, getAchievementEntry: window.getAchievementEntry, };
 installTaskRenderRuntime(taskRenderContext);

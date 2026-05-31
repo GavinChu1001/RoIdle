@@ -67,6 +67,8 @@ const mapPageSource = read('src/ui/mapPage.js');
 const onboardingSource = read('src/systems/onboarding.js');
 const onboardingGuideSource = read('src/ui/onboardingGuide.js');
 const adventurePageSource = read('src/ui/adventurePage.js');
+const dungeonSystemSource = read('src/systems/dungeons.js');
+const dungeonPageSource = read('src/ui/dungeonPage.js');
 
 const classicDataContext = { console };
 createContext(classicDataContext);
@@ -147,6 +149,19 @@ for (const name of requiredLegacyFunctions) {
 assert.match(main, /window\.RuneFrontierDevBridge\s*=/, 'Developer diagnostics bridge must remain available (now installed via main.js).');
 assert.doesNotMatch(main, /state:\s*window\.state\s*\|\|\s*\{\}/, 'Developer diagnostics must not capture an unrelated window.state snapshot.');
 assert.match(main, /RuneFrontierLegacyDevContext/, 'Developer diagnostics must obtain its live legacy context.');
+assert.match(html, /data-page="dungeons"[^>]*>副本<\/button>/, 'Navigation should include the dungeon page.');
+assert.match(html, /data-view="dungeons"/, 'HTML should include a dedicated dungeon page view.');
+assert.match(html, /id="dungeonPage"/, 'Dungeon page should expose a render target.');
+assert.match(game, /defaultDungeonState/, 'game.js should provide default dungeon state.');
+assert.match(game, /normalizeDungeonState/, 'game.js should normalize dungeon state.');
+assert.match(game, /case "dungeons":/, 'renderActivePage should render the dungeon page.');
+assert.match(main, /installDungeonRuntime/, 'Main should install the dungeon runtime.');
+assert.match(main, /installDungeonRenderRuntime/, 'Main should install the dungeon render runtime.');
+assert.match(dungeonSystemSource, /daily_material/, 'Dungeon definitions should include Daily Material Dungeon.');
+assert.match(dungeonSystemSource, /boss_trial/, 'Dungeon definitions should include Boss Trial.');
+assert.match(dungeonSystemSource, /enterDungeon/, 'Dungeon runtime should expose dungeon entry settlement.');
+assert.match(dungeonPageSource, /renderDungeonPage/, 'Dungeon page renderer should exist.');
+assert.match(styles, /\.dungeon-page/, 'Styles should include dungeon page layout.');
 assert.match(game, /getBossCycleGoldBonus/, 'Combat settlement context should provide Boss cycle gold bonuses.');
 assert.match(mapPageSource, /周回挑战/, 'Map difficulty UI should explain hard mode as a repeat challenge.');
 assert.match(mapPageSource, /终局挑战/, 'Map difficulty UI should explain abyss mode as an endgame challenge.');

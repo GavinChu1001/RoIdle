@@ -13619,3 +13619,51 @@ button[data-map]:disabled {
 .dungeon-entry-panel button {
   width: 100%;
 }
+.dungeon-page {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.dungeon-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid rgba(126, 85, 38, 0.28);
+  border-radius: 8px;
+  background: rgba(255, 248, 222, 0.78);
+}
+
+.dungeon-card.locked {
+  opacity: 0.72;
+}
+
+.dungeon-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.dungeon-card-head h3 {
+  margin: 0;
+}
+
+.dungeon-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.dungeon-meta-grid span {
+  display: grid;
+  gap: 2px;
+  padding: 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.52);
+  color: #75542f;
+}
+
+.dungeon-meta-grid strong {
+  color: #3b2615;
+}

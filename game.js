@@ -1638,6 +1638,19 @@ function defaultDailyGoals() {
   };
 }
 
+function defaultDungeonState() {
+  const runtime = window.RuneFrontierDungeonRuntime;
+  if (runtime && typeof runtime.defaultDungeonState === "function") return runtime.defaultDungeonState();
+  return { date: todayKey(), entries: {} };
+}
+
+function normalizeDungeonState(dungeons = {}) {
+  const runtime = window.RuneFrontierDungeonRuntime;
+  if (runtime && typeof runtime.normalizeDungeonState === "function") return runtime.normalizeDungeonState(dungeons);
+  if (!dungeons || typeof dungeons !== "object" || dungeons.date !== todayKey()) return defaultDungeonState();
+  return { date: dungeons.date, entries: dungeons.entries || {} };
+}
+
 function normalizeDailyGoals(dailyGoals = {}) {
   if (dailyGoals.date !== todayKey()) return defaultDailyGoals();
   const defaults = defaultDailyGoals();
@@ -2048,6 +2061,7 @@ function createDefaultState() {
     lastLootViewedAt: 0,
     lastLootUpdatedAt: 0,
     dailyGoals: defaultDailyGoals(),
+    dungeons: defaultDungeonState(),
     vip: defaultVipState(),
     mvpInscription: defaultMvpInscriptionState(),
     quests: defaultQuestState(),
@@ -2138,6 +2152,7 @@ function cacheElements() {
     "shopContent",
     "vipPanel",
     "taskPage",
+    "dungeonPage",
     "refreshDailyButton",
     "questList",
     "partyList",
@@ -2203,6 +2218,11 @@ function bindEvents() {
     const button = event.target.closest("button[data-adventure-page]");
     if (!button || button.closest(".page-tabs")) return;
     goToPage(button.dataset.adventurePage);
+  });
+  if (els.dungeonPage) els.dungeonPage.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-enter-dungeon]");
+    if (!button) return;
+    window.RuneFrontierDungeonRuntime?.enterDungeon?.(button.dataset.enterDungeon);
   });
 
   els.pauseButton.addEventListener("click", () => {
@@ -3047,6 +3067,7 @@ function mergeState(base, saved) {
     lastLootViewedAt: Number(saved.lastLootViewedAt || 0),
     lastLootUpdatedAt: Number(saved.lastLootUpdatedAt || 0),
     dailyGoals: normalizeDailyGoals(saved.dailyGoals || base.dailyGoals),
+    dungeons: normalizeDungeonState(saved.dungeons || base.dungeons),
     vip: { ...base.vip, ...(saved.vip || {}) },
     quests: normalizeQuests(saved.quests || base.quests),
     onboarding: normalizeOnboarding(saved.onboarding || base.onboarding),
@@ -3139,6 +3160,7 @@ function sanitizeProgression() {
   state.lootNotifyUnread = Boolean(state.lootNotifyUnread);
   state.lastLootViewedAt = Number(state.lastLootViewedAt || 0);
   state.lastLootUpdatedAt = Number(state.lastLootUpdatedAt || 0);
+  state.dungeons = normalizeDungeonState(state.dungeons);
   ensureSettings();
   state.zodiacCollection = normalizeZodiacCollection(state.zodiacCollection);
   state.costumes = normalizeCostumes(state.costumes);
@@ -8113,6 +8135,11 @@ function renderAll() {
   }
 }
 
+function renderDungeons() {
+  const runtime = window.RuneFrontierRenderRuntime;
+  if (runtime && typeof runtime.renderDungeonPage === "function") return runtime.renderDungeonPage();
+}
+
 function renderActivePage() {
   document.documentElement.dataset.runeRenderStage = activePage;
   switch (activePage) {
@@ -8150,6 +8177,9 @@ function renderActivePage() {
       break;
     case "tasks":
       renderTasks();
+      break;
+    case "dungeons":
+      renderDungeons();
       break;
     case "logs":
       renderLog();
@@ -15087,6 +15117,19 @@ window.RuneFrontierLegacyShopContext = () => Object.freeze({
   save,
 });
 
+// [AUTHORITY] dungeon-runtime: daily dungeon state and instant settlement bridge.
+window.RuneFrontierLegacyDungeonContext = () => Object.freeze({
+  getState() { return state; },
+  computeStats,
+  grantGenericReward,
+  addLog,
+  showToast,
+  renderAll,
+  save,
+  formatNumber,
+  getMaterialName(materialId) { return materialNames[materialId] || materialId; },
+});
+
 // [AUTHORITY] state-runtime: Not yet module-owned. Delegation bridges exist on load/save/mergeState/sanitizeProgression/createDefaultState/resetSave.
 window.RuneFrontierLegacyStateContext = () => Object.freeze({
   getState() { return state; },
@@ -15285,6 +15328,8 @@ Object.assign(window, {
   canAffordSocketCost,
   canContinueRefine,
   rarityRank,
+  defaultDungeonState,
+  normalizeDungeonState,
   normalizeDailyGoals,
   achievementRewardText,
   questRewardText,
@@ -15293,6 +15338,7 @@ Object.assign(window, {
   getPlayerWeakness,
   getRecommendedActions,
   getCurrentRecommendedScoreGap,
+  renderDungeons,
   renderAll,
 });
 window.specialStatKeys = ["ignoreDefense", "echoChance", "splashTargets", "splashDamagePct", "fireBurstChance", "fireBurstAtkPct", "meteorCounterChance", "meteorCounterMatkPct", "skillCooldownPenalty", "mutationMaterialDoubleChance", "thornVitMultiplier", "combatPaceBonus", "statusResist", "setPowerBonus"];
