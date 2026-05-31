@@ -86,6 +86,47 @@ const productionMiningSource = read('src/systems/production/mining.js');
 const productionArtisanSource = read('src/systems/production/artisan.js');
 const smithyCraftingPanelSource = read('src/ui/smithyCraftingPanel.js');
 
+const createClassicGameContext = () => {
+  const documentStub = {
+    addEventListener() {},
+    querySelectorAll: () => [],
+    querySelector: () => null,
+    getElementById: () => null,
+    createElement: () => ({
+      style: {},
+      classList: { add() {}, remove() {}, toggle() {} },
+      appendChild() {},
+      remove() {},
+      setAttribute() {},
+      addEventListener() {},
+    }),
+    body: {
+      classList: { add() {}, remove() {}, toggle() {} },
+      appendChild() {},
+    },
+  };
+  const windowStub = { addEventListener() {}, document: documentStub };
+  const context = {
+    console,
+    performance: { now: () => 0 },
+    requestAnimationFrame: () => 0,
+    cancelAnimationFrame() {},
+    setTimeout: () => 0,
+    clearTimeout() {},
+    setInterval: () => 0,
+    clearInterval() {},
+    window: windowStub,
+    document: documentStub,
+    localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
+  };
+  Object.assign(windowStub, context, { window: windowStub, self: windowStub });
+  createContext(context);
+  runInContext(tools, context, { filename: 'tools.js' });
+  runInContext(data, context, { filename: 'data.js' });
+  runInContext(game, context, { filename: 'game.js' });
+  return context;
+};
+
 const classicDataContext = { console };
 createContext(classicDataContext);
 runInContext(tools, classicDataContext, { filename: 'tools.js' });
@@ -452,6 +493,23 @@ assert.match(main, /installAdventureHandbookRuntime/, 'Main should install Adven
 assert.match(game, /RuneFrontierLegacyAdventureHandbookContext/, 'Classic runtime should expose Adventure Handbook legacy context.');
 assert.match(game, /getCraftingMaterialSources/, 'Classic runtime should expose crafting material source hints.');
 assert.match(adventureHandbookSource, /getCraftingMaterialSources/, 'Adventure handbook should use crafting material source hints.');
+{
+  const classicGameContext = createClassicGameContext();
+  const assertCraftingSource = (materialId, { mapName, difficulty, note }) => {
+    const sources = classicGameContext.getCraftingMaterialSources(materialId);
+    assert.ok(Array.isArray(sources), `${materialId} crafting source hints should be an array.`);
+    assert.ok(sources.length > 0, `${materialId} should have at least one crafting source hint.`);
+    assert.match(sources[0].mapName, mapName, `${materialId} should expose the expected source name.`);
+    assert.match(sources[0].difficulty, difficulty, `${materialId} should expose the expected source category.`);
+    assert.match(sources[0].note, note, `${materialId} should expose the expected source note.`);
+  };
+
+  assertCraftingSource('tierOre', { mapName: /采矿/, difficulty: /生产/, note: /采矿长期产出/ });
+  assertCraftingSource('rareOre', { mapName: /深渊矿脉/, difficulty: /生产/, note: /高等级采矿产出/ });
+  assertCraftingSource('weaponEmbryo', { mapName: /工匠/, difficulty: /加工/, note: /消耗矿石加工/ });
+  assertCraftingSource('craftingComponent', { mapName: /工匠/, difficulty: /加工/, note: /消耗稀有矿加工/ });
+  assertCraftingSource('masterCraftVoucher', { mapName: /大师打造/, difficulty: /高阶/, note: /分解暗金\/神话或图鉴奖励/ });
+}
 assert.match(adventureHandbookPageSource, /export function renderAdventureHandbookPage/, 'Adventure handbook page renderer should exist.');
 assert.match(adventureHandbookPageSource, /data-claim-handbook-goal/, 'Adventure handbook goals should expose claim buttons.');
 assert.match(adventureHandbookPageSource, /handbook-section/, 'Adventure handbook renderer should use handbook sections.');

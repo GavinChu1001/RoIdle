@@ -15585,14 +15585,14 @@ function getMaterialDropSources(materialId) {
 
 function getCraftingMaterialSources(materialId) {
   const craftingSources = {
-    tierOre: [{ mapId: "mining", mapName: "采矿", difficulty: "生产 / 采矿长期产出" }],
-    refinedOre: [{ mapId: "mining", mapName: "采矿", difficulty: "生产 / 采矿长期产出" }],
-    rareOre: [{ mapId: "abyss_mining", mapName: "深渊矿脉", difficulty: "生产 / 高等级采矿产出" }],
-    weaponEmbryo: [{ mapId: "artisan", mapName: "工匠", difficulty: "加工 / 消耗矿石加工" }],
-    armorEmbryo: [{ mapId: "artisan", mapName: "工匠", difficulty: "加工 / 消耗矿石加工" }],
-    accessoryEmbryo: [{ mapId: "artisan", mapName: "工匠", difficulty: "加工 / 消耗矿石加工" }],
-    craftingComponent: [{ mapId: "artisan", mapName: "工匠", difficulty: "加工 / 消耗稀有矿加工" }],
-    masterCraftVoucher: [{ mapId: "master_craft", mapName: "大师打造", difficulty: "高阶 / 分解暗金/神话或图鉴奖励" }],
+    tierOre: [{ mapId: "mining", mapName: "采矿", difficulty: "生产", note: "采矿长期产出" }],
+    refinedOre: [{ mapId: "mining", mapName: "采矿", difficulty: "生产", note: "采矿长期产出" }],
+    rareOre: [{ mapId: "abyss_mining", mapName: "深渊矿脉", difficulty: "生产", note: "高等级采矿产出" }],
+    weaponEmbryo: [{ mapId: "artisan", mapName: "工匠", difficulty: "加工", note: "消耗矿石加工" }],
+    armorEmbryo: [{ mapId: "artisan", mapName: "工匠", difficulty: "加工", note: "消耗矿石加工" }],
+    accessoryEmbryo: [{ mapId: "artisan", mapName: "工匠", difficulty: "加工", note: "消耗矿石加工" }],
+    craftingComponent: [{ mapId: "artisan", mapName: "工匠", difficulty: "加工", note: "消耗稀有矿加工" }],
+    masterCraftVoucher: [{ mapId: "master_craft", mapName: "大师打造", difficulty: "高阶", note: "分解暗金/神话或图鉴奖励" }],
   }[materialId];
   return craftingSources || getMaterialDropSources(materialId);
 }
