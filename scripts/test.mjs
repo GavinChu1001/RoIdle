@@ -248,7 +248,7 @@ for (const bossAction of ['boss-cast', 'boss-impact', 'danger-mark']) {
   assert.match(styles, new RegExp(`url\\("/assets/ui/fx/${bossAction}\\.png"\\)`), `${bossAction} should use an absolute asset URL to avoid short-path 404s.`);
 }
 assert.match(html, /styles\.css\?v=20260529-battle-effects-v11/, 'Battle effect CSS should use a fresh cache-busting version.');
-assert.match(html, /game\.js\?v=20260530-mvp-aura-v4/, 'MVP aura runtime should use a fresh cache-busting version.');
+assert.match(html, /game\.js\?v=20260531-salvage-v1/, 'Batch salvage runtime should use a fresh cache-busting version.');
 assert.match(game, /function\s+releaseFocusBeforeHiding\s*\(/, 'Modal close flow should release focus before hiding the active modal.');
 assert.match(game, /setModalVisibility\(els\.offlineRewardModal,\s*visible\)/, 'Offline reward modal should use the shared focus-safe visibility helper.');
 assert.match(game, /setModalVisibility\(els\.refineResultModal,\s*visible\)/, 'Refine result modal should use the shared focus-safe visibility helper.');
@@ -2033,6 +2033,7 @@ const equipmentBadgeSource = game.slice(game.indexOf('function renderEquipmentBa
 assert.match(equipmentBadgeSource, /renderEquipmentPotentialBadge\(item\)/, 'Equipment badge row must include progression potential.');
 const salvageAllSource = game.slice(game.indexOf('function salvageAllUnequipped'), game.indexOf('function showSalvageResultModal'));
 assert.doesNotMatch(salvageAllSource, /shouldProtectEquipment\(item\)/, 'Batch unequipped salvage must only exclude equipped and locked gear.');
+assert.doesNotMatch(salvageAllSource, /RuneFrontierEquipmentRuntime[\s\S]{0,180}salvageAllUnequipped/, 'Batch unequipped salvage must not delegate to a stale module runtime.');
 const manualSalvageSource = game.slice(game.indexOf('function salvageItem'), game.indexOf('function getSalvageRewards'));
 assert.doesNotMatch(manualSalvageSource, /isProgressionLineEquipment\(item\)|shouldProtectEquipment\(item\)/, 'Manual salvage must not hard-block progression-line gear.');
 const equipmentCardSource = game.slice(game.indexOf('data-salvage-item'), game.indexOf('function renderEquipmentFilterBar'));

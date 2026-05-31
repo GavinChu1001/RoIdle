@@ -2187,7 +2187,7 @@ function ensureRefineActionButtons() {
 
 // [BRIDGE] Event wiring — 40+ listeners. All callbacks invoke game.js functions that delegate to runtime modules where applicable.
 // Non-delegated callbacks (presentation/DOM): openOfflineRewardModal, closeOfflineRewardModal, closeRefineResultModal, showToast, punchCardSlot, setAutoBossEnabled, loadAuth, refreshAuthUi, logout, toggleAutoBoss, ensureSettings.
-// Delegated callbacks: challengeBoss, claimOffline, refineItem, renderAll, salvageItem, salvageAllUnequipped, equipBest, enhanceItem, empowerItem, buyShopItem, claimCodexReward, toggleItemLock.
+// Delegated callbacks: challengeBoss, claimOffline, refineItem, renderAll, salvageItem, equipBest, enhanceItem, empowerItem, buyShopItem, claimCodexReward, toggleItemLock.
 function bindEvents() {
   ensureRefineActionButtons();
   cacheElements();
@@ -6294,8 +6294,6 @@ function getSalvageRewards(item) {
 }
 
 function salvageAllUnequipped() {
-  const runtime = window.RuneFrontierEquipmentRuntime;
-  if (runtime && typeof runtime.salvageAllUnequipped === "function") return runtime.salvageAllUnequipped();
   const equippedIds = new Set(Object.values(state.equipped).filter(Boolean));
   const targets = state.inventory.filter((item) => !equippedIds.has(item.id) && !item.locked);
   if (!targets.length) {
