@@ -3683,7 +3683,7 @@ assert.equal(resonanceState.skillCooldowns.ice, 7, 'Elemental resonance must not
 assert.equal(resonanceState.cooldownReductionNextSkill, true, 'Magic Amplification must arm the following skill cooldown reduction.');
 resonanceState.skillCooldowns.fire = 0;
 skillMechanics.tickSkillSystem(0, { atkPower: 0, matkPower: 100, crit: 0, maxHp: 100 });
-assert.equal(resonanceState.skillCooldowns.fire, 3, 'Magic Amplification must reduce the next skill cooldown by 35%.');
+assert.equal(resonanceState.skillCooldowns.fire, 3.6, 'Magic Amplification must reduce the next skill cooldown while respecting the active skill floor.');
 
 const guardPassive = { id: 'angel_guard', name: '天使之护', kind: '被动', cooldown: 60, mechanism: { type: 'hpThreshold', low: { hpPct: 0.4, bonus: { damageReductionPct: 0.3 }, duration: 6 } } };
 const healedGuardState = { hero: { currentHp: 90 }, angelGuardActiveTimer: 3, enemyMarks: {} };
