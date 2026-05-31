@@ -126,10 +126,15 @@ function skillNameForDamage(skillOrName) {
   return skillOrName?.skillName || skillOrName?.name || '';
 }
 
+function recordSkillDamage(ctx, name, damage) {
+  const recorder = ctx.recordSkillDamage || mechContext.recordSkillDamage;
+  recorder?.(name, damage);
+}
+
 function applyDamage(damage, state, ctx = mechContext, skillOrName = '') {
   const skillName = skillNameForDamage(skillOrName);
   state.enemyHp -= damage;
-  ctx.recordSkillDamage?.(skillName, damage);
+  recordSkillDamage(ctx, skillName, damage);
   ctx.showDamageNumber?.('monster', damage, 'skill', { skillName });
   ctx.showHitFeedback?.('skill');
 }
@@ -276,7 +281,7 @@ function tickMarks(state, dt, stats, ctx = mechContext) {
         const dmg = Math.max(0, Math.round(source * tickPct * poisonStacks * burnRamp * (1 - monsterGuard)));
         if (dmg > 0) {
           state.enemyHp -= dmg;
-          ctx.recordSkillDamage?.(key === 'burn' ? '灼烧' : '中毒', dmg);
+          recordSkillDamage(ctx, key === 'burn' ? '灼烧' : '中毒', dmg);
           ctx.showDamageNumber?.('monster', dmg, 'skill', { skillName: key === 'burn' ? '灼烧' : '中毒' });
         }
         if (key === 'burn' && finite(marks._burnRampPerSecond) > 0) marks._burnTicks = finite(marks._burnTicks) + 1;
@@ -1176,7 +1181,7 @@ export function tickSkillSystem(dt, stats, ctx = mechContext) {
       const multiplier = isElite ? 10 : 8 * (isAbyssBoss ? 0.75 : 1);
       const dmg = calcSkillDamage(source, multiplier, stats, monster, ctx, { stat: 'atk' });
       state.enemyHp -= dmg;
-      ctx.recordSkillDamage?.('死神之镰', dmg);
+      recordSkillDamage(ctx, '死神之镰', dmg);
       ctx.showDamageNumber?.('monster', dmg, 'skill', { skillName: '死神之镰' });
       ctx.addLog?.(`死神之镰：目标抵抗即死，转为 ${formatSkillPower(multiplier)}x 伤害。`);
       marks['伤口'] = Math.max(0, finite(marks['伤口']) - 10);

@@ -187,7 +187,8 @@ assert.match(skillDpsSource, /getSkillDpsRows/, 'Skill DPS tracker should expose
 assert.match(skillDpsSource, /skillDamage\s*\/\s*30/, 'Skill DPS should use the fixed 30 second display denominator.');
 assert.match(combatIndexSource, /getSkillDpsRows/, 'Combat runtime should expose Skill DPS rows.');
 assert.match(combatIndexSource, /recordSkillDamage/, 'Combat runtime should expose Skill DPS recording.');
-assert.match(skillMechanicsSource, /recordSkillDamage\?\.\(skillName,\s*damage\)/, 'V3 skill damage should feed the DPS tracker from applyDamage.');
+assert.match(skillMechanicsSource, /ctx\.recordSkillDamage\s*\|\|\s*mechContext\.recordSkillDamage/, 'V3 skill DPS recording should fall back to the installed mechanics context when runtime ctx lacks a recorder.');
+assert.match(skillMechanicsSource, /recordSkillDamage\(ctx,\s*skillName,\s*damage\)/, 'V3 skill damage should feed the DPS tracker from applyDamage.');
 assert.match(game, /RuneFrontierCombatRuntime\?\.recordSkillDamage\?\.\(name,\s*damage\)/, 'Legacy skill casts should feed the DPS tracker.');
 {
   const skillFeedbackSource = game.match(/function\s+showSkillCastFeedback\s*\([^)]*\)\s*\{[\s\S]*?\n\}/)?.[0] || '';
