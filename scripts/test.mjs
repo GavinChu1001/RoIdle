@@ -173,6 +173,33 @@ assert.match(main, /installCollectionRenderRuntime/, 'Main should install the co
 assert.match(html, /data-page="collection"/, 'Navigation should include the collection page.');
 assert.match(html, /id="collectionPage"/, 'Collection page should expose a render target.');
 assert.match(game, /case "collection":/, 'renderActivePage should render the collection page.');
+const collectionPageModule = await importSource(collectionPageSource);
+{
+  const previousWindow = globalThis.window;
+  const els = { collectionPage: { innerHTML: '' } };
+  globalThis.window = {};
+  collectionPageModule.installCollectionRenderRuntime({
+    getEls: () => els,
+    getState: () => ({}),
+    buildCollectionSummary: () => undefined,
+    escapeHtml: String,
+    formatNumber: String,
+  });
+  assert.doesNotThrow(() => collectionPageModule.renderCollectionPage(), 'Collection page must tolerate an empty summary builder result.');
+  assert.match(els.collectionPage.innerHTML, /装备图鉴/, 'Collection page must still render stable collection text with an empty summary.');
+
+  collectionPageModule.installCollectionRenderRuntime({
+    getEls: () => ({}),
+    getState: () => ({}),
+    buildCollectionSummary: () => undefined,
+  });
+  assert.doesNotThrow(() => collectionPageModule.renderCollectionPage(), 'Collection page must tolerate a missing collectionPage element.');
+  if (previousWindow === undefined) {
+    delete globalThis.window;
+  } else {
+    globalThis.window = previousWindow;
+  }
+}
 assert.match(game, /defaultDungeonState/, 'game.js should provide default dungeon state.');
 assert.match(game, /normalizeDungeonState/, 'game.js should normalize dungeon state.');
 assert.match(game, /case "dungeons":/, 'renderActivePage should render the dungeon page.');

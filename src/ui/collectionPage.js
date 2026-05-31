@@ -32,7 +32,7 @@ export function renderCollectionPage() {
   if (!els.collectionPage) return;
 
   const state = collectionRenderCtx.getState?.() || window.state || {};
-  const summary = getCollectionSummary(state);
+  const summary = getCollectionSummary(state) || {};
   const equipmentCount = summary.equipmentCount || 0;
   const cardCount = summary.cardCount || 0;
   const bossCount = summary.bossCount || 0;
