@@ -94,6 +94,40 @@ function normalizeRewardEntries(entries = {}) {
   }, {});
 }
 
+function entryHasCount(entry = {}) {
+  if (typeof entry === 'boolean') return entry;
+  if (!entry || typeof entry !== 'object') return false;
+  for (const key of ['count', 'owned', 'quantity', 'kills', 'killCount', 'bossKills', 'clears', 'materials', 'equipment']) {
+    if (safeInteger(entry[key]) > 0) return true;
+  }
+  return entry.unlocked === true || entry.obtained === true || entry.discovered === true;
+}
+
+function addCountedKeys(target, entries = {}) {
+  Object.entries(safeObject(entries)).forEach(([key, entry]) => {
+    if (entryHasCount(entry)) target.add(key);
+  });
+}
+
+function mapProgressHasCount(entry = {}) {
+  if (entryHasCount(entry)) return true;
+  return Object.values(safeObject(entry)).some((value) => entryHasCount(value));
+}
+
+function addMapKeys(target, entries = {}) {
+  Object.entries(safeObject(entries)).forEach(([key, entry]) => {
+    if (mapProgressHasCount(entry)) target.add(key);
+  });
+}
+
+function addBossKeys(target, entries = {}) {
+  Object.entries(safeObject(entries)).forEach(([key, entry]) => {
+    const data = safeObject(entry);
+    const bossLike = data.type === 'boss' || safeInteger(data.bossKills) > 0 || /boss|mvp/i.test(key);
+    if (bossLike && (entryHasCount(data) || safeInteger(data.killCount) > 0)) target.add(key);
+  });
+}
+
 export function defaultCollectionState() {
   return {
     version: 1,
@@ -163,12 +197,21 @@ export function recordBossCollection(state = {}, bossId = '', meta = {}) {
 }
 
 export function buildCollectionSummary(state = {}) {
-  const source = state?.collections && typeof state.collections === 'object' ? state.collections : state;
+  const root = state && typeof state === 'object' ? state : {};
+  const source = root.collections && typeof root.collections === 'object' ? root.collections : root;
   const collections = normalizeCollectionState(source);
+  const cardKeys = new Set(Object.keys(collections.cards));
+  const bossKeys = new Set(Object.keys(collections.bosses));
+  const mapKeys = new Set(Object.keys(collections.maps));
+  addCountedKeys(cardKeys, root.cardCodex);
+  addCountedKeys(cardKeys, root.cards);
+  addMapKeys(mapKeys, root.mapExploration);
+  addMapKeys(mapKeys, root.mapDifficultyProgress);
+  addBossKeys(bossKeys, root.monsterCodex);
   return {
     equipmentCount: Object.keys(collections.equipment).length,
-    cardCount: Object.keys(collections.cards).length,
-    bossCount: Object.keys(collections.bosses).length,
-    mapCount: Object.keys(collections.maps).length,
+    cardCount: cardKeys.size,
+    bossCount: bossKeys.size,
+    mapCount: mapKeys.size,
   };
 }

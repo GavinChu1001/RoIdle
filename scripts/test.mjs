@@ -320,6 +320,39 @@ assert.match(smithyPageSource, /renderEquipmentCraftingSmithyPanel/, 'Smithy pag
 assert.match(smithyCraftingPanelSource, /export\s+function\s+installSmithyCraftingRenderRuntime/, 'Smithy crafting panel must export installer.');
 assert.match(smithyCraftingPanelSource, /export\s+function\s+renderProductionSmithyPanel/, 'Smithy crafting panel must export production panel renderer.');
 assert.match(smithyCraftingPanelSource, /export\s+function\s+renderEquipmentCraftingSmithyPanel/, 'Smithy crafting panel must export equipment crafting panel renderer.');
+assert.match(game, /data-smithy-craft-select[\s\S]*smithyCraftSelection/, 'Smithy page change handler must persist targeted equipment crafting selections.');
+{
+  const smithyCraftingPanel = await importSource(smithyCraftingPanelSource);
+  const canCraftRequests = [];
+  const targetedCraftHtml = smithyCraftingPanel.renderEquipmentCraftingSmithyPanel({
+    getState: () => ({
+      smithyCraftSelection: { series: 'os', growthTier: 'T4', slot: 'trinket', archetype: 'magical', rarity: 'darkGold' },
+      production: { crafting: { level: 99, exp: 0, totalCrafts: 0, masterCrafts: 0 }, blueprints: { known: [], fragments: {} } },
+    }),
+    escapeHtml: String,
+    escapeAttr: String,
+    formatNumber: String,
+    materialText: (materials) => Object.entries(materials || {}).map(([id, amount]) => `${id} x${amount}`).join(', '),
+    equipmentRuntime: {
+      EQUIPMENT_SERIES: {
+        os: { id: 'os', label: 'OS', defaultTier: 'T3', stages: [{ growthTier: 'T3' }, { growthTier: 'T4' }] },
+      },
+      PROGRESSION_EQUIPMENT_SLOTS: [{ id: 'weapon', label: 'Weapon' }, { id: 'trinket', label: 'Trinket' }],
+      canCraftEquipment: (request) => {
+        canCraftRequests.push(request);
+        return { ok: false, reason: 'blueprint_missing', recipe: { gold: 99, materials: { ore: 2 } } };
+      },
+      getEquipmentCraftingRecipe: () => ({ gold: 99, materials: { ore: 2 } }),
+    },
+  });
+  assert.match(targetedCraftHtml, /data-smithy-craft-select="series"/, 'Equipment crafting panel should render a line selector.');
+  assert.match(targetedCraftHtml, /data-smithy-craft-select="growthTier"/, 'Equipment crafting panel should render a growth-tier selector.');
+  assert.match(targetedCraftHtml, /data-smithy-craft-select="slot"/, 'Equipment crafting panel should render a slot selector.');
+  assert.match(targetedCraftHtml, /data-smithy-craft-select="archetype"/, 'Equipment crafting panel should render an archetype selector.');
+  assert.match(targetedCraftHtml, /data-smithy-craft-select="rarity"/, 'Equipment crafting panel should render a rarity selector.');
+  assert.match(targetedCraftHtml, /data-craft-equipment="os:T4:trinket:magical:darkGold"/, 'Equipment crafting button should encode the selected targeted crafting token.');
+  assert.deepEqual(canCraftRequests[0], { series: 'os', growthTier: 'T4', slot: 'trinket', archetype: 'magical', rarity: 'darkGold' }, 'Equipment crafting panel should validate the selected request rather than a hard-coded default.');
+}
 {
   const productionCatalog = await importSource(productionCatalogSource);
   const productionStateTestSource = productionStateSource.replace(
@@ -463,6 +496,21 @@ assert.match(smithyCraftingPanelSource, /export\s+function\s+renderEquipmentCraf
   });
   assert.equal(rolled, 2, 'Rolled material drops should return granted quantity.');
   assert.deepEqual(rolledCalls, [{ mapId: 'grass', amount: 2 }], 'Rolled material drops should record mastery for the current map.');
+
+  const researchBonusState = { materials: {} };
+  const researchBoostedRoll = materialDrops.rollMapMaterialDrops({ dropBonus: 0 }, {}, {
+    getState: () => researchBonusState,
+    currentMap: () => ({ id: 'grass' }),
+    currentDifficulty: () => 'normal',
+    getMaterialDropTable: () => [],
+    getProgressionMaterialDrops: () => [{ materialId: 'ancientHeroShard', series: 'ancientHero', progression: true, dropRate: 0.1, minQty: 1, maxQty: 1 }],
+    getDifficultyConfig: () => ({ materialDrop: 1 }),
+    random: () => 0.11,
+    randomInt: () => 1,
+    applyMaterialQuantityBonus: (amount) => amount,
+    getEquipmentResearchBonus: (series) => series === 'ancientHero' ? { materialDropBonus: 0.2 } : {},
+  });
+  assert.equal(researchBoostedRoll, 1, 'Equipment research materialDropBonus should raise progression material drop rates.');
 }
 assert.match(adventureHandbookSource, /export function defaultAdventureHandbookState/, 'Adventure handbook system should expose default state.');
 assert.match(adventureHandbookSource, /export function normalizeAdventureHandbookState/, 'Adventure handbook system should normalize saved state.');
@@ -1645,6 +1693,24 @@ assert.equal(dirtyCollection.equipment['ancientHero:T2:weapon:rare'].series, 'an
 assert.equal(dirtyCollection.equipment['ancientHero:T2:weapon:rare'].count, 2, 'Collection normalization should preserve finite equipment counts.');
 assert.equal(dirtyCollection.bosses.poring.kills, 3, 'Collection normalization should preserve finite boss kills.');
 assert.equal(dirtyCollection.cards.poringCard.count, 4, 'Collection normalization should preserve finite card counts.');
+const legacySummary = equipmentCollection.buildCollectionSummary({
+  collections: {
+    equipment: { 'ancientHero:T2:weapon:rare': { count: 1 } },
+    cards: { poringCard: { count: 1 } },
+    bosses: {},
+    maps: {},
+  },
+  cardCodex: { poringCard: { count: 3 }, lunaticCard: { owned: 1 }, emptyCard: { count: 0 } },
+  cards: { fabreCard: { owned: true } },
+  mapExploration: { grass: { kills: 5 }, empty: { kills: 0 } },
+  mapDifficultyProgress: { forest: { normal: { unlocked: true } } },
+  monsterCodex: {
+    poring: { killCount: 12, type: 'normal' },
+    grass_boss: { killCount: 1, type: 'boss' },
+    forest_mvp: { bossKills: 2 },
+  },
+});
+assert.deepEqual(legacySummary, { equipmentCount: 1, cardCount: 3, bossCount: 2, mapCount: 2 }, 'Collection summary should count legacy card, map, and boss save structures.');
 
 const equipmentCollectionUrl = `data:text/javascript;base64,${Buffer.from(equipmentCollectionSource).toString('base64')}`;
 const collectionRuntimeSource = collectionIndexSource.replace(/from\s+['"]\.\/equipmentCollection\.js['"]/g, `from '${equipmentCollectionUrl}'`);
@@ -1785,6 +1851,16 @@ assert.equal(
   'T3',
   'OS crafting should default to the series default T3 growth tier.',
 );
+assert.equal(
+  equipmentCrafting.getEquipmentCraftingRecipe({ series: 'os', slot: 'weapon', archetype: 'magical' }).archetype,
+  'magic',
+  'Equipment crafting should accept magical as the magic archetype alias.',
+);
+assert.equal(
+  equipmentCrafting.getEquipmentCraftingRecipe({ series: 'os', slot: 'weapon', archetype: 'hybrid' }).archetype,
+  'general',
+  'Equipment crafting should accept hybrid as the general archetype alias.',
+);
 const mythicCraftRequest = { series: 'ancientHero', growthTier: 'T2', slot: 'weapon', archetype: 'physical', rarity: 'mythic' };
 const mythicCraftRecipe = equipmentCrafting.getEquipmentCraftingRecipe(mythicCraftRequest);
 const makeCraftMaterials = (recipe) => Object.fromEntries(Object.entries(recipe.materials).map(([id, amount]) => [id, amount]));
@@ -1861,15 +1937,33 @@ const makeCraftContext = (state, overrides = {}) => ({
   assert.ok(state.production.crafting.exp > 0, 'Fallback mythic craft should sanitize and add crafting exp.');
 }
 {
-  const rareRecipe = equipmentCrafting.getEquipmentCraftingRecipe({ series: 'ancientHero', slot: 'weapon', rarity: 'rare' });
+  const rareRequest = { series: 'ancientHero', slot: 'weapon', archetype: 'physical', rarity: 'rare' };
+  const rareRecipe = equipmentCrafting.getEquipmentCraftingRecipe(rareRequest);
   const successState = { gold: rareRecipe.gold, materials: makeCraftMaterials(rareRecipe), inventory: [] };
-  const successCheck = equipmentCrafting.canCraftEquipment({ series: 'ancientHero', slot: 'weapon', rarity: 'rare' }, { getState: () => successState });
+  const successCheck = equipmentCrafting.canCraftEquipment(rareRequest, { getState: () => successState });
   assert.equal(successCheck.ok, true, 'canCraftEquipment should allow affordable rare crafting with default readonly production.');
   assert.equal(Object.hasOwn(successState, 'production'), false, 'canCraftEquipment success should not add production to state.');
   const failureState = { gold: 0, materials: {}, inventory: [] };
-  const failureCheck = equipmentCrafting.canCraftEquipment({ series: 'ancientHero', slot: 'weapon', rarity: 'rare' }, { getState: () => failureState });
+  const failureCheck = equipmentCrafting.canCraftEquipment(rareRequest, { getState: () => failureState });
   assert.equal(failureCheck.ok, false, 'canCraftEquipment should report failures without mutating missing production.');
   assert.equal(Object.hasOwn(failureState, 'production'), false, 'canCraftEquipment failure should not add production to state.');
+  const discountedGold = Math.ceil(rareRecipe.gold * 0.8);
+  const discountedMaterials = Object.fromEntries(Object.entries(rareRecipe.materials).map(([id, amount]) => [id, Math.ceil(amount * 0.8)]));
+  const discountedState = {
+    gold: discountedGold,
+    materials: discountedMaterials,
+    inventory: [],
+    production: { crafting: { level: 1, exp: 0, totalCrafts: 0, masterCrafts: 0 }, blueprints: { known: [], fragments: {} } },
+  };
+  const discountedContext = makeCraftContext(discountedState, {
+    getEquipmentResearchBonus: () => ({ craftingDiscount: 0.2 }),
+  });
+  const discountedCheck = equipmentCrafting.canCraftEquipment(rareRequest, discountedContext);
+  assert.equal(discountedCheck.ok, true, 'Equipment research craftingDiscount should reduce craft affordability checks.');
+  const discountedResult = equipmentCrafting.craftEquipment(rareRequest, discountedContext);
+  assert.equal(discountedResult.ok, true, 'Equipment research craftingDiscount should reduce consumed crafting cost.');
+  assert.equal(discountedState.gold, 0, 'Discounted crafting should consume the discounted gold amount.');
+  assert.ok(Object.values(discountedState.materials).every((amount) => amount === 0), 'Discounted crafting should consume discounted material amounts.');
 }
 {
   const corruptRecipe = equipmentCrafting.getEquipmentCraftingRecipe({ series: 'ancientHero', slot: 'weapon', rarity: 'epic' });
@@ -3301,12 +3395,23 @@ assert.equal(
   '1-3',
   'Salvage preview must show ranged rewards as min-max.',
 );
+assert.equal(
+  dismantle.getSalvageRewards(
+    { series: 'ancientHero', rarity: 'rare', level: 0 },
+    {},
+    { getSalvageTable: () => ({ rare: { dust: [10, 10] } }), randomInt: () => 10, getEquipmentResearchBonus: () => ({ salvageReturnBonus: 0.2 }) },
+  ).dust,
+  12,
+  'Equipment research salvageReturnBonus should increase actual salvage rewards.',
+);
 const mutationState = {
   inventory: [],
   materials: {},
   autoSalvage: { enabled: true, maxRarity: 'normal', autoDismantleAbyss: false },
 };
 const mutationLoot = [];
+const autoSalvageResearchCalls = [];
+const autoSalvageCollectionCalls = [];
 const mutationContext = {
   getState: () => mutationState,
   normalizeItem: (item) => ({ ...item }),
@@ -3321,16 +3426,40 @@ const mutationContext = {
   getInventoryLimit: () => 1,
   trackEquipmentAchievement: () => {},
   recordEquipmentSessionReward: () => {},
+  recordEquipmentResearch: (series, amount) => { autoSalvageResearchCalls.push({ series, amount }); },
+  recordEquipmentCollection: (item, meta) => { autoSalvageCollectionCalls.push({ item, meta }); },
   isBossEncounter: () => false,
 };
 const salvaged = dismantle.addEquipmentToInventory({ id: 'common', rarity: 'normal', level: 1 }, {}, mutationContext);
 assert.equal(salvaged.salvaged, true, 'Common online equipment should still auto-salvage when enabled.');
 assert.equal(mutationState.materials.dust, 1, 'Auto-salvage rewards changed.');
 assert.equal(mutationLoot.length, 1, 'Auto-salvage must write one recent-loot record.');
+assert.equal(autoSalvageResearchCalls.length, 1, 'Auto-salvage should record equipment research exactly once.');
+assert.equal(autoSalvageCollectionCalls[0]?.meta?.source, 'salvage', 'Auto-salvage should keep using the salvage collection source.');
 const protectedItem = dismantle.addEquipmentToInventory({ id: 'set', rarity: 'normal', setId: 'set-a' }, {}, mutationContext);
 assert.equal(protectedItem.added, true, 'Set equipment must remain protected from ordinary auto-salvage.');
 assert.equal(dismantle.shouldAutoSalvage({ rarity: 'normal', abyssForged: true }, mutationContext), false, 'Abyss equipment must remain protected unless explicitly enabled.');
 assert.equal(dismantle.shouldAutoSalvage({ rarity: 'normal' }, { ...mutationContext, shouldProtectEquipment: () => true }), false, 'Protected equipment must not be auto-salvaged.');
+{
+  const keptDropState = { inventory: [], materials: {}, autoSalvage: { enabled: false } };
+  const keptDropResearchCalls = [];
+  const keptDropCollectionCalls = [];
+  const keptResult = dismantle.addEquipmentToInventory(
+    { id: 'kept-drop', series: 'ancientHero', growthTier: 'T2', slot: 'weapon', rarity: 'rare', level: 30 },
+    {},
+    {
+      ...mutationContext,
+      getState: () => keptDropState,
+      getInventoryLimit: () => 5,
+      recordEquipmentResearch: (series, amount) => { keptDropResearchCalls.push({ series, amount }); },
+      recordEquipmentCollection: (item, meta) => { keptDropCollectionCalls.push({ item, meta }); },
+    },
+  );
+  assert.equal(keptResult.added, true, 'Kept equipment drops should still be added to inventory.');
+  assert.equal(keptDropResearchCalls[0]?.series, 'ancientHero', 'Kept equipment drops should record equipment research.');
+  assert.ok(keptDropResearchCalls[0]?.amount > 0, 'Kept equipment drops should use a positive conservative research amount.');
+  assert.equal(keptDropCollectionCalls[0]?.meta?.source, 'drop', 'Kept equipment drops should record equipment collection as drops.');
+}
 const batchState = {
   inventory: [
     { id: 'keep', rarity: 'normal', level: 1 },

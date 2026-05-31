@@ -54,6 +54,7 @@ export function installEquipmentRuntime(context = {}) {
   const equipmentHookContext = {
     recordEquipmentResearch: (series, amount) => recordEquipmentResearch(context.getState?.() || {}, series, amount),
     recordEquipmentCollection: (item, meta) => context.recordEquipmentCollection?.(item, meta),
+    getEquipmentResearchBonus: (series) => getEquipmentResearchBonus(context.getState?.() || {}, series),
   };
   configureEquipmentMutationContext({
     ...context,

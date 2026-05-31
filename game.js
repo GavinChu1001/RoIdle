@@ -2944,6 +2944,15 @@ els.vipPanel.addEventListener("click", (event) => {
       state.selectedEnhanceItem = select.value;
       renderSmithyPage();
     }
+    const craftingSelect = event.target.closest("select[data-smithy-craft-select]");
+    if (craftingSelect) {
+      state.smithyCraftSelection = {
+        ...(state.smithyCraftSelection || {}),
+        [craftingSelect.dataset.smithyCraftSelect]: craftingSelect.value,
+      };
+      renderSmithyPage();
+      save();
+    }
   });
 
   document.addEventListener("click", (event) => {
@@ -15084,6 +15093,9 @@ window.RuneFrontierLegacyDropsContext = () => Object.freeze({
   },
   getProgressionMaterialDrops(mapId, difficulty, options) {
     return window.RuneFrontierEquipmentRuntime?.getProgressionMaterialDrops?.(mapId, difficulty, options) || [];
+  },
+  getEquipmentResearchBonus(series) {
+    return window.RuneFrontierEquipmentRuntime?.getEquipmentResearchBonus?.(series) || {};
   },
   getCardDropTable(mapId) {
     return cardDropTables[mapId] || [];

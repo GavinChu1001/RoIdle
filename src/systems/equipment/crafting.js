@@ -24,6 +24,8 @@ function normalizeSlot(value) {
 }
 
 function normalizeArchetype(value) {
+  if (value === 'magical') return 'magic';
+  if (value === 'hybrid') return 'general';
   return ['physical', 'magic', 'general'].includes(value) ? value : 'general';
 }
 
@@ -51,6 +53,24 @@ function hasRarityAtLeast(rarity, minimum) {
 
 function availableAmount(materials = {}, id) {
   return Math.max(0, Math.floor(finite(materials[id], 0)));
+}
+
+function clampedBonus(value, max) {
+  return Math.max(0, Math.min(max, finite(value, 0)));
+}
+
+function discountedAmount(amount, discount) {
+  return Math.max(0, Math.ceil(finite(amount, 0) * (1 - discount)));
+}
+
+function applyCraftingDiscount(recipe = {}, context = {}) {
+  const discount = clampedBonus(context.getEquipmentResearchBonus?.(recipe.series)?.craftingDiscount, 0.8);
+  if (!discount) return recipe;
+  return {
+    ...recipe,
+    materials: Object.fromEntries(Object.entries(recipe.materials || {}).map(([id, amount]) => [id, discountedAmount(amount, discount)])),
+    gold: discountedAmount(recipe.gold, discount),
+  };
 }
 
 const DEFAULT_PRODUCTION = Object.freeze({
@@ -187,7 +207,7 @@ export function canCraftEquipment(request = {}, context = {}) {
   if (!state || typeof state !== 'object') {
     return { ok: false, reason: 'state_missing', recipe: getEquipmentCraftingRecipe(request) };
   }
-  const recipe = getEquipmentCraftingRecipe(request);
+  const recipe = applyCraftingDiscount(getEquipmentCraftingRecipe(request), context);
   const production = readProduction(state);
   const craftingLevel = Math.max(1, Math.floor(finite(production.crafting.level, 1)));
   if (craftingLevel < recipe.level) {

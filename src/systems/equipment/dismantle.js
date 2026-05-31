@@ -48,6 +48,27 @@ function recordSalvageProgress(item = {}, rewards = {}, ctx = mutationCtx) {
   return rewards;
 }
 
+function recordKeptDropProgress(item = {}, ctx = mutationCtx) {
+  const amount = 8 + rarityRank(item, ctx) * 4 + Math.floor(finite(item.level) / 50);
+  ctx.recordEquipmentResearch?.(item.series || item.upgradePathId, amount);
+  ctx.recordEquipmentCollection?.(item, { source: 'drop' });
+}
+
+function clampedBonus(value, max) {
+  const number = finite(value);
+  return Math.max(0, Math.min(max, number));
+}
+
+function applySalvageResearchBonus(rewards = {}, item = {}, ctx = mutationCtx) {
+  const bonus = clampedBonus(ctx.getEquipmentResearchBonus?.(item.series || item.upgradePathId)?.salvageReturnBonus, 0.2);
+  if (!bonus) return rewards;
+  Object.entries(rewards).forEach(([materialId, amount]) => {
+    if (typeof amount === 'string') return;
+    rewards[materialId] = Math.max(0, Math.floor(finite(amount) * (1 + bonus)));
+  });
+  return rewards;
+}
+
 function looksLikeContext(value) {
   return Boolean(value && typeof value === 'object' && (
     typeof value.getState === 'function' ||
@@ -83,6 +104,7 @@ export function addEquipmentToInventory(item, options = {}, ctx = mutationCtx) {
   }
   if (!state.inventory) state.inventory = [];
   state.inventory.unshift(normalized);
+  recordKeptDropProgress(normalized, ctx);
   if (!options.offline) {
     ctx.recordEquipmentSessionReward?.(normalized);
     ctx.updateDailyGoalProgress?.('daily_equipment', 1);
@@ -127,7 +149,7 @@ export function getSalvageRewards(item, options = {}, ctx = mutationCtx) {
       addReward(rewards, 'abyssCore', rank >= (ctx.rarityRank?.('mythic') || 4) ? 3 : rank >= (ctx.rarityRank?.('darkGold') || 3) ? 2 : 1);
     }
   }
-  return rewards;
+  return options.preview ? rewards : applySalvageResearchBonus(rewards, item, ctx);
 }
 
 export function shouldAutoSalvage(item, ctx = mutationCtx) {

@@ -34,6 +34,48 @@ function formatSeconds(ms) {
   return minutes > 0 ? `${minutes}m ${rest}s` : `${rest}s`;
 }
 
+function optionHtml(options = [], selectedValue = '', ctx = {}) {
+  return options.map((option) => {
+    const id = String(option.id || '');
+    const selected = id === selectedValue ? 'selected' : '';
+    return `<option value="${ctx.escapeAttr(id)}" ${selected}>${ctx.escapeHtml(option.label || id)}</option>`;
+  }).join('');
+}
+
+function uniqueTierOptions(series = {}) {
+  const tiers = [series.defaultTier || 'T2', ...(series.stages || []).map((stage) => stage.growthTier || series.defaultTier || 'T2')];
+  return [...new Set(tiers.filter(Boolean))].map((id) => ({ id, label: id }));
+}
+
+function selectedCraftingRequest(state = {}, seriesList = [], equipmentRuntime = {}) {
+  const saved = state.smithyCraftSelection && typeof state.smithyCraftSelection === 'object' ? state.smithyCraftSelection : {};
+  const series = seriesList.some((entry) => entry.id === saved.series) ? saved.series : seriesList[0]?.id || 'ancientHero';
+  const seriesConfig = seriesList.find((entry) => entry.id === series) || seriesList[0] || {};
+  const tierOptions = uniqueTierOptions(seriesConfig);
+  const slotOptions = equipmentRuntime.PROGRESSION_EQUIPMENT_SLOTS || [
+    { id: 'weapon', label: '武器' },
+    { id: 'armor', label: '防具' },
+    { id: 'headgear', label: '头饰' },
+    { id: 'shoes', label: '鞋子' },
+    { id: 'trinket', label: '饰品' },
+  ];
+  const archetypeOptions = [
+    { id: 'physical', label: '物理' },
+    { id: 'magical', label: '魔法' },
+    { id: 'hybrid', label: '兼修' },
+  ];
+  const rarityOptions = [
+    { id: 'rare', label: 'rare' },
+    { id: 'darkGold', label: 'darkGold' },
+    { id: 'mythic', label: 'mythic' },
+  ];
+  const growthTier = tierOptions.some((entry) => entry.id === saved.growthTier) ? saved.growthTier : tierOptions[0]?.id || seriesConfig.defaultTier || 'T2';
+  const slot = slotOptions.some((entry) => entry.id === saved.slot) ? saved.slot : 'weapon';
+  const archetype = archetypeOptions.some((entry) => entry.id === saved.archetype) ? saved.archetype : 'physical';
+  const rarity = rarityOptions.some((entry) => entry.id === saved.rarity) ? saved.rarity : 'rare';
+  return { request: { series, growthTier, slot, archetype, rarity }, seriesConfig, tierOptions, slotOptions, archetypeOptions, rarityOptions };
+}
+
 export function renderProductionSmithyPanel(context = {}) {
   const ctx = resolveContext(context);
   const state = ctx.getState?.() || {};
@@ -106,22 +148,29 @@ export function renderEquipmentCraftingSmithyPanel(context = {}) {
   const band = productionRuntime.getCraftingMasteryBand?.(crafting.level || 1) || { label: 'Lv1 / rare' };
   const expReq = productionRuntime.craftingExpForLevel?.(crafting.level || 1) || (80 + Math.max(1, Number(crafting.level || 1)) * 40);
   const seriesList = Object.values(equipmentRuntime.EQUIPMENT_SERIES || {}).filter((series) => series?.id && series.id !== 'oldWorld');
+  const selection = selectedCraftingRequest(state, seriesList, equipmentRuntime);
+  const request = selection.request;
+  const token = `${request.series}:${request.growthTier}:${request.slot}:${request.archetype}:${request.rarity}`;
+  const craftable = equipmentRuntime.canCraftEquipment?.(request);
+  const recipe = craftable?.recipe || equipmentRuntime.getEquipmentCraftingRecipe?.(request) || {};
+  const disabled = craftable ? !craftable.ok : false;
+  const seriesOptions = seriesList.map((series) => ({ id: series.id, label: series.label || series.id }));
 
-  const lineHtml = seriesList.map((series) => {
-    const token = `${series.id}:${series.defaultTier || 'T2'}:weapon:physical:rare`;
-    const request = { series: series.id, growthTier: series.defaultTier || 'T2', slot: 'weapon', archetype: 'physical', rarity: 'rare' };
-    const craftable = equipmentRuntime.canCraftEquipment?.(request);
-    const recipe = craftable?.recipe || equipmentRuntime.getEquipmentCraftingRecipe?.(request) || {};
-    const disabled = craftable ? !craftable.ok : false;
-    return `<article class="smithy-item">
-      <div>
-        <strong>${ctx.escapeHtml(series.label || series.id)}</strong>
-        <p class="academy-meta">${ctx.escapeHtml(series.defaultTier || 'T2')} · rare weapon</p>
-        <p class="academy-meta">打造：金币 ${ctx.formatNumber(recipe.gold || 0)} · ${ctx.materialText(recipe.materials || {})}</p>
-      </div>
-      <button type="button" data-craft-equipment="${ctx.escapeAttr(token)}" ${disabled ? 'disabled' : ''}>打造</button>
-    </article>`;
-  }).join('');
+  const selectorHtml = `<div class="smithy-craft-selectors">
+    <label>装备线<select data-smithy-craft-select="series">${optionHtml(seriesOptions, request.series, ctx)}</select></label>
+    <label>阶级<select data-smithy-craft-select="growthTier">${optionHtml(selection.tierOptions, request.growthTier, ctx)}</select></label>
+    <label>部位<select data-smithy-craft-select="slot">${optionHtml(selection.slotOptions, request.slot, ctx)}</select></label>
+    <label>定位<select data-smithy-craft-select="archetype">${optionHtml(selection.archetypeOptions, request.archetype, ctx)}</select></label>
+    <label>稀有度<select data-smithy-craft-select="rarity">${optionHtml(selection.rarityOptions, request.rarity, ctx)}</select></label>
+  </div>`;
+  const lineHtml = `<article class="smithy-item">
+    <div>
+      <strong>${ctx.escapeHtml(selection.seriesConfig?.label || request.series)}</strong>
+      <p class="academy-meta">${ctx.escapeHtml(request.growthTier)} · ${ctx.escapeHtml(request.rarity)} ${ctx.escapeHtml(request.slot)} · ${ctx.escapeHtml(request.archetype)}</p>
+      <p class="academy-meta">打造：金币 ${ctx.formatNumber(recipe.gold || 0)} · ${ctx.materialText(recipe.materials || {})}</p>
+    </div>
+    <button type="button" data-craft-equipment="${ctx.escapeAttr(token)}" ${disabled ? 'disabled' : ''}>打造</button>
+  </article>`;
 
   return `<div class="smithy-crafting-grid">
     <section class="crafting-mastery-card">
@@ -132,7 +181,8 @@ export function renderEquipmentCraftingSmithyPanel(context = {}) {
     </section>
     <section class="smithy-category">
       <h3>装备线打造</h3>
-      <div class="smithy-items">${lineHtml || '<p class="academy-meta">暂无可打造装备线。</p>'}</div>
+      ${selectorHtml}
+      <div class="smithy-items">${seriesList.length ? lineHtml : '<p class="academy-meta">暂无可打造装备线。</p>'}</div>
     </section>
   </div>`;
 }

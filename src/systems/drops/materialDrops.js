@@ -21,6 +21,11 @@ function materialRarity(materialId, fallback = 'normal', context = runtimeContex
   return context.getMaterialRarity?.(materialId) || fallback;
 }
 
+function clampedBonus(value, max) {
+  const number = finite(value);
+  return Math.max(0, Math.min(max, number));
+}
+
 export function grantMaterialDrop(materialId, quantity, source, options = {}, context = runtimeContext) {
   const state = context.getState?.();
   const qty = Math.max(0, Math.floor(finite(quantity)));
@@ -54,7 +59,8 @@ export function rollMapMaterialDrops(stats = {}, options = {}, context = runtime
   let total = 0;
   allRows.forEach((drop) => {
     const abyssBonus = context.currentDifficulty?.() === 'abyss' ? finite(stats.abyssMaterialDropBonus) : 0;
-    const finalDropRate = finite(drop.dropRate) * (1 + finite(stats.dropBonus) + abyssBonus) * finite(difficulty.materialDrop || 1) * bossMultiplier;
+    const researchBonus = drop.series ? clampedBonus(context.getEquipmentResearchBonus?.(drop.series)?.materialDropBonus, 0.25) : 0;
+    const finalDropRate = finite(drop.dropRate) * (1 + finite(stats.dropBonus) + abyssBonus + researchBonus) * finite(difficulty.materialDrop || 1) * bossMultiplier;
     if (random(context) >= finalDropRate) return;
     const baseQty = context.randomInt?.(drop.minQty || 1, drop.maxQty || drop.minQty || 1) || 1;
     const qty = context.applyMaterialQuantityBonus?.(baseQty, stats) ?? baseQty;
