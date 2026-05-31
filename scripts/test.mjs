@@ -243,7 +243,7 @@ for (const bossAction of ['boss-cast', 'boss-impact', 'danger-mark']) {
   assert.match(styles, new RegExp(`url\\("/assets/ui/fx/${bossAction}\\.png"\\)`), `${bossAction} should use an absolute asset URL to avoid short-path 404s.`);
 }
 assert.match(html, /styles\.css\?v=20260529-battle-effects-v11/, 'Battle effect CSS should use a fresh cache-busting version.');
-assert.match(html, /game\.js\?v=20260530-mvp-aura-v2/, 'MVP aura runtime should use a fresh cache-busting version.');
+assert.match(html, /game\.js\?v=20260530-mvp-aura-v4/, 'MVP aura runtime should use a fresh cache-busting version.');
 assert.match(game, /function\s+releaseFocusBeforeHiding\s*\(/, 'Modal close flow should release focus before hiding the active modal.');
 assert.match(game, /setModalVisibility\(els\.offlineRewardModal,\s*visible\)/, 'Offline reward modal should use the shared focus-safe visibility helper.');
 assert.match(game, /setModalVisibility\(els\.refineResultModal,\s*visible\)/, 'Refine result modal should use the shared focus-safe visibility helper.');
@@ -302,13 +302,22 @@ assert.equal(battleVfxManifest.rules.noGifSpriteSheets, true, 'Persistent animat
 for (const file of ['hit-slash.png', 'hit-crit.png', 'hit-spark.png', 'hit-skill.png', 'skill-fire.png', 'skill-ice.png', 'skill-shadow.png', 'skill-holy.png', 'skill-storm.png', 'skill-support.png', 'status-burn.png', 'status-freeze.png', 'status-poison.png', 'status-snare.png', 'status-mark.png', 'status-break.png', 'status-wound.png', 'reward-death.png', 'reward-boss-death.png', 'reward-loot.png', 'reward-gold.png', 'player-heal.png', 'player-shield.png', 'player-dodge.png', 'player-hurt.png', 'enemy-warning.png', 'boss-cast.png', 'boss-impact.png', 'danger-mark.png']) {
   assert.ok(battleVfxManifest.assets.some((asset) => asset.path === `assets/ui/fx/${file}` && asset.generated === true), `${file} must be tracked as a generated VFX asset.`);
 }
+const mvpAuraStageAssets = [
+  ['kingPoring', 'mvp-aura-king-poring.png'],
+  ['goldenThiefBug', 'mvp-aura-golden-thief-bug.png'],
+  ['moonlightFlower', 'mvp-aura-moonlight-flower.png'],
+  ['drake', 'mvp-aura-drake.png'],
+  ['phreeoni', 'mvp-aura-phreeoni.png'],
+  ['orcHero', 'mvp-aura-orc-hero.png'],
+  ['turtleGeneral', 'mvp-aura-turtle-general.png'],
+  ['doppelganger', 'mvp-aura-doppelganger.png'],
+  ['darkLord', 'mvp-aura-dark-lord.png'],
+  ['baphomet', 'mvp-aura-baphomet.png'],
+];
 const mvpAuraAssets = [
   'assets/ui/fx/mvp-aura-early.png',
   'assets/ui/fx/mvp-aura-advanced.png',
-  'assets/ui/fx/mvp-aura-king-poring.png',
-  'assets/ui/fx/mvp-aura-orc-hero.png',
-  'assets/ui/fx/mvp-aura-dark-lord.png',
-  'assets/ui/fx/mvp-aura-baphomet.png',
+  ...mvpAuraStageAssets.map(([, file]) => `assets/ui/fx/${file}`),
 ];
 for (const file of mvpAuraAssets) {
   const png = readPngInfo(file);
@@ -320,19 +329,17 @@ for (const file of mvpAuraAssets) {
 }
 assert.match(game, /const\s+MVP_INSCRIPTION_AURA_FRAME_COUNT\s*=\s*16/, 'MVP inscription aura playback should use a fixed 16-frame sprite sheet.');
 assert.match(game, /const\s+MVP_INSCRIPTION_AURA_SPRITE_SHEETS\s*=\s*Object\.freeze\(/, 'MVP inscription aura stages should map to generated sprite sheet assets.');
-assert.match(game, /mvp-aura-early\.png/, 'Early MVP inscription stages should use the generated early aura sprite sheet.');
-assert.match(game, /mvp-aura-advanced\.png/, 'Advanced MVP inscription stages should use the generated advanced aura sprite sheet.');
-for (const [stageId, file] of [
-  ['kingPoring', 'mvp-aura-king-poring.png'],
-  ['orcHero', 'mvp-aura-orc-hero.png'],
-  ['darkLord', 'mvp-aura-dark-lord.png'],
-  ['baphomet', 'mvp-aura-baphomet.png'],
-]) {
-  assert.match(game, new RegExp(`${stageId}:\\s*"assets/ui/fx/${file}"`), `${stageId} should use its own boss-themed MVP inscription aura sample.`);
+assert.match(game, /mvp-aura-early\.png/, 'MVP inscription aura playback should retain a generated fallback aura sprite sheet.');
+assert.ok(battleVfxManifest.assets.some((asset) => asset.path === 'assets/ui/fx/mvp-aura-advanced.png' && asset.generated === true && asset.spriteSheet === true), 'Advanced MVP inscription fallback aura should remain documented as a generated sprite sheet.');
+for (const [stageId, file] of mvpAuraStageAssets) {
+  assert.match(game, new RegExp(`${stageId}:\\s*"assets/ui/fx/${file}"`), `${stageId} should use its own dedicated MVP inscription aura sprite sheet.`);
+  assert.ok(battleVfxManifest.plannedElements.some((entry) => entry.tone === file.replace(/\.png$/, '') && entry.promptBasis), `${file} should document the generated visual direction.`);
 }
 assert.match(game, /MVP_INSCRIPTION_AURA_ADVANCED_STAGE_IDS/, 'High MVP inscription stages should have an explicit advanced draw profile instead of relying on shared asset equality.');
 assert.match(game, /function\s+getMvpInscriptionAuraSprite\s*\(/, 'MVP inscription aura rendering should load the generated sprite sheet through a cache.');
 assert.match(game, /function\s+drawMvpInscriptionAura\s*\(/, 'MVP inscription aura rendering should have a dedicated canvas draw helper.');
+assert.match(game, /const\s+width\s*=\s*isAdvanced\s*\?\s*286\s*:\s*248/, 'MVP inscription aura should draw large enough to remain visible above the battle HUD.');
+assert.match(game, /const\s+height\s*=\s*isAdvanced\s*\?\s*178\s*:\s*154/, 'MVP inscription aura should keep the generated ellipse readable at battle scale.');
 assert.match(game, /getMvpInscriptionView\(\)\?\.stage\?\.id/, 'MVP inscription aura should follow the current breakthrough stage.');
 assert.match(game, /drawMvpInscriptionAura\(ctx,\s*heroX,\s*heroY,\s*time\)[\s\S]*drawHero\(ctx,\s*heroX,\s*heroY/, 'The MVP inscription aura must be drawn below the hero before the hero sprite.');
 assert.doesNotMatch(game, /mvp-aura-[a-z-]+\.gif/i, 'MVP inscription aura playback must not depend on GIF assets.');

@@ -1362,13 +1362,13 @@ const MVP_INSCRIPTION_AURA_FRAME_RATE = 14;
 const MVP_INSCRIPTION_AURA_SPRITE_SHEETS = Object.freeze({
   default: "assets/ui/fx/mvp-aura-early.png",
   kingPoring: "assets/ui/fx/mvp-aura-king-poring.png",
-  goldenThiefBug: "assets/ui/fx/mvp-aura-early.png",
-  moonlightFlower: "assets/ui/fx/mvp-aura-early.png",
-  drake: "assets/ui/fx/mvp-aura-early.png",
-  phreeoni: "assets/ui/fx/mvp-aura-early.png",
+  goldenThiefBug: "assets/ui/fx/mvp-aura-golden-thief-bug.png",
+  moonlightFlower: "assets/ui/fx/mvp-aura-moonlight-flower.png",
+  drake: "assets/ui/fx/mvp-aura-drake.png",
+  phreeoni: "assets/ui/fx/mvp-aura-phreeoni.png",
   orcHero: "assets/ui/fx/mvp-aura-orc-hero.png",
-  turtleGeneral: "assets/ui/fx/mvp-aura-advanced.png",
-  doppelganger: "assets/ui/fx/mvp-aura-advanced.png",
+  turtleGeneral: "assets/ui/fx/mvp-aura-turtle-general.png",
+  doppelganger: "assets/ui/fx/mvp-aura-doppelganger.png",
   darkLord: "assets/ui/fx/mvp-aura-dark-lord.png",
   baphomet: "assets/ui/fx/mvp-aura-baphomet.png",
 });
@@ -11982,9 +11982,9 @@ function drawMvpInscriptionAura(ctx, heroX, heroY, time) {
   const sx = (frame % MVP_INSCRIPTION_AURA_COLUMNS) * MVP_INSCRIPTION_AURA_FRAME_SIZE;
   const sy = Math.floor(frame / MVP_INSCRIPTION_AURA_COLUMNS) * MVP_INSCRIPTION_AURA_FRAME_SIZE;
   const isAdvanced = MVP_INSCRIPTION_AURA_ADVANCED_STAGE_IDS.has(stageId);
-  const width = isAdvanced ? 204 : 182;
-  const height = isAdvanced ? 126 : 112;
-  const footY = heroY + 58;
+  const width = isAdvanced ? 286 : 248;
+  const height = isAdvanced ? 178 : 154;
+  const footY = heroY + 50;
 
   ctx.save();
   ctx.globalAlpha = isAdvanced ? 0.88 : 0.78;
@@ -11997,7 +11997,7 @@ function drawMvpInscriptionAura(ctx, heroX, heroY, time) {
     MVP_INSCRIPTION_AURA_FRAME_SIZE,
     MVP_INSCRIPTION_AURA_FRAME_SIZE,
     heroX - width / 2,
-    footY - height * 0.56,
+    footY - height * 0.68,
     width,
     height
   );

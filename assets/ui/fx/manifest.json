@@ -242,6 +242,46 @@
       "usage": ["mvp-inscription-foot-aura", "king-poring-breakthrough-aura"]
     },
     {
+      "id": "mvp-aura-golden-thief-bug",
+      "path": "assets/ui/fx/mvp-aura-golden-thief-bug.png",
+      "generated": true,
+      "spriteSheet": true,
+      "frameSize": 256,
+      "frames": 16,
+      "tone": "mvp-aura-golden-thief-bug",
+      "usage": ["mvp-inscription-foot-aura", "golden-thief-bug-breakthrough-aura"]
+    },
+    {
+      "id": "mvp-aura-moonlight-flower",
+      "path": "assets/ui/fx/mvp-aura-moonlight-flower.png",
+      "generated": true,
+      "spriteSheet": true,
+      "frameSize": 256,
+      "frames": 16,
+      "tone": "mvp-aura-moonlight-flower",
+      "usage": ["mvp-inscription-foot-aura", "moonlight-flower-breakthrough-aura"]
+    },
+    {
+      "id": "mvp-aura-drake",
+      "path": "assets/ui/fx/mvp-aura-drake.png",
+      "generated": true,
+      "spriteSheet": true,
+      "frameSize": 256,
+      "frames": 16,
+      "tone": "mvp-aura-drake",
+      "usage": ["mvp-inscription-foot-aura", "drake-breakthrough-aura"]
+    },
+    {
+      "id": "mvp-aura-phreeoni",
+      "path": "assets/ui/fx/mvp-aura-phreeoni.png",
+      "generated": true,
+      "spriteSheet": true,
+      "frameSize": 256,
+      "frames": 16,
+      "tone": "mvp-aura-phreeoni",
+      "usage": ["mvp-inscription-foot-aura", "phreeoni-breakthrough-aura"]
+    },
+    {
       "id": "mvp-aura-orc-hero",
       "path": "assets/ui/fx/mvp-aura-orc-hero.png",
       "generated": true,
@@ -250,6 +290,26 @@
       "frames": 16,
       "tone": "mvp-aura-orc-hero",
       "usage": ["mvp-inscription-foot-aura", "orc-hero-breakthrough-aura"]
+    },
+    {
+      "id": "mvp-aura-turtle-general",
+      "path": "assets/ui/fx/mvp-aura-turtle-general.png",
+      "generated": true,
+      "spriteSheet": true,
+      "frameSize": 256,
+      "frames": 16,
+      "tone": "mvp-aura-turtle-general",
+      "usage": ["mvp-inscription-foot-aura", "turtle-general-breakthrough-aura"]
+    },
+    {
+      "id": "mvp-aura-doppelganger",
+      "path": "assets/ui/fx/mvp-aura-doppelganger.png",
+      "generated": true,
+      "spriteSheet": true,
+      "frameSize": 256,
+      "frames": 16,
+      "tone": "mvp-aura-doppelganger",
+      "usage": ["mvp-inscription-foot-aura", "doppelganger-breakthrough-aura"]
     },
     {
       "id": "mvp-aura-dark-lord",
@@ -379,11 +439,51 @@
     },
     {
       "tone": "mvp-aura-early",
-      "promptBasis": "Transparent PNG sprite sheet, 16 frames, pink-white and warm gold RO-like ground aura with thin ring arcs, tiny square motes, and soft alpha glow."
+      "promptBasis": "Transparent PNG sprite sheet, 16 frames, blue-violet and gold RO-like standing foot aura with thin ring arcs, square motes, and soft alpha glow."
     },
     {
       "tone": "mvp-aura-advanced",
-      "promptBasis": "Transparent PNG sprite sheet, 16 frames, red-gold and violet RO-like ground magic circle with angular rune ticks, dark inner traces, and controlled alpha glow."
+      "promptBasis": "Transparent PNG sprite sheet, 16 frames, high-rank blue-violet-gold RO-like ground magic circle with nested rune bands, star seal, bright core, and controlled alpha glow."
+    },
+    {
+      "tone": "mvp-aura-king-poring",
+      "promptBasis": "Stage 01 transparent PNG sprite sheet, simple blue-violet elliptical foot ring with light gold glints and a calm RO-style standing aura loop."
+    },
+    {
+      "tone": "mvp-aura-golden-thief-bug",
+      "promptBasis": "Stage 02 transparent PNG sprite sheet, double blue-gold ring with early magic plate glow and sparse square motes."
+    },
+    {
+      "tone": "mvp-aura-moonlight-flower",
+      "promptBasis": "Stage 03 transparent PNG sprite sheet, cyan-violet rune ring with small orbiting particles and a soft gold lower band."
+    },
+    {
+      "tone": "mvp-aura-drake",
+      "promptBasis": "Stage 04 transparent PNG sprite sheet, layered blue-purple-gold magic circle with a stronger outer rune band and rotating arc highlights."
+    },
+    {
+      "tone": "mvp-aura-phreeoni",
+      "promptBasis": "Stage 05 transparent PNG sprite sheet, dense rune ellipse with a warm inner core, vertical gold sparks, and blue energy fins."
+    },
+    {
+      "tone": "mvp-aura-orc-hero",
+      "promptBasis": "Stage 06 transparent PNG sprite sheet, brighter multi-ring blue-violet-gold aura with a stable central magic core and more particles."
+    },
+    {
+      "tone": "mvp-aura-turtle-general",
+      "promptBasis": "Stage 07 transparent PNG sprite sheet, advanced nested rune circle with the first golden star seal and cyan side fins."
+    },
+    {
+      "tone": "mvp-aura-doppelganger",
+      "promptBasis": "Stage 08 transparent PNG sprite sheet, high-rank star seal aura with stronger white core bloom, layered rings, and dense square motes."
+    },
+    {
+      "tone": "mvp-aura-dark-lord",
+      "promptBasis": "Stage 09 transparent PNG sprite sheet, complex luminous rune ellipse with overlapping star geometry, white-gold core, and high-tier cyan-violet arcs."
+    },
+    {
+      "tone": "mvp-aura-baphomet",
+      "promptBasis": "Stage 10 transparent PNG sprite sheet, final-tier supreme blue-purple-gold magic circle with nested rune bands, bright central star, particles, and strong but controlled bloom."
     }
   ]
 }
