@@ -13667,3 +13667,101 @@ button[data-map]:disabled {
 .dungeon-meta-grid strong {
   color: #3b2615;
 }
+
+.handbook-page {
+  display: grid;
+  gap: 14px;
+}
+
+.handbook-points {
+  white-space: nowrap;
+  color: #6f3f1f;
+}
+
+.handbook-section {
+  background: rgba(255, 248, 226, 0.72);
+  border: 1px solid rgba(129, 92, 41, 0.22);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.handbook-section h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+
+.handbook-focus {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.handbook-focus article {
+  border: 1px solid rgba(129, 92, 41, 0.18);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.handbook-focus span,
+.handbook-rec-row small,
+.handbook-goal-card small {
+  display: block;
+  color: #75542f;
+  font-size: 12px;
+}
+
+.handbook-focus strong {
+  display: block;
+  margin: 3px 0;
+}
+
+.handbook-rec-list,
+.handbook-goal-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.handbook-rec-row,
+.handbook-goal-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(129, 92, 41, 0.16);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.48);
+}
+
+.handbook-rec-row > div,
+.handbook-goal-card > div {
+  min-width: 0;
+}
+
+.handbook-rec-row strong,
+.handbook-goal-card strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.handbook-goal-card.is-complete {
+  border-color: rgba(80, 128, 62, 0.36);
+}
+
+.handbook-goal-card.is-claimed {
+  opacity: 0.72;
+}
+
+.handbook-progress {
+  margin: 7px 0 4px;
+}
+
+@media (max-width: 640px) {
+  .handbook-rec-row,
+  .handbook-goal-card {
+    grid-template-columns: 1fr;
+  }
+}

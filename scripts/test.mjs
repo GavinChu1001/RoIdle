@@ -229,6 +229,13 @@ assert.doesNotMatch(adventurePageSource, /renderAdvicePanel/, 'Adventure page sh
 assert.doesNotMatch(game, /renderAdvicePanel\(stats\)[\s\S]{0,120}<div class="party-item">/, 'Classic adventure fallback should no longer render advice before party status.');
 assert.match(game, /function\s+renderAdventureHandbook\s*\(/, 'Classic runtime should expose adventure handbook render function.');
 assert.match(main, /installAdventureHandbookRenderRuntime/, 'Main should install Adventure Handbook render runtime.');
+assert.match(html, /data-page="handbook"[^>]*>冒险手册<\/button>/, 'Navigation should include Adventure Handbook.');
+assert.match(html, /data-view="handbook"/, 'HTML should include Adventure Handbook page view.');
+assert.match(html, /id="adventureHandbookPage"/, 'Adventure Handbook page should expose a render target.');
+assert.match(game, /"adventureHandbookPage"/, 'Classic element cache should include Adventure Handbook page target.');
+assert.match(game, /case "handbook":/, 'renderActivePage should handle Adventure Handbook page.');
+assert.match(styles, /\.handbook-page/, 'Styles should include Adventure Handbook page layout.');
+assert.match(styles, /\.handbook-goal-card/, 'Styles should include Adventure Handbook goal cards.');
 {
   const handbook = await importSource(adventureHandbookSource);
   const fresh = handbook.defaultAdventureHandbookState('2026-05-31', '2026-W23');
@@ -470,8 +477,8 @@ assert.match(styles, /@media\s*\(max-width:\s*640px\)[\s\S]*\.combat-impact-play
 for (const bossAction of ['boss-cast', 'boss-impact', 'danger-mark']) {
   assert.match(styles, new RegExp(`url\\("/assets/ui/fx/${bossAction}\\.png"\\)`), `${bossAction} should use an absolute asset URL to avoid short-path 404s.`);
 }
-assert.match(html, /styles\.css\?v=20260531-adventure-dps-dungeon-v2/, 'Adventure DPS and dungeon CSS must use a fresh cache-busting version.');
-assert.match(html, /game\.js\?v=20260531-adventure-dps-dungeon-v2/, 'Adventure DPS and dungeon classic runtime must use a fresh cache-busting version.');
+assert.match(html, /styles\.css\?v=20260531-handbook-v1/, 'Handbook CSS should use a fresh cache-busting version.');
+assert.match(html, /game\.js\?v=20260531-handbook-v1/, 'Handbook classic runtime should use a fresh cache-busting version.');
 assert.match(game, /function\s+releaseFocusBeforeHiding\s*\(/, 'Modal close flow should release focus before hiding the active modal.');
 assert.match(game, /setModalVisibility\(els\.offlineRewardModal,\s*visible\)/, 'Offline reward modal should use the shared focus-safe visibility helper.');
 assert.match(game, /setModalVisibility\(els\.refineResultModal,\s*visible\)/, 'Refine result modal should use the shared focus-safe visibility helper.');
@@ -479,7 +486,7 @@ assert.match(html, /id="offlineRewardModal"[^>]*inert/, 'Offline reward modal sh
 assert.match(html, /id="refineResultModal"[^>]*inert/, 'Refine result modal should start inert while hidden.');
 assert.match(main, /getMvpInscriptionView:\s*window\.getMvpInscriptionView/, 'Character page runtime must receive the live MVP inscription view helper.');
 assert.match(main, /canGainMvpInscriptionOnCurrentMap:\s*window\.canGainMvpInscriptionOnCurrentMap/, 'Character page runtime must receive the live MVP inscription map eligibility helper.');
-assert.match(html, /src="\.\/src\/main\.js\?v=20260531-adventure-dps-dungeon-v2"/, 'Adventure DPS and dungeon runtime must use a fresh module cache-busting version.');
+assert.match(html, /src="\.\/src\/main\.js\?v=20260531-handbook-v1"/, 'Handbook module runtime should use a fresh cache-busting version.');
 assert.doesNotMatch(game, /renderItemName\(item,\s*`Lv\.\$\{item\.level\}/, 'Equipment list and equipped slot names should not expose internal item level.');
 assert.doesNotMatch(game, /等级：\$\{item\.level \|\| 1\}/, 'Equipment detail tooltips should not label internal item level as player-facing level.');
 assert.match(game, /来源强度：\$\{item\.dropLevel \|\| item\.level \|\| 1\}/, 'Equipment detail tooltips should preserve internal strength as source strength.');

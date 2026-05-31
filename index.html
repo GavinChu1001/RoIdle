@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>符文边境</title>
-    <link rel="stylesheet" href="styles.css?v=20260531-adventure-dps-dungeon-v2" />
+    <link rel="stylesheet" href="styles.css?v=20260531-handbook-v1" />
     <link rel="stylesheet" href="unified-equipment-ui.css?v=20260529-battle-effects-v1" />
   </head>
   <body>
@@ -64,6 +64,7 @@
               <span class="ro-nav-section-title">成长</span>
               <button data-page="town" type="button">职业</button>
               <button data-page="maps" type="button">地图</button>
+              <button data-page="handbook" type="button">冒险手册</button>
               <button data-page="tasks" type="button">任务</button>
               <button data-page="dungeons" type="button">副本</button>
             </div>
@@ -84,6 +85,7 @@
               <div class="ro-mobile-more-grid">
                 <button data-page="town" type="button">职业</button>
                 <button data-page="maps" type="button">地图</button>
+                <button data-page="handbook" type="button">冒险手册</button>
                 <button data-page="dungeons" type="button">副本</button>
                 <button data-page="cards" type="button">卡片</button>
                 <button data-page="codex" type="button">图鉴</button>
@@ -294,6 +296,10 @@
             </div>
           </div>
           <div class="map-list" id="mapList"></div>
+        </section>
+
+        <section class="page-view" data-view="handbook">
+          <div id="adventureHandbookPage"></div>
         </section>
 
         <section class="page-view" data-view="dungeons">
@@ -982,7 +988,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="tools.js?v=20260529-battle-effects-v1"></script>
 <script src="data.js?v=20260529-battle-effects-v1"></script>
-<script src="game.js?v=20260531-adventure-dps-dungeon-v2"></script>
-<script type="module" src="./src/main.js?v=20260531-adventure-dps-dungeon-v2" onerror="document.documentElement.dataset.runeModuleStatus='failed'"></script>
+<script src="game.js?v=20260531-handbook-v1"></script>
+<script type="module" src="./src/main.js?v=20260531-handbook-v1" onerror="document.documentElement.dataset.runeModuleStatus='failed'"></script>
   </body>
 </html>

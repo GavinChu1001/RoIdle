@@ -2229,6 +2229,7 @@ function cacheElements() {
     "shopContent",
     "vipPanel",
     "taskPage",
+    "adventureHandbookPage",
     "dungeonPage",
     "refreshDailyButton",
     "questList",
