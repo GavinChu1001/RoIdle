@@ -227,10 +227,10 @@ assert.doesNotMatch(productionIndexSource, /\bcontext\s*,/, 'Production runtime 
   assert.equal(defaultState.crafting.exp, 0, 'Default crafting exp must start at zero.');
   assert.ok(defaultState.mining.nodes.grass, 'Default mining state must include the grass node.');
   const normalizedProduction = productionState.normalizeProductionState({
-    mining: { level: -5, exp: -10, lastClaimedAt: -99, nodes: { forest: { unlocked: true, exp: -3, lastClaimedAt: -8 } } },
+    mining: { level: -5, exp: -10, lastClaimedAt: -99, nodes: { forest: null } },
     artisan: { level: Number.NaN, exp: -20, jobsCompleted: -4, activeJob: 'bad-job' },
     crafting: { level: 999, exp: -5, totalCrafts: 3 },
-    blueprints: { known: ['hero_weapon_darkGold', '', null], fragments: { hero_weapon_darkGold: 2.8, bad: -4, empty: Number.NaN, '': 10 } },
+    blueprints: { known: ['hero_weapon_darkGold', '', null], fragments: { ' hero_weapon_darkGold ': 2.8, bad: -4, empty: Number.NaN, '': 10 } },
   });
   assert.equal(normalizedProduction.crafting.level, 100, 'Crafting level must clamp to max level.');
   assert.equal(normalizedProduction.crafting.exp, 0, 'Negative crafting exp must normalize to zero.');
@@ -238,13 +238,14 @@ assert.doesNotMatch(productionIndexSource, /\bcontext\s*,/, 'Production runtime 
   assert.equal(normalizedProduction.mining.exp, 0, 'Negative mining exp must normalize to zero.');
   assert.equal(normalizedProduction.mining.lastClaimedAt, 0, 'Negative mining timestamps must normalize to zero.');
   assert.equal(normalizedProduction.mining.nodes.grass.unlocked, true, 'Grass mining node must remain unlocked.');
+  assert.ok(normalizedProduction.mining.nodes.forest, 'Null mining node saves must normalize to a default node.');
   assert.equal(normalizedProduction.mining.nodes.forest.exp, 0, 'Mining node negative exp must normalize to zero.');
   assert.equal(normalizedProduction.artisan.level, 1, 'Invalid artisan level must normalize to Lv.1.');
   assert.equal(normalizedProduction.artisan.exp, 0, 'Negative artisan exp must normalize to zero.');
   assert.equal(normalizedProduction.artisan.jobsCompleted, 0, 'Negative artisan completed jobs must normalize to zero.');
   assert.equal(normalizedProduction.artisan.activeJob, null, 'Invalid artisan active job must normalize to null.');
   assert.deepEqual(normalizedProduction.blueprints.known, ['hero_weapon_darkGold'], 'Blueprint known list must filter blank values.');
-  assert.deepEqual(normalizedProduction.blueprints.fragments, { hero_weapon_darkGold: 2 }, 'Blueprint fragments must keep only non-negative integer entries.');
+  assert.deepEqual(normalizedProduction.blueprints.fragments, { hero_weapon_darkGold: 2 }, 'Blueprint fragments must keep only trimmed non-negative integer entries.');
   assert.equal(productionCatalog.getCraftingMasteryBand(1).rarity, 'rare', 'Lv.1 mastery should unlock rare crafting.');
   assert.equal(productionCatalog.getCraftingMasteryBand(21).rarity, 'epic', 'Lv.21 mastery should unlock epic crafting.');
   assert.equal(productionCatalog.getCraftingMasteryBand(41).rarity, 'legend', 'Lv.41 mastery should unlock legend crafting.');
@@ -259,6 +260,8 @@ assert.doesNotMatch(productionIndexSource, /\bcontext\s*,/, 'Production runtime 
   assert.deepEqual(dirtyState.blueprints.known, ['hero_weapon_darkGold'], 'Zero crafting experience must normalize blueprints in place.');
   const maxCraftingState = productionState.addCraftingExperience({ crafting: { level: 100, exp: 999, totalCrafts: 7 } }, 5000);
   assert.equal(maxCraftingState.crafting.level, 100, 'Crafting level must not exceed Lv.100.');
+  assert.equal(maxCraftingState.crafting.exp, 0, 'Max crafting level must not accumulate unused exp.');
+  assert.equal(maxCraftingState.crafting.totalCrafts, 8, 'Max-level crafting should still count a completed craft.');
   productionState.addCraftingExperience(defaultState, 5000);
   assert.ok(defaultState.crafting.level > 1, 'Crafting experience must increase crafting level.');
 }

@@ -17,10 +17,11 @@ function nonNegativeInt(value) {
 }
 
 function normalizeNode(id, input = {}) {
+  const saved = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
   return {
-    unlocked: id === 'grass' ? true : Boolean(input.unlocked),
-    exp: nonNegativeInt(input.exp),
-    lastClaimedAt: nonNegativeInt(input.lastClaimedAt),
+    unlocked: id === 'grass' ? true : Boolean(saved.unlocked),
+    exp: nonNegativeInt(saved.exp),
+    lastClaimedAt: nonNegativeInt(saved.lastClaimedAt),
   };
 }
 
@@ -62,7 +63,7 @@ function normalizeFragments(input = {}) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return {};
   return Object.fromEntries(Object.entries(input)
     .filter(([id]) => typeof id === 'string' && id.trim())
-    .map(([id, amount]) => [id, nonNegativeInt(amount)])
+    .map(([id, amount]) => [id.trim(), nonNegativeInt(amount)])
     .filter(([, amount]) => amount > 0));
 }
 
@@ -93,6 +94,9 @@ export function normalizeProductionState(input = {}) {
   base.crafting.exp = nonNegativeInt(crafting.exp);
   base.crafting.totalCrafts = nonNegativeInt(crafting.totalCrafts);
   base.crafting.masterCrafts = nonNegativeInt(crafting.masterCrafts);
+  if (base.crafting.level >= CRAFTING_MASTERY_MAX_LEVEL) {
+    base.crafting.exp = 0;
+  }
 
   const blueprints = input.blueprints && typeof input.blueprints === 'object' ? input.blueprints : {};
   base.blueprints.known = normalizeKnownBlueprints(blueprints.known);
@@ -109,8 +113,13 @@ export function addCraftingExperience(productionState, amount) {
   const gained = nonNegativeInt(amount);
   if (gained <= 0) return target;
 
-  target.crafting.exp += gained;
   target.crafting.totalCrafts += 1;
+  if (target.crafting.level >= CRAFTING_MASTERY_MAX_LEVEL) {
+    target.crafting.exp = 0;
+    return target;
+  }
+
+  target.crafting.exp += gained;
   while (target.crafting.level < CRAFTING_MASTERY_MAX_LEVEL) {
     const required = craftingExpForLevel(target.crafting.level);
     if (target.crafting.exp < required) break;
@@ -119,7 +128,7 @@ export function addCraftingExperience(productionState, amount) {
   }
   if (target.crafting.level >= CRAFTING_MASTERY_MAX_LEVEL) {
     target.crafting.level = CRAFTING_MASTERY_MAX_LEVEL;
-    target.crafting.exp = Math.max(0, target.crafting.exp);
+    target.crafting.exp = 0;
   }
   return target;
 }
