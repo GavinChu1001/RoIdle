@@ -36,6 +36,7 @@ const itemStatsSource = read('src/systems/equipment/itemStats.js');
 const itemNamingSource = read('src/systems/equipment/itemNaming.js');
 const itemScoreSource = read('src/systems/equipment/itemScore.js');
 const itemFactorySource = read('src/systems/equipment/itemFactory.js');
+const equipmentCraftingSource = read('src/systems/equipment/crafting.js');
 const dismantleSource = read('src/systems/equipment/dismantle.js');
 const equipmentGrowthSource = read('src/systems/equipment/equipmentGrowth.js');
 const equipmentDropsSource = read('src/systems/drops/equipmentDrops.js');
@@ -1408,6 +1409,102 @@ assert.ok(!ancientHeroOverview.directSources.some((source) => source.mapId === '
 const allLineOverviews = itemProgression.getAllEquipmentLineMaterialOverviews();
 assert.ok(allLineOverviews.length >= 9, 'All material overviews should cover progression lines.');
 assert.ok(!allLineOverviews.some((overview) => overview.series === 'oldWorld'), 'Old-world temporary gear should not appear in material overviews.');
+for (const name of [
+  'getEquipmentCraftingRecipe',
+  'canCraftEquipment',
+  'craftEquipment',
+]) {
+  assert.match(equipmentCraftingSource, new RegExp(`export\\s+function\\s+${name}\\b`), `Equipment crafting module must export ${name}.`);
+}
+assert.match(equipmentIndexSource, /export\s+\*\s+from\s+['"]\.\/crafting\.js['"]/, 'Equipment index must re-export equipment crafting.');
+assert.match(equipmentIndexSource, /craftEquipment:\s*\(request\)\s*=>\s*craftEquipment\(request,\s*context\)/, 'Equipment runtime must expose craftEquipment through context.');
+const equipmentCraftingItemProgressionUrl = `data:text/javascript;base64,${Buffer.from(itemProgressionSource).toString('base64')}`;
+const equipmentCrafting = await importSource(equipmentCraftingSource.replace(/from\s+['"]\.\/itemProgression\.js['"]/g, `from '${equipmentCraftingItemProgressionUrl}'`));
+const mythicCraftRequest = { series: 'ancientHero', growthTier: 'T2', slot: 'weapon', archetype: 'physical', rarity: 'mythic' };
+const mythicCraftRecipe = equipmentCrafting.getEquipmentCraftingRecipe(mythicCraftRequest);
+const makeCraftState = (overrides = {}) => ({
+  gold: mythicCraftRecipe.gold,
+  materials: Object.fromEntries(Object.entries(mythicCraftRecipe.materials).map(([id, amount]) => [id, amount])),
+  inventory: [],
+  production: {
+    crafting: { level: 81, exp: 0, totalCrafts: 0, masterCrafts: 0 },
+    blueprints: { known: ['ancientHero_weapon_mythic'], fragments: {} },
+  },
+  ...overrides,
+});
+const makeCraftContext = (state, overrides = {}) => ({
+  getState: () => state,
+  getEquipmentTemplate: (id) => id === 'prog_ancientHero_base_physical_weapon'
+    ? { id, slot: 'weapon', equipSlot: 'weapon', requiredLevel: 100, source: 'progression_drop' }
+    : null,
+  createItem: (template, level, rarity, createContext) => ({
+    id: 'crafted-weapon',
+    templateId: template.id,
+    level,
+    rarity,
+    createContext,
+  }),
+  addCraftingExperience: (production, amount) => {
+    production.crafting.exp += amount;
+    production.crafting.totalCrafts += 1;
+    return production;
+  },
+  ...overrides,
+});
+{
+  let createItemCall = null;
+  const state = makeCraftState();
+  const context = makeCraftContext(state, {
+    createItem: (template, level, rarity, createContext) => {
+      createItemCall = { template, level, rarity, createContext };
+      return { id: 'crafted-weapon', templateId: template.id, rarity };
+    },
+  });
+  const result = equipmentCrafting.craftEquipment(mythicCraftRequest, context);
+  assert.equal(result.ok, true, 'Affordable mythic craft should succeed.');
+  assert.equal(createItemCall.createContext.series, 'ancientHero', 'Crafting should pass series into createItem context.');
+  assert.equal(createItemCall.createContext.growthTier, 'T2', 'Crafting should pass growth tier into createItem context.');
+  assert.equal(result.item.rarity, 'mythic', 'Crafted item should keep requested mythic rarity.');
+  assert.ok(state.production.crafting.exp > 0, 'Successful crafting should grant crafting experience.');
+  assert.equal(state.production.crafting.totalCrafts, 1, 'Successful crafting should count exactly one total craft through addCraftingExperience.');
+  assert.equal(state.production.crafting.masterCrafts, 1, 'Mythic crafting should increment master crafts.');
+  assert.equal(state.inventory[0], result.item, 'Successful crafting should add the item to the front of inventory.');
+}
+const assertCraftBlockedWithoutConsumption = (label, state, context, expectedReason) => {
+  const beforeGold = state.gold;
+  const beforeMaterials = { ...state.materials };
+  const beforeInventoryLength = state.inventory.length;
+  const beforeExp = state.production?.crafting?.exp || 0;
+  const result = equipmentCrafting.craftEquipment(mythicCraftRequest, context);
+  assert.equal(result.ok, false, `${label} should fail.`);
+  assert.equal(result.reason, expectedReason, `${label} should report ${expectedReason}.`);
+  assert.equal(state.gold, beforeGold, `${label} should not consume gold.`);
+  assert.deepEqual(state.materials, beforeMaterials, `${label} should not consume materials.`);
+  assert.equal(state.inventory.length, beforeInventoryLength, `${label} should not add inventory.`);
+  assert.equal(state.production?.crafting?.exp || 0, beforeExp, `${label} should not grant crafting exp.`);
+};
+{
+  const state = makeCraftState({ production: { crafting: { level: 80, exp: 0, totalCrafts: 0, masterCrafts: 0 }, blueprints: { known: ['ancientHero_weapon_mythic'], fragments: {} } } });
+  assertCraftBlockedWithoutConsumption('Low crafting level', state, makeCraftContext(state), 'level_too_low');
+}
+{
+  const state = makeCraftState({ production: { crafting: { level: 81, exp: 0, totalCrafts: 0, masterCrafts: 0 }, blueprints: { known: [], fragments: {} } } });
+  assertCraftBlockedWithoutConsumption('Missing blueprint', state, makeCraftContext(state), 'blueprint_missing');
+}
+{
+  const materials = { ...Object.fromEntries(Object.entries(mythicCraftRecipe.materials).map(([id, amount]) => [id, amount])) };
+  materials[Object.keys(materials)[0]] -= 1;
+  const state = makeCraftState({ materials });
+  assertCraftBlockedWithoutConsumption('Insufficient materials', state, makeCraftContext(state), 'not_affordable');
+}
+{
+  const state = makeCraftState();
+  assertCraftBlockedWithoutConsumption('Missing template', state, makeCraftContext(state, { getEquipmentTemplate: () => null }), 'template_missing');
+}
+{
+  const state = makeCraftState();
+  assertCraftBlockedWithoutConsumption('Create item failure', state, makeCraftContext(state, { createItem: () => null }), 'creation_failed');
+}
 const equipmentGrowth = await importSource(equipmentGrowthSource);
 assert.equal(
   equipmentGrowth.usesProgressionGrowth({ source: 'progression_drop' }, {}),

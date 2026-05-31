@@ -15,6 +15,7 @@ import { DEPRECATED_EQUIPMENT_STATS, ORDINARY_EQUIPMENT_AFFIX_STATS, SPECIAL_MEC
 import { canUpgradeEquipmentProgression, upgradeEquipmentProgression } from './progressionUpgrade.js';
 import { LINE_MASTERY_MAX_LEVEL, normalizeLineMasteryState, getLineMasteryLevel, getLineMasteryCost, getLineMasteryBonus, getLineMasteryGlobalBonus, canUpgradeLineMastery, upgradeLineMastery } from './lineMastery.js';
 import { ABYSS_TEMPERING_MAX_LEVEL, canTemperAbyssItem, getAbyssTemperingCost, getAbyssTemperingBonus, temperAbyssItem } from './abyssTempering.js';
+import { getEquipmentCraftingRecipe, canCraftEquipment, craftEquipment } from './crafting.js';
 
 export * from './itemFactory.js';
 export * from './itemStats.js';
@@ -31,6 +32,7 @@ export * from './statCatalog.js';
 export * from './progressionUpgrade.js';
 export * from './lineMastery.js';
 export * from './abyssTempering.js';
+export * from './crafting.js';
 export * from './refine.js';
 export * from './starRefine.js';
 export * from './socket.js';
@@ -110,6 +112,9 @@ export function installEquipmentRuntime(context = {}) {
     getAbyssTemperingCost,
     getAbyssTemperingBonus,
     temperAbyssItem: (itemId, mode) => temperAbyssItem(itemId, mode, context),
+    getEquipmentCraftingRecipe,
+    canCraftEquipment: (request) => canCraftEquipment(request, context),
+    craftEquipment: (request) => craftEquipment(request, context),
     EQUIPMENT_SYNERGY_LINES,
     ROUTE_SKILL_ENHANCEMENTS,
     computeEquipmentSynergies,
