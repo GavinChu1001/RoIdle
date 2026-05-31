@@ -973,11 +973,19 @@ assert.equal(ancientHeroWeapon.archetype, 'physical', 'Progression templates mus
 const ancientHeroPhysicalWeapon = itemProgression.getProgressionEquipmentTemplate('prog_ancientHero_base_physical_weapon');
 const osPhysicalWeapon = itemProgression.getProgressionEquipmentTemplate('prog_os_os_physical_weapon');
 const osAdPhysicalWeapon = itemProgression.getProgressionEquipmentTemplate('prog_os_osAd_physical_weapon');
-assert.equal(ancientHeroPhysicalWeapon.atk, 18, 'T2 Ancient Hero physical weapon base ATK should use the new T2 tier power.');
-assert.equal(osPhysicalWeapon.atk, 32, 'T3 OS physical weapon base ATK should use the new T3 tier power.');
+const dimensionalPhysicalWeapon = itemProgression.getProgressionEquipmentTemplate('prog_dimensional_base_physical_weapon');
+const dimensionalPhysicalArmor = itemProgression.getProgressionEquipmentTemplate('prog_dimensional_base_physical_armor');
+assert.equal(ancientHeroPhysicalWeapon.atk, 20, 'T2 Ancient Hero physical weapon base ATK should use the new T2 output curve.');
+assert.equal(osPhysicalWeapon.atk, 36, 'T3 OS physical weapon base ATK should use the new T3 output curve.');
 assert.ok(osPhysicalWeapon.atk >= ancientHeroPhysicalWeapon.atk * 1.35, 'T3 base weapon should clearly beat T2 base weapon before rarity/affixes.');
-assert.match(itemProgressionSource, /T3:\s*3\.15/, 'T3 equipment tier power should clearly exceed T2.');
-assert.match(itemProgressionSource, /T10:\s*19\.8/, 'T10 equipment tier power should provide a visible endgame chase.');
+assert.equal(dimensionalPhysicalWeapon.atk, 340, 'T10 physical weapon base ATK should make late equipment tiers feel meaningful.');
+assert.equal(dimensionalPhysicalWeapon.str, 75, 'T10 physical weapon STR should use the stronger output tier curve.');
+assert.equal(dimensionalPhysicalWeapon.atkPct, 0.288, 'T10 weapon percentage bonuses should use the softer support curve.');
+assert.equal(dimensionalPhysicalArmor.hp, 1680, 'T10 armor HP should rise without using the full output curve.');
+assert.equal(dimensionalPhysicalArmor.damageReductionPct, 0.096, 'T10 armor mitigation should stay on the softer support curve.');
+assert.match(itemProgressionSource, /T3:\s*3\.60/, 'T3 equipment output power should clearly exceed old T3 growth.');
+assert.match(itemProgressionSource, /T10:\s*34\.00/, 'T10 equipment output power should provide a visible endgame chase.');
+assert.match(itemProgressionSource, /T10:\s*24\.00/, 'T10 equipment support power should stay below output power.');
 assert.ok(osAdPhysicalWeapon.atk > osPhysicalWeapon.atk, 'T4 OS-AD should be a visible upgrade over T3 OS.');
 assert.deepEqual(
   itemProgression.getEquipmentProgressionTags({ series: 'ancientHero', growthTier: 'T3', upgradeStage: 2, grade: 'lt' }),
@@ -1838,6 +1846,7 @@ assert.equal(lowLevelProgressionItem.drop, highLevelProgressionItem.drop, 'Progr
 assert.equal(lowLevelProgressionItem.dodgeRate, highLevelProgressionItem.dodgeRate, 'Progression-v2 drops must not scale dodge from hidden item level.');
 assert.equal(lowLevelProgressionItem.gold, highLevelProgressionItem.gold, 'Progression-v2 drops must not scale gold from hidden item level.');
 assert.equal(highLevelProgressionItem.growthModel, 'progression-v2', 'Progression drops should record the new growth model.');
+assert.equal(highLevelProgressionItem.progressionBalanceVersion, 2, 'New progression drops should record the current balance version.');
 const qualityRollContext = {
   ...factoryContext,
   getEquipmentTiers: () => [{ id: 'rare', scale: 2, rolls: [7, 9] }],
@@ -1949,6 +1958,33 @@ const normalizedOldWorldLegacy = itemFactory.normalizeItem({
 }, factoryContext);
 assert.equal(normalizedOldWorldLegacy.growthModel, 'legacy-level', 'Old-world default progression fields should not mark legacy equipment as progression-v2.');
 assert.equal(normalizedOldWorldLegacy.legacyPowerSnapshot.stats.atk, 77, 'Old-world legacy equipment should still snapshot current stats.');
+const rebalancedSavedProgressionItem = itemFactory.normalizeItem({
+  id: 'saved-dimensional',
+  templateId: 'prog_dimensional_base_physical_weapon',
+  name: 'Saved Dimensional Blade',
+  slot: 'weapon',
+  source: 'progression_drop',
+  growthModel: 'progression-v2',
+  progressionBalanceVersion: 0,
+  series: 'dimensional',
+  growthTier: 'T10',
+  upgradeStage: 0,
+  grade: 'base',
+  upgradePathId: 'dimensional',
+  archetype: 'physical',
+  rarity: 'legend',
+  tier: 'legend',
+  quality: 120,
+  atk: 198,
+  atkPct: 0.238,
+  affixDetails: [{ type: 'flat', stat: 'atk', value: 5 }],
+}, {
+  ...factoryContext,
+  getEquipmentTemplate: (id) => itemProgression.getProgressionEquipmentTemplate(id),
+});
+assert.equal(rebalancedSavedProgressionItem.atk, 413, 'Saved progression gear should be rebuilt onto the current output curve.');
+assert.equal(rebalancedSavedProgressionItem.atkPct, 0.288, 'Saved progression gear percentage stats should use the current support curve.');
+assert.equal(rebalancedSavedProgressionItem.progressionBalanceVersion, 2, 'Saved progression gear should be marked as updated to the current balance.');
 assert.equal(itemFactory.createItem({ name: 'Rod', slot: 'weapon', matk: 10 }, 1, 'normal', { currentJobId: 'mage', rng: () => 0 }, factoryContext).archetype, 'magic', 'Created mage equipment must record magic archetype.');
 assert.equal(itemFactory.createItem({ name: 'Blade', slot: 'weapon', atk: 10 }, 1, 'normal', { targetArchetype: undefined, archetype: 'physical', currentJobId: 'mage', rng: () => 0 }, factoryContext).archetype, 'physical', 'Undefined directed archetype must not override the explicit item archetype.');
 assert.equal(itemFactory.normalizeItem({ atk: 100 }, factoryContext).archetype, 'physical', 'Legacy ATK equipment normalization must infer physical archetype.');

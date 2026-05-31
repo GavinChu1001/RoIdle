@@ -3,6 +3,7 @@ import {
   EQUIPMENT_GROWTH_MODEL,
   calculateCreationStatScale,
   growthModelFor,
+  rebuildGrowthStatsFromTemplate,
   rollProgressionQuality,
   snapshotLegacyPower,
   usesProgressionGrowth,
@@ -11,6 +12,8 @@ import { resolveItemProgression } from './itemProgression.js';
 import { DEPRECATED_EQUIPMENT_STATS, applyCanonicalEquipmentStats } from './statCatalog.js';
 
 let runtimeContext = {};
+
+const PROGRESSION_BALANCE_VERSION = 2;
 
 const number = (value, fallback = 0) => {
   const parsed = Number(value);
@@ -64,6 +67,24 @@ function resolveResetItemArchetype(item = {}, runtime = {}) {
   if (hasOwn(item, 'targetArchetype') && item.targetArchetype) return normalizeEquipmentArchetype(item.targetArchetype);
   if (hasOwn(item, 'archetype') && item.archetype) return normalizeEquipmentArchetype(item.archetype);
   return inferNormalizedItemArchetype(item, runtime);
+}
+
+function getProgressionBalanceTemplate(item = {}, runtime = {}) {
+  return runtime.getEquipmentTemplate?.(item.templateId || '') ||
+    runtime.getEquipmentTemplate?.(item.id || '') ||
+    null;
+}
+
+function applyProgressionBalanceVersion(item = {}, runtime = {}) {
+  if (item.growthModel !== EQUIPMENT_GROWTH_MODEL.PROGRESSION_V2) return item;
+  if (number(item.progressionBalanceVersion, 0) >= PROGRESSION_BALANCE_VERSION) return item;
+  const template = getProgressionBalanceTemplate(item, runtime);
+  if (!template || !usesProgressionGrowth(template, item)) return item;
+  const quality = number(item.quality, 100) / 100;
+  rebuildGrowthStatsFromTemplate(item, template, { scale: 1 }, quality);
+  item.templateBaseStats = runtime.getTemplateBaseStats?.(template) || { ...(template.baseStats || {}) };
+  item.progressionBalanceVersion = PROGRESSION_BALANCE_VERSION;
+  return item;
 }
 
 export function createItem(template = {}, level, forcedTierId = null, context = {}, runtime = runtimeContext) {
@@ -130,6 +151,7 @@ export function createItem(template = {}, level, forcedTierId = null, context = 
     progressionLabel: progression.progressionLabel || '',
     progressionSource: progression.progressionSource || '',
     growthModel: progressionGrowth ? EQUIPMENT_GROWTH_MODEL.PROGRESSION_V2 : EQUIPMENT_GROWTH_MODEL.LEGACY_LEVEL,
+    progressionBalanceVersion: progressionGrowth ? PROGRESSION_BALANCE_VERSION : 0,
     legacyPowerSnapshot: null,
     rarity: safeTier.id,
     tier: safeTier.id,
@@ -261,6 +283,7 @@ export function normalizeItem(item = {}, runtime = runtimeContext) {
     progressionLabel: item.progressionLabel || progression.progressionLabel || '',
     progressionSource: item.progressionSource || progression.progressionSource || '',
     growthModel: normalizedGrowthModel,
+    progressionBalanceVersion: Math.max(0, Math.floor(number(item.progressionBalanceVersion, 0))),
     legacyPowerSnapshot,
     rarity: item.rarity || 'normal',
     tier: item.tier || item.rarity || 'normal',
@@ -340,6 +363,7 @@ export function normalizeItem(item = {}, runtime = runtimeContext) {
     rarityPerk: item.rarityPerk || null,
     rarityPerks: item.rarityPerks && typeof item.rarityPerks === 'object' && !Array.isArray(item.rarityPerks) ? item.rarityPerks : {},
   };
+  applyProgressionBalanceVersion(normalized, runtime);
   runtime.applyAbyssEquipmentBonus?.(normalized);
   runtime.applyAbyssSetItemBonus?.(normalized);
   return clearDeprecatedEquipmentStats(applyCanonicalEquipmentStats(normalized));

@@ -261,19 +261,46 @@ function pick(list, rng = Math.random) {
 
 let progressionEquipmentTemplatesCache = null;
 
+const TIER_OUTPUT_POWER = Object.freeze({
+  T1: 1.00,
+  T2: 2.00,
+  T3: 3.60,
+  T4: 5.60,
+  T5: 8.00,
+  T6: 11.00,
+  T7: 15.00,
+  T8: 20.00,
+  T9: 26.00,
+  T10: 34.00,
+});
+
+const TIER_SUPPORT_POWER = Object.freeze({
+  T1: 1.00,
+  T2: 1.90,
+  T3: 3.30,
+  T4: 5.00,
+  T5: 7.00,
+  T6: 9.30,
+  T7: 12.20,
+  T8: 15.60,
+  T9: 19.40,
+  T10: 24.00,
+});
+
 function tierPower(tier) {
-  return ({
-    T1: 1.00,
-    T2: 1.80,
-    T3: 3.15,
-    T4: 4.65,
-    T5: 6.40,
-    T6: 8.40,
-    T7: 10.70,
-    T8: 13.30,
-    T9: 16.30,
-    T10: 19.80,
-  }[normalizeGrowthTier(tier)] || 1);
+  return TIER_OUTPUT_POWER[normalizeGrowthTier(tier)] || 1;
+}
+
+function tierSupportPower(tier) {
+  return TIER_SUPPORT_POWER[normalizeGrowthTier(tier)] || 1;
+}
+
+function progressionStatScales(growthTier, stage = {}) {
+  const stageMultiplier = finiteNumber(stage.statMultiplier, 1);
+  return {
+    output: tierPower(growthTier) * stageMultiplier,
+    support: tierSupportPower(growthTier) * stageMultiplier,
+  };
 }
 
 function slotNameForArchetype(slot, archetype) {
@@ -288,28 +315,28 @@ function roundStat(value, min = 0) {
 }
 
 function buildProgressionTemplateStats(slot, archetype, growthTier, stage = {}) {
-  const scale = tierPower(growthTier) * finiteNumber(stage.statMultiplier, 1);
+  const { output: outputScale, support: supportScale } = progressionStatScales(growthTier, stage);
   if (slot === 'weapon') {
-    if (archetype === 'physical') return { atk: roundStat(10 * scale, 1), str: roundStat(2.2 * scale), dex: roundStat(1.2 * scale), aspd: 0.02, crit: 0.02, atkPct: Number((0.012 * scale).toFixed(3)) };
-    if (archetype === 'magic') return { matk: roundStat(11 * scale, 1), int: roundStat(2.3 * scale), dex: roundStat(1.1 * scale), skillDamageBonus: Number((0.012 * scale).toFixed(3)), matkPct: Number((0.012 * scale).toFixed(3)) };
-    return { atk: roundStat(7 * scale, 1), matk: roundStat(7 * scale, 1), str: roundStat(1.2 * scale), int: roundStat(1.2 * scale), dex: roundStat(1.4 * scale), finalDamageBonus: Number((0.004 * scale).toFixed(3)) };
+    if (archetype === 'physical') return { atk: roundStat(10 * outputScale, 1), str: roundStat(2.2 * outputScale), dex: roundStat(1.2 * outputScale), aspd: 0.02, crit: 0.02, atkPct: Number((0.012 * supportScale).toFixed(3)) };
+    if (archetype === 'magic') return { matk: roundStat(11 * outputScale, 1), int: roundStat(2.3 * outputScale), dex: roundStat(1.1 * outputScale), skillDamageBonus: Number((0.012 * supportScale).toFixed(3)), matkPct: Number((0.012 * supportScale).toFixed(3)) };
+    return { atk: roundStat(7 * outputScale, 1), matk: roundStat(7 * outputScale, 1), str: roundStat(1.2 * outputScale), int: roundStat(1.2 * outputScale), dex: roundStat(1.4 * outputScale), finalDamageBonus: Number((0.004 * supportScale).toFixed(3)) };
   }
   if (slot === 'armor') {
-    return { def: roundStat(8 * scale, 1), hp: roundStat(70 * scale, 10), vit: roundStat(2.4 * scale), hpPct: Number((0.012 * scale).toFixed(3)), damageReductionPct: Number((0.004 * scale).toFixed(3)) };
+    return { def: roundStat(8 * supportScale, 1), hp: roundStat(70 * supportScale, 10), vit: roundStat(2.4 * supportScale), hpPct: Number((0.012 * supportScale).toFixed(3)), damageReductionPct: Number((0.004 * supportScale).toFixed(3)) };
   }
   if (slot === 'headgear') {
-    const main = archetype === 'magic' ? { int: roundStat(2.2 * scale), matk: roundStat(2.4 * scale) } : archetype === 'physical' ? { str: roundStat(2.2 * scale), atk: roundStat(2.4 * scale) } : { str: roundStat(1.2 * scale), int: roundStat(1.2 * scale), dex: roundStat(1.5 * scale) };
-    return { def: roundStat(3.5 * scale, 1), luk: roundStat(1.1 * scale), expBonus: Number((0.01 * scale).toFixed(3)), ...main };
+    const main = archetype === 'magic' ? { int: roundStat(2.2 * outputScale), matk: roundStat(2.4 * outputScale) } : archetype === 'physical' ? { str: roundStat(2.2 * outputScale), atk: roundStat(2.4 * outputScale) } : { str: roundStat(1.2 * outputScale), int: roundStat(1.2 * outputScale), dex: roundStat(1.5 * outputScale) };
+    return { def: roundStat(3.5 * supportScale, 1), luk: roundStat(1.1 * supportScale), expBonus: Number((0.01 * supportScale).toFixed(3)), ...main };
   }
   if (slot === 'shoes') {
-    return { def: roundStat(4.5 * scale, 1), agi: roundStat(2.3 * scale), vit: roundStat(1.4 * scale), aspd: Number((0.008 * scale).toFixed(3)), attackSpeedPct: Number((0.006 * scale).toFixed(3)), combatPaceBonus: Number((0.004 * scale).toFixed(3)) };
+    return { def: roundStat(4.5 * supportScale, 1), agi: roundStat(2.3 * supportScale), vit: roundStat(1.4 * supportScale), aspd: Number((0.008 * supportScale).toFixed(3)), attackSpeedPct: Number((0.006 * supportScale).toFixed(3)), combatPaceBonus: Number((0.004 * supportScale).toFixed(3)) };
   }
-  const output = archetype === 'magic'
-    ? { int: roundStat(2.4 * scale), matk: roundStat(3 * scale), matkPct: Number((0.008 * scale).toFixed(3)) }
+  const outputStats = archetype === 'magic'
+    ? { int: roundStat(2.4 * outputScale), matk: roundStat(3 * outputScale), matkPct: Number((0.008 * supportScale).toFixed(3)) }
     : archetype === 'physical'
-      ? { str: roundStat(2.4 * scale), atk: roundStat(3 * scale), atkPct: Number((0.008 * scale).toFixed(3)) }
-      : { str: roundStat(1.2 * scale), int: roundStat(1.2 * scale), dex: roundStat(1.4 * scale), finalDamageBonus: Number((0.003 * scale).toFixed(3)) };
-  return { def: roundStat(2.5 * scale, 1), luk: roundStat(1.6 * scale), crit: Number((0.006 * scale).toFixed(3)), drop: Number((0.004 * scale).toFixed(3)), ...output };
+      ? { str: roundStat(2.4 * outputScale), atk: roundStat(3 * outputScale), atkPct: Number((0.008 * supportScale).toFixed(3)) }
+      : { str: roundStat(1.2 * outputScale), int: roundStat(1.2 * outputScale), dex: roundStat(1.4 * outputScale), finalDamageBonus: Number((0.003 * supportScale).toFixed(3)) };
+  return { def: roundStat(2.5 * supportScale, 1), luk: roundStat(1.6 * supportScale), crit: Number((0.006 * supportScale).toFixed(3)), drop: Number((0.004 * supportScale).toFixed(3)), ...outputStats };
 }
 
 function buildProgressionTemplate(seriesId, stage, archetype, slotConfig) {

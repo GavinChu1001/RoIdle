@@ -27,6 +27,11 @@ export const GROWTH_STAT_KEYS = Object.freeze([
   'setPowerBonus',
 ]);
 
+const QUALITY_SCALED_GROWTH_STATS = Object.freeze([
+  'atk', 'matk', 'def', 'hp', 'hpRegen',
+  'str', 'agi', 'vit', 'int', 'dex', 'luk', 'luck',
+]);
+
 const RARITY_ORDER = Object.freeze(['normal', 'fine', 'rare', 'epic', 'ancient', 'legend', 'darkGold', 'mythic']);
 
 export const PROGRESSION_RARITY_QUALITY_RANGES = Object.freeze({
@@ -189,7 +194,7 @@ export function rebuildGrowthStatsFromTemplate(item = {}, template = {}, tier = 
   GROWTH_STAT_KEYS.forEach((key) => {
     const value = finite(template[key], 0);
     if (!value) return;
-    const scaled = value * statScale;
+    const scaled = value * (QUALITY_SCALED_GROWTH_STATS.includes(key) ? statScale : 1);
     item[key] = Math.abs(scaled) < 1 ? Number(scaled.toFixed(3)) : Math.round(scaled);
   });
   replayStoredBonuses(item);
