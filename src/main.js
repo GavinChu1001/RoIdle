@@ -33,6 +33,7 @@ import { installShopRuntime } from './systems/shop.js';
 import { installOnboardingRuntime } from './systems/onboarding.js';
 import { installDungeonRuntime } from './systems/dungeons.js';
 import { installAdventureHandbookRuntime } from './systems/adventureHandbook.js';
+import { installProductionRuntime } from './systems/production/index.js';
 
 // UI layer (delegates to game.js via window)
 import './ui/index.js';
@@ -43,6 +44,7 @@ import { installCodexRenderRuntime } from './ui/codexPage.js';
 import { installCharacterRenderRuntime } from './ui/characterPage.js';
 import { installEquipmentRenderRuntime } from './ui/equipmentPage.js';
 import { installSmithyRenderRuntime } from './ui/smithyPage.js';
+import { installSmithyCraftingRenderRuntime } from './ui/smithyCraftingPanel.js';
 import { installMapRenderRuntime } from './ui/mapPage.js';
 import { installCardRenderRuntime } from './ui/cardPage.js';
 import { installOnboardingGuideRuntime } from './ui/onboardingGuide.js';
@@ -69,6 +71,15 @@ const equipmentContext = typeof window.RuneFrontierLegacyEquipmentContext === 'f
   ? window.RuneFrontierLegacyEquipmentContext()
   : {};
 installEquipmentRuntime(equipmentContext);
+const productionRuntime = installProductionRuntime({
+  getState() { return window.state || {}; },
+  now() { return Date.now(); },
+  randomInt: window.randomInt,
+  showToast: window.showToast,
+  addLog: window.addLog,
+  renderAll: window.renderAll,
+  save: window.save,
+});
 const dropsContext = typeof window.RuneFrontierLegacyDropsContext === 'function'
   ? window.RuneFrontierLegacyDropsContext()
   : {};
@@ -351,6 +362,17 @@ const smithyRenderContext = {
   getMaterialName: (id) => (window.materialNames || {})[id] || id,
 };
 installSmithyRenderRuntime(smithyRenderContext);
+installSmithyCraftingRenderRuntime({
+  getState() { return window.state || {}; },
+  escapeHtml: window.escapeHtml,
+  escapeAttr: window.escapeAttr,
+  formatNumber: window.formatNumber,
+  materialText: window.materialText,
+  hasMaterials: window.hasMaterials,
+  getMaterialName: (id) => (window.materialNames || {})[id] || id,
+  productionRuntime,
+  equipmentRuntime: window.RuneFrontierEquipmentRuntime,
+});
 document.documentElement.dataset.runeModuleStatus = 'smithy-render-ready';
 
 const mapRenderContext = { getState() { return window.state || {}; }, getEls() { return window.els || {}; }, escapeHtml: window.escapeHtml, escapeAttr: window.escapeAttr, formatNumber: window.formatNumber, percent: window.percent, getMaps() { return window.maps || []; }, progressText: window.progressText, getDifficultyConfigs() { return window.DIFFICULTY_CONFIG || {}; }, getMapLevelRange: window.getMapLevelRange, getMapPreviewStats: window.getMapPreviewStats, getRecommendedScoresForMap: window.getRecommendedScoresForMap, getAbyssMapTierScales() { return window.ABYSS_MAP_TIER_SCALE || {}; }, getHardMapTierScales() { return window.HARD_MAP_TIER_SCALE || {}; }, bossDisplayName: window.bossDisplayName, getMapExplorationEntry: window.getMapExplorationEntry, getMapExplorationRequirements() { return window.MAP_EXPLORATION_REQUIREMENTS || []; }, getMapExplorationBonuses: window.getMapExplorationBonuses, formatRangeNumber: window.formatRangeNumber, mapDropTooltip: window.mapDropTooltip, formatEquipmentProgressionSummary: window.formatMapEquipmentProgression };

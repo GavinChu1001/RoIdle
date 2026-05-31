@@ -1702,6 +1702,30 @@ function normalizeAdventureHandbookState(handbook = {}) {
   };
 }
 
+function defaultProductionState() {
+  const runtime = window.RuneFrontierProductionRuntime;
+  if (runtime && typeof runtime.defaultProductionState === "function") return runtime.defaultProductionState();
+  const node = (unlocked = false) => ({ unlocked, exp: 0, lastClaimedAt: 0 });
+  return {
+    version: 1,
+    mining: {
+      level: 1,
+      exp: 0,
+      lastClaimedAt: 0,
+      nodes: { grass: node(true), forest: node(false), abyss: node(false) },
+    },
+    artisan: { level: 1, exp: 0, jobsCompleted: 0, activeJob: null },
+    crafting: { level: 1, exp: 0, totalCrafts: 0, masterCrafts: 0 },
+    blueprints: { known: [], fragments: {} },
+  };
+}
+
+function normalizeProductionState(value) {
+  const runtime = window.RuneFrontierProductionRuntime;
+  if (runtime && typeof runtime.normalizeProductionState === "function") return runtime.normalizeProductionState(value);
+  return defaultProductionState();
+}
+
 function recordAdventureHandbookProgress(goalId, amount = 1) {
   const runtime = window.RuneFrontierAdventureHandbookRuntime;
   if (runtime && typeof runtime.recordAdventureHandbookProgress === "function") {
@@ -2139,6 +2163,7 @@ function createDefaultState() {
     dailyGoals: defaultDailyGoals(),
     dungeons: defaultDungeonState(),
     adventureHandbook: defaultAdventureHandbookState(),
+    production: defaultProductionState(),
     vip: defaultVipState(),
     mvpInscription: defaultMvpInscriptionState(),
     quests: defaultQuestState(),
@@ -2700,6 +2725,26 @@ els.vipPanel.addEventListener("click", (event) => {
       upgradeLineMastery(lineMasteryButton.dataset.upgradeLineMastery);
       return;
     }
+    const miningClaimButton = event.target.closest("button[data-claim-mining-production]");
+    if (miningClaimButton) {
+      claimMiningProduction();
+      return;
+    }
+    const artisanStartButton = event.target.closest("button[data-start-artisan-job]");
+    if (artisanStartButton) {
+      startArtisanJob(artisanStartButton.dataset.startArtisanJob);
+      return;
+    }
+    const artisanClaimButton = event.target.closest("button[data-claim-artisan-job]");
+    if (artisanClaimButton) {
+      claimArtisanJob();
+      return;
+    }
+    const equipmentCraftButton = event.target.closest("button[data-craft-equipment]");
+    if (equipmentCraftButton) {
+      craftEquipmentFromToken(equipmentCraftButton.dataset.craftEquipment);
+      return;
+    }
     const abyssTemperButton = event.target.closest("button[data-temper-abyss-item]");
     if (abyssTemperButton) {
       temperAbyssItem(abyssTemperButton.dataset.temperAbyssItem, abyssTemperButton.dataset.temperMode || "infuse");
@@ -2758,6 +2803,26 @@ els.vipPanel.addEventListener("click", (event) => {
     const lineMasteryButton = event.target.closest("button[data-upgrade-line-mastery]");
     if (lineMasteryButton) {
       upgradeLineMastery(lineMasteryButton.dataset.upgradeLineMastery);
+      return;
+    }
+    const miningClaimButton = event.target.closest("button[data-claim-mining-production]");
+    if (miningClaimButton) {
+      claimMiningProduction();
+      return;
+    }
+    const artisanStartButton = event.target.closest("button[data-start-artisan-job]");
+    if (artisanStartButton) {
+      startArtisanJob(artisanStartButton.dataset.startArtisanJob);
+      return;
+    }
+    const artisanClaimButton = event.target.closest("button[data-claim-artisan-job]");
+    if (artisanClaimButton) {
+      claimArtisanJob();
+      return;
+    }
+    const equipmentCraftButton = event.target.closest("button[data-craft-equipment]");
+    if (equipmentCraftButton) {
+      craftEquipmentFromToken(equipmentCraftButton.dataset.craftEquipment);
       return;
     }
     const abyssTemperButton = event.target.closest("button[data-temper-abyss-item]");
@@ -3152,6 +3217,7 @@ function mergeState(base, saved) {
     dailyGoals: normalizeDailyGoals(saved.dailyGoals || base.dailyGoals),
     dungeons: normalizeDungeonState(saved.dungeons || base.dungeons),
     adventureHandbook: normalizeAdventureHandbookState(saved.adventureHandbook || base.adventureHandbook),
+    production: normalizeProductionState(saved.production || base.production),
     vip: { ...base.vip, ...(saved.vip || {}) },
     quests: normalizeQuests(saved.quests || base.quests),
     onboarding: normalizeOnboarding(saved.onboarding || base.onboarding),
@@ -3246,6 +3312,7 @@ function sanitizeProgression() {
   state.lastLootUpdatedAt = Number(state.lastLootUpdatedAt || 0);
   state.dungeons = normalizeDungeonState(state.dungeons);
   state.adventureHandbook = normalizeAdventureHandbookState(state.adventureHandbook);
+  state.production = normalizeProductionState(state.production);
   ensureSettings();
   state.zodiacCollection = normalizeZodiacCollection(state.zodiacCollection);
   state.costumes = normalizeCostumes(state.costumes);
@@ -9114,6 +9181,8 @@ function renderSmithyContent() { const runtime = window.RuneFrontierRenderRuntim
     ["upgrade", "装备进阶"],
     ["star", "装备星炼"],
     ["socket", "装备打孔"],
+    ["production", "生产"],
+    ["crafting", "装备打造"],
     ["set", "套装打造"],
     ["costume", "时装打造"],
     ["materials", "材料目标"],
@@ -9182,6 +9251,8 @@ function renderSmithyContent() { const runtime = window.RuneFrontierRenderRuntim
     upgrade: `<section class="smithy-category"><h3>装备进阶</h3>${renderEquipmentProgressionSmithyPanel()}</section>`,
     star: `<section class="smithy-category"><h3>装备星炼</h3>${renderStarRefineSmithyPanel()}</section>`,
     socket: `<section class="smithy-category"><h3>装备打孔</h3>${renderCardSocketSmithyPanel()}</section>`,
+    production: renderProductionSmithyPanel(),
+    crafting: renderEquipmentCraftingSmithyPanel(),
     set: `<section class="smithy-category"><h3>套装打造</h3>${setCraftHtml || `<p class="academy-meta">星座套装通过怪物掉落获得。已穿戴部件可在装备页查看套装进度，未穿戴部件在图鉴页查看全貌。</p>`}</section>`,
     costume: `<section class="smithy-category"><h3>时装打造</h3>${costumeCraftHtml}</section>`,
     materials: `<section class="smithy-category"><h3>材料目标</h3>${renderMaterialGoalPanel()}</section>`,
@@ -9624,6 +9695,70 @@ function enhanceItem(itemId) {
 function renderSmithyPage() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderSmithyPage === "function") return runtime.renderSmithyPage();
   if (!els.smithyPageContent) return;
   els.smithyPageContent.innerHTML = renderSmithyContent();
+}
+
+function renderProductionSmithyPanel() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderProductionSmithyPanel === "function") return runtime.renderProductionSmithyPanel();
+  return `<p class="academy-meta">生产系统正在初始化。</p>`;
+}
+
+function renderEquipmentCraftingSmithyPanel() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentCraftingSmithyPanel === "function") return runtime.renderEquipmentCraftingSmithyPanel();
+  return `<p class="academy-meta">装备打造系统正在初始化。</p>`;
+}
+
+function claimMiningProduction() {
+  const result = window.RuneFrontierProductionRuntime?.claimMiningProduction?.();
+  if (!result?.ok) {
+    showToast(result?.reason === "initialized" ? "矿点开始运转" : "暂无可收取矿产");
+  } else {
+    showToast(`收取矿产：${materialText(result.rewards || {})}`);
+    addLog(`收取矿产：${materialText(result.rewards || {})}`);
+  }
+  renderAll();
+  save();
+}
+
+function startArtisanJob(jobId) {
+  const result = window.RuneFrontierProductionRuntime?.startArtisanJob?.(jobId);
+  if (!result?.ok) {
+    const messages = { busy: "已有工匠任务进行中", not_affordable: "工匠任务材料不足", job_missing: "工匠任务不存在" };
+    showToast(messages[result?.reason] || "无法开始工匠任务");
+    return;
+  }
+  showToast("工匠任务已开始");
+  renderAll();
+  save();
+}
+
+function claimArtisanJob() {
+  const result = window.RuneFrontierProductionRuntime?.claimArtisanJob?.();
+  if (!result?.ok) {
+    const messages = { no_job: "没有可领取的工匠任务", in_progress: "工匠任务尚未完成", job_missing: "工匠任务不存在", invalid_job: "工匠任务状态异常" };
+    showToast(messages[result?.reason] || "无法领取工匠任务");
+    renderAll();
+    save();
+    return;
+  }
+  showToast(`领取工匠产物：${materialText(result.output || {})}`);
+  addLog(`领取工匠产物：${materialText(result.output || {})}`);
+  renderAll();
+  save();
+}
+
+function craftEquipmentFromToken(token = "") {
+  const [series, growthTier, slot, archetype, rarity] = String(token || "").split(":");
+  const result = window.RuneFrontierEquipmentRuntime?.craftEquipment?.({ series, growthTier, slot, archetype, rarity });
+  if (!result?.ok) {
+    const messages = {
+      level_too_low: "打造熟练度不足",
+      blueprint_missing: "缺少打造蓝图",
+      not_affordable: "打造材料或金币不足",
+      template_missing: "缺少装备模板",
+      creation_failed: "装备生成失败",
+    };
+    showToast(messages[result?.reason] || "装备打造失败");
+    return;
+  }
+  addLogHtml(`装备打造：${renderItemName(result.item)}`);
 }
 
 function craftSetItem(itemId) {

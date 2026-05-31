@@ -63,6 +63,7 @@ const monsterSource = read('src/systems/combat/monster.js');
 const taskPageSource = read('src/ui/taskPage.js');
 const cardPageSource = read('src/ui/cardPage.js');
 const equipmentPageSource = read('src/ui/equipmentPage.js');
+const smithyPageSource = read('src/ui/smithyPage.js');
 const characterPageSource = read('src/ui/characterPage.js');
 const mapPageSource = read('src/ui/mapPage.js');
 const onboardingSource = read('src/systems/onboarding.js');
@@ -77,6 +78,7 @@ const productionStateSource = read('src/systems/production/state.js');
 const productionIndexSource = read('src/systems/production/index.js');
 const productionMiningSource = read('src/systems/production/mining.js');
 const productionArtisanSource = read('src/systems/production/artisan.js');
+const smithyCraftingPanelSource = read('src/ui/smithyCraftingPanel.js');
 
 const classicDataContext = { console };
 createContext(classicDataContext);
@@ -221,6 +223,20 @@ assert.doesNotMatch(productionIndexSource, /\bcontext\s*,/, 'Production runtime 
 assert.match(productionMiningSource, /export\s+function\s+claimMiningProduction/, 'Production mining must export claimMiningProduction.');
 assert.match(productionArtisanSource, /export\s+function\s+startArtisanJob/, 'Production artisan must export startArtisanJob.');
 assert.match(productionArtisanSource, /export\s+function\s+claimArtisanJob/, 'Production artisan must export claimArtisanJob.');
+assert.match(main, /installProductionRuntime/, 'Main must install the production runtime.');
+assert.match(main, /installSmithyCraftingRenderRuntime/, 'Main must install the smithy crafting render runtime.');
+assert.match(game, /function\s+defaultProductionState\s*\(/, 'game.js must expose a production default-state wrapper.');
+assert.match(game, /production:\s*defaultProductionState\(\)/, 'Default state should include production state.');
+assert.match(game, /production:\s*normalizeProductionState\(saved\.production\s*\|\|\s*base\.production\)/, 'Saved state merge should normalize production state.');
+assert.match(game, /state\.production\s*=\s*normalizeProductionState\(state\.production\)/, 'Sanitize should keep production state normalized.');
+assert.match(game, /data-claim-mining-production/, 'Smithy runtime must handle mining production claims.');
+assert.match(game, /data-start-artisan-job/, 'Smithy runtime must handle artisan job starts.');
+assert.match(game, /data-craft-equipment/, 'Smithy runtime must handle equipment crafting.');
+assert.match(smithyPageSource, /renderProductionSmithyPanel/, 'Smithy page bridge must include production panel renderer.');
+assert.match(smithyPageSource, /renderEquipmentCraftingSmithyPanel/, 'Smithy page bridge must include equipment crafting panel renderer.');
+assert.match(smithyCraftingPanelSource, /export\s+function\s+installSmithyCraftingRenderRuntime/, 'Smithy crafting panel must export installer.');
+assert.match(smithyCraftingPanelSource, /export\s+function\s+renderProductionSmithyPanel/, 'Smithy crafting panel must export production panel renderer.');
+assert.match(smithyCraftingPanelSource, /export\s+function\s+renderEquipmentCraftingSmithyPanel/, 'Smithy crafting panel must export equipment crafting panel renderer.');
 {
   const productionCatalog = await importSource(productionCatalogSource);
   const productionStateTestSource = productionStateSource.replace(
