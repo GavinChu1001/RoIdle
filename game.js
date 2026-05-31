@@ -2341,6 +2341,7 @@ function cacheElements() {
     "taskPage",
     "adventureHandbookPage",
     "dungeonPage",
+    "collectionPage",
     "refreshDailyButton",
     "questList",
     "partyList",
@@ -8442,6 +8443,10 @@ function renderDungeons() {
   if (runtime && typeof runtime.renderDungeonPage === "function") return runtime.renderDungeonPage();
 }
 
+function renderCollectionPage() {
+  return window.RuneFrontierRenderRuntime?.renderCollectionPage?.();
+}
+
 function renderAdventureHandbook() {
   const runtime = window.RuneFrontierRenderRuntime;
   if (runtime && typeof runtime.renderAdventureHandbookPage === "function") return runtime.renderAdventureHandbookPage();
@@ -8469,6 +8474,9 @@ function renderActivePage() {
       break;
     case "maps":
       renderMaps();
+      break;
+    case "collection":
+      renderCollectionPage();
       break;
     case "cards":
       renderCards();

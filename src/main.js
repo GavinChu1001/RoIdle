@@ -53,6 +53,7 @@ import { installAdventureRenderRuntime } from './ui/adventurePage.js';
 import { installTaskRenderRuntime } from './ui/taskPage.js';
 import { installDungeonRenderRuntime } from './ui/dungeonPage.js';
 import { installAdventureHandbookRenderRuntime } from './ui/adventureHandbookPage.js';
+import { installCollectionRenderRuntime } from './ui/collectionPage.js';
 import { installLogRenderRuntime } from './ui/logPanel.js';
 import { installAdviceRenderRuntime } from './ui/components/actionButton.js';
 
@@ -465,6 +466,17 @@ installAdventureHandbookRenderRuntime({
   },
 });
 document.documentElement.dataset.runeModuleStatus = 'adventure-handbook-render-ready';
+
+installCollectionRenderRuntime({
+  getState() { return window.state || {}; },
+  getEls() { return window.els || {}; },
+  buildCollectionSummary(state) {
+    return window.RuneFrontierCollectionRuntime?.buildCollectionSummary?.(state || window.state || {}) || {};
+  },
+  escapeHtml: window.escapeHtml,
+  formatNumber: window.formatNumber,
+});
+document.documentElement.dataset.runeModuleStatus = 'collection-render-ready';
 
 const taskRenderContext = { getState() { return window.state || {}; }, getEls() { return window.els || {}; }, escapeHtml: window.escapeHtml, formatNumber: window.formatNumber, normalizeDailyGoals: window.normalizeDailyGoals, achievementRewardText: window.achievementRewardText, questRewardText: window.questRewardText, getAchievementDb() { return window.ACHIEVEMENT_DB || []; }, getAchievementEntry: window.getAchievementEntry, };
 installTaskRenderRuntime(taskRenderContext);

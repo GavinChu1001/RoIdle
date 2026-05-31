@@ -13773,6 +13773,46 @@ button[data-map]:disabled {
   margin: 7px 0 4px;
 }
 
+.collection-page {
+  display: grid;
+  gap: 14px;
+}
+
+.collection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.collection-card {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid rgba(129, 92, 41, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 248, 226, 0.72);
+}
+
+.collection-card span,
+.collection-card small,
+.collection-note {
+  color: #75542f;
+}
+
+.collection-card strong {
+  color: #3b2615;
+  font-size: 26px;
+  line-height: 1;
+}
+
+.collection-note {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(129, 92, 41, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.48);
+}
+
 @media (max-width: 640px) {
   .handbook-rec-row,
   .handbook-goal-card {
