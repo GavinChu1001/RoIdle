@@ -52,9 +52,9 @@ export const ROUTE_SKILL_ENHANCEMENTS = Object.freeze(Object.fromEntries(
 
 function thresholds() {
   return Object.freeze({
-    refine10: Object.freeze({ id: 'refine10', enhanceTotal: 10, routeTier: 1, label: '一转技能联动', effects: Object.freeze({ skillDamageBonus: 0.02 }) }),
-    refine20: Object.freeze({ id: 'refine20', enhanceTotal: 20, routeTier: 2, label: '二转技能联动', effects: Object.freeze({ skillDamageBonus: 0.03 }) }),
-    refine30: Object.freeze({ id: 'refine30', enhanceTotal: 30, routeTier: 3, label: '三转技能联动', effects: Object.freeze({ skillDamageBonus: 0.04 }) }),
+    refine10: Object.freeze({ id: 'refine10', enhanceTotal: 10, routeTier: 1, label: '一转技能联动', effects: Object.freeze({ skillDamageBonus: 0.004 }) }),
+    refine20: Object.freeze({ id: 'refine20', enhanceTotal: 20, routeTier: 2, label: '二转技能联动', effects: Object.freeze({ skillDamageBonus: 0.005 }) }),
+    refine30: Object.freeze({ id: 'refine30', enhanceTotal: 30, routeTier: 3, label: '三转技能联动', effects: Object.freeze({ skillDamageBonus: 0.006 }) }),
   });
 }
 
@@ -81,44 +81,44 @@ function line(id, label, summaryName, mechanisms) {
 
 export const EQUIPMENT_SYNERGY_LINES = Object.freeze({
   oldWorld: line('oldWorld', '旧世共鸣', 'Old World Resonance', [
-    mechanism('fieldTraining', 4, '野外训练', '击杀节奏与前期生存提高。', { hp: 80, combatPaceBonus: 0.03 }, { earlySustain: 0.06 }),
-    mechanism('fieldTrainingUpgrade', 5, '野外训练+', '额外提高装备掉落与金币收益。', { equipmentDrop: 0.04, goldBonus: 0.04 }, { earlySustain: 0.04 }),
+    mechanism('fieldTraining', 4, '野外训练', '击杀节奏与前期生存提高。', { hp: 60, combatPaceBonus: 0.02 }, { earlySustain: 0.04 }),
+    mechanism('fieldTrainingUpgrade', 5, '野外训练+', '额外提高装备掉落与金币收益。', { equipmentDrop: 0.03, goldBonus: 0.03 }, { earlySustain: 0.025 }),
   ]),
   ancientHero: line('ancientHero', '古代英雄共鸣', 'Hero Resonance', [
-    mechanism('heroBurst', 4, '英雄爆发', '技能命中会积累英雄气势，周期性提高下一次伤害。', { finalDamageBonus: 0.02, skillDamageBonus: 0.04 }, { burstDamage: 0.18 }),
-    mechanism('heroBurstUpgrade', 5, '英雄爆发+', '爆发后的短时间内提高推进节奏。', { combatPaceBonus: 0.04, bossDamageBonus: 0.03 }, { burstDamage: 0.08 }),
+    mechanism('heroBurst', 4, '英雄爆发', '技能命中会积累英雄气势，周期性提高下一次伤害。', { finalDamageBonus: 0.015, skillDamageBonus: 0.03 }, { burstDamage: 0.08 }),
+    mechanism('heroBurstUpgrade', 5, '英雄爆发+', '爆发后的短时间内提高推进节奏。', { combatPaceBonus: 0.025, bossDamageBonus: 0.02 }, { burstDamage: 0.04 }),
   ]),
   os: line('os', 'OS 超频', 'OS Overclock', [
-    mechanism('osOverclock', 4, '自动超频', '普攻和技能交替时提高攻速与技能伤害。', { attackSpeedPct: 0.04, skillDamageBonus: 0.04 }, { cooldownHaste: 0.04 }),
-    mechanism('osOverclockUpgrade', 5, '自动超频+', '击杀后短暂提高装备掉落率。', { equipmentDrop: 0.05, rareDropBonus: 0.02 }, { killDropWindow: 0.10 }),
+    mechanism('osOverclock', 4, '自动超频', '普攻和技能交替时提高攻速与技能伤害。', { attackSpeedPct: 0.03, skillDamageBonus: 0.03 }, { cooldownHaste: 0.03 }),
+    mechanism('osOverclockUpgrade', 5, '自动超频+', '击杀后短暂提高装备掉落率。', { equipmentDrop: 0.035, rareDropBonus: 0.015 }, { killDropWindow: 0.05 }),
   ]),
   fides: line('fides', '信念誓约', 'Fides Conviction', [
-    mechanism('fidesConviction', 4, '信念誓约', '生命越稳定，最终伤害越高。', { finalDamageBonus: 0.03, damageReductionPct: 0.02 }, { highHpDamage: 0.10 }),
-    mechanism('fidesConvictionUpgrade', 5, '信念誓约+', 'Boss 战中额外提高伤害与减伤。', { bossDamageBonus: 0.05, bossDamageReduction: 0.03 }, { bossGuard: 0.06 }),
+    mechanism('fidesConviction', 4, '信念誓约', '生命越稳定，最终伤害越高。', { finalDamageBonus: 0.025, damageReductionPct: 0.018 }, { highHpDamage: 0.06 }),
+    mechanism('fidesConvictionUpgrade', 5, '信念誓约+', 'Boss 战中额外提高伤害与减伤。', { bossDamageBonus: 0.035, bossDamageReduction: 0.02 }, { bossGuard: 0.04 }),
   ]),
   glacier: line('glacier', '冰川回路', 'Glacier Circuit', [
-    mechanism('glacierCircuit', 4, '冰川回路', '连续战斗会逐步提高技能伤害。', { skillDamageBonus: 0.05, statusResist: 0.04 }, { rampSkillDamage: 0.12 }),
-    mechanism('glacierCircuitUpgrade', 5, '冰川回路+', '离线战斗也能保留部分回路效率。', { offlineEfficiencyBonus: 0.06, materialQuantityBonus: 0.04 }, { offlineRamp: 0.08 }),
+    mechanism('glacierCircuit', 4, '冰川回路', '连续战斗会逐步提高技能伤害。', { skillDamageBonus: 0.035, statusResist: 0.03 }, { rampSkillDamage: 0.06 }),
+    mechanism('glacierCircuitUpgrade', 5, '冰川回路+', '离线战斗也能保留部分回路效率。', { offlineEfficiencyBonus: 0.04, materialQuantityBonus: 0.03 }, { offlineRamp: 0.04 }),
   ]),
   poenitentia: line('poenitentia', '悔恨裁决', 'Poenitentia Verdict', [
-    mechanism('penitenceVerdict', 4, '悔恨裁决', '对高血量和低血量目标都有额外压制力。', { eliteDamageBonus: 0.04, bossDamageBonus: 0.04 }, { executeDamage: 0.10 }),
-    mechanism('penitenceVerdictUpgrade', 5, '悔恨裁决+', '精英和 Boss 掉落材料更稳定。', { materialQuantityBonus: 0.06, rareDropBonus: 0.03 }, { materialPityBonus: 0.10 }),
+    mechanism('penitenceVerdict', 4, '悔恨裁决', '对高血量和低血量目标都有额外压制力。', { eliteDamageBonus: 0.03, bossDamageBonus: 0.03 }, { executeDamage: 0.06 }),
+    mechanism('penitenceVerdictUpgrade', 5, '悔恨裁决+', '精英和 Boss 掉落材料更稳定。', { materialQuantityBonus: 0.04, rareDropBonus: 0.02 }, { materialPityBonus: 0.05 }),
   ]),
   goodEvil: line('goodEvil', '善恶审判', 'Good-Evil Judgment', [
-    mechanism('goodEvilJudgment', 4, '善恶审判', '伤害与防御在战斗中交替强化。', { finalDamageBonus: 0.035, damageReductionPct: 0.025 }, { stanceCycle: 0.12 }),
-    mechanism('goodEvilJudgmentUpgrade', 5, '善恶审判+', '切换姿态时触发额外技能伤害。', { skillDamageBonus: 0.05, bossDamageReduction: 0.03 }, { stanceBurst: 0.10 }),
+    mechanism('goodEvilJudgment', 4, '善恶审判', '伤害与防御在战斗中交替强化。', { finalDamageBonus: 0.025, damageReductionPct: 0.02 }, { stanceCycle: 0.07 }),
+    mechanism('goodEvilJudgmentUpgrade', 5, '善恶审判+', '切换姿态时触发额外技能伤害。', { skillDamageBonus: 0.035, bossDamageReduction: 0.02 }, { stanceBurst: 0.05 }),
   ]),
   nebula: line('nebula', '星云矩阵', 'Nebula Matrix', [
-    mechanism('nebulaMatrix', 4, '星云矩阵', '多段技能与暴击形成矩阵增幅。', { crit: 0.04, critDamageBonus: 0.08 }, { multihitBonus: 0.10, highTierDropBonus: 0.06 }),
-    mechanism('nebulaMatrixUpgrade', 5, '星云矩阵+', '矩阵稳定后提高高阶装备掉落。', { equipmentDrop: 0.06, highTierFind: 0.03 }, { highTierDropBonus: 0.10 }),
+    mechanism('nebulaMatrix', 4, '星云矩阵', '多段技能与暴击形成矩阵增幅。', { crit: 0.03, critDamageBonus: 0.05 }, { multihitBonus: 0.06, highTierDropBonus: 0.035 }),
+    mechanism('nebulaMatrixUpgrade', 5, '星云矩阵+', '矩阵稳定后提高高阶装备掉落。', { equipmentDrop: 0.04, highTierFind: 0.02 }, { highTierDropBonus: 0.045 }),
   ]),
   muqaddas: line('muqaddas', '莫卡迪斯圣域', 'Muqaddas Sanctuary', [
-    mechanism('muqaddasSanctuary', 4, '圣域庇护', '圣域提供持续减伤与反击窗口。', { damageReductionPct: 0.035, skillDamageBonus: 0.05 }, { sanctuaryCounter: 0.12 }),
-    mechanism('muqaddasSanctuaryUpgrade', 5, '圣域庇护+', 'Boss 战中延长反击窗口。', { bossDamageBonus: 0.06, bossDamageReduction: 0.04 }, { sanctuaryCounter: 0.08 }),
+    mechanism('muqaddasSanctuary', 4, '圣域庇护', '圣域提供持续减伤与反击窗口。', { damageReductionPct: 0.025, skillDamageBonus: 0.035 }, { sanctuaryCounter: 0.06 }),
+    mechanism('muqaddasSanctuaryUpgrade', 5, '圣域庇护+', 'Boss 战中延长反击窗口。', { bossDamageBonus: 0.035, bossDamageReduction: 0.025 }, { sanctuaryCounter: 0.04 }),
   ]),
   dimensional: line('dimensional', '次元冠冕', 'Dimensional Crown', [
-    mechanism('dimensionalCrown', 4, '次元冠冕', '技能冷却与最终伤害同时获得高阶压缩。', { finalDamageBonus: 0.05, skillDamageBonus: 0.06 }, { cooldownHaste: 0.06 }),
-    mechanism('dimensionalCrownUpgrade', 5, '次元冠冕+', '跨越次元后提高全部高阶资源收益。', { equipmentDrop: 0.08, rareDropBonus: 0.04, materialQuantityBonus: 0.08 }, { dimensionalEcho: 0.12 }),
+    mechanism('dimensionalCrown', 4, '次元冠冕', '技能冷却与最终伤害同时获得高阶压缩。', { finalDamageBonus: 0.04, skillDamageBonus: 0.04 }, { cooldownHaste: 0.04 }),
+    mechanism('dimensionalCrownUpgrade', 5, '次元冠冕+', '跨越次元后提高全部高阶资源收益。', { equipmentDrop: 0.05, rareDropBonus: 0.025, materialQuantityBonus: 0.05 }, { dimensionalEcho: 0.06 }),
   ]),
 });
 

@@ -39,6 +39,7 @@ const itemStatsSource = read('src/systems/equipment/itemStats.js');
 const itemNamingSource = read('src/systems/equipment/itemNaming.js');
 const itemScoreSource = read('src/systems/equipment/itemScore.js');
 const itemFactorySource = read('src/systems/equipment/itemFactory.js');
+const itemSynergySource = read('src/systems/equipment/itemSynergy.js');
 const equipmentCraftingSource = read('src/systems/equipment/crafting.js');
 const dismantleSource = read('src/systems/equipment/dismantle.js');
 const equipmentGrowthSource = read('src/systems/equipment/equipmentGrowth.js');
@@ -2268,10 +2269,40 @@ assert.match(characterPageSource, /技能回路/, 'Skill circuit UI text should 
 assert.match(skillMechanicsSource, /v3FinalCircuitBoost|finalCircuitBoost/, 'Final V3 circuit boost should remain wired.');
 const itemSynergy = await import('./../src/systems/equipment/itemSynergy.js');
 assert.equal(Object.keys(itemSynergy.EQUIPMENT_SYNERGY_LINES).length, 10, 'Equipment synergy must define one rule for every progression equipment line.');
+assert.match(itemSynergySource, /refine10/, 'Equipment synergy source must keep the refine10 enhance-total milestone id.');
+assert.match(itemSynergySource, /refine20/, 'Equipment synergy source must keep the refine20 enhance-total milestone id.');
+assert.match(itemSynergySource, /refine30/, 'Equipment synergy source must keep the refine30 enhance-total milestone id.');
+assert.doesNotMatch(itemSynergySource, /lineMastery/i, 'Equipment synergy must not use line mastery as a linkage condition.');
+assert.doesNotMatch(itemSynergySource, /abyssTemperingLevel/, 'Equipment synergy must not use abyss tempering as a linkage condition.');
+assert.match(itemSynergySource, /ancientHero[\s\S]*heroBurst/, 'Ancient Hero synergy must keep heroBurst as its core mechanism.');
+assert.match(itemSynergySource, /os[\s\S]*osOverclock/, 'OS synergy must keep osOverclock as its core mechanism.');
 assert.ok(itemSynergy.EQUIPMENT_SYNERGY_LINES.ancientHero, 'Ancient Hero synergy line must exist.');
 assert.equal(itemSynergy.EQUIPMENT_SYNERGY_LINES.ancientHero.thresholds.refine10.routeTier, 1, 'Refine +10 must unlock first-job route enhancement.');
 assert.equal(itemSynergy.EQUIPMENT_SYNERGY_LINES.ancientHero.thresholds.refine20.routeTier, 2, 'Refine +20 must unlock second-job route enhancement.');
 assert.equal(itemSynergy.EQUIPMENT_SYNERGY_LINES.ancientHero.thresholds.refine30.routeTier, 3, 'Refine +30 must unlock third-job route enhancement.');
+for (const [series, line] of Object.entries(itemSynergy.EQUIPMENT_SYNERGY_LINES)) {
+  const capState = {
+    inventory: ['w', 'a', 'h', 's', 't'].map((slot, index) => ({
+      id: `${series}-${slot}`,
+      series,
+      enhanceLevel: 6,
+      upgradeStage: 2,
+      slot,
+      refine: 99 + index,
+    })),
+    equipped: {
+      weapon: `${series}-w`,
+      armor: `${series}-a`,
+      headgear: `${series}-h`,
+      shoes: `${series}-s`,
+      trinket: `${series}-t`,
+    },
+    hero: { jobId: 'runeKnight', jobHistory: ['novice', 'swordman', 'knight', 'runeKnight'] },
+  };
+  const capped = itemSynergy.computeEquipmentSynergies(capState);
+  assert.ok((capped.stats.finalDamageBonus || 0) <= 0.05, `${line.summaryName} final damage synergy must stay at or below 0.05.`);
+  assert.ok((capped.stats.skillDamageBonus || 0) <= 0.06, `${line.summaryName} skill damage synergy must stay at or below 0.06.`);
+}
 const synergyState = {
   inventory: [
     { id: 'w', series: 'ancientHero', refine: 99, enhanceLevel: 8, upgradeStage: 2 },
