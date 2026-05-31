@@ -1489,6 +1489,26 @@ const makeCraftContext = (state, overrides = {}) => ({
   assert.equal(state.inventory[0], result.item, 'Successful crafting should add the item to the front of inventory.');
 }
 {
+  const state = makeCraftState({
+    production: {
+      crafting: { level: 81, exp: 'bad', totalCrafts: 'bad', masterCrafts: 'bad' },
+      blueprints: { known: ['ancientHero_weapon_mythic'], fragments: {} },
+    },
+  });
+  const context = makeCraftContext(state, {
+    addCraftingExperience: undefined,
+    createItem: (template) => ({ id: 'crafted-mythic-fallback', templateId: template.id, rarity: 'mythic' }),
+  });
+  const result = equipmentCrafting.craftEquipment(mythicCraftRequest, context);
+  assert.equal(result.ok, true, 'Mythic craft should succeed with corrupted fallback counters.');
+  assert.equal(Number.isFinite(state.production.crafting.masterCrafts), true, 'Fallback masterCrafts should remain finite.');
+  assert.equal(Number.isFinite(state.production.crafting.totalCrafts), true, 'Fallback totalCrafts should remain finite.');
+  assert.equal(Number.isFinite(state.production.crafting.exp), true, 'Fallback crafting exp should remain finite.');
+  assert.equal(state.production.crafting.masterCrafts, 1, 'Fallback mythic craft should sanitize masterCrafts to one.');
+  assert.equal(state.production.crafting.totalCrafts, 1, 'Fallback mythic craft should sanitize totalCrafts to one.');
+  assert.ok(state.production.crafting.exp > 0, 'Fallback mythic craft should sanitize and add crafting exp.');
+}
+{
   const rareRecipe = equipmentCrafting.getEquipmentCraftingRecipe({ series: 'ancientHero', slot: 'weapon', rarity: 'rare' });
   const successState = { gold: rareRecipe.gold, materials: makeCraftMaterials(rareRecipe), inventory: [] };
   const successCheck = equipmentCrafting.canCraftEquipment({ series: 'ancientHero', slot: 'weapon', rarity: 'rare' }, { getState: () => successState });
@@ -1525,6 +1545,16 @@ const makeCraftContext = (state, overrides = {}) => ({
   assert.equal(highLevelCorruptState.gold, 'bad', 'Failed corrupted craft should not turn gold into NaN.');
   assert.ok(Object.values(highLevelCorruptState.materials).every((value) => value === 'bad'), 'Failed corrupted craft should not turn materials into NaN.');
   assert.equal(highLevelCorruptState.inventory.length, 0, 'Failed corrupted craft should not add inventory.');
+  const materialOnlyCorruptState = {
+    gold: highLevelCorruptRecipe.gold,
+    materials: Object.fromEntries(Object.keys(highLevelCorruptRecipe.materials).map((id) => [id, 'bad'])),
+    inventory: [],
+    production: { crafting: { level: 99, exp: 0, totalCrafts: 0, masterCrafts: 0 }, blueprints: { known: [], fragments: {} } },
+  };
+  const materialOnlyResult = equipmentCrafting.craftEquipment({ series: 'ancientHero', slot: 'weapon', rarity: 'rare' }, makeCraftContext(materialOnlyCorruptState));
+  assert.equal(materialOnlyResult.ok, false, 'Corrupted non-numeric materials should block craft even with valid gold and level.');
+  assert.equal(materialOnlyResult.reason, 'not_affordable', 'Corrupted non-numeric materials should report not_affordable.');
+  assert.equal(materialOnlyCorruptState.inventory.length, 0, 'Material-only corrupted craft should not add inventory.');
 }
 {
   const osCraftRequest = { series: 'os', growthTier: 'T3', slot: 'weapon', archetype: 'physical', rarity: 'rare' };

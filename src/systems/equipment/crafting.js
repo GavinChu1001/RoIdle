@@ -247,14 +247,14 @@ export function craftEquipment(request = {}, context = {}) {
 
   const production = ensureProduction(state);
   if (['darkGold', 'mythic'].includes(recipe.rarity)) {
-    production.crafting.masterCrafts = Math.max(0, Math.floor(Number(production.crafting.masterCrafts || 0))) + 1;
+    production.crafting.masterCrafts = Math.max(0, Math.floor(finite(production.crafting.masterCrafts, 0))) + 1;
   }
   const handledExperience = typeof context.addCraftingExperience === 'function'
     ? context.addCraftingExperience(production, recipe.exp)
     : false;
   if (!handledExperience) {
-    production.crafting.totalCrafts = Math.max(0, Math.floor(Number(production.crafting.totalCrafts || 0))) + 1;
-    production.crafting.exp = Math.max(0, Math.floor(Number(production.crafting.exp || 0))) + recipe.exp;
+    production.crafting.totalCrafts = Math.max(0, Math.floor(finite(production.crafting.totalCrafts, 0))) + 1;
+    production.crafting.exp = Math.max(0, Math.floor(finite(production.crafting.exp, 0))) + recipe.exp;
   }
 
   context.recordEquipmentResearch?.(item, recipe);
