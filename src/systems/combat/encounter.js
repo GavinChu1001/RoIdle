@@ -1,4 +1,4 @@
-import { buildMonsterStats, configureMonsterContext, currentDifficultyConfig, getMonsterTemplate, getMapLevelRange, pickMonsterTemplate, rollMonsterLevel, rollMonsterMutation } from './monster.js';
+import { buildMonsterStats, configureMonsterContext, currentDifficultyConfig, getMonsterTemplate, getMapLevelRange, isEarlyGrassProtectionActive, pickMonsterTemplate, rollMonsterLevel, rollMonsterMutation } from './monster.js';
 import { normalizeDamage } from './damage.js';
 import { resetEnemySkillStatuses } from './skillMechanics.js';
 
@@ -57,6 +57,7 @@ export function configureEncounterContext(context = {}) {
 export function getEncounterSize(isBoss = false, context = encounterContext) {
   const state = context.getState?.() || {};
   if (isBoss) return 1;
+  if (isEarlyGrassProtectionActive(context.currentMap?.(), context)) return 1;
   if (state.currentDifficulty === 'abyss') return randomIntVal(2, 5, context);
   if (state.currentDifficulty === 'hard') return randomIntVal(2, 4, context);
   return randomIntVal(1, 3, context);
@@ -74,7 +75,7 @@ export function getEncounterLabel(monsters = [], context = encounterContext) {
 
 export function createEncounterMonster(map, isBoss = false, context = encounterContext) {
   const template = pickMonsterTemplate(map, isBoss, context);
-  const mutationId = isBoss ? '' : (rollMonsterMutation(null, context)?.id || '');
+  const mutationId = isBoss || isEarlyGrassProtectionActive(map, context) ? '' : (rollMonsterMutation(null, context)?.id || '');
   const level = rollMonsterLevel(map, isBoss, template, context);
   const monster = buildMonsterStats(map, isBoss, level, template, mutationId, context);
   return {
@@ -87,7 +88,7 @@ export function createEncounterMonster(map, isBoss = false, context = encounterC
 }
 
 export function createEnemyGroup(map, isBoss = false, context = encounterContext) {
-  const size = getEncounterSize(isBoss, context);
+  const size = isEarlyGrassProtectionActive(map, context) ? 1 : getEncounterSize(isBoss, context);
   const monsters = Array.from({ length: size }, () => createEncounterMonster(map, isBoss, context));
   const label = isBoss ? '首领遭遇' : getEncounterLabel(monsters, context);
   return { label, activeIndex: 0, monsters };
@@ -233,14 +234,18 @@ export function applySplashDamageToEncounter(baseDamage, stats = {}) {
   if (!group?.monsters?.length) return;
   const splashDamage = normalizeDamage(baseDamage * ratio);
   if (splashDamage <= 0) return;
+  let totalSplashDamage = 0;
   group.monsters
     .map((monster, index) => ({ monster, index }))
     .filter((entry) => entry.index !== group.activeIndex && entry.monster.alive)
     .slice(0, targets)
     .forEach(({ monster }) => {
-      monster.currentHp = Math.max(1, Number(monster.currentHp || monster.maxHp || 1) - splashDamage);
+      const before = Number(monster.currentHp || monster.maxHp || 1);
+      monster.currentHp = Math.max(1, before - splashDamage);
+      totalSplashDamage += Math.max(0, before - monster.currentHp);
       monster.alive = monster.currentHp > 0;
     });
+  encounterContext.recordSkillDamage?.('溅射', totalSplashDamage);
   encounterContext.showDamageNumber?.('monster', splashDamage, 'skill', { skillName: '溅射' });
 }
 
@@ -250,11 +255,16 @@ export function applySkillSplashDamageToEncounter(splashDamage, skillName = '技
   updateActiveEnemyHpInGroup(encounterContext);
   const group = state.enemyGroup;
   if (!group?.monsters?.length) return;
+  const amount = Number(splashDamage || 0);
+  let totalSplashDamage = 0;
   group.monsters
     .filter((monster, index) => index !== group.activeIndex && monster.alive)
     .forEach((monster) => {
-      monster.currentHp = Math.max(1, Number(monster.currentHp || monster.maxHp || 1) - Number(splashDamage || 0));
+      const before = Number(monster.currentHp || monster.maxHp || 1);
+      monster.currentHp = Math.max(1, before - amount);
+      totalSplashDamage += Math.max(0, before - monster.currentHp);
       monster.alive = monster.currentHp > 0;
     });
+  encounterContext.recordSkillDamage?.(skillName, totalSplashDamage);
   encounterContext.showDamageNumber?.('monster', splashDamage, 'skill', { skillName });
 }

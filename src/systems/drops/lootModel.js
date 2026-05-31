@@ -89,6 +89,7 @@ export function normalizeLootRewards(input = {}, context = runtimeContext) {
     gold: finite(base.gold ?? source.gold),
     baseExp: finite(base.baseExp ?? source.baseExp ?? source.exp),
     jobExp: finite(base.jobExp ?? source.jobExp),
+    mvpInscriptionExp: finite(base.mvpInscriptionExp ?? source.mvpInscriptionExp),
     killCount: finite(base.killCount ?? source.killCount ?? source.kills),
     kills: finite(base.killCount ?? source.killCount ?? source.kills),
     equipments: allEquipment,
@@ -117,6 +118,7 @@ export function mergeLootRewards(rewardList = [], context = runtimeContext) {
     merged.gold += rewards.gold;
     merged.baseExp += rewards.baseExp;
     merged.jobExp += rewards.jobExp;
+    merged.mvpInscriptionExp += rewards.mvpInscriptionExp;
     merged.killCount += rewards.killCount;
     merged.kills = merged.killCount;
     merged.equipment.push(...rewards.equipment);

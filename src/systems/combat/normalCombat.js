@@ -27,6 +27,7 @@ export function updateCombat(dt, context = runtimeContext) {
   if (finite(state.enemyHp) <= 0 || finite(state.enemyMaxHp) <= 0) context.spawnEnemy?.(false);
 
   const stats = context.computeStats?.() || {};
+  if (context.resetUnsafeEarlyEncounter?.(stats)) return true;
   const now = Date.now();
   if (now - lastAutoBossAttemptTime >= AUTO_BOSS_ATTEMPT_INTERVAL_MS) {
     lastAutoBossAttemptTime = now;
@@ -98,7 +99,7 @@ export function updateCombat(dt, context = runtimeContext) {
     for (let hit = 0; hit < attacks && state.enemyHp > 0; hit += 1) {
       // 隐匿在 V4 中强化下一次主动技能，不由普通攻击消费。
       const isCrit = context.random?.() < critChance;
-      const targetBonus = getTargetDamageBonus(stats, {}, context);
+      const targetBonus = getTargetDamageBonus(stats, { damageType: 'physical' }, context);
       const monsterGuard = Math.min(0.65, finite(context.currentMonsterStats?.().damageReduction));
       let critDamageMult = isCrit ? (finite(stats.critDamage) || 1.85) : 1;
       if (isCrit && v3Passive.critDamageBonus) critDamageMult += v3Passive.critDamageBonus;
@@ -124,9 +125,19 @@ export function updateCombat(dt, context = runtimeContext) {
       context.showDamageNumber?.('monster', adjustedDamage, isCrit ? 'crit' : 'player');
       context.showHitFeedback?.(isCrit ? 'crit' : 'normal');
       context.applySplashDamageToEncounter?.(adjustedDamage, stats);
+      const splashRatio = finite(stats.splashDamagePct);
+      const hasSplash = finite(stats.splashTargets) > 0 && splashRatio > 0;
+      const livingAdds = (state.enemyGroup?.monsters || []).filter((entry, index) => index !== state.enemyGroup?.activeIndex && entry.alive).length;
+      if (hasSplash && state.enemyHp > 0 && (state.enemyBoss || livingAdds <= 0)) {
+        const convertedSplash = normalizeDamage(adjustedDamage * Math.min(0.35, splashRatio * 0.45));
+        state.enemyHp -= convertedSplash;
+        context.recordSkillDamage?.('溅射转化', convertedSplash);
+        context.showDamageNumber?.('monster', convertedSplash, 'skill', { skillName: '溅射转化' });
+      }
       if (stats.fireBurstChance && context.random?.() < stats.fireBurstChance && state.enemyHp > 0) {
         const burstDamage = normalizeDamage(finite(stats.physicalAttack) * finite(stats.fireBurstAtkPct || 0.8) * (1 + targetBonus) * (1 - monsterGuard));
         state.enemyHp -= burstDamage;
+        context.recordSkillDamage?.('火焰爆发', burstDamage);
         context.showDamageNumber?.('monster', burstDamage, 'skill', { skillName: '火焰爆发' });
         context.showSkillCastFeedback?.('火焰爆发');
       }
@@ -156,12 +167,16 @@ export function updateCombat(dt, context = runtimeContext) {
 export function updateRecovery(dt, context = runtimeContext) {
   const state = stateFrom(context);
   const stats = context.computeStats?.() || {};
-  if (finite(state.hero?.currentHp) >= finite(stats.maxHp)) return false;
-  state.regenTimer = finite(state.regenTimer) + finite(dt);
-  if (state.regenTimer < finite(context.getHpRegenInterval?.())) return false;
-  state.regenTimer = 0;
+  const maxHp = finite(stats.maxHp);
   const before = finite(state.hero?.currentHp);
-  state.hero.currentHp = Math.min(finite(stats.maxHp), before + finite(stats.hpRegen));
+  if (before >= maxHp) return false;
+  state.regenTimer = finite(state.regenTimer) + finite(dt);
+  const interval = Math.max(0.001, finite(context.getHpRegenInterval?.()));
+  if (state.regenTimer < interval) return false;
+  const ticks = Math.floor(state.regenTimer / interval);
+  state.regenTimer %= interval;
+  state.hero.currentHp = Math.min(maxHp, before + finite(stats.hpRegen) * ticks);
+  if (state.hero.currentHp >= maxHp) state.regenTimer = 0;
   const healed = Math.round(state.hero.currentHp - before);
   if (healed > 0) {
     context.showDamageNumber?.('hero', healed, 'heal');
@@ -179,8 +194,22 @@ export function updateMonsterAttack(dt, stats = {}, context = runtimeContext, v3
       (1 + finite(stats.setBonuses?.monsterAttackSpeedReductionPct)) *
       (finite(state.enemyMarks?.freeze) > 0 ? 1.43 : 1) // 冰冻：攻速 -30% ≈ 间隔 +43%
   );
-  if (state.enemyAttackTimer < interval) return false;
+  if (state.enemyAttackTimer < interval) {
+    const progress = interval > 0 ? state.enemyAttackTimer / interval : 0;
+    const warningAt = state.enemyBoss ? 0.58 : 0.72;
+    if (progress >= warningAt && !state.enemyAttackWarningShown) {
+      state.enemyAttackWarningShown = true;
+      context.showEnemyAttackWarning?.({
+        boss: Boolean(state.enemyBoss),
+        kind: state.enemyBoss ? 'boss' : 'normal',
+        progress,
+        interval,
+      });
+    }
+    return false;
+  }
   state.enemyAttackTimer = 0;
+  state.enemyAttackWarningShown = false;
   const monster = context.currentMonsterStats?.() || {};
   if (finite(state.invincibleTimer) > 0) {
     context.showDamageNumber?.('hero', 0, 'miss');
@@ -196,9 +225,10 @@ export function updateMonsterAttack(dt, stats = {}, context = runtimeContext, v3
   }
   const effectiveCritChance = finite(monster.critChance) * (1 - Math.min(0.75, finite(stats.statusResist) * 0.5));
   const isCrit = context.random?.() < effectiveCritChance;
+  const isBlocked = !isCrit && context.random?.() < Math.min(0.45, finite(stats.blockRate));
   const hpRatio = finite(state.hero?.currentHp || stats.maxHp) / Math.max(1, finite(stats.maxHp));
   const livingCount = Math.max(1, (state.enemyGroup?.monsters || []).filter((entry) => entry.alive).length || 1);
-  const { damage } = calculateMonsterHit({ stats, monster, hpRatio, livingCount, isCrit });
+  const { damage } = calculateMonsterHit({ stats, monster, hpRatio, livingCount, isCrit, isBlocked });
   let finalDamage = damage;
   // V3 被动：减伤
   if (v3Passive.damageReductionPct) finalDamage = Math.round(finalDamage * (1 - v3Passive.damageReductionPct));
@@ -207,7 +237,14 @@ export function updateMonsterAttack(dt, stats = {}, context = runtimeContext, v3
     finalDamage = window.RuneFrontierCombatRuntime.applyShieldReduction(finalDamage, state);
   }
   state.hero.currentHp = Math.max(0, finite(state.hero?.currentHp || stats.maxHp) - finalDamage);
-  context.showDamageNumber?.('hero', damage, isCrit ? 'crit' : 'monster');
+  context.showEnemyAttackImpact?.({
+    boss: Boolean(state.enemyBoss),
+    kind: state.enemyBoss ? 'boss' : isCrit ? 'crit' : isBlocked ? 'block' : 'normal',
+    critical: isCrit,
+    blocked: isBlocked,
+    damage: finalDamage,
+  });
+  context.showDamageNumber?.('hero', finalDamage, isCrit ? 'crit' : isBlocked ? 'block' : 'monster');
   context.flashPlayerHp?.();
   if (state.enemyHp > 0 && finite(stats.thornVitMultiplier) > 0) {
     const thornDamage = normalizeDamage(finite(stats.attrs?.vit) * finite(stats.thornVitMultiplier));
@@ -217,9 +254,11 @@ export function updateMonsterAttack(dt, stats = {}, context = runtimeContext, v3
   if (state.enemyHp > 0 && stats.meteorCounterChance && context.random?.() < stats.meteorCounterChance) {
     const meteorDamage = normalizeDamage(finite(stats.magicAttack || stats.matkPower) * finite(stats.meteorCounterMatkPct || 1));
     state.enemyHp -= meteorDamage;
+    context.recordSkillDamage?.('陨石反击', meteorDamage);
     context.showDamageNumber?.('monster', meteorDamage, 'skill', { skillName: '陨石反击' });
     context.showSkillCastFeedback?.('陨石反击');
   }
+  if (state.hero.currentHp <= 0 && context.maybeAutoUsePotion?.(stats)) return true;
   if (state.hero.currentHp <= 0) {
     // V3 霸体
     if (v3Passive.deathDefyReady && finite(state.deathDefyCooldown) <= 0) {

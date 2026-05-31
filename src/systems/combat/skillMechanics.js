@@ -2,27 +2,115 @@
 // Skill Mechanics Engine
 
 let mechContext = {};
+const MIN_ACTIVE_SKILL_COOLDOWN = 3.6;
 
 function finite(v) { const n = Number(v || 0); return Number.isFinite(n) ? n : 0; }
 function random(ctx = mechContext) { return ctx.random?.() ?? Math.random(); }
 function stateFrom(ctx = mechContext) { return ctx.getState?.() || {}; }
+
+function getEquipmentSkillEnhancement(skill, stats = {}) {
+  const result = { multiplierBonus: 0, cooldownMultiplier: 1, healBonus: 0 };
+  const entries = stats.equipmentSynergies?.skillEnhancements;
+  if (!skill?.name || !Array.isArray(entries)) return result;
+  entries.forEach((entry) => {
+    const skillNames = Array.isArray(entry?.skillNames) ? entry.skillNames : [];
+    if (!skillNames.includes(skill.name)) return;
+    result.multiplierBonus += finite(entry.multiplierBonus);
+    const cooldownMultiplier = Number(entry.cooldownMultiplier);
+    if (Number.isFinite(cooldownMultiplier) && cooldownMultiplier > 0) {
+      result.cooldownMultiplier *= cooldownMultiplier;
+    }
+    result.healBonus += finite(entry.healBonus);
+  });
+  return result;
+}
+
+function applyEquipmentSkillHealBonus(mechanism, enhancement) {
+  if (!finite(enhancement.healBonus)) return mechanism;
+  const next = { ...mechanism };
+  if (next.hpPct) next.hpPct = finite(next.hpPct) * (1 + finite(enhancement.healBonus));
+  if (next.healRatio) next.healRatio = finite(next.healRatio) * (1 + finite(enhancement.healBonus));
+  return next;
+}
+
+function equipmentTraitEffects(stats = {}) {
+  return stats.equipmentTraitEffects && typeof stats.equipmentTraitEffects === 'object'
+    ? stats.equipmentTraitEffects
+    : {};
+}
+
+function circuitValueMultiplier(stats = {}) {
+  return 1 + finite(equipmentTraitEffects(stats).v3CircuitEffectBonus);
+}
+
+function unlockedCircuitsFor(skill, ctx = mechContext) {
+  return ctx.getUnlockedSkillCircuits?.(skill) || [];
+}
+
+function circuitStatsFor(skill, ctx = mechContext, stats = {}) {
+  const result = {};
+  const multiplier = circuitValueMultiplier(stats);
+  unlockedCircuitsFor(skill, ctx).forEach((node) => {
+    Object.entries(node.stats || {}).forEach(([key, value]) => {
+      result[key] = finite(result[key]) + finite(value) * multiplier;
+    });
+  });
+  return result;
+}
+
+function boostCircuitEffect(effect = {}, stats = {}) {
+  const multiplier = circuitValueMultiplier(stats);
+  const finalMultiplier = 1 + finite(equipmentTraitEffects(stats).v3FinalCircuitEffectBonus);
+  const next = { ...effect };
+  ['chance', 'multiplier', 'ignoreDefense', 'ratio'].forEach((key) => {
+    if (next[key]) next[key] = finite(next[key]) * multiplier;
+  });
+  if (next.type === 'finalCircuitBoost' && next.multiplier) {
+    next.multiplier = finite(next.multiplier) * finalMultiplier;
+  }
+  return next;
+}
+
+function circuitEffectsFor(skill, ctx = mechContext, stats = {}) {
+  return unlockedCircuitsFor(skill, ctx)
+    .map((node) => node.effect)
+    .filter(Boolean)
+    .map((effect) => boostCircuitEffect(effect, stats));
+}
 
 export function configureSkillMechanicsContext(ctx = {}) {
   mechContext = ctx || {};
 }
 
 // ── 伤害计算 ──
-// V4 统一公式：技能伤害 = 攻击力 × 技能总倍率 × 暴击期望修正 × 怪物减伤修正
+// V4 统一公式：技能伤害 = 攻击力 × 技能总倍率 × 暴击期望修正 × 通用伤害加成 × 怪物减伤修正
 
-function calcSkillDamage(source, multiplier, stats, monster, ctx = mechContext) {
+function damageTypeFromMechanism(mechanism = {}) {
+  return mechanism.stat === 'matk' ? 'magic' : 'physical';
+}
+
+function calcSkillDamage(source, multiplier, stats, monster, ctx = mechContext, mechanism = {}) {
   const critRate = Math.min(1.0, finite(stats.crit) || 0);
   const critExpectation = 1 + critRate * 0.35;
   const monsterGuard = Math.min(0.65, finite(monster.damageReduction) || 0);
   const state = stateFrom(ctx);
+  const targetDamageBonus = ctx.getTargetDamageBonus || mechContext.getTargetDamageBonus;
+  const targetBonus = typeof targetDamageBonus === 'function'
+    ? targetDamageBonus(stats, {
+      monster,
+      isBoss: Boolean(state.enemyBoss || monster.type === 'boss'),
+      difficulty: state.currentDifficulty,
+      enemyHp: state.enemyHp,
+      enemyMaxHp: state.enemyMaxHp,
+      damageType: mechanism.damageType || damageTypeFromMechanism(mechanism),
+    }, ctx)
+    : 0;
+  const armorBreakBonus = finite(state.v3ArmorBreakTimer) > 0 ? finite(state.v3ArmorBreakIgnoreDefense) : 0;
+  const skillDamageMultiplier = 1 + finite(targetBonus) + finite(stats.skillDamageBonus) + armorBreakBonus;
   const passive = getPassiveMechanismEffects(state, stats, ctx);
   const passiveDamageMultiplier = (1 + finite(passive.damagePct)) *
     (hasMark(state, 'any') ? (1 + finite(passive.markedVulnerablePct)) : 1);
-  const dmg = finite(source) * finite(multiplier) * critExpectation * (1 - monsterGuard) * passiveDamageMultiplier;
+  const dmg = finite(source) * finite(multiplier) * critExpectation * skillDamageMultiplier * (1 - monsterGuard) * passiveDamageMultiplier;
   return ctx.normalizeDamage?.(dmg) || Math.max(0, Math.round(dmg));
 }
 
@@ -33,9 +121,21 @@ export function formatSkillPower(value) {
   return n.toFixed(2).replace(/\.?0+$/, '');
 }
 
-function applyDamage(damage, state, ctx = mechContext) {
+function skillNameForDamage(skillOrName) {
+  if (typeof skillOrName === 'string') return skillOrName;
+  return skillOrName?.skillName || skillOrName?.name || '';
+}
+
+function recordSkillDamage(ctx, name, damage) {
+  const recorder = ctx.recordSkillDamage || mechContext.recordSkillDamage;
+  recorder?.(name, damage);
+}
+
+function applyDamage(damage, state, ctx = mechContext, skillOrName = '') {
+  const skillName = skillNameForDamage(skillOrName);
   state.enemyHp -= damage;
-  ctx.showDamageNumber?.('monster', damage, 'skill');
+  recordSkillDamage(ctx, skillName, damage);
+  ctx.showDamageNumber?.('monster', damage, 'skill', { skillName });
   ctx.showHitFeedback?.('skill');
 }
 
@@ -181,6 +281,7 @@ function tickMarks(state, dt, stats, ctx = mechContext) {
         const dmg = Math.max(0, Math.round(source * tickPct * poisonStacks * burnRamp * (1 - monsterGuard)));
         if (dmg > 0) {
           state.enemyHp -= dmg;
+          recordSkillDamage(ctx, key === 'burn' ? '灼烧' : '中毒', dmg);
           ctx.showDamageNumber?.('monster', dmg, 'skill', { skillName: key === 'burn' ? '灼烧' : '中毒' });
         }
         if (key === 'burn' && finite(marks._burnRampPerSecond) > 0) marks._burnTicks = finite(marks._burnTicks) + 1;
@@ -198,8 +299,8 @@ function tickZones(state, dt, stats, ctx = mechContext) {
     if (zone.remaining > 0 && zone.tickTimer <= 0) {
       zone.tickTimer = 1.0; // tick every second
       const source = getSkillSource(zone, stats, state);
-      const dmg = calcSkillDamage(source, zone.perTick, stats, ctx.currentMonsterStats?.() || {}, ctx);
-      applyDamage(dmg, state, ctx);
+      const dmg = calcSkillDamage(source, zone.perTick, stats, ctx.currentMonsterStats?.() || {}, ctx, zone);
+      applyDamage(dmg, state, ctx, zone);
       ctx.showSkillCastFeedback?.({ name: zone.name });
       const defaultMarkDuration = zone.mark === 'burn' ? 5 : zone.mark === 'poison' ? 6 : 3;
       if (zone.mark) applyMark(state, zone.mark, zone.markDuration || defaultMarkDuration, {
@@ -229,6 +330,10 @@ function tickCooldowns(state, dt) {
     if (cds[key] > 0) cds[key] = Math.max(0, cds[key] - dt);
   });
   state.deathDefyCooldown = Math.max(0, finite(state.deathDefyCooldown) - dt);
+  state.v3ArmorBreakTimer = Math.max(0, finite(state.v3ArmorBreakTimer) - dt);
+  if (state.v3ArmorBreakTimer <= 0) state.v3ArmorBreakIgnoreDefense = 0;
+  state.v3FinalCircuitBoostTimer = Math.max(0, finite(state.v3FinalCircuitBoostTimer) - dt);
+  if (state.v3FinalCircuitBoostTimer <= 0) state.v3FinalCircuitBoost = 0;
 }
 
 function hasBuff(state, buffId) {
@@ -347,8 +452,9 @@ function executeMultihit(mechanism, skill, state, stats, monster, ctx) {
       stats,
       monster,
       ctx,
+      mechanism,
     );
-    applyDamage(finalDmg, state, ctx);
+    applyDamage(finalDmg, state, ctx, skill);
     if (isCrit) ctx.showHitFeedback?.('crit');
 
     // 伤口叠加（十字斩）
@@ -375,6 +481,7 @@ function executeMultihit(mechanism, skill, state, stats, monster, ctx) {
       stats,
       monster,
       ctx,
+      mechanism,
     );
     ctx.applySkillSplashDamageToEncounter?.(splashDmg, skill.name);
   }
@@ -383,8 +490,8 @@ function executeMultihit(mechanism, skill, state, stats, monster, ctx) {
   const bounceHits = mechanism.bounceHits || mechanism.bounce || 0;
   if (bounceHits) {
     for (let b = 0; b < bounceHits; b++) {
-      const bounceDmg = calcSkillDamage(source, (mechanism.bounceMultiplierPerHit || mechanism.bounceMultiplier || 0.45) * skillEnhancement.multiplier, stats, monster, ctx);
-      applyDamage(bounceDmg, state, ctx);
+      const bounceDmg = calcSkillDamage(source, (mechanism.bounceMultiplierPerHit || mechanism.bounceMultiplier || 0.45) * skillEnhancement.multiplier, stats, monster, ctx, mechanism);
+      applyDamage(bounceDmg, state, ctx, skill);
     }
   }
 
@@ -404,10 +511,10 @@ function executeMultihit(mechanism, skill, state, stats, monster, ctx) {
 function executeSingleHit(mechanism, skill, state, stats, monster, ctx) {
   const skillEnhancement = consumeSkillDamageEnhancement(state, skill, ctx);
   const stat = getSkillSource(mechanism, stats, state);
-  const dmg = calcSkillDamage(stat, (mechanism.multiplier || 1.0) * skillEnhancement.multiplier, stats, monster, ctx);
+  const dmg = calcSkillDamage(stat, (mechanism.multiplier || 1.0) * skillEnhancement.multiplier, stats, monster, ctx, mechanism);
   ctx.showSkillCastFeedback?.(skill);
   ctx.addLog?.(`${skill.name} 造成 ${ctx.formatNumber?.(dmg) || dmg} 点伤害。`);
-  applyDamage(dmg, state, ctx);
+  applyDamage(dmg, state, ctx, skill);
 
   const oppositeMark = mechanism.mark?.type === 'burn' ? 'freeze' : mechanism.mark?.type === 'freeze' ? 'burn' : '';
   const resonanceWasReady = oppositeMark ? hasMark(state, oppositeMark) : false;
@@ -421,7 +528,7 @@ function executeSingleHit(mechanism, skill, state, stats, monster, ctx) {
     if (resonance) {
       if (resonanceWasReady) {
         const resonanceDmg = Math.round(dmg * (resonance.multiplier - 1));
-        applyDamage(resonanceDmg, state, ctx);
+        applyDamage(resonanceDmg, state, ctx, { name: '元素共鸣' });
         ctx.showSkillCastFeedback?.({ name: '元素共鸣' });
         ctx.addLog?.('⚡元素共鸣触发！');
         state.resonanceTriggered = true;
@@ -468,8 +575,8 @@ function executeFinisher(mechanism, skill, state, stats, monster, ctx) {
   if (!snareMultiplier && (threshold <= 0 || hpRatio > threshold)) {
     // Above threshold: use base multiplier
     const source = getSkillSource(mechanism, stats, state);
-    const dmg = calcSkillDamage(source, baseMultiplier * skillEnhancement.multiplier, stats, monster, ctx);
-    applyDamage(dmg, state, ctx);
+    const dmg = calcSkillDamage(source, baseMultiplier * skillEnhancement.multiplier, stats, monster, ctx, mechanism);
+    applyDamage(dmg, state, ctx, skill);
     ctx.showSkillCastFeedback?.(skill);
     ctx.addLog?.(`${skill.name} 造成 ${ctx.formatNumber?.(dmg) || dmg} 点伤害。`);
     return true;
@@ -481,7 +588,7 @@ function executeFinisher(mechanism, skill, state, stats, monster, ctx) {
   }
 
   const source = getSkillSource(mechanism, stats, state);
-  let dmg = calcSkillDamage(source, mult * skillEnhancement.multiplier, stats, monster, ctx);
+  let dmg = calcSkillDamage(source, mult * skillEnhancement.multiplier, stats, monster, ctx, mechanism);
 
   // V4 即死规则
   if (mechanism.instantKill) {
@@ -492,17 +599,17 @@ function executeFinisher(mechanism, skill, state, stats, monster, ctx) {
       dmg = Math.max(dmg, finite(state.enemyMaxHp));
       ctx.addLog?.('天罚：即死！');
     } else if (isElite) {
-      dmg = calcSkillDamage(source, 10.0 * skillEnhancement.multiplier, stats, monster, ctx);
+      dmg = calcSkillDamage(source, 10.0 * skillEnhancement.multiplier, stats, monster, ctx, mechanism);
       ctx.addLog?.('天罚：精英抵抗即死，转为 10.0x 伤害。');
     } else if (isBoss) {
       const bossMult = mechanism.bossMultiplier || 5.0;
       const abyssMult = isAbyss ? 0.75 : 1.0;
-      dmg = calcSkillDamage(source, bossMult * abyssMult * skillEnhancement.multiplier, stats, monster, ctx);
+      dmg = calcSkillDamage(source, bossMult * abyssMult * skillEnhancement.multiplier, stats, monster, ctx, mechanism);
       ctx.addLog?.(`天罚：${isAbyss ? '深渊' : ''}Boss 抵抗即死，转为 ${formatSkillPower(bossMult * abyssMult)}x 伤害。`);
     }
   }
 
-  applyDamage(dmg, state, ctx);
+  applyDamage(dmg, state, ctx, skill);
   ctx.showSkillCastFeedback?.(skill);
   ctx.addLog?.(`${skill.name} 终结一击！`);
 
@@ -532,8 +639,8 @@ function executeSelfDamage(mechanism, skill, state, stats, monster, ctx) {
   }
 
   const source = getSkillSource(mechanism, stats, state);
-  const dmg = calcSkillDamage(source, mult * skillEnhancement.multiplier, stats, monster, ctx);
-  applyDamage(dmg, state, ctx);
+  const dmg = calcSkillDamage(source, mult * skillEnhancement.multiplier, stats, monster, ctx, mechanism);
+  applyDamage(dmg, state, ctx, skill);
   ctx.showSkillCastFeedback?.(skill);
   ctx.addLog?.(`${skill.name} 消耗生命爆发！`);
   return true;
@@ -561,8 +668,8 @@ function executeStatusExploit(mechanism, skill, state, stats, monster, ctx) {
   const marked = hasMark(state, mechanism.mark);
   const source = getSkillSource(mechanism, stats, state);
   const multiplier = marked ? (mechanism.markedMultiplier || mechanism.multiplier || 2) : (mechanism.baseMultiplier || mechanism.multiplier || 2);
-  const dmg = calcSkillDamage(source, multiplier * skillEnhancement.multiplier, stats, monster, ctx);
-  applyDamage(dmg, state, ctx);
+  const dmg = calcSkillDamage(source, multiplier * skillEnhancement.multiplier, stats, monster, ctx, mechanism);
+  applyDamage(dmg, state, ctx, skill);
   ctx.showSkillCastFeedback?.(skill);
   ctx.addLog?.(`${skill.name} 追击命中！`);
   return true;
@@ -573,12 +680,13 @@ function executeStatusExploitAll(mechanism, skill, state, stats, monster, ctx) {
   const marks = getMarks(state);
   const statusCount = Object.keys(marks).filter((k) => !k.startsWith('_') && finite(marks[k]) > 0).length;
   const source = getSkillSource({ ...mechanism, stat: 'matk' }, stats, state);
+  const multiplierPerStatus = mechanism.multiplierPerStatus ?? mechanism.perStatus ?? 0;
   const multiplier = Math.min(
     mechanism.maxMultiplier || Infinity,
-    (mechanism.baseMultiplier || mechanism.multiplier || 2.5) + statusCount * (mechanism.multiplierPerStatus || 0)
+    (mechanism.baseMultiplier || mechanism.multiplier || 2.5) + statusCount * multiplierPerStatus
   );
-  const dmg = calcSkillDamage(source, multiplier * skillEnhancement.multiplier, stats, monster, ctx);
-  applyDamage(dmg, state, ctx);
+  const dmg = calcSkillDamage(source, multiplier * skillEnhancement.multiplier, stats, monster, ctx, { ...mechanism, stat: 'matk' });
+  applyDamage(dmg, state, ctx, skill);
   ctx.showSkillCastFeedback?.(skill);
   ctx.addLog?.(`${skill.name} 风暴席卷！`);
   return true;
@@ -587,8 +695,8 @@ function executeStatusExploitAll(mechanism, skill, state, stats, monster, ctx) {
 function executeLifestealDamage(mechanism, skill, state, stats, monster, ctx) {
   const skillEnhancement = consumeSkillDamageEnhancement(state, skill, ctx);
   const source = finite(stats.matkPower);
-  const dmg = calcSkillDamage(source, (mechanism.multiplier || 2) * skillEnhancement.multiplier, stats, monster, ctx);
-  applyDamage(dmg, state, ctx);
+  const dmg = calcSkillDamage(source, (mechanism.multiplier || 2) * skillEnhancement.multiplier, stats, monster, ctx, { ...mechanism, stat: 'matk' });
+  applyDamage(dmg, state, ctx, skill);
   const heal = Math.round(dmg * (mechanism.healRatio || 0.3));
   state.hero.currentHp = Math.min(finite(stats.maxHp), finite(state.hero.currentHp) + heal);
   ctx.showSkillCastFeedback?.(skill);
@@ -605,8 +713,8 @@ function executeGoldCost(mechanism, skill, state, stats, monster, ctx) {
   const skillEnhancement = consumeSkillDamageEnhancement(state, skill);
   state.gold = Math.max(0, finite(state.gold) - goldCost);
   const source = getSkillSource(mechanism, stats, state);
-  const dmg = calcSkillDamage(source, (mechanism.multiplier || 5) * skillEnhancement.multiplier, stats, monster, ctx);
-  applyDamage(dmg, state, ctx);
+  const dmg = calcSkillDamage(source, (mechanism.multiplier || 5) * skillEnhancement.multiplier, stats, monster, ctx, mechanism);
+  applyDamage(dmg, state, ctx, skill);
   ctx.showSkillCastFeedback?.(skill);
   return true;
 }
@@ -614,8 +722,8 @@ function executeGoldCost(mechanism, skill, state, stats, monster, ctx) {
 function executeGoldGenerate(mechanism, skill, state, stats, monster, ctx) {
   const skillEnhancement = consumeSkillDamageEnhancement(state, skill, ctx);
   const source = getSkillSource(mechanism, stats, state);
-  const dmg = calcSkillDamage(source, (mechanism.multiplier || 2.5) * skillEnhancement.multiplier, stats, monster, ctx);
-  applyDamage(dmg, state, ctx);
+  const dmg = calcSkillDamage(source, (mechanism.multiplier || 2.5) * skillEnhancement.multiplier, stats, monster, ctx, mechanism);
+  applyDamage(dmg, state, ctx, skill);
   const goldEarned = Math.round(dmg * (mechanism.goldFromDamagePct || mechanism.goldPerDamage || 0.3));
   state.gold = finite(state.gold) + goldEarned;
   ctx.showSkillCastFeedback?.(skill);
@@ -644,7 +752,7 @@ function executeDelayedBurst(mechanism, skill, state, stats, ctx) {
       aoe: mechanism.aoe,
       stat: mechanism.stat || 'atk',
       guaranteedCrit: Boolean(mechanism.guaranteedCrit),
-      killCooldownRefundPct: mechanism.killCooldownRefundPct || 0,
+      killCooldownRefundPct: mechanism.killCooldownRefundPct ?? mechanism.killRefundPct ?? 0,
       damageMultiplier: skillEnhancement.multiplier,
     },
     skillId: skill.id,
@@ -694,6 +802,46 @@ function executeStealth(mechanism, skill, state, ctx) {
   // The actual stealth check happens in combat tick when attacking
   state.stealthReady = false; // will be set by idle timer
   return true;
+}
+
+function scaleV3MechanismDamage(mechanism = {}, ratio = 1) {
+  const next = { ...mechanism };
+  [
+    'multiplier',
+    'multiplierPerHit',
+    'perHit',
+    'perSecond',
+    'baseMultiplier',
+    'finisherMultiplier',
+    'markedMultiplier',
+    'snareMultiplier',
+  ].forEach((key) => {
+    if (next[key]) next[key] = finite(next[key]) * finite(ratio, 1);
+  });
+  return next;
+}
+
+function executeV3ActiveMechanism(mechanism, skill, state, stats, monster, ctx) {
+  switch (mechanism.type) {
+    case 'multihit': return executeMultihit(mechanism, skill, state, stats, monster, ctx);
+    case 'singleHit': return executeSingleHit(mechanism, skill, state, stats, monster, ctx);
+    case 'zone': return executeZone(mechanism, skill, state, stats, ctx);
+    case 'finisher': return executeFinisher(mechanism, skill, state, stats, monster, ctx);
+    case 'selfDamage': return executeSelfDamage(mechanism, skill, state, stats, monster, ctx);
+    case 'heal': return executeHeal(mechanism, skill, state, stats, ctx);
+    case 'statusExploit': return executeStatusExploit(mechanism, skill, state, stats, monster, ctx);
+    case 'statusExploitAll': return executeStatusExploitAll(mechanism, skill, state, stats, monster, ctx);
+    case 'lifestealDamage': return executeLifestealDamage(mechanism, skill, state, stats, monster, ctx);
+    case 'goldCost': return executeGoldCost(mechanism, skill, state, stats, monster, ctx);
+    case 'goldGenerate': return executeGoldGenerate(mechanism, skill, state, stats, monster, ctx);
+    case 'shield': return executeShield(mechanism, skill, state, stats, ctx);
+    case 'delayedBurst': return executeDelayedBurst(mechanism, skill, state, stats, ctx);
+    case 'selfBuff': return executeSelfBuff(mechanism, skill, state, stats, ctx);
+    case 'spreadMark': return executeSpreadMark(mechanism, skill, state, ctx);
+    case 'deathDefy': return executeDeathDefy(mechanism, skill, state, ctx);
+    case 'stealth': return executeStealth(mechanism, skill, state, ctx);
+    default: return false;
+  }
 }
 
 // ── 被动机制效果查询 ──
@@ -853,8 +1001,8 @@ export function tickSkillSystem(dt, stats, ctx = mechContext) {
   for (const zone of zones) {
     if (zone.remaining <= 0 && zone.onExpire) {
       const source = getSkillSource(zone.onExpire, stats, state);
-      const dmg = calcSkillDamage(source, (zone.onExpire.multiplier || 5) * (zone.onExpire.damageMultiplier || 1), stats, ctx.currentMonsterStats?.() || {}, ctx);
-      applyDamage(dmg, state, ctx);
+      const dmg = calcSkillDamage(source, (zone.onExpire.multiplier || 5) * (zone.onExpire.damageMultiplier || 1), stats, ctx.currentMonsterStats?.() || {}, ctx, zone.onExpire);
+      applyDamage(dmg, state, ctx, zone);
       if (zone.onExpire.guaranteedCrit) ctx.showHitFeedback?.('crit');
       ctx.showSkillCastFeedback?.({ name: zone.name.replace('(待爆)', ' 爆炸') });
       if (state.enemyHp <= 0 && zone.onExpire.killCooldownRefundPct > 0) {
@@ -889,10 +1037,32 @@ export function tickSkillSystem(dt, stats, ctx = mechContext) {
     const mech = skill.mechanism;
     if (!mech) continue;
 
-    var skillLevel = (state.hero && state.hero.skillLevels && state.hero.skillLevels[skill.id]) || 1;
+    var skillLevel = ctx.getSkillGrowthEntry?.(skill)?.level || (state.hero && state.hero.skillLevels && state.hero.skillLevels[skill.id]) || 1;
     var levelScaling = skill.levelScaling || {};
     var cdMult = Math.pow(levelScaling.cooldownPerLevel || 0.94, skillLevel - 1);
     var dmgMult = Math.pow(levelScaling.multiplierPerLevel || 1.12, skillLevel - 1);
+    const equipmentSkillEnhancement = getEquipmentSkillEnhancement(skill, stats);
+    if (equipmentSkillEnhancement.multiplierBonus) dmgMult *= 1 + finite(equipmentSkillEnhancement.multiplierBonus);
+    cdMult *= equipmentSkillEnhancement.cooldownMultiplier || 1;
+    const traitEffects = equipmentTraitEffects(stats);
+    if (traitEffects.v3SkillCooldownReduction) {
+      cdMult *= Math.max(0.5, 1 - finite(traitEffects.v3SkillCooldownReduction));
+    }
+    if (traitEffects.activeSkillCooldownReduction) {
+      cdMult *= Math.max(0.5, 1 - finite(traitEffects.activeSkillCooldownReduction));
+    }
+    if (traitEffects.v3GlobalSkillEffectBonus) {
+      dmgMult *= 1 + finite(traitEffects.v3GlobalSkillEffectBonus);
+    }
+    const circuitStats = circuitStatsFor(skill, ctx, stats);
+    const isBossTarget = Boolean(state.enemyBoss || monster.type === 'boss');
+    const isAbyss = state.currentDifficulty === 'abyss';
+    if (circuitStats.skillDamageBonus) dmgMult *= 1 + finite(circuitStats.skillDamageBonus);
+    if (circuitStats.finalDamageBonus) dmgMult *= 1 + finite(circuitStats.finalDamageBonus);
+    if (circuitStats.bossDamageBonus && isBossTarget) dmgMult *= 1 + finite(circuitStats.bossDamageBonus);
+    if (circuitStats.abyssDamageBonus && isAbyss) dmgMult *= 1 + finite(circuitStats.abyssDamageBonus);
+    if (finite(state.v3FinalCircuitBoostTimer) > 0) dmgMult *= 1 + finite(state.v3FinalCircuitBoost);
+    const circuitEffects = circuitEffectsFor(skill, ctx, stats);
 
     // 觉醒效果：检查是否有觉醒并修改机制
     let awakenedMech = null;
@@ -907,6 +1077,7 @@ export function tickSkillSystem(dt, stats, ctx = mechContext) {
     const reduceThisSkillCooldown = Boolean(state.cooldownReductionNextSkill);
     let fired = false;
     let activeMech = mergeAwakenedMechanism(mech, awakenedMech);
+    activeMech = applyEquipmentSkillHealBonus(activeMech, equipmentSkillEnhancement);
     if (skill.name === '二连矢' && passiveEffects.enhanceDoubleStrafe && hasMark(state, 'mark')) {
       activeMech = { ...activeMech, hits: passiveEffects.enhanceDoubleStrafe.hits || 3 };
     }
@@ -916,31 +1087,41 @@ export function tickSkillSystem(dt, stats, ctx = mechContext) {
     }
     activeMech = { ...activeMech, _skillLevel: skillLevel, _dmgMult: dmgMult, _cdMult: cdMult };
     if (activeMech.multiplier) activeMech.multiplier = finite(activeMech.multiplier) * dmgMult;
+    if (activeMech.multiplierPerHit) activeMech.multiplierPerHit = finite(activeMech.multiplierPerHit) * dmgMult;
     if (activeMech.perHit) activeMech.perHit = finite(activeMech.perHit) * dmgMult;
     if (activeMech.perSecond) activeMech.perSecond = finite(activeMech.perSecond) * dmgMult;
     if (activeMech.baseMultiplier) activeMech.baseMultiplier = finite(activeMech.baseMultiplier) * dmgMult;
     if (activeMech.finisherMultiplier) activeMech.finisherMultiplier = finite(activeMech.finisherMultiplier) * dmgMult;
-    switch (mech.type) {
-      case 'multihit': fired = executeMultihit(activeMech, skill, state, stats, monster, ctx); break;
-      case 'singleHit': fired = executeSingleHit(activeMech, skill, state, stats, monster, ctx); break;
-      case 'zone': fired = executeZone(activeMech, skill, state, stats, ctx); break;
-      case 'finisher': fired = executeFinisher(activeMech, skill, state, stats, monster, ctx); break;
-      case 'selfDamage': fired = executeSelfDamage(activeMech, skill, state, stats, monster, ctx); break;
-      case 'heal': fired = executeHeal(activeMech, skill, state, stats, ctx); break;
-      case 'statusExploit': fired = executeStatusExploit(activeMech, skill, state, stats, monster, ctx); break;
-      case 'statusExploitAll': fired = executeStatusExploitAll(activeMech, skill, state, stats, monster, ctx); break;
-      case 'lifestealDamage': fired = executeLifestealDamage(activeMech, skill, state, stats, monster, ctx); break;
-      case 'goldCost': fired = executeGoldCost(activeMech, skill, state, stats, monster, ctx); break;
-      case 'goldGenerate': fired = executeGoldGenerate(activeMech, skill, state, stats, monster, ctx); break;
-      case 'shield': fired = executeShield(activeMech, skill, state, stats, ctx); break;
-      case 'delayedBurst': fired = executeDelayedBurst(activeMech, skill, state, stats, ctx); break;
-      case 'selfBuff': fired = executeSelfBuff(activeMech, skill, state, stats, ctx); break;
-      case 'spreadMark': fired = executeSpreadMark(activeMech, skill, state, ctx); break;
-    }
+    if (activeMech.markedMultiplier) activeMech.markedMultiplier = finite(activeMech.markedMultiplier) * dmgMult;
+    if (activeMech.snareMultiplier) activeMech.snareMultiplier = finite(activeMech.snareMultiplier) * dmgMult;
+    fired = executeV3ActiveMechanism(activeMech, skill, state, stats, monster, ctx);
 
     if (fired) {
       if (awakenedMech) spendAwakeningCharge(state, awakenConfig, ctx);
+      if (traitEffects.activeSkillExtraCastChance && random(ctx) < finite(traitEffects.activeSkillExtraCastChance)) {
+        const extraMech = scaleV3MechanismDamage(activeMech, 0.30);
+        executeV3ActiveMechanism(extraMech, skill, state, stats, monster, ctx);
+      }
+      let circuitCooldownRefund = 0;
+      circuitEffects.forEach((effect) => {
+        if (effect.type === 'extraHit' && random(ctx) < finite(effect.chance)) {
+          const extraMech = scaleV3MechanismDamage(activeMech, finite(effect.multiplier) || 0.28);
+          executeV3ActiveMechanism(extraMech, skill, state, stats, monster, ctx);
+        }
+        if (effect.type === 'armorBreak') {
+          state.v3ArmorBreakTimer = Math.max(finite(state.v3ArmorBreakTimer), finite(effect.duration) || 4);
+          state.v3ArmorBreakIgnoreDefense = Math.max(finite(state.v3ArmorBreakIgnoreDefense), finite(effect.ignoreDefense) || 0.08);
+        }
+        if (effect.type === 'finalCircuitBoost') {
+          state.v3FinalCircuitBoostTimer = Math.max(finite(state.v3FinalCircuitBoostTimer), 4);
+          state.v3FinalCircuitBoost = Math.max(finite(state.v3FinalCircuitBoost), finite(effect.multiplier) || 0.12);
+        }
+        if (effect.type === 'cooldownRefund') {
+          circuitCooldownRefund = Math.max(circuitCooldownRefund, Math.min(0.45, finite(effect.ratio)));
+        }
+      });
       let cd = Math.round((skill.cooldown || 5) * cdMult);
+      if (circuitCooldownRefund > 0) cd = Math.max(1, Math.round(cd * (1 - circuitCooldownRefund)));
       // 魔力增幅
       if (reduceThisSkillCooldown && passiveEffects.cooldownReduce) {
         cd = Math.max(1, Math.round(cd * (1 - passiveEffects.cooldownReduce)));
@@ -951,6 +1132,7 @@ export function tickSkillSystem(dt, stats, ctx = mechContext) {
         cd *= (1 - Math.min(1, pendingRefund));
         delete state.pendingSkillCooldownRefunds[skill.id];
       }
+      cd = Math.max(MIN_ACTIVE_SKILL_COOLDOWN, cd);
       cds[skill.id] = cd;
       if (state.resonanceTriggered && passiveEffects.cooldownReduce) {
         state.cooldownReductionNextSkill = true;
@@ -966,8 +1148,8 @@ export function tickSkillSystem(dt, stats, ctx = mechContext) {
             finite(chain.hits) * finite(chain.multiplierPerHit || chain.perHit) +
             finite(chain.bounceHits || chain.bounce) * finite(chain.bounceMultiplierPerHit || chain.bounceMultiplier)
           ) * finite(awakenedMech.multiplier || 0.7);
-          const echoDamage = calcSkillDamage(finite(stats.matkPower), coefficient, stats, monster, ctx);
-          applyDamage(echoDamage, state, ctx);
+          const echoDamage = calcSkillDamage(finite(stats.matkPower), coefficient, stats, monster, ctx, { stat: 'matk' });
+          applyDamage(echoDamage, state, ctx, { name: '觉醒·连锁闪电' });
           ctx.showSkillCastFeedback?.({ name: '觉醒·连锁闪电' });
           ctx.addLog?.(`元素风暴觉醒：额外触发 ${formatSkillPower(coefficient)}x 连锁闪电。`);
         }
@@ -997,8 +1179,9 @@ export function tickSkillSystem(dt, stats, ctx = mechContext) {
       const source = finite(stats.atkPower);
       const isAbyssBoss = Boolean(state.enemyBoss) && state.currentDifficulty === 'abyss';
       const multiplier = isElite ? 10 : 8 * (isAbyssBoss ? 0.75 : 1);
-      const dmg = calcSkillDamage(source, multiplier, stats, monster, ctx);
+      const dmg = calcSkillDamage(source, multiplier, stats, monster, ctx, { stat: 'atk' });
       state.enemyHp -= dmg;
+      recordSkillDamage(ctx, '死神之镰', dmg);
       ctx.showDamageNumber?.('monster', dmg, 'skill', { skillName: '死神之镰' });
       ctx.addLog?.(`死神之镰：目标抵抗即死，转为 ${formatSkillPower(multiplier)}x 伤害。`);
       marks['伤口'] = Math.max(0, finite(marks['伤口']) - 10);

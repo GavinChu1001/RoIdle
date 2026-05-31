@@ -166,26 +166,27 @@ export function getCodexBonuses(ctx = codexContext) {
 export function claimCodexReward(type, monsterId, milestone, ctx = codexContext) {
   const state = ctx.getState?.();
   if (!state) return;
+  const num = Number(milestone);
   if (type === 'monster') {
-    const data = state.monsterCodex[monsterId] || {};
+    if (!state.monsterCodex) state.monsterCodex = {};
+    const data = state.monsterCodex[monsterId] || { killCount: 0, rewardsClaimed: {} };
     const claimed = data.rewardsClaimed || {};
-    if (claimed[milestone]) { ctx.showToast?.('\u5df2\u9886\u53d6'); return; }
+    if (claimed[num]) { ctx.showToast?.('\u5df2\u9886\u53d6'); return; }
     const mType = getMonsterTypeForCodex(monsterId, ctx);
     const killRewards = ctx.getCodexKillRewards?.() || {};
     const rewardList = killRewards[mType] || killRewards.normal || {};
     const milestonesArr = ctx.getCodexKillMilestones?.() || [];
-    const idx = milestonesArr.indexOf(milestone);
-    if (idx < 0) return;
+    const idx = milestonesArr.indexOf(num);
+    if (idx < 0 || (data.killCount || 0) < num) { ctx.showToast?.('\u672a\u8fbe\u6210'); return; }
     const reward = rewardList[idx] || {};
-    if (ctx.grantGenericReward) ctx.grantGenericReward(reward);
-    claimed[milestone] = true;
+    if (reward.items && ctx.grantGenericReward) ctx.grantGenericReward(reward.items);
+    claimed[num] = true;
     data.rewardsClaimed = claimed;
     state.monsterCodex[monsterId] = data;
-    ctx.addLog?.(`\u56fe\u9274\u5956\u52b1\u9886\u53d6\uff1a${ctx.getMonsterName?.(monsterId) || monsterId} \u51fb\u6740${milestone}\u3002`);
-    ctx.showToast?.(`\u9886\u53d6\u6210\u529f\uff1a\u51fb\u6740${milestone}\u5956\u52b1`);
+    ctx.addLog?.(`\u56fe\u9274\u5956\u52b1\u9886\u53d6\uff1a${ctx.getMonsterName?.(monsterId) || monsterId} \u51fb\u6740${num}\u3002`);
+    ctx.showToast?.(`\u9886\u53d6\u6210\u529f\uff1a\u51fb\u6740${num}\u5956\u52b1`);
   }
   if (type === 'card') {
-    const num = Number(milestone);
     const cardRewards = ctx.getCodexCardRewards?.() || {};
     const cardMilestones = ctx.getCodexCardMilestones?.() || [];
     const idx = cardMilestones.indexOf(num);

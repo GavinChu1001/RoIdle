@@ -31,8 +31,9 @@ export function resolveEquipmentDropLevel({
 
 export function rollEquipmentTableDrops(stats, options = {}, context = runtimeContext) {
   const map = context.currentMap?.() || {};
-  const tableId = context.getDropTableId?.(map.id) || map.id;
-  const rows = context.getEquipmentDropTable?.(tableId) || [];
+  const difficulty = context.currentDifficulty?.() || 'normal';
+  const progressionRows = context.getProgressionEquipmentDropTable?.(map.id, difficulty) || [];
+  const rows = progressionRows;
   const drops = rollEquipmentDropsFromTable(rows, stats, options, context);
   drops.forEach((item) => context.addEquipmentToInventory?.(item, { logDrop: true }));
   return drops.length;
@@ -47,11 +48,13 @@ export function rollEquipmentDropsFromTable(rows, stats, options = {}, context =
   const weighted = rows
     .map((drop) => ({ drop, finalRate: context.getEffectiveEquipmentDropRate?.(drop, stats, { offline: isOffline, boss: isBoss }) || 0 }))
     .filter((entry) => entry.finalRate > 0 && context.getEquipmentTemplate?.(entry.drop.equipmentId));
+  const equipmentSynergyDropEffects = stats?.equipmentSynergyDropEffects || context.getEquipmentSynergyEffects?.()?.dropEffects || {};
+  const synergyDropBonus = Math.min(0.5, Number(equipmentSynergyDropEffects.dropChainBonus || 0));
   const drops = [];
   for (let attempt = 0; attempt < maxDrops && weighted.length; attempt += 1) {
     const totalChance = isOffline
-      ? Math.min(0.75, weighted.reduce((sum, entry) => sum + entry.finalRate, 0))
-      : context.getOnlineEquipmentDropChance?.(stats, { boss: isBoss, rows }) || 0;
+      ? Math.min(0.75, weighted.reduce((sum, entry) => sum + entry.finalRate, 0) * (1 + synergyDropBonus * 0.5))
+      : (context.getOnlineEquipmentDropChance?.(stats, { boss: isBoss, rows }) || 0) * (1 + synergyDropBonus);
     if (!guaranteed && (context.random?.() ?? Math.random()) >= totalChance) break;
     const pick = context.weightedChoice?.(
       weighted,
@@ -75,11 +78,21 @@ export function rollEquipmentDropsFromTable(rows, stats, options = {}, context =
       : (context.random?.() ?? Math.random()) < darkGoldRate
         ? 'darkGold'
         : template.rarity;
+    const progression = context.resolveEquipmentProgressionContext?.({
+      mapId,
+      difficulty: context.currentDifficulty?.(),
+      template,
+      drop: pick.drop,
+      stats,
+      boss: isBoss,
+      random: () => context.random?.() ?? Math.random(),
+    }) || {};
     drops.push(context.createItem?.(template, dropLevel, rolledRarity, {
       dropMapId: mapId,
       dropLevel,
       difficulty: context.currentDifficulty?.(),
       allowMythic: rolledRarity === 'mythic',
+      ...progression,
     }));
 
     // 转生词缀：轮回刻印解锁后，装备有概率获得转生专属词缀

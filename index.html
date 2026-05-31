@@ -4,13 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>符文边境</title>
-    <link rel="stylesheet" href="styles.css?v=20260527-skill-feedback-fix2" />
-    <link rel="stylesheet" href="unified-equipment-ui.css?v=20260527-skill-feedback-fix2" />
+    <link rel="stylesheet" href="styles.css?v=20260531-adventure-dps-dungeon-v2" />
+    <link rel="stylesheet" href="unified-equipment-ui.css?v=20260529-battle-effects-v1" />
   </head>
   <body>
     <div class="app-shell">
-      <header class="topbar">
-        <div>
+      <header class="topbar ro-game-hud">
+        <div class="ro-brand-lockup">
           <p class="eyebrow">Rune Frontier Idle</p>
           <h1>符文边境</h1>
         </div>
@@ -27,50 +27,88 @@
         </div>
       </header>
 
-      <section class="resource-strip" aria-label="资源概览">
-        <div>
+      <section class="resource-strip ro-resource-hud" aria-label="资源概览">
+        <div class="resource-chip resource-chip-gold">
           <span>金币</span>
           <strong id="goldValue">0</strong>
         </div>
-        <div>
+        <div class="resource-chip resource-chip-level">
           <span>BASE 等级</span>
           <strong id="teamLevelValue">1</strong>
         </div>
-        <div>
+        <div class="resource-chip resource-chip-exp">
           <span>BASE/JOB 经验</span>
           <strong id="expValue">0</strong>
         </div>
-        <div>
+        <div class="resource-chip resource-chip-power">
           <span>战力</span>
           <strong id="powerValue">0</strong>
         </div>
-        <div>
+        <div class="resource-chip resource-chip-income">
           <span>离线收益</span>
           <strong id="gpsValue">0</strong>
         </div>
       </section>
 
-      <nav class="page-tabs ro-main-tabs" aria-label="功能分页">
-        <button class="active" data-page="adventure" type="button">冒险</button>
-        <button data-page="town" type="button">职业</button>
-        <button data-page="smithy" type="button">铁匠铺</button>
-        <button data-page="heroes" type="button">角色</button>
-        <button data-page="equipment" type="button">装备</button>
-        <button data-page="maps" type="button">地图</button>
-        <button data-page="cards" type="button">卡片</button>
-        <button data-page="codex" type="button">图鉴</button>
-        <button data-page="vip" type="button">VIP</button>
-        <button data-page="tasks" type="button">任务</button>
-        <button data-page="shop" type="button">商店</button>
-        <button data-page="logs" type="button">日志</button>
-        <button data-page="news" type="button">公告</button>
-      </nav>
+      <div class="ro-play-layout">
+        <nav class="page-tabs ro-main-tabs ro-side-nav" aria-label="功能分页">
+          <div class="ro-desktop-nav" aria-label="桌面功能导航">
+            <div class="ro-nav-section" aria-label="核心功能">
+              <span class="ro-nav-section-title">核心</span>
+              <button class="active" data-page="adventure" type="button">冒险</button>
+              <button data-page="heroes" type="button">角色</button>
+              <button data-page="equipment" type="button">装备</button>
+              <button data-page="smithy" type="button">铁匠铺</button>
+            </div>
+            <div class="ro-nav-section" aria-label="成长探索">
+              <span class="ro-nav-section-title">成长</span>
+              <button data-page="town" type="button">职业</button>
+              <button data-page="maps" type="button">地图</button>
+              <button data-page="tasks" type="button">任务</button>
+              <button data-page="dungeons" type="button">副本</button>
+            </div>
+            <div class="ro-nav-section" aria-label="扩展功能">
+              <span class="ro-nav-section-title">扩展</span>
+              <button data-page="cards" type="button">卡片</button>
+              <button data-page="codex" type="button">图鉴</button>
+              <button data-page="vip" type="button">VIP</button>
+              <button data-page="shop" type="button">商店</button>
+              <button data-page="logs" type="button">日志</button>
+              <button data-page="news" type="button">公告</button>
+            </div>
+          </div>
 
-      <main class="page-stack">
+          <div class="ro-mobile-nav" aria-label="手机功能导航">
+            <details class="ro-mobile-more-panel">
+              <summary class="ro-mobile-more-trigger">更多</summary>
+              <div class="ro-mobile-more-grid">
+                <button data-page="town" type="button">职业</button>
+                <button data-page="maps" type="button">地图</button>
+                <button data-page="dungeons" type="button">副本</button>
+                <button data-page="cards" type="button">卡片</button>
+                <button data-page="codex" type="button">图鉴</button>
+                <button data-page="vip" type="button">VIP</button>
+                <button data-page="shop" type="button">商店</button>
+                <button data-page="logs" type="button">日志</button>
+                <button data-page="news" type="button">公告</button>
+              </div>
+            </details>
+            <div class="ro-mobile-bottom-bar" aria-label="常用功能">
+              <button class="active" data-page="adventure" type="button">冒险</button>
+              <button data-page="heroes" type="button">角色</button>
+              <button data-page="equipment" type="button">装备</button>
+              <button data-page="smithy" type="button">铁匠铺</button>
+              <button data-page="tasks" type="button">任务</button>
+            </div>
+          </div>
+        </nav>
+
+        <main class="page-stack">
         <section class="page-view active" data-view="adventure">
           <div class="adventure-grid ro-adventure-workspace">
             <section class="stage-panel ro-surface-card ro-stage-card">
-              <div class="panel-heading">
+              <div class="ro-battle-frame">
+              <div class="panel-heading ro-battle-topline">
                 <div>
                   <p class="eyebrow">冒险进度</p>
                   <h2 id="mapName">南门青草地</h2>
@@ -80,12 +118,13 @@
                 </button>
               </div>
 
-              <div class="scene-wrap">
+              <div class="scene-wrap ro-battle-canvas">
                 <canvas id="sceneCanvas" width="900" height="520"></canvas>
+                <div id="enemyStatusVfxLayer" class="enemy-status-vfx-layer" aria-hidden="true"></div>
               </div>
 
-              <div class="combat-layout combat-mobile-stack">
-                <article class="combat-unit-card combat-unit-card-player player-hp-panel">
+              <div class="combat-layout combat-mobile-stack ro-hp-hud-layer">
+                <article class="combat-unit-card combat-unit-card-player player-hp-panel ro-player-hud">
                   <div class="combat-unit-image combat-unit-image-player" aria-hidden="true">我</div>
                   <div class="combat-unit-info">
                     <span id="playerHpName" class="player-name">冒险者</span>
@@ -97,7 +136,7 @@
                   </div>
                 </article>
 
-                <article class="combat-unit-card combat-unit-card-monster monster-hp-panel">
+                <article class="combat-unit-card combat-unit-card-monster monster-hp-panel ro-enemy-hud">
                   <div class="combat-unit-image combat-unit-image-monster" aria-hidden="true">敌</div>
                   <div class="combat-unit-info">
                     <span id="enemyName">果冻波波</span>
@@ -110,10 +149,11 @@
                 </article>
               </div>
 
-              <div id="skillCastBanner" class="skill-cast-banner" hidden></div>
-              <div class="skill-bar-v3" id="skillBarV3" aria-label="主动技能栏"></div>
+              <div id="skillCastBanner" class="skill-cast-banner ro-cast-ribbon" hidden></div>
+              <div id="skillBarV3" class="skill-bar-v3 ro-skill-dock" aria-label="主动技能栏"></div>
+              </div>
 
-              <div class="formation" aria-label="队伍站位">
+              <div class="formation ro-party-slots" aria-label="队伍站位">
                 <button class="slot active" data-slot="front" type="button">
                   <span>角色1</span>
                   <strong id="frontHero">剑士</strong>
@@ -128,14 +168,16 @@
                 </button>
               </div>
 
-              <div class="action-row">
+              <div class="action-row ro-combat-actions ro-battle-action-strip">
                 <button id="bossButton" class="ro-wood-button ro-boss-action" type="button">挑战 BOSS</button>
+                <button id="potionButton" class="ro-light-control ro-potion-action" type="button">补给</button>
                 <label class="toggle-line"><input id="autoBossToggle" type="checkbox" /> 自动挑战 BOSS</label>
+                <label class="toggle-line ro-potion-toggle"><input id="autoPotionToggle" type="checkbox" /> 自动补给</label>
                 <button id="claimButton" class="ro-light-control ro-reward-action" type="button">查看离线收益</button>
                 <button id="resetButton" class="ghost" type="button">重置存档</button>
               </div>
 
-              <div class="offline-entry hidden" id="offlineEntry">
+              <div class="offline-entry hidden ro-offline-reward-entry" id="offlineEntry">
                 <div>
                   <strong id="offlineEntryTitle">离线收益待领取</strong>
                   <p id="offlineEntryMeta">离线战利品已结算，点击查看清点。</p>
@@ -163,7 +205,7 @@
                     <h2>队伍状态</h2>
                   </div>
       </div>
-              <div class="quest-list" id="townTips"></div>
+              <div class="quest-list party-list" id="partyList"></div>
             </section>
           </div>
         </section>
@@ -252,6 +294,16 @@
             </div>
           </div>
           <div class="map-list" id="mapList"></div>
+        </section>
+
+        <section class="page-view" data-view="dungeons">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">每日挑战</p>
+              <h2>副本</h2>
+            </div>
+          </div>
+          <div id="dungeonPage"></div>
         </section>
 
         <section class="page-view" data-view="cards">
@@ -893,10 +945,11 @@
             </article>
           </div>
         </section>
-      </main>
+        </main>
+      </div>
     </div>
 
-    <div class="modal-shell hidden" id="offlineRewardModal" aria-hidden="true">
+    <div class="modal-shell hidden" id="offlineRewardModal" aria-hidden="true" inert>
       <div class="modal-backdrop" data-close-offline-modal></div>
       <div class="modal-card modal-card-wide">
         <div class="modal-head">
@@ -911,7 +964,7 @@
       </div>
     </div>
 
-    <div class="modal-shell hidden" id="refineResultModal" aria-hidden="true">
+    <div class="modal-shell hidden" id="refineResultModal" aria-hidden="true" inert>
       <div class="modal-backdrop" data-close-refine-modal></div>
       <div class="modal-card refine-result-modal">
         <div class="modal-head">
@@ -927,9 +980,9 @@
     </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script src="tools.js?v=20260527-skill-feedback-fix2"></script>
-<script src="data.js?v=20260527-skill-feedback-fix2"></script>
-<script src="game.js?v=20260527-skill-feedback-fix2"></script>
-<script type="module" src="./src/main.js?v=20260527-skill-feedback-fix2" onerror="document.documentElement.dataset.runeModuleStatus='failed'"></script>
+<script src="tools.js?v=20260529-battle-effects-v1"></script>
+<script src="data.js?v=20260529-battle-effects-v1"></script>
+<script src="game.js?v=20260531-adventure-dps-dungeon-v2"></script>
+<script type="module" src="./src/main.js?v=20260531-adventure-dps-dungeon-v2" onerror="document.documentElement.dataset.runeModuleStatus='failed'"></script>
   </body>
 </html>

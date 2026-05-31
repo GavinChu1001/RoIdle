@@ -1,8 +1,13 @@
 let runtimeContext = {};
+export const BACKGROUND_OFFLINE_THRESHOLD_MS = 15000;
 
 function finite(value) {
   const number = Number(value || 0);
   return Number.isFinite(number) ? number : 0;
+}
+
+function roundExp(value) {
+  return Number(finite(value).toFixed(3));
 }
 
 function list(value) {
@@ -110,8 +115,18 @@ export function calculateOfflineRewards(character, offlineMs, mapId, context = r
   const averageHp = estimateMapAverageMonsterHp(map, context);
   const onlineKills = Math.max(0, (stats.dps || 0) / Math.max(1, averageHp)) * seconds;
   const vipEff = vipBonuses ? (vipBonuses().offlineEfficiencyBonus || 0) : 0;
-  const killCount = Math.min(offlineMaxKills, Math.floor(onlineKills * Math.min(1, offlineEfficiency + vipEff + (stats.offlineEfficiencyBonus || 0))));
+  const equipmentSynergyCombatEffects = stats?.equipmentSynergyCombatEffects || context.getEquipmentSynergyEffects?.()?.combatEffects || {};
+  const autoStrikeBonus = Math.min(0.25, finite(equipmentSynergyCombatEffects.autoStrikePct) * 0.5);
+  const effectiveOfflineEfficiency = Math.min(1, offlineEfficiency + vipEff + finite(stats.offlineEfficiencyBonus));
+  let killCount = Math.min(offlineMaxKills, Math.floor(onlineKills * effectiveOfflineEfficiency));
+  if (autoStrikeBonus > 0) killCount = Math.min(offlineMaxKills, Math.floor(killCount * (1 + autoStrikeBonus)));
   rewards.killCount = killCount;
+  const mvpInscriptionRate = context.calculateMvpInscriptionOnlinePerMinute?.({
+    mapIndex,
+    difficulty: state.currentDifficulty || 'normal',
+    rebirths: state.hero?.rebirths || 0,
+  });
+  rewards.mvpInscriptionExp = finite(rewards.mvpInscriptionExp) + roundExp(finite(mvpInscriptionRate) * seconds / 60 * effectiveOfflineEfficiency);
   if (killCount <= 0) return rewards;
 
   let mutationKills = 0;
@@ -121,11 +136,21 @@ export function calculateOfflineRewards(character, offlineMs, mapId, context = r
     rewards.gold += Math.round(finite(monster.gold) * finite(stats.goldMultiplier) * finite(stats.monsterGoldMultiplier));
     rewards.baseExp += Math.round(finite(monster.exp) * finite(stats.baseExpMultiplier));
     rewards.jobExp += Math.round(finite(monster.jobExp) * finite(stats.jobExpMultiplier));
+    rewards.mvpInscriptionExp += finite(context.calculateMvpInscriptionMonsterExp?.({
+      monster,
+      heroLevel: state.hero?.baseLevel || 1,
+      currentMapIndex: mapIndex,
+      bestMapIndex: state.bestMap || mapIndex,
+      difficulty: state.currentDifficulty || 'normal',
+      isBoss: false,
+      isMutated: Boolean(monster.mutation),
+      firstBossClear: false,
+    }));
   }
+  rewards.mvpInscriptionExp = roundExp(rewards.mvpInscriptionExp);
 
   rollOfflineEquipmentDrops(rewards, stats, map, mapIndex, killCount, context);
   rollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills, context);
-  rollOfflineTransitionSetDrops(rewards, stats, map, killCount, context);
   rollOfflineMythicDrops(rewards, stats, map, killCount, mutationKills, context);
   rollOfflineCardDrops(rewards, stats, map, mapIndex, killCount, context);
   rollOfflineMaterialDrops(rewards, stats, map, killCount, context);
@@ -143,6 +168,34 @@ export function buildOfflineReward(seconds, context = runtimeContext) {
   return calculateOfflineRewards(state.hero, Math.max(0, seconds) * 1000, currentMapFn().id, context);
 }
 
+export function shouldSettleBackgroundOffline(elapsedMs, thresholdMs = BACKGROUND_OFFLINE_THRESHOLD_MS) {
+  return Math.max(0, Math.floor(elapsedMs || 0)) >= Math.max(0, Math.floor(thresholdMs || 0));
+}
+
+export function buildBackgroundOfflineReward(
+  startedAt,
+  now = Date.now(),
+  context = runtimeContext,
+  thresholdMs = BACKGROUND_OFFLINE_THRESHOLD_MS,
+) {
+  const elapsedMs = Math.max(0, Math.floor(finite(now) - finite(startedAt)));
+  const seconds = Math.floor(elapsedMs / 1000);
+  if (!shouldSettleBackgroundOffline(elapsedMs, thresholdMs)) {
+    return {
+      settled: false,
+      elapsedMs,
+      seconds: 0,
+      rewards: context.createEmptyRewards?.() || { seconds: 0, gold: 0, baseExp: 0, jobExp: 0, equipments: [], cards: [], materials: [] },
+    };
+  }
+  return {
+    settled: true,
+    elapsedMs,
+    seconds,
+    rewards: buildOfflineReward(seconds, context),
+  };
+}
+
 export function getPendingOfflineRewards(context = runtimeContext) {
   const state = context.getState?.() || {};
   return context.normalizeLootRewards?.(state.offlinePending || state.offlineRewards || {}) || {};
@@ -155,6 +208,7 @@ export function hasPendingOfflineRewards(context = runtimeContext) {
     finite(pending.gold) > 0 ||
     finite(pending.baseExp) > 0 ||
     finite(pending.jobExp) > 0 ||
+    finite(pending.mvpInscriptionExp) > 0 ||
     list(pending.equipments).length ||
     list(pending.cards).length ||
     list(pending.materials).length ||
@@ -213,6 +267,7 @@ export function claimOfflineRewards(context = runtimeContext) {
 
   state.gold = finite(state.gold) + finite(pending.gold);
   context.gainExp?.(finite(pending.baseExp), finite(pending.jobExp));
+  context.gainMvpInscriptionExp?.(finite(pending.mvpInscriptionExp), { source: 'offline' });
 
   const claimedEquipment = [];
   const unclaimedEquipment = [];
@@ -256,20 +311,30 @@ export function claimOfflineRewards(context = runtimeContext) {
 }
 
 export function rollOfflineEquipmentDrops(rewards, stats, map, mapIndex, killCount, context = runtimeContext) {
-  const alias = context.getDropTableAlias;
-  const table = context.getEquipmentDropTable;
   const rollFn = context.rollEquipmentDropsFromTable;
   const state = context.getState?.() || {};
   const invLimit = context.getInventoryLimit;
-  if (!map || !table || !rollFn || !invLimit) return;
-  const tableId = alias ? (alias(map.id) || map.id) : map.id;
-  const rows = table(tableId) || [];
+  if (!map || !rollFn || !invLimit) return;
+  const difficulty = context.currentDifficulty?.() || 'normal';
+  const rows = context.getProgressionEquipmentDropTable?.(map.id, difficulty) || [];
   if (!rows.length) return;
   const capacity = { freeSlots: Math.max(0, invLimit() - (state.inventory || []).length) };
+  const pityThreshold = Math.max(0, Math.floor(finite(context.getEquipmentPityThreshold?.())));
+  let pityKills = Math.max(0, Math.floor(finite(state.equipmentPityKills)));
   for (let kill = 0; kill < killCount; kill += 1) {
-    const drops = rollFn(rows, stats, { offline: true });
+    let drops = rollFn(rows, stats, { offline: true });
+    if (drops.length) {
+      pityKills = 0;
+    } else if (pityThreshold > 0) {
+      pityKills += 1;
+      if (pityKills >= pityThreshold) {
+        drops = rollFn(rows, stats, { offline: true, guaranteed: true });
+        if (drops.length) pityKills = 0;
+      }
+    }
     processGeneratedOfflineEquipment(rewards, drops, capacity, {}, context);
   }
+  if (pityThreshold > 0) state.equipmentPityKills = pityKills;
 }
 
 export function rollOfflineCardDrops(rewards, stats, map, mapIndex, killCount, context = runtimeContext) {
@@ -315,41 +380,7 @@ export function rollOfflineMaterialDrops(rewards, stats, map, killCount, context
 }
 
 export function rollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills = 0, context = runtimeContext) {
-  const setIds = context.getZodiacSetIds?.(map?.id) || [];
-  if (!setIds.length) return 0;
-  const rates = context.getZodiacSetDropRates?.() || {};
-  const mythicRates = context.getMythicDropRates?.() || {};
-  const difficulty = context.currentDifficulty?.() || 'normal';
-  const isHard = difficulty === 'hard';
-  const isAbyss = difficulty === 'abyss';
-  const offlineRate = finite(context.getOfflineEquipmentDropRateMultiplier?.());
-  const baseRate = (isAbyss ? finite(rates.hard) * 1.2 : isHard ? finite(rates.hard) : finite(rates.normal)) * offlineRate;
-  const mutationRate = (isAbyss ? finite(rates.hardMutation) * 1.25 : isHard ? finite(rates.hardMutation) : finite(rates.mutation)) * offlineRate;
-  const dropBonus = 1 + Math.min(1.5, finite(stats?.equipmentDropBonus));
-  const capacity = freeEquipmentSlots(rewards, context);
-  let count = 0;
-  for (let kill = 0; kill < Math.min(finite(killCount), finite(context.getOfflineMaxKills?.())); kill += 1) {
-    if (random(context) >= (baseRate + (kill < mutationKills ? mutationRate : 0)) * dropBonus) continue;
-    const set = context.getEquipmentSet?.(setIds[Math.floor(random(context) * setIds.length)]);
-    if (!set?.items?.length) continue;
-    const darkRate = finite(rates.darkGoldNormal) * offlineRate * (isAbyss ? 1.5 : isHard ? 1.25 : 1) * dropBonus;
-    const mythicRate = isAbyss ? finite(mythicRates.abyssNormal) * offlineRate * 0.5 * dropBonus : 0;
-    const rarity = random(context) < mythicRate ? 'mythic' : random(context) < darkRate ? 'darkGold' : 'legend';
-    const template = set.items[Math.floor(random(context) * set.items.length)];
-    const range = context.getMapLevelRange?.(map) || { maxLevel: 1 };
-    const baseLevel = template.level || range.maxLevel;
-    const dropLevel = context.resolveEquipmentDropLevel?.({
-      baseLevel,
-      mapId: map.id,
-      difficulty,
-      source: 'offline-zodiac-set',
-    }) ?? baseLevel;
-    const item = context.createItem?.(template, dropLevel, rarity, { dropMapId: map.id, dropLevel, difficulty, allowMythic: rarity === 'mythic' });
-    if (!item) continue;
-    processGeneratedOfflineEquipment(rewards, [item], capacity, {}, context);
-    count += 1;
-  }
-  return count;
+  return 0;
 }
 
 export function rollOfflineMythicDrops(rewards, stats, map, killCount, mutationKills = 0, context = runtimeContext) {
@@ -363,37 +394,6 @@ export function rollOfflineMythicDrops(rewards, stats, map, killCount, mutationK
     const baseRate = kill < mutationKills ? finite(rates.abyssMutation) : finite(rates.abyssNormal);
     if (random(context) >= baseRate * offlineRate * dropBonus) continue;
     const item = context.createMutationEquipment?.('mythic');
-    if (!item) continue;
-    processGeneratedOfflineEquipment(rewards, [item], capacity, {}, context);
-    count += 1;
-  }
-  return count;
-}
-
-export function rollOfflineTransitionSetDrops(rewards, stats, map, killCount, context = runtimeContext) {
-  const setIds = context.getTransitionSetIds?.(map?.id) || [];
-  if (!setIds.length) return 0;
-  const rates = context.getTransitionSetDropRates?.() || {};
-  const difficulty = context.currentDifficulty?.() || 'normal';
-  const offlineRate = finite(context.getOfflineEquipmentDropRateMultiplier?.());
-  const baseRate = (difficulty === 'abyss' ? finite(rates.hard) * 1.2 : difficulty === 'hard' ? finite(rates.hard) : finite(rates.normal)) * offlineRate;
-  const dropBonus = 1 + Math.min(1.2, finite(stats?.equipmentDropBonus));
-  const capacity = freeEquipmentSlots(rewards, context);
-  let count = 0;
-  for (let kill = 0; kill < Math.min(finite(killCount), finite(context.getOfflineMaxKills?.())); kill += 1) {
-    if (random(context) >= baseRate * dropBonus) continue;
-    const set = context.getEquipmentSet?.(setIds[Math.floor(random(context) * setIds.length)]);
-    if (!set?.items?.length) continue;
-    const template = set.items[Math.floor(random(context) * set.items.length)];
-    const range = context.getMapLevelRange?.(map) || { maxLevel: 1 };
-    const baseLevel = template.level || range.maxLevel;
-    const dropLevel = context.resolveEquipmentDropLevel?.({
-      baseLevel,
-      mapId: map.id,
-      difficulty,
-      source: 'offline-transition-set',
-    }) ?? baseLevel;
-    const item = context.createItem?.(template, dropLevel, template.rarity || 'rare', { dropMapId: map.id, dropLevel, difficulty });
     if (!item) continue;
     processGeneratedOfflineEquipment(rewards, [item], capacity, {}, context);
     count += 1;
@@ -448,6 +448,9 @@ export function installOfflineRuntime(context = {}) {
   const runtime = Object.freeze({
     calculateOfflineRewards,
     buildOfflineReward,
+    buildBackgroundOfflineReward,
+    shouldSettleBackgroundOffline,
+    backgroundOfflineThresholdMs: BACKGROUND_OFFLINE_THRESHOLD_MS,
     buildOfflineMonsterStats,
     estimateMapAverageMonsterHp,
     claimOffline: claimOfflineRewards,
@@ -461,7 +464,6 @@ export function installOfflineRuntime(context = {}) {
     rollOfflineCardDrops,
     rollOfflineMaterialDrops,
     rollOfflineZodiacSetDrops,
-    rollOfflineTransitionSetDrops,
     rollOfflineMythicDrops,
     rollOfflineMutationExtraDrops,
   });

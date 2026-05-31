@@ -114,6 +114,11 @@ export function completeOnboardingStep(onboarding = {}, stepId) {
   return normalized;
 }
 
+export function completeOnboardingAction(onboarding, goal = {}, action = '') {
+  if (goal?.id !== 'see_boss_goal' || goal?.action !== action || action !== 'go-adventure') return onboarding;
+  return { ...completeOnboardingStep(onboarding, goal.id), tutorialCompleted: true };
+}
+
 export function skipOnboarding(onboarding = {}) {
   return { ...normalizeOnboarding(onboarding), skipped: true };
 }
@@ -128,6 +133,7 @@ export function installOnboardingRuntime() {
     getCurrentOnboardingGoal,
     getActiveTutorialStep,
     completeOnboardingStep,
+    completeOnboardingAction,
     skipOnboarding,
   };
   window.RuneFrontierOnboardingRuntime = runtime;

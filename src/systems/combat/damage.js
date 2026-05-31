@@ -30,6 +30,7 @@ export function getTargetDamageBonus(stats = {}, monsterContext = {}, context = 
   const monster = monsterContext.monster || context.currentMonsterStats?.() || {};
   const isBoss = monsterContext.isBoss ?? Boolean(state.enemyBoss || monster.type === 'boss');
   const difficulty = monsterContext.difficulty || state.currentDifficulty || 'normal';
+  const damageType = monsterContext.damageType || monsterContext.sourceType || '';
   const enemyHp = monsterContext.enemyHp ?? state.enemyHp;
   const enemyMaxHp = monsterContext.enemyMaxHp ?? state.enemyMaxHp;
   let bonus = finite(stats.monsterDamageBonus);
@@ -46,6 +47,12 @@ export function getTargetDamageBonus(stats = {}, monsterContext = {}, context = 
     if (finite(enemyHp) / Math.max(1, finite(enemyMaxHp || 1)) <= 0.2) bonus += finite(stats.abyssExecuteDamageBonus);
   }
   bonus += finite(stats.finalDamageBonus);
+  if (damageType === 'physical' || damageType === 'basic' || damageType === 'normal') {
+    bonus += finite(stats.physicalFinalDamageBonus);
+  }
+  if (damageType === 'magic') {
+    bonus += finite(stats.magicFinalDamageBonus);
+  }
   bonus += Math.min(0.5, finite(stats.ignoreDefensePct));
   return Math.min(3, bonus);
 }
@@ -59,7 +66,7 @@ export function calculatePlayerBasicHit({ stats = {}, attackInterval = 0, target
   return { rawHitDamage, finalDamage, isCrit };
 }
 
-export function calculateMonsterHit({ stats = {}, monster = {}, hpRatio = 1, livingCount = 1, isCrit = false } = {}) {
+export function calculateMonsterHit({ stats = {}, monster = {}, hpRatio = 1, livingCount = 1, isCrit = false, isBlocked = false } = {}) {
   const state = stateFrom(runtimeContext);
   const defenseK = 80 + finite(state.hero?.baseLevel) * 4;
   const piercedDefense = Math.max(0, finite(stats.defense) * (1 - Math.min(0.75, finite(monster.armorPierce))));
@@ -75,14 +82,16 @@ export function calculateMonsterHit({ stats = {}, monster = {}, hpRatio = 1, liv
   const executeBonus = hpRatio <= 0.35 ? finite(monster.executeDamage) : 0;
   const critMultiplier = isCrit ? 1 + finite(monster.critDamage) : 1;
   const encounterAssist = state.enemyBoss ? 1 : Math.min(1.75, 1 + (Math.max(1, finite(livingCount)) - 1) * 0.18);
+  const blockReduction = isBlocked ? Math.min(0.55, 0.35 + finite(stats.attrs?.str) * 0.0004) : 0;
   const damage = normalizeDamage(
     (finite(monster.attack) * defenseK) / (defenseK + piercedDefense) *
       (1 - damageReductionPct) *
+      (1 - blockReduction) *
       critMultiplier *
       (1 + executeBonus) *
       encounterAssist,
   );
-  return { damage, damageReductionPct, executeBonus, encounterAssist, isCrit };
+  return { damage, damageReductionPct, executeBonus, encounterAssist, isCrit, isBlocked, blockReduction };
 }
 
 export { calculatePower } from '../equipment/itemScore.js';

@@ -263,20 +263,20 @@ const ITEM_TIER_CONFIG = {
 
 const ITEM_TIER_LIST = Object.entries(ITEM_TIER_CONFIG).map(([id, config]) => ({ id, ...config }));
 
-var SKILL_FRAGMENT_COST = [0, 0, 10, 15, 22, 30, 40, 52, 66, 82, 100, 120, 142, 166, 192, 220];
-var SKILL_FRAGMENT_COST_PASSIVE = [0, 0, 8, 12, 18, 25, 34, 44, 56, 70, 86, 104, 124];
-var SKILL_MAX_LEVEL_BY_RANK = { novice: 5, first: 5, second: 10, third: 15 };
+var SKILL_FRAGMENT_COST = [0, 0, 10, 15, 22, 30, 40, 52, 66, 82, 100, 120, 142, 166, 192, 220, 250, 285, 324, 367, 414, 466, 524, 588, 658, 735, 820, 914, 1018, 1133, 1260];
+var SKILL_FRAGMENT_COST_PASSIVE = [0, 0, 8, 12, 18, 25, 34, 44, 56, 70, 86, 104, 124, 145, 168, 194, 224, 258, 296, 339, 388, 443, 505, 575, 653, 741, 840, 950, 1075, 1215, 1370];
 
 function getSkillMaxLevel(jobId) {
+  if (typeof getV3SkillMaxLevel === "function") return getV3SkillMaxLevel(jobId);
   var route = typeof V3_SKILL_ROUTE_BY_JOB !== 'undefined' ? (V3_SKILL_ROUTE_BY_JOB[jobId] || [jobId]) : [jobId];
   var len = route.length;
-  if (len >= 3) return SKILL_MAX_LEVEL_BY_RANK.third;
-  if (len >= 2) return SKILL_MAX_LEVEL_BY_RANK.second;
-  return SKILL_MAX_LEVEL_BY_RANK.first;
+  if (len >= 3) return 30;
+  if (len >= 2) return 20;
+  return 10;
 }
 
 function getSkillFragmentCost(skill) {
-  var level = (state.hero.skillLevels && state.hero.skillLevels[skill.id]) || 1;
+  var level = (state.skillGrowth && state.skillGrowth[skill.id]?.level) || (state.hero.skillLevels && state.hero.skillLevels[skill.id]) || 1;
   var nextLevel = level + 1;
   if (skill.kind === '被动') return SKILL_FRAGMENT_COST_PASSIVE[nextLevel] || Infinity;
   return SKILL_FRAGMENT_COST[nextLevel] || Infinity;
@@ -287,7 +287,7 @@ function upgradeSkill(skillId) {
   var skill = allSkills.find(function (s) { return s.id === skillId; });
   if (!skill) return false;
   var maxLevel = getSkillMaxLevel(state.hero.jobId);
-  var currentLevel = (state.hero.skillLevels && state.hero.skillLevels[skillId]) || 1;
+  var currentLevel = (state.skillGrowth && state.skillGrowth[skillId]?.level) || (state.hero.skillLevels && state.hero.skillLevels[skillId]) || 1;
   if (currentLevel >= maxLevel) return false;
   var cost = getSkillFragmentCost(skill);
   var fragments = state.materials && state.materials.skillFragment || 0;
@@ -295,6 +295,8 @@ function upgradeSkill(skillId) {
   state.materials.skillFragment = fragments - cost;
   state.hero.skillLevels = state.hero.skillLevels || {};
   state.hero.skillLevels[skillId] = currentLevel + 1;
+  state.skillGrowth = state.skillGrowth || {};
+  state.skillGrowth[skillId] = { ...getSkillGrowthEntry(skillId), level: currentLevel + 1, exp: 0 };
   addLog(skill.name + ' 升级至 Lv.' + (currentLevel + 1));
   renderAll();
   save();
@@ -309,11 +311,13 @@ const SLOT_LEVEL_GROWTH = {
   trinket: 0.035,
 };
 
+const EQUIPMENT_STAT_VERSION = 2;
+const EQUIPMENT_SYSTEM_VERSION = 4;
 const SLOT_ROLE_DESCRIPTIONS = {
   weapon: "武器定位：ATK / MATK / ASPD，容易出现暴击、破甲、技能伤害、对怪物伤害。",
   armor: "防具定位：DEF / HP / HP%，容易出现减伤、闪避、生命恢复和抗性。",
-  headgear: "头饰定位：DEF / 六维属性，容易出现经验收益、战力百分比和小幅技能伤害。",
-  shoes: "鞋子定位：DEF / 闪避 / 生命恢复，容易出现攻速、巡逻效率和恢复强化。",
+  headgear: "头饰定位：DEF / 六维属性，容易出现经验收益、稀有发现和小幅技能伤害。",
+  shoes: "鞋子定位：DEF / 闪避 / 生命恢复，容易出现攻速、巡猎效率、格挡和恢复强化。",
   trinket: "饰品定位：六维、暴击伤害、金币、掉率、卡片和材料收益。",
 };
 
@@ -324,7 +328,7 @@ const AFFIX_TIERS = {
     def: { label: "坚固", range: [8, 24] },
     hp: { label: "生命", range: [80, 220] },
     hpRegen: { label: "复苏", range: [2, 8] },
-    dodgeRate: { label: "灵动", range: [0.004, 0.016], cap: 0.05 },
+    dodgeRate: { label: "灵动", range: [0.004, 0.016], cap: 0.12 },
     aspd: { label: "迅捷", range: [0.006, 0.024], cap: 0.08 },
     str: { label: "力量", range: [2, 6] },
     agi: { label: "敏捷", range: [2, 6] },
@@ -336,7 +340,7 @@ const AFFIX_TIERS = {
     drop: { label: "寻宝", range: [0.006, 0.02], cap: 0.1 },
     equipmentDrop: { label: "鉴宝", range: [0.004, 0.014], cap: 0.08 },
     cardDrop: { label: "占星", range: [0.003, 0.012], cap: 0.06 },
-    crit: { label: "会心", range: [0.006, 0.022], cap: 0.08 },
+    crit: { label: "会心", range: [0.006, 0.022], cap: 0.12 },
     critDamageBonus: { label: "锐意", range: [0.02, 0.06], cap: 0.24 },
   },
   percent: {
@@ -345,62 +349,63 @@ const AFFIX_TIERS = {
     hpPct: { label: "坚韧", range: [0.03, 0.075], cap: 0.24 },
     defPct: { label: "铁壁", range: [0.025, 0.065], cap: 0.22 },
     attackSpeedPct: { label: "疾风", range: [0.018, 0.045], cap: 0.16 },
-    critRatePct: { label: "洞察", range: [0.012, 0.032], cap: 0.12 },
     critDamageBonus: { label: "锐利", range: [0.035, 0.09], cap: 0.32 },
     skillDamageBonus: { label: "咏唱", range: [0.025, 0.07], cap: 0.24 },
     monsterDamageBonus: { label: "猎魔", range: [0.025, 0.075], cap: 0.25 },
     bossDamageBonus: { label: "讨伐", range: [0.02, 0.065], cap: 0.22 },
     ignoreDefense: { label: "破甲", range: [0.015, 0.045], cap: 0.18 },
     damageReductionPct: { label: "守护", range: [0.015, 0.045], cap: 0.16 },
-    dodgeRatePct: { label: "轻身", range: [0.012, 0.035], cap: 0.12 },
+    blockRate: { label: "格挡", range: [0.015, 0.04], cap: 0.18 },
+    dodgeRate: { label: "轻身", range: [0.012, 0.035], cap: 0.12 },
+    lifeSteal: { label: "汲取", range: [0.01, 0.028], cap: 0.1 },
     hpRegenPct: { label: "回春", range: [0.04, 0.12], cap: 0.35 },
-    baseExpBonus: { label: "研习", range: [0.025, 0.07], cap: 0.22 },
-    jobExpBonus: { label: "历练", range: [0.025, 0.07], cap: 0.22 },
-    powerPct: { label: "斗志", range: [0.015, 0.04], cap: 0.12 },
+    expBonus: { label: "历练", range: [0.025, 0.07], cap: 0.24 },
     materialQuantityBonus: { label: "采集", range: [0.025, 0.075], cap: 0.25 },
+    rareDropBonus: { label: "珍品", range: [0.006, 0.02], cap: 0.08 },
     equipmentDrop: { label: "鉴宝", range: [0.01, 0.03], cap: 0.12 },
     cardDrop: { label: "占星", range: [0.008, 0.025], cap: 0.1 },
     gold: { label: "富足", range: [0.02, 0.06], cap: 0.18 },
     drop: { label: "寻宝", range: [0.015, 0.045], cap: 0.16 },
     combatPaceBonus: { label: "巡猎", range: [0.01, 0.035], cap: 0.1 },
-    patrolEfficiency: { label: "巡逻", range: [0.015, 0.045], cap: 0.15 },
   },
 };
 
 const MECHANIC_AFFIXES = {
-  echo: { label: "回响", description: "主动技能释放时有 5% 概率额外释放一次。", effects: { echoChance: 0.05 }, slots: ["weapon", "headgear", "trinket"] },
-  greed: { label: "贪婪", description: "击杀变异怪时有 3% 概率使普通材料数量翻倍。", effects: { mutationMaterialDoubleChance: 0.03 }, slots: ["trinket", "shoes"] },
-  thorn: { label: "荆棘", description: "受到怪物攻击时，将 VIT 的 150% 转化为反击伤害。", effects: { thornVitMultiplier: 1.5 }, slots: ["armor"] },
+  echo: { label: "回响", description: "技能命中后有 5% 概率追加一次较低倍率伤害。", effects: { echoChance: 0.05 }, slots: ["weapon", "headgear", "trinket"] },
+  splash: { label: "溅射", description: "攻击溅射 1 个目标；单体 Boss 战转化为追加伤害。", effects: { splashTargets: 1, splashDamagePct: 0.22 }, slots: ["weapon", "trinket"] },
+  pursuit: { label: "追击", description: "普攻后有 5% 概率追加一次火焰追击。", effects: { fireBurstChance: 0.05, fireBurstAtkPct: 0.65 }, slots: ["weapon", "shoes"] },
+  greed: { label: "贪婪", description: "材料数量提高。", effects: { materialQuantityBonus: 0.05 }, slots: ["trinket", "shoes"] },
+  thorn: { label: "格挡反击", description: "提高格挡率，格挡时按 VIT 造成反击伤害。", effects: { blockRate: 0.04, thornVitMultiplier: 1.2 }, slots: ["armor"] },
   breaker: { label: "破军", description: "攻击时无视怪物 8% 防御。", effects: { ignoreDefense: 0.08 }, slots: ["weapon", "trinket"] },
-  starlight: { label: "星辉", description: "BASE / JOB 经验收益 +8%。", effects: { baseExpBonus: 0.08, jobExpBonus: 0.08 }, slots: ["headgear", "trinket"] },
+  starlight: { label: "星辉", description: "经验收益 +8%。", effects: { expBonus: 0.08 }, slots: ["headgear", "trinket"] },
   recovery: { label: "复苏", description: "生命恢复效果 +15%。", effects: { hpRegenPct: 0.15 }, slots: ["armor", "shoes"] },
 };
 
 const SLOT_AFFIX_POOLS = {
   weapon: {
     flat: ["atk", "matk", "aspd", "crit", "str", "int", "dex"],
-    percent: ["atkPct", "matkPct", "attackSpeedPct", "critRatePct", "critDamageBonus", "ignoreDefense", "skillDamageBonus", "monsterDamageBonus", "bossDamageBonus"],
-    mechanic: ["echo", "breaker"],
+    percent: ["atkPct", "matkPct", "attackSpeedPct", "crit", "critDamageBonus", "ignoreDefense", "skillDamageBonus", "bossDamageBonus"],
+    mechanic: ["echo", "splash", "pursuit", "breaker"],
   },
   armor: {
     flat: ["def", "hp", "hpRegen", "vit", "dodgeRate"],
-    percent: ["hpPct", "defPct", "damageReductionPct", "dodgeRatePct", "hpRegenPct"],
+    percent: ["hpPct", "defPct", "damageReductionPct", "blockRate", "dodgeRate", "hpRegenPct"],
     mechanic: ["thorn", "recovery"],
   },
   headgear: {
     flat: ["def", "str", "agi", "vit", "int", "dex", "luk"],
-    percent: ["baseExpBonus", "jobExpBonus", "powerPct", "skillDamageBonus", "matkPct", "critRatePct"],
-    mechanic: ["echo", "starlight"],
+    percent: ["expBonus", "rareDropBonus", "skillDamageBonus", "matkPct", "crit"],
+    mechanic: ["echo", "starlight", "greed"],
   },
   shoes: {
     flat: ["def", "hpRegen", "dodgeRate", "agi", "vit"],
-    percent: ["attackSpeedPct", "patrolEfficiency", "combatPaceBonus", "hpRegenPct", "dodgeRatePct", "hpPct"],
-    mechanic: ["greed", "recovery"],
+    percent: ["attackSpeedPct", "combatPaceBonus", "hpRegenPct", "dodgeRate", "blockRate", "hpPct"],
+    mechanic: ["greed", "pursuit", "recovery"],
   },
   trinket: {
     flat: ["str", "agi", "vit", "int", "dex", "luk", "critDamageBonus", "gold", "drop"],
-    percent: ["critDamageBonus", "gold", "drop", "equipmentDrop", "cardDrop", "materialQuantityBonus", "monsterDamageBonus", "baseExpBonus", "jobExpBonus"],
-    mechanic: ["echo", "greed", "breaker", "starlight"],
+    percent: ["critDamageBonus", "gold", "drop", "rareDropBonus", "equipmentDrop", "cardDrop", "materialQuantityBonus", "bossDamageBonus", "blockRate", "expBonus"],
+    mechanic: ["echo", "splash", "greed", "breaker", "starlight"],
   },
 };
 
@@ -452,6 +457,33 @@ const materialNames = {
   enhanceProtect: "强化保护卷",
   enhanceAsh: "强化灰烬",
   skillFragment: "技能碎片",
+  ancientHeroShard: "古代英雄碎片",
+  heroReformInscription: "英雄改良铭文",
+  mythicHeroCore: "神话英雄核心",
+  osGear: "OS齿轮",
+  illusionModule: "幻象模块",
+  osAdCore: "OS-AD核心",
+  fidesFragment: "信念残片",
+  purificationSeal: "净化印记",
+  vivatusCore: "活力信念核心",
+  snowflowerStone: "雪花魔石",
+  glacierCrystal: "冰川结晶",
+  dimGlacierCore: "黯淡冰川核心",
+  penitentiaChapter: "悔恨篇章",
+  awakeningStigma: "觉醒圣痕",
+  penitentiaCore: "悔恨核心",
+  justiceEvilMark: "善恶刻印",
+  demonTempleEcho: "魔神殿回响",
+  goodEvilCore: "善恶核心",
+  nebulaDust: "星云尘",
+  geoborgGear: "葛帔尼亚齿轮",
+  geoborgCore: "葛帔尼亚核心",
+  muqaddasFragment: "莫卡迪斯碎片",
+  sanctuaryPlate: "圣域装甲片",
+  muqaddasCore: "莫卡迪斯核心",
+  dimensionalShard: "次元碎片",
+  timeRune: "时间符文",
+  dimensionalCrownCore: "次元冠冕核心",
 };
 
 const MATERIAL_DB = Object.fromEntries(
@@ -496,6 +528,44 @@ MATERIAL_DB.darkGoldFragment = {
     rarity: id === "mythicSocketStone" ? "mythic" : id === "advancedSocketStone" ? "legend" : "epic",
     type: "socket_material",
     description: id === "cardRemover" ? "拆除装备卡槽中的卡片，卡片会回到卡片背包。" : "装备打孔材料，用于开启卡片镶嵌槽。",
+  };
+});
+const EQUIPMENT_PROGRESSION_MATERIAL_RARITIES = {
+  ancientHeroShard: "rare",
+  heroReformInscription: "epic",
+  mythicHeroCore: "legend",
+  osGear: "rare",
+  illusionModule: "epic",
+  osAdCore: "legend",
+  fidesFragment: "rare",
+  purificationSeal: "epic",
+  vivatusCore: "legend",
+  snowflowerStone: "rare",
+  glacierCrystal: "epic",
+  dimGlacierCore: "legend",
+  penitentiaChapter: "rare",
+  awakeningStigma: "epic",
+  penitentiaCore: "legend",
+  justiceEvilMark: "rare",
+  demonTempleEcho: "epic",
+  goodEvilCore: "legend",
+  nebulaDust: "rare",
+  geoborgGear: "epic",
+  geoborgCore: "legend",
+  muqaddasFragment: "rare",
+  sanctuaryPlate: "epic",
+  muqaddasCore: "legend",
+  dimensionalShard: "rare",
+  timeRune: "epic",
+  dimensionalCrownCore: "mythic",
+};
+Object.entries(EQUIPMENT_PROGRESSION_MATERIAL_RARITIES).forEach(([id, rarity]) => {
+  MATERIAL_DB[id] = {
+    id,
+    name: materialNames[id] || id,
+    rarity,
+    type: "equipment_progression",
+    description: "装备成长线专属进阶材料，按地图难度逐级掉落。",
   };
 });
 
@@ -555,6 +625,7 @@ const monsterSpriteSources = {
   },
 };
 const monsterSpriteCache = {};
+const battleBackgroundCache = {};
 const attributeKeys = ["str", "agi", "vit", "int", "dex", "luk"];
 const randomStatRanges = {
   normal: [0, 2],
@@ -579,9 +650,9 @@ const battleStatConfig = {
   aspdPerAgi: 0.01,
   dodgePerAgi: 0.002,
   dodgePerLevel: 0.0005,
-  critPerDex: 0.0005,
-  critPerLuk: 0.001,
-  dropPerLuk: 0.0005,
+  critPerDex: 0.001,
+  critPerLuk: 0.0015,
+  dropPerLuk: 0.005,
   maxCrit: PLAYER_CRIT_RATE_CAP,
   maxDodge: 0.6,
   minAspd: 0.16,
@@ -1007,17 +1078,19 @@ const extraEquipmentDropPlan = {
 
 // Online equipment drops use one map-level budget; adding templates changes variety, not total frequency.
 const ONLINE_EQUIPMENT_BASE_DROP_RATES = {
-  grass: 0.02,
-  forest: 0.022,
-  sewer: 0.024,
-  desert: 0.026,
-  orc_village: 0.028,
-  mine: 0.03,
-  clock: 0.032,
-  glast_heim: 0.034,
-  abyss_lake: 0.037,
+  grass: 0.08,
+  forest: 0.065,
+  sewer: 0.055,
+  desert: 0.045,
+  orc_village: 0.04,
+  mine: 0.04,
+  clock: 0.04,
+  glast_heim: 0.04,
+  abyss_lake: 0.04,
   sky: 0.04,
 };
+const EARLY_EQUIPMENT_PITY_KILL_LIMIT = 20;
+const EARLY_EQUIPMENT_PITY_THRESHOLD = 5;
 
 Object.entries(extraEquipmentDropPlan).forEach(([mapId, plan]) => {
   extraEquipmentPools.forEach((item) => {
@@ -1046,6 +1119,9 @@ Object.keys(equipmentDropTables).forEach((mapId) => {
 
 // [DATA->data.js] equipmentSets extracted
 
+const ZODIAC_ITEM_STAT_MULTIPLIER = 0.38;
+const ZODIAC_EFFECT_MULTIPLIER = 0.35;
+
 const zodiacSetPlans = [
   ["aries_mu", "白羊座-穆套装", "白羊座的天赋", "物理爆发", "白羊座-穆", "权杖", { physicalAttackPct: 0.25, critDamagePct: 0.3, bossDamagePct: 0.15 }, { atk: 210, matk: 60, def: 180, hp: 650, str: 28, dex: 12, crit: 0.06 }],
   ["gemini_saga", "双子座-撒加套装", "双子座的天赋", "物魔双修", "双子座-撒加", "法杖", { physicalAttackPct: 0.15, magicAttackPct: 0.15, skillDamagePct: 0.2, critRatePct: 0.05 }, { atk: 180, matk: 180, def: 150, hp: 560, str: 16, int: 16, dex: 14, crit: 0.04 }],
@@ -1065,50 +1141,10 @@ Object.assign(equipmentSets, Object.fromEntries(zodiacSetPlans.map(([id, name, t
   createZodiacSet({ id, name, talentName, role, prefix, weapon, effects, stats }),
 ])));
 
-Object.assign(equipmentSets, {
-  poring_adventurer: createTransitionSet({
-    id: "poring_adventurer",
-    name: "波波冒险者套装",
-    talentName: "波波冒险者守护",
-    talentDescription: "2件最大生命 +8%，3件最大生命 +12%、物品掉率 +2%",
-    level: 8,
-    rarity: "rare",
-    effects: {
-      pieces: {
-        2: { maxHpPct: 0.08 },
-        3: { maxHpPct: 0.12, itemDropPct: 0.02 },
-      },
-    },
-    items: [
-      { key: "hat", name: "波波冒险帽", slot: "headgear", def: 8, hp: 55, vit: 2 },
-      { key: "coat", name: "波波冒险衣", slot: "armor", def: 18, hp: 120, vit: 3 },
-      { key: "shoes", name: "波波冒险鞋", slot: "shoes", def: 10, hp: 60, agi: 2 },
-    ],
-  }),
-  forest_patroller: createTransitionSet({
-    id: "forest_patroller",
-    name: "森林巡游者套装",
-    talentName: "森林巡游者节奏",
-    talentDescription: "2件攻击速度 +4%，3件攻击速度 +6%、BASE/JOB经验 +5%",
-    level: 18,
-    rarity: "epic",
-    effects: {
-      pieces: {
-        2: { attackSpeedPct: 0.04 },
-        3: { attackSpeedPct: 0.06, baseExpPct: 0.05, jobExpPct: 0.05 },
-      },
-    },
-    items: [
-      { key: "hat", name: "森林巡游帽", slot: "headgear", def: 14, dex: 3, luk: 2 },
-      { key: "armor", name: "森林巡游甲", slot: "armor", def: 34, hp: 210, vit: 4 },
-      { key: "boots", name: "森林巡游靴", slot: "shoes", def: 18, agi: 5, aspd: 0.03 },
-    ],
-  }),
-});
-
 ensureSetProgressionBonuses();
 
 function createZodiacSet(plan) {
+  const scaledEffects = scaleSetEffects(plan.effects, ZODIAC_EFFECT_MULTIPLIER);
   const slotPlan = [
     ["crown", "之冠", "headgear", 0.18],
     ["armor", "圣衣", "armor", 0.28],
@@ -1120,9 +1156,9 @@ function createZodiacSet(plan) {
     id: plan.id,
     name: plan.name,
     talentName: plan.talentName,
-    talentDescription: describeZodiacEffects(plan.effects),
+    talentDescription: describeZodiacEffects(scaledEffects),
     role: plan.role,
-    effects: { full: plan.effects, pieces: {} },
+    effects: { full: scaledEffects, pieces: {} },
     items: slotPlan.map(([key, suffix, slot, weight]) => ({
       id: `${plan.id}_${key}`,
       name: `${plan.prefix}${suffix}`,
@@ -1132,54 +1168,22 @@ function createZodiacSet(plan) {
       requiredLevel: 35,
       weaponType: slot === "weapon" ? "zodiacWeapon" : "",
       equipType: slot === "weapon" ? "zodiacWeapon" : slot,
-      atk: Math.round((plan.stats.atk || 0) * weight),
-      matk: Math.round((plan.stats.matk || 0) * weight),
-      def: Math.round((plan.stats.def || 0) * weight),
-      hp: Math.round((plan.stats.hp || 0) * weight),
-      str: Math.round((plan.stats.str || 0) * weight),
-      agi: Math.round((plan.stats.agi || 0) * weight),
-      vit: Math.round((plan.stats.vit || 0) * weight),
-      int: Math.round((plan.stats.int || 0) * weight),
-      dex: Math.round((plan.stats.dex || 0) * weight),
-      luk: Math.round((plan.stats.luk || 0) * weight),
-      aspd: Number(((plan.stats.aspd || 0) * weight).toFixed(3)),
-      crit: Number(((plan.stats.crit || 0) * weight).toFixed(3)),
-      drop: Number(((plan.stats.drop || 0) * weight).toFixed(3)),
+      atk: Math.round((plan.stats.atk || 0) * weight * ZODIAC_ITEM_STAT_MULTIPLIER),
+      matk: Math.round((plan.stats.matk || 0) * weight * ZODIAC_ITEM_STAT_MULTIPLIER),
+      def: Math.round((plan.stats.def || 0) * weight * ZODIAC_ITEM_STAT_MULTIPLIER),
+      hp: Math.round((plan.stats.hp || 0) * weight * ZODIAC_ITEM_STAT_MULTIPLIER),
+      str: Math.round((plan.stats.str || 0) * weight * ZODIAC_ITEM_STAT_MULTIPLIER),
+      agi: Math.round((plan.stats.agi || 0) * weight * ZODIAC_ITEM_STAT_MULTIPLIER),
+      vit: Math.round((plan.stats.vit || 0) * weight * ZODIAC_ITEM_STAT_MULTIPLIER),
+      int: Math.round((plan.stats.int || 0) * weight * ZODIAC_ITEM_STAT_MULTIPLIER),
+      dex: Math.round((plan.stats.dex || 0) * weight * ZODIAC_ITEM_STAT_MULTIPLIER),
+      luk: Math.round((plan.stats.luk || 0) * weight * ZODIAC_ITEM_STAT_MULTIPLIER),
+      aspd: Number(((plan.stats.aspd || 0) * weight * ZODIAC_ITEM_STAT_MULTIPLIER).toFixed(3)),
+      crit: Number(((plan.stats.crit || 0) * weight * ZODIAC_ITEM_STAT_MULTIPLIER).toFixed(3)),
+      drop: Number(((plan.stats.drop || 0) * weight * ZODIAC_ITEM_STAT_MULTIPLIER).toFixed(3)),
       craftable: false,
       source: "monster_drop",
       description: `${plan.name}部件。集齐 5 件可激活${plan.talentName}。`,
-    })),
-  };
-}
-
-function createTransitionSet(plan) {
-  return {
-    id: plan.id,
-    name: plan.name,
-    talentName: plan.talentName,
-    talentDescription: plan.talentDescription,
-    effects: { full: plan.effects?.pieces?.[3] || plan.effects?.full || {}, pieces: plan.effects?.pieces || {} },
-    items: plan.items.map((item) => ({
-      id: `${plan.id}_${item.key}`,
-      name: item.name,
-      slot: item.slot,
-      rarity: plan.rarity,
-      level: plan.level,
-      requiredLevel: Math.max(1, plan.level - 3),
-      atk: item.atk || 0,
-      matk: item.matk || 0,
-      def: item.def || 0,
-      hp: item.hp || 0,
-      str: item.str || 0,
-      agi: item.agi || 0,
-      vit: item.vit || 0,
-      int: item.int || 0,
-      dex: item.dex || 0,
-      luk: item.luk || 0,
-      aspd: item.aspd || 0,
-      craftable: false,
-      source: "monster_drop",
-      description: `${plan.name}部件，通过怪物掉落获得。`,
     })),
   };
 }
@@ -1194,20 +1198,30 @@ function ensureSetProgressionBonuses() {
       return;
     }
     if (set.id === "taurus_aldbaran") {
-      set.effects.pieces = {
-        2: { monsterGoldPct: 0.5 },
-        3: { monsterGoldPct: 1, baseExpPct: 0.2, jobExpPct: 0.2 },
-        5: { ...set.effects.full },
-      };
+      set.effects.pieces = createProgressiveSetStages(set.effects.full, 5);
       return;
     }
     const maxPieces = Math.min(5, set.items?.length || 5);
-    set.effects.pieces = {
-      2: scaleSetEffects(set.effects.full, 0.2),
-      3: scaleSetEffects(set.effects.full, 0.35),
-      [maxPieces]: { ...set.effects.full },
-    };
+    set.effects.pieces = createProgressiveSetStages(set.effects.full, maxPieces);
   });
+}
+
+function createProgressiveSetStages(fullEffects = {}, maxPieces = 5) {
+  const finalStage = Math.max(2, maxPieces);
+  if (finalStage <= 2) return { [finalStage]: { ...fullEffects } };
+  const stage2 = scaleSetEffects(fullEffects, 0.15);
+  if (finalStage <= 3) {
+    return {
+      2: stage2,
+      [finalStage]: subtractSetEffects(fullEffects, stage2),
+    };
+  }
+  const stage3 = scaleSetEffects(fullEffects, 0.25);
+  return {
+    2: stage2,
+    3: stage3,
+    [finalStage]: subtractSetEffects(fullEffects, stage2, stage3),
+  };
 }
 
 function scaleSetEffects(effects = {}, scale = 1) {
@@ -1215,6 +1229,17 @@ function scaleSetEffects(effects = {}, scale = 1) {
     Object.entries(effects)
       .filter(([, value]) => typeof value === "number")
       .map(([key, value]) => [key, Number((value * scale).toFixed(3))]),
+  );
+}
+
+function subtractSetEffects(effects = {}, ...parts) {
+  return Object.fromEntries(
+    Object.entries(effects)
+      .filter(([, value]) => typeof value === "number")
+      .map(([key, value]) => {
+        const used = parts.reduce((sum, part) => sum + Number(part[key] || 0), 0);
+        return [key, Number(Math.max(0, value - used).toFixed(3))];
+      }),
   );
 }
 
@@ -1325,20 +1350,6 @@ const zodiacSetDropMap = {
   sky: ["aquarius_camyu", "pisces_aphrodite"],
 };
 
-const transitionSetDropMap = {
-  grass: ["poring_adventurer"],
-  forest: ["forest_patroller"],
-};
-
-const TRANSITION_SET_DROP_RATES = {
-  normal: 0.008,
-  hard: 0.012,
-  abyss: 0.015,
-  boss: 0.045,
-  hardBoss: 0.06,
-  abyssBoss: 0.08,
-};
-
 const jobSpriteSources = {
   novice: "assets/images/classes/novice.png",
   swordman: "assets/images/classes/swordman.png",
@@ -1369,6 +1380,25 @@ const jobSpriteSources = {
 
 const jobSpriteExtensions = imageExtensions;
 const jobSpriteCache = {};
+const MVP_INSCRIPTION_AURA_FRAME_COUNT = 16;
+const MVP_INSCRIPTION_AURA_COLUMNS = 4;
+const MVP_INSCRIPTION_AURA_FRAME_SIZE = 256;
+const MVP_INSCRIPTION_AURA_FRAME_RATE = 14;
+const MVP_INSCRIPTION_AURA_SPRITE_SHEETS = Object.freeze({
+  default: "assets/ui/fx/mvp-aura-early.png",
+  kingPoring: "assets/ui/fx/mvp-aura-king-poring.png",
+  goldenThiefBug: "assets/ui/fx/mvp-aura-golden-thief-bug.png",
+  moonlightFlower: "assets/ui/fx/mvp-aura-moonlight-flower.png",
+  drake: "assets/ui/fx/mvp-aura-drake.png",
+  phreeoni: "assets/ui/fx/mvp-aura-phreeoni.png",
+  orcHero: "assets/ui/fx/mvp-aura-orc-hero.png",
+  turtleGeneral: "assets/ui/fx/mvp-aura-turtle-general.png",
+  doppelganger: "assets/ui/fx/mvp-aura-doppelganger.png",
+  darkLord: "assets/ui/fx/mvp-aura-dark-lord.png",
+  baphomet: "assets/ui/fx/mvp-aura-baphomet.png",
+});
+const MVP_INSCRIPTION_AURA_ADVANCED_STAGE_IDS = new Set(["turtleGeneral", "doppelganger", "darkLord", "baphomet"]);
+const mvpInscriptionAuraSpriteCache = {};
 
 const affixPool = [
   { stat: "atk", range: [4, 18], label: "锐利" },
@@ -1399,10 +1429,10 @@ const bossCardPool = [
   { id: "baphomet", name: "巴风特卡片", map: 9, cardType: "boss", rarity: "mythic", bossOnly: true, uniqueSocket: true, skillDamageBonus: 0.08, bossDamageBonus: 0.06, splashTargets: 2, splashDamagePct: 0.45, monsterId: "sky_boss_archon", description: "攻击溅射附近敌人；Boss 单体战时获得额外技能与 Boss 伤害。" },
   { id: "dracula", name: "德古拉卡片", map: 7, cardType: "boss", rarity: "darkGold", bossOnly: true, uniqueSocket: true, lifeSteal: 0.08, skillHitHealPct: 0.01, hpPct: 0.04, monsterId: "glast_boss_dark_lord", description: "提供吸血，并在主动技能命中时少量恢复生命。" },
   { id: "doppelganger", name: "多佩雷根卡片", map: 6, cardType: "boss", rarity: "legend", bossOnly: true, attackSpeedPct: 0.12, normalAttackDamageBonus: 0.08, crit: 0.03, monsterId: "clock_boss_keeper", description: "高速攻击型 Boss 卡，强化普攻节奏与暴击。" },
-  { id: "phreeoni", name: "皮里恩卡片", map: 3, cardType: "boss", rarity: "legend", bossOnly: true, hitRate: 0.2, dex: 10, higherLevelDamageBonus: 0.05, monsterId: "desert_boss_scorpion_king", description: "大幅提高命中，并提升挑战高等级怪物时的稳定性。" },
+  { id: "phreeoni", name: "皮里恩卡片", map: 3, cardType: "boss", rarity: "legend", bossOnly: true, dex: 14, critRatePct: 0.03, echoChance: 0.03, monsterId: "desert_boss_scorpion_king", description: "提高灵巧、暴击与机制触发稳定性。" },
   { id: "orc_hero", name: "兽人英雄卡片", map: 4, cardType: "boss", rarity: "legend", bossOnly: true, vit: 15, hpPct: 0.1, statusResist: 0.5, monsterId: "orc_boss_hero", description: "高生存 Boss 卡，提高体质、生命，并降低怪物暴击威胁。" },
-  { id: "moonlight_flower", name: "月夜猫卡片", map: 1, cardType: "boss", rarity: "legend", bossOnly: true, attackSpeedPct: 0.06, patrolEfficiency: 0.1, offlineEfficiencyBonus: 0.05, bossDamageBonus: -0.03, monsterId: "forest_boss_guardian", description: "挂机与巡逻效率卡，牺牲少量 Boss 输出换取长期收益。" },
-  { id: "drake", name: "海盗之王卡片", map: 2, cardType: "boss", rarity: "legend", bossOnly: true, bossDamageBonus: 0.15, eliteDamageBonus: 0.1, hitRate: 0.08, monsterId: "sewer_boss_golden_bug", description: "稳定的 Boss 战输出卡，适合首领挑战。" },
+  { id: "moonlight_flower", name: "月夜猫卡片", map: 1, cardType: "boss", rarity: "legend", bossOnly: true, attackSpeedPct: 0.06, combatPaceBonus: 0.1, offlineEfficiencyBonus: 0.05, bossDamageBonus: -0.03, monsterId: "forest_boss_guardian", description: "挂机与巡猎效率卡，牺牲少量 Boss 输出换取长期收益。" },
+  { id: "drake", name: "海盗之王卡片", map: 2, cardType: "boss", rarity: "legend", bossOnly: true, bossDamageBonus: 0.15, eliteDamageBonus: 0.1, critDamageBonus: 0.08, monsterId: "sewer_boss_golden_bug", description: "稳定的 Boss 战输出卡，适合首领挑战。" },
   { id: "turtle_general", name: "龟将军卡片", map: 5, cardType: "boss", rarity: "darkGold", bossOnly: true, finalDamageBonus: 0.1, physicalFinalDamageBonus: 0.1, fireBurstChance: 0.06, fireBurstAtkPct: 0.8, monsterId: "mine_boss_crystal", description: "提高最终物理伤害，并有概率触发火焰爆发。" },
   { id: "dark_lord", name: "黑暗领主卡片", map: 7, cardType: "boss", rarity: "darkGold", bossOnly: true, matkPct: 0.12, skillDamageBonus: 0.08, meteorCounterChance: 0.08, meteorCounterMatkPct: 1.2, monsterId: "glast_boss_dark_lord", description: "魔法型 Boss 卡，受击时有概率以陨石反击。" },
   { id: "golden_thief_bug", name: "黄金盗虫卡片", map: 2, cardType: "boss", rarity: "mythic", bossOnly: true, uniqueSocket: true, magicDamageReduction: 0.25, skillDamageReduction: 0.25, abyssDamageReduction: 0.05, skillCooldownPenalty: 0.1, monsterId: "sewer_boss_golden_bug", description: "强力插卡防御卡，降低技能、魔法与深渊伤害，但会降低主动技能触发节奏。" },
@@ -1458,19 +1488,35 @@ let loopDt = 0;
 let offlineRewardModalOpen = false;
 let refineResultState = null;
 let recentSkillLevelUps = {};
+let materialBagFilter = "all";
+let selectedMaterialBagId = "";
 let recentSkillExpGains = {};
 let recentLootFeedback = [];
 let skillFeedbackTimer = 0;
 let recentCombatSkillCast = { id: "", name: "", startedAt: 0, until: 0 };
+let combatFeedbackSuppressionDepth = 0;
+let lastSkillFeedbackAt = 0;
+let lastSkillFeedbackName = "";
+let lastHitFeedbackAt = 0;
+const pendingDamageFloats = new Map();
 let sessionStatsLastRenderAt = 0;
 let sessionStatsMapId = "";
 const FAST_RENDER_INTERVAL_MS = 100;
 const COMBAT_PAGE_REFRESH_INTERVAL_MS = 300;
 const PASSIVE_PAGE_REFRESH_INTERVAL_MS = 2000;
 const SCENE_RENDER_INTERVAL_MS = 33;
+const BACKGROUND_OFFLINE_THRESHOLD_MS = 15000;
+const COMBAT_SIMULATION_STEP_SECONDS = 0.12;
+const COMBAT_CATCHUP_MAX_SECONDS = BACKGROUND_OFFLINE_THRESHOLD_MS / 1000;
+const BOSS_BACKGROUND_CATCHUP_MAX_SECONDS = 5 * 60;
+const DAMAGE_FLOAT_BATCH_WINDOW_MS = 140;
+const SKILL_FEEDBACK_MIN_INTERVAL_MS = 600;
+const HIT_FEEDBACK_MIN_INTERVAL_MS = 140;
 let lastFastRenderAt = 0;
 let lastCombatPageRenderAt = 0;
 let lastSceneRenderAt = 0;
+let backgroundStartedAt = 0;
+let backgroundStartedInBoss = false;
 let equipmentFilter = "all";
 let equipmentSort = "score";
 let equipmentShowAll = false;
@@ -1514,6 +1560,7 @@ function defaultOfflineRewards() {
     gold: 0,
     baseExp: 0,
     jobExp: 0,
+    mvpInscriptionExp: 0,
     items: [],
     equipments: [],
     cards: [],
@@ -1591,6 +1638,36 @@ function defaultDailyGoals() {
   };
 }
 
+function defaultDungeonState() {
+  const runtime = window.RuneFrontierDungeonRuntime;
+  if (runtime && typeof runtime.defaultDungeonState === "function") return runtime.defaultDungeonState();
+  return { date: dungeonDateKey(), entries: {} };
+}
+
+function dungeonDateKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function normalizeDungeonState(dungeons = {}) {
+  const runtime = window.RuneFrontierDungeonRuntime;
+  if (runtime && typeof runtime.normalizeDungeonState === "function") return runtime.normalizeDungeonState(dungeons);
+  if (!dungeons || typeof dungeons !== "object") return defaultDungeonState();
+  const date = dungeonDateKey();
+  if (dungeons.date !== date) {
+    const savedEntries = dungeons.entries && typeof dungeons.entries === "object" ? dungeons.entries : {};
+    const entries = Object.fromEntries(Object.entries(savedEntries).map(([id, entry]) => [id, {
+      ...(entry && typeof entry === "object" ? entry : {}),
+      used: 0,
+      bestClearPower: Math.max(0, Math.floor(Number(entry?.bestClearPower || 0))),
+    }]));
+    return { date, entries };
+  }
+  return { date: dungeons.date, entries: dungeons.entries || {} };
+}
+
 function normalizeDailyGoals(dailyGoals = {}) {
   if (dailyGoals.date !== todayKey()) return defaultDailyGoals();
   const defaults = defaultDailyGoals();
@@ -1643,13 +1720,12 @@ function grantGenericReward(reward = {}) {
 
 function getSkillGrowthEntry(skillOrId) {
   const skillId = typeof skillOrId === "string" ? skillOrId : skillOrId?.id;
-  if (!skillId) return { level: 1, exp: 0, totalExp: 0, specialization: "" };
+  if (!skillId) return { level: 1, exp: 0, totalExp: 0 };
   const current = state.skillGrowth?.[skillId] || {};
   return {
     level: clampNumber(Math.floor(current.level || 1), 1, SKILL_MAX_LEVEL),
     exp: Math.max(0, Number(current.exp) || 0),
     totalExp: Math.max(0, Number(current.totalExp) || 0),
-    specialization: current.specialization || "",
   };
 }
 
@@ -1671,7 +1747,8 @@ function gainSkillExp(skillOrId, amount, reason = "") {
   const entry = ensureSkillGrowthEntry(skillOrId);
   if (!entry) return;
   const gain = Math.max(0, Number(amount) || 0);
-  if (!gain || entry.level >= SKILL_MAX_LEVEL) return;
+  const maxLevel = Math.min(SKILL_MAX_LEVEL, getSkillMaxLevel(state.hero?.jobId));
+  if (!gain || entry.level >= maxLevel) return;
   const skillId = typeof skillOrId === "string" ? skillOrId : skillOrId?.id;
   entry.exp += gain;
   entry.totalExp += gain;
@@ -1682,7 +1759,7 @@ function gainSkillExp(skillOrId, amount, reason = "") {
       time: Date.now(),
     };
   }
-  while (entry.level < SKILL_MAX_LEVEL) {
+  while (entry.level < maxLevel) {
     const need = getSkillExpRequirement(entry.level);
     if (entry.exp < need) break;
     entry.exp -= need;
@@ -1692,7 +1769,7 @@ function gainSkillExp(skillOrId, amount, reason = "") {
     showToast(`技能升级：${name} Lv.${entry.level}`);
     addLog(`技能升级：${name} Lv.${entry.level}${reason ? `（${reason}）` : ""}。`);
   }
-  if (entry.level >= SKILL_MAX_LEVEL) entry.exp = 0;
+  if (entry.level >= maxLevel) entry.exp = 0;
 }
 
 function isSkillRecentlyLeveled(skillId) {
@@ -1707,6 +1784,15 @@ function getRecentSkillExpGain(skillId) {
 
 function getSkillLevel(skillOrId) {
   return getSkillGrowthEntry(skillOrId).level;
+}
+
+function getUnlockedSkillCircuits(skillOrId) {
+  const skill = typeof skillOrId === "string"
+    ? getV3CombatSkills(state.hero.jobId).find((entry) => entry.id === skillOrId)
+    : skillOrId;
+  if (!skill) return [];
+  const level = getSkillGrowthEntry(skill).level;
+  return (skill.circuits || []).filter((entry) => level >= Number(entry.level || 0));
 }
 
 function getSkillJob(skillOrId) {
@@ -1800,51 +1886,13 @@ function formatSkillMilestoneValue(key, value) {
 }
 
 function getSkillLevelMultiplier(skill) {
-  const spec = getSkillGrowthEntry(skill).specialization;
-  const specBonus = spec === "power" ? 0.2 : spec === "frequency" ? -0.08 : 0;
   const ms = getSkillMilestoneBonuses(skill);
-  return 1 + (Math.max(1, getSkillLevel(skill)) - 1) * 0.02 + specBonus + (ms.milestoneMult || 0);
+  return 1 + (Math.max(1, getSkillLevel(skill)) - 1) * 0.02 + (ms.milestoneMult || 0);
 }
 
 function getPassiveSkillMultiplier(skill) {
-  const spec = getSkillGrowthEntry(skill).specialization;
-  const specBonus = passiveSpecApplies(skill, spec) ? (spec === "enhance" ? 0.15 : 0.1) : 0;
   const ms = getSkillMilestoneBonuses(skill);
-  return 1 + (Math.max(1, getSkillLevel(skill)) - 1) * 0.015 + specBonus + (ms.milestoneMult || 0);
-}
-
-function passiveSpecApplies(skill, spec) {
-  if (!spec) return false;
-  if (spec === "enhance") return true;
-  if (spec === "utility") return Boolean(skill.goldPct || skill.dropPct);
-  if (spec === "survival") return Boolean(skill.hpPct || skill.defPct);
-  if (spec === "combat") return Boolean(skill.atkPct || skill.matkPct || skill.aspdPct || skill.critPct || skill.dpsPct);
-  return false;
-}
-
-function getSkillSpecializationOptions(skill) {
-  return Object.values(skill.active ? ACTIVE_SKILL_SPECIALIZATIONS : PASSIVE_SKILL_SPECIALIZATIONS);
-}
-
-function selectSkillSpecialization(skillId, specId) {
-  const skillEntry = allJobSkills().find((entry) => entry.id === skillId);
-  if (!skillEntry) return;
-  const growth = ensureSkillGrowthEntry(skillId);
-  if (growth.level < 15) {
-    showToast("技能 Lv.15 后解锁专精");
-    return;
-  }
-  if (growth.specialization) {
-    showToast("该技能已选择专精");
-    return;
-  }
-  const option = getSkillSpecializationOptions(skillEntry).find((entry) => entry.id === specId);
-  if (!option) return;
-  if (!window.confirm(`选择专精「${option.name}」？本次暂不支持重选。`)) return;
-  growth.specialization = option.id;
-  addLog(`技能专精：${skillEntry.name} 选择 ${option.name}。`);
-  renderAll();
-  save();
+  return 1 + (Math.max(1, getSkillLevel(skill)) - 1) * 0.015 + (ms.milestoneMult || 0);
 }
 
 function allJobSkills() {
@@ -1954,6 +2002,9 @@ function createDefaultState() {
     areaKills: 0,
     totalKills: 0,
     equipmentPityKills: 0,
+    equipmentSystemVersion: EQUIPMENT_SYSTEM_VERSION,
+    equipmentStatVersion: EQUIPMENT_STAT_VERSION,
+    equipmentLineMastery: {},
     mapDifficultyProgress: { grass: { normal: { unlocked: true, cleared: false }, hard: { unlocked: false, cleared: false }, abyss: { unlocked: false, cleared: false } } },
     paused: false,
     enemyHp: 0,
@@ -1967,6 +2018,7 @@ function createDefaultState() {
     playerAttackTimer: 0,
     damageCarry: 0,
     regenTimer: 0,
+    potionCooldown: 0,
     offlinePending: null,
     offlineRewards: defaultOfflineRewards(),
     hero: {
@@ -2012,7 +2064,7 @@ function createDefaultState() {
     shopState: { dailyPurchases: {}, weeklyPurchases: {}, totalPurchases: {}, lastDailyRefresh: "", lastWeeklyRefresh: "" },
     autoSalvage: { enabled: false, maxRarity: "normal", autoDismantleAbyss: false },
     autoDismantleAbyss: false,
-    settings: { autoBoss: false, autoBossCooldownUntil: 0, soundEnabled: false, soundVolume: 0.55 },
+    settings: { autoBoss: false, autoBossCooldownUntil: 0, autoPotion: true, soundEnabled: false, soundVolume: 0.55 },
     zodiacCollection: {},
     costumes: { owned: [], equipped: { back: null } },
     mapExploration: {},
@@ -2026,7 +2078,9 @@ function createDefaultState() {
     lastLootViewedAt: 0,
     lastLootUpdatedAt: 0,
     dailyGoals: defaultDailyGoals(),
+    dungeons: defaultDungeonState(),
     vip: defaultVipState(),
+    mvpInscription: defaultMvpInscriptionState(),
     quests: defaultQuestState(),
     onboarding: defaultOnboardingState(),
     skillGrowth: defaultSkillGrowth(),
@@ -2080,7 +2134,9 @@ function cacheElements() {
     "midHero",
     "backHero",
     "bossButton",
+    "potionButton",
     "autoBossToggle",
+    "autoPotionToggle",
     "claimButton",
     "offlineEntry",
     "offlineEntryTitle",
@@ -2113,6 +2169,7 @@ function cacheElements() {
     "shopContent",
     "vipPanel",
     "taskPage",
+    "dungeonPage",
     "refreshDailyButton",
     "questList",
     "partyList",
@@ -2128,6 +2185,7 @@ function cacheElements() {
     "skillBarV3",
     "skillCastBanner",
     "enemyStatusBar",
+    "enemyStatusVfxLayer",
   ].forEach((id) => {
     els[id] = document.getElementById(id);
   });
@@ -2161,7 +2219,7 @@ function ensureRefineActionButtons() {
 
 // [BRIDGE] Event wiring — 40+ listeners. All callbacks invoke game.js functions that delegate to runtime modules where applicable.
 // Non-delegated callbacks (presentation/DOM): openOfflineRewardModal, closeOfflineRewardModal, closeRefineResultModal, showToast, punchCardSlot, setAutoBossEnabled, loadAuth, refreshAuthUi, logout, toggleAutoBoss, ensureSettings.
-// Delegated callbacks: challengeBoss, claimOffline, refineItem, renderAll, salvageItem, salvageAllUnequipped, equipBest, enhanceItem, empowerItem, buyShopItem, claimCodexReward, toggleItemLock.
+// Delegated callbacks: challengeBoss, claimOffline, refineItem, renderAll, salvageItem, equipBest, enhanceItem, empowerItem, buyShopItem, claimCodexReward, toggleItemLock.
 function bindEvents() {
   ensureRefineActionButtons();
   cacheElements();
@@ -2173,6 +2231,16 @@ function bindEvents() {
       renderFast(true);
     });
   });
+  document.body.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-adventure-page]");
+    if (!button || button.closest(".page-tabs")) return;
+    goToPage(button.dataset.adventurePage);
+  });
+  if (els.dungeonPage) els.dungeonPage.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-enter-dungeon]");
+    if (!button) return;
+    window.RuneFrontierDungeonRuntime?.enterDungeon?.(button.dataset.enterDungeon);
+  });
 
   els.pauseButton.addEventListener("click", () => {
     state.paused = !state.paused;
@@ -2183,9 +2251,19 @@ function bindEvents() {
   els.bossButton.addEventListener("click", () => {
     challengeBoss({ auto: false });
   });
+  if (els.potionButton) {
+    els.potionButton.addEventListener("click", () => {
+      useHealingPotion({ auto: false });
+    });
+  }
   if (els.autoBossToggle) {
     els.autoBossToggle.addEventListener("change", (event) => {
       setAutoBossEnabled(event.target.checked);
+    });
+  }
+  if (els.autoPotionToggle) {
+    els.autoPotionToggle.addEventListener("change", (event) => {
+      setAutoPotionEnabled(event.target.checked);
     });
   }
 
@@ -2258,6 +2336,19 @@ function bindEvents() {
     renderEquipment();
   });
   els.materialList.addEventListener("click", (event) => {
+    const materialFilterButton = event.target.closest("button[data-material-bag-filter]");
+    if (materialFilterButton) {
+      materialBagFilter = materialFilterButton.dataset.materialBagFilter || "all";
+      selectedMaterialBagId = "";
+      renderEquipment();
+      return;
+    }
+    const materialItemButton = event.target.closest("button[data-material-bag-item]");
+    if (materialItemButton) {
+      selectedMaterialBagId = materialItemButton.dataset.materialBagItem || "";
+      renderEquipment();
+      return;
+    }
     const batchButton = event.target.closest("button[data-batch-equipment]");
     if (batchButton) {
       runEquipmentBatchAction(batchButton.dataset.batchEquipment);
@@ -2280,10 +2371,10 @@ function bindEvents() {
     if (batchButton) batchTrainBase();
     const rebirthButton = event.target.closest("button[data-rebirth]");
     if (rebirthButton) rebirthHero();
+    const mvpInscriptionButton = event.target.closest("button[data-mvp-inscription-breakthrough]");
+    if (mvpInscriptionButton) { breakthroughMvpInscription(); return; }
     const renameButton = event.target.closest("button[data-rename-hero]");
     if (renameButton) renameHero();
-    const specButton = event.target.closest("button[data-skill-spec]");
-    if (specButton) selectSkillSpecialization(specButton.dataset.skillId, specButton.dataset.skillSpec);
     const skillUpgradeButton = event.target.closest("button[data-skill-upgrade]");
     if (skillUpgradeButton) { upgradeSkill(skillUpgradeButton.dataset.skillUpgrade); return; }
     const titleButton = event.target.closest("button[data-equip-title]");
@@ -2346,6 +2437,11 @@ function bindEvents() {
       empowerItem(empowerButton.dataset.empowerItem);
       return;
     }
+    const progressionButton = event.target.closest("button[data-upgrade-progression-item]");
+    if (progressionButton) {
+      upgradeEquipmentProgression(progressionButton.dataset.upgradeProgressionItem);
+      return;
+    }
     const lockButton = event.target.closest("button[data-lock-item]");
     if (lockButton) {
       toggleItemLock(lockButton.dataset.lockItem);
@@ -2390,7 +2486,7 @@ function bindEvents() {
       const entry = dp[diff];
       if (!entry || !entry.unlocked) {
         if (diff === "hard") showToast("请先通关本章普通难度以解锁困难。");
-        else if (diff === "abyss") showToast("请先通关本章困难难度以解锁深渊。");
+        else if (diff === "abyss") showToast("请先通关本地图困难 Boss，以解锁本地图深渊。");
         else showToast("该难度尚未解锁。");
         return;
       }
@@ -2528,6 +2624,21 @@ els.vipPanel.addEventListener("click", (event) => {
       enhanceItem(enhanceButton.dataset.enhanceItem);
       return;
     }
+    const progressionButton = event.target.closest("button[data-upgrade-progression-item]");
+    if (progressionButton) {
+      upgradeEquipmentProgression(progressionButton.dataset.upgradeProgressionItem);
+      return;
+    }
+    const lineMasteryButton = event.target.closest("button[data-upgrade-line-mastery]");
+    if (lineMasteryButton) {
+      upgradeLineMastery(lineMasteryButton.dataset.upgradeLineMastery);
+      return;
+    }
+    const abyssTemperButton = event.target.closest("button[data-temper-abyss-item]");
+    if (abyssTemperButton) {
+      temperAbyssItem(abyssTemperButton.dataset.temperAbyssItem, abyssTemperButton.dataset.temperMode || "infuse");
+      return;
+    }
     const refineButton = event.target.closest("button[data-refine-item]");
     if (refineButton) {
       refineItem(refineButton.dataset.refineItem);
@@ -2573,6 +2684,21 @@ els.vipPanel.addEventListener("click", (event) => {
       enhanceItem(enhanceButton.dataset.enhanceItem);
       return;
     }
+    const progressionButton = event.target.closest("button[data-upgrade-progression-item]");
+    if (progressionButton) {
+      upgradeEquipmentProgression(progressionButton.dataset.upgradeProgressionItem);
+      return;
+    }
+    const lineMasteryButton = event.target.closest("button[data-upgrade-line-mastery]");
+    if (lineMasteryButton) {
+      upgradeLineMastery(lineMasteryButton.dataset.upgradeLineMastery);
+      return;
+    }
+    const abyssTemperButton = event.target.closest("button[data-temper-abyss-item]");
+    if (abyssTemperButton) {
+      temperAbyssItem(abyssTemperButton.dataset.temperAbyssItem, abyssTemperButton.dataset.temperMode || "infuse");
+      return;
+    }
     const refineButton = event.target.closest("button[data-refine-item]");
     if (refineButton) {
       refineItem(refineButton.dataset.refineItem);
@@ -2610,16 +2736,29 @@ els.vipPanel.addEventListener("click", (event) => {
     }
   });
 
-  window.addEventListener("beforeunload", save);
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+  window.addEventListener("blur", handleBackgroundStart);
+  window.addEventListener("focus", handleForegroundResume);
+  window.addEventListener("pagehide", handlePageHide);
+  window.addEventListener("beforeunload", handleBeforeUnload);
 }
 
+const HEALING_POTION_HEAL_PCT = 0.30;
+const HEALING_POTION_COOLDOWN = 8;
+const AUTO_POTION_HP_RATIO = 0.35;
+
 function ensureSettings() {
-  state.settings = { autoBoss: false, autoBossCooldownUntil: 0, soundEnabled: false, soundVolume: 0.55, ...(state.settings || {}) };
+  state.settings = { autoBoss: false, autoBossCooldownUntil: 0, autoPotion: true, soundEnabled: false, soundVolume: 0.55, ...(state.settings || {}) };
   if (typeof state.autoBoss !== "undefined") {
     state.settings.autoBoss = Boolean(state.settings.autoBoss || state.autoBoss);
     delete state.autoBoss;
   }
+  if (typeof state.autoPotion !== "undefined") {
+    state.settings.autoPotion = Boolean(state.settings.autoPotion || state.autoPotion);
+    delete state.autoPotion;
+  }
   state.settings.autoBoss = Boolean(state.settings.autoBoss);
+  state.settings.autoPotion = Boolean(state.settings.autoPotion);
   state.settings.autoBossCooldownUntil = Math.max(0, Number(state.settings.autoBossCooldownUntil) || 0);
   state.settings.soundEnabled = Boolean(state.settings.soundEnabled);
   state.settings.soundVolume = clampNumber(Number(state.settings.soundVolume) || 0.55, 0, 1);
@@ -2647,6 +2786,89 @@ function setAutoBossEnabled(enabled) {
 
 function toggleAutoBoss() {
   setAutoBossEnabled(!getAutoBossEnabled());
+}
+
+function getHealingPotionCost() {
+  const level = Math.max(1, Number(state.hero?.baseLevel || 1));
+  const mapIndex = Math.max(0, Number(state.currentMap || 0));
+  const difficultyScale = { normal: 1, hard: 2.2, abyss: 4 }[state.currentDifficulty] || 1;
+  return Math.max(10, Math.round((10 + level * 2 + mapIndex * 8) * difficultyScale));
+}
+
+function getHealingPotionInfo(stats = null) {
+  const maxHp = Math.max(1, Math.round(Number(stats?.maxHp || state.hero?.maxHp || 1)));
+  const currentHp = clampNumber(Number(state.hero?.currentHp || 0), 0, maxHp);
+  const missingHp = Math.max(0, maxHp - currentHp);
+  const healAmount = Math.max(1, Math.round(maxHp * HEALING_POTION_HEAL_PCT));
+  const cooldown = Math.max(0, Number(state.potionCooldown || 0));
+  const cost = getHealingPotionCost();
+  return {
+    maxHp,
+    currentHp,
+    hpRatio: currentHp / maxHp,
+    missingHp,
+    healAmount,
+    effectiveHeal: Math.min(healAmount, missingHp),
+    cooldown,
+    cost,
+    canUse: missingHp > 0 && cooldown <= 0 && Number(state.gold || 0) >= cost,
+  };
+}
+
+function getAutoPotionEnabled() {
+  return Boolean(ensureSettings().autoPotion);
+}
+
+function setAutoPotionEnabled(enabled) {
+  const next = Boolean(enabled);
+  const settings = ensureSettings();
+  if (settings.autoPotion === next) {
+    renderFast(true);
+    return;
+  }
+  settings.autoPotion = next;
+  showToast(settings.autoPotion ? "自动补给已开启" : "自动补给已关闭");
+  addLog(settings.autoPotion ? "已开启自动红药水补给。" : "已关闭自动红药水补给。");
+  renderFast(true);
+  save();
+}
+
+function updatePotionCooldown(dt) {
+  state.potionCooldown = Math.max(0, Number(state.potionCooldown || 0) - Math.max(0, Number(dt || 0)));
+}
+
+function useHealingPotion({ auto = false, stats = null } = {}) {
+  const info = getHealingPotionInfo(stats || computeStats());
+  if (!info.canUse) {
+    if (!auto) {
+      if (info.missingHp <= 0) showToast("生命值已满");
+      else if (info.cooldown > 0) showToast(`红药水冷却中：${Math.ceil(info.cooldown)} 秒`);
+      else showToast(`金币不足，需要 ${formatNumber(info.cost)} 金币`);
+    }
+    return false;
+  }
+  const wasDefeated = info.currentHp <= 0;
+  state.gold = Math.max(0, Number(state.gold || 0) - info.cost);
+  state.hero.currentHp = Math.min(info.maxHp, info.currentHp + info.effectiveHeal);
+  state.potionCooldown = HEALING_POTION_COOLDOWN;
+  if (wasDefeated) state.paused = false;
+  showDamageNumber("player", info.effectiveHeal, "heal");
+  if (els.playerHpBar) {
+    els.playerHpBar.classList.add("player-hp-flash");
+    window.setTimeout(() => els.playerHpBar && els.playerHpBar.classList.remove("player-hp-flash"), 200);
+  }
+  addLog(`${auto ? "自动补给" : "红药水"}：消耗 ${formatNumber(info.cost)} 金币，恢复 ${formatNumber(info.effectiveHeal)} HP。`);
+  renderFast(true);
+  if (!auto) save();
+  return true;
+}
+
+function maybeAutoUsePotion(stats = null) {
+  if (!getAutoPotionEnabled()) return false;
+  const info = getHealingPotionInfo(stats);
+  if (info.hpRatio > AUTO_POTION_HP_RATIO && info.currentHp > 0) return false;
+  if (!info.canUse) return false;
+  return useHealingPotion({ auto: true, stats });
 }
 
 function loadAuth() {
@@ -2764,6 +2986,14 @@ function load() {
 
   try {
     const saved = JSON.parse(raw);
+    if (saved.equipmentSystemVersion !== EQUIPMENT_SYSTEM_VERSION) {
+      state = createDefaultState();
+      state.offlinePending = buildOfflineReward(0);
+      state.offlineRewards = state.offlinePending;
+      state.log.unshift("装备系统 V4 已启用，旧存档已重置。");
+      save();
+      return;
+    }
     state = mergeState(createDefaultState(), saved);
     sanitizeProgression();
     const elapsed = Math.max(0, Math.floor((Date.now() - (state.lastActiveAt || state.lastSavedAt || Date.now())) / 1000));
@@ -2779,6 +3009,13 @@ function load() {
 function mergeState(base, saved) {
   const runtime = window.RuneFrontierStateRuntime;
   if (runtime && typeof runtime.mergeState === "function") return runtime.mergeState(base, saved);
+  if (saved.equipmentSystemVersion !== EQUIPMENT_SYSTEM_VERSION) {
+    return {
+      ...base,
+      equipmentSystemVersion: EQUIPMENT_SYSTEM_VERSION,
+      log: ["装备系统 V4 已启用，旧存档已重置。", ...(base.log || [])].slice(0, 24),
+    };
+  }
   const oldHero = Array.isArray(saved.heroes) ? saved.heroes.find((hero) => hero.unlocked) || saved.heroes[0] : null;
   const hero = saved.hero || {
     ...base.hero,
@@ -2788,6 +3025,13 @@ function mergeState(base, saved) {
     jobExp: 0,
   };
   const inventory = Array.isArray(saved.inventory) && saved.inventory.length ? saved.inventory : base.inventory;
+  const needsEquipmentV2Migration = saved.equipmentStatVersion !== EQUIPMENT_STAT_VERSION;
+  const normalizedInventory = inventory.map(normalizeItem);
+  const mergedMaterials = { ...base.materials, ...(saved.materials || {}) };
+  const mergedLog = Array.isArray(saved.log) && saved.log.length ? saved.log.slice(0, 24) : base.log;
+  if (needsEquipmentV2Migration) {
+    mergedLog.unshift("装备属性 V2 已启用：旧装备已按当前规则标准化。");
+  }
 
   return {
     ...base,
@@ -2812,13 +3056,22 @@ function mergeState(base, saved) {
     cardFavorites: { ...base.cardFavorites, ...(saved.cardFavorites || {}) },
     cardResearch: { ...base.cardResearch, ...(saved.cardResearch || {}) },
     craftedSetItems: { ...base.craftedSetItems, ...(saved.craftedSetItems || {}) },
-    materials: { ...base.materials, ...(saved.materials || {}) },
+    materials: mergedMaterials,
     monsterCodex: saved.monsterCodex || base.monsterCodex || {},
     cardCodex: saved.cardCodex || base.cardCodex || {},
     codexRewardsClaimed: { monster: { ...(base.codexRewardsClaimed?.monster || {}), ...(saved.codexRewardsClaimed?.monster || {}) }, card: { ...(base.codexRewardsClaimed?.card || {}), ...(saved.codexRewardsClaimed?.card || {}) } },
     autoSalvage: { ...base.autoSalvage, ...(saved.autoSalvage || {}), autoDismantleAbyss: Boolean(saved.autoSalvage?.autoDismantleAbyss || saved.autoDismantleAbyss) },
     autoDismantleAbyss: Boolean(saved.autoDismantleAbyss || saved.autoSalvage?.autoDismantleAbyss),
-    settings: { ...base.settings, ...(saved.settings || {}), autoBoss: Boolean(saved.settings?.autoBoss || saved.autoBoss) },
+    settings: {
+      ...base.settings,
+      ...(saved.settings || {}),
+      autoBoss: Boolean(saved.settings?.autoBoss || saved.autoBoss),
+      autoPotion: typeof saved.settings?.autoPotion !== "undefined"
+        ? Boolean(saved.settings.autoPotion)
+        : typeof saved.autoPotion !== "undefined"
+          ? Boolean(saved.autoPotion)
+          : Boolean(base.settings?.autoPotion),
+    },
     zodiacCollection: normalizeZodiacCollection(saved.zodiacCollection || base.zodiacCollection),
     costumes: normalizeCostumes(saved.costumes || base.costumes),
     mapExploration: normalizeMapExploration(saved.mapExploration || base.mapExploration),
@@ -2831,6 +3084,7 @@ function mergeState(base, saved) {
     lastLootViewedAt: Number(saved.lastLootViewedAt || 0),
     lastLootUpdatedAt: Number(saved.lastLootUpdatedAt || 0),
     dailyGoals: normalizeDailyGoals(saved.dailyGoals || base.dailyGoals),
+    dungeons: normalizeDungeonState(saved.dungeons || base.dungeons),
     vip: { ...base.vip, ...(saved.vip || {}) },
     quests: normalizeQuests(saved.quests || base.quests),
     onboarding: normalizeOnboarding(saved.onboarding || base.onboarding),
@@ -2840,9 +3094,13 @@ function mergeState(base, saved) {
     offlineRewards: normalizeOfflineRewards(saved.offlineRewards || saved.offlinePending || base.offlineRewards),
     floatTexts: [],
     skillLog: Array.isArray(saved.skillLog) ? saved.skillLog.slice(0, 8) : [],
-    inventory: inventory.map(normalizeItem),
-    log: Array.isArray(saved.log) && saved.log.length ? saved.log.slice(0, 24) : base.log,
+    potionCooldown: Math.max(0, Number(saved.potionCooldown || 0)),
+    equipmentSystemVersion: EQUIPMENT_SYSTEM_VERSION,
+    equipmentStatVersion: EQUIPMENT_STAT_VERSION,
+    inventory: normalizedInventory,
+    log: mergedLog.slice(0, 24),
     mapDifficultyProgress: normalizeMapDifficultyProgress(saved.mapDifficultyProgress, saved.bestMap, saved.currentDifficulty),
+    equipmentLineMastery: window.RuneFrontierEquipmentRuntime?.normalizeLineMasteryState?.(saved.equipmentLineMastery) || {},
     shopState: saved.shopState || base.shopState || { dailyPurchases: {}, weeklyPurchases: {}, totalPurchases: {}, lastDailyRefresh: "", lastWeeklyRefresh: "" },
   };
 }
@@ -2903,6 +3161,7 @@ function sanitizeProgression() {
   state.playerAttackTimer = state.playerAttackTimer || 0;
   state.damageCarry = Math.max(0, Number(state.damageCarry) || 0);
   state.regenTimer = state.regenTimer || 0;
+  state.potionCooldown = Math.max(0, Number(state.potionCooldown || 0));
   ["body", "bodyArmor", "headTop", "accessory"].forEach((slot) => {
     const mapped = normalizeEquipmentSlot(slot);
     if (state.equipped?.[slot] && !state.equipped[mapped]) state.equipped[mapped] = state.equipped[slot];
@@ -2918,6 +3177,7 @@ function sanitizeProgression() {
   state.lootNotifyUnread = Boolean(state.lootNotifyUnread);
   state.lastLootViewedAt = Number(state.lastLootViewedAt || 0);
   state.lastLootUpdatedAt = Number(state.lastLootUpdatedAt || 0);
+  state.dungeons = normalizeDungeonState(state.dungeons);
   ensureSettings();
   state.zodiacCollection = normalizeZodiacCollection(state.zodiacCollection);
   state.costumes = normalizeCostumes(state.costumes);
@@ -2925,9 +3185,9 @@ function sanitizeProgression() {
   state.achievementProgress = normalizeAchievementProgress(state.achievementProgress);
   state.titles = normalizeTitles(state.titles);
   state.rebirthPrestige = normalizeRebirthPrestige(state.rebirthPrestige, state.hero.rebirths || 0);
-  normalizeSkillGrowthSpecializations();
   if (!rarityOrder.includes(state.autoSalvage.maxRarity) || ["ancient", "legend", "darkGold", "mythic"].includes(state.autoSalvage.maxRarity)) state.autoSalvage.maxRarity = "normal";
   state.vip = normalizeVip(state.vip);
+  state.mvpInscription = normalizeMvpInscriptionState(state.mvpInscription);
   state.quests = normalizeQuests(state.quests);
   state.onboarding = normalizeOnboarding(state.onboarding);
   ensureQuestLists();
@@ -2963,6 +3223,155 @@ function normalizeVip(vip = {}) {
     onlineSecondsToday: Math.max(0, Number(vip.onlineSecondsToday || 0)),
     onlineRewardClaimed: typeof vip.onlineRewardClaimed === "string" ? vip.onlineRewardClaimed : "",
   };
+}
+
+function defaultMvpInscriptionState() {
+  const runtime = window.RuneFrontierMvpInscriptionRuntime;
+  if (runtime && typeof runtime.defaultMvpInscription === "function") return runtime.defaultMvpInscription(() => Date.now());
+  return {
+    level: 1,
+    exp: 0,
+    totalExp: 0,
+    breakthroughLevel: 0,
+    unlockedMarks: ["kingPoring"],
+    bossFirstExpClaims: {},
+    lastOnlineTickAt: Date.now(),
+  };
+}
+
+function normalizeMvpInscriptionState(value) {
+  const runtime = window.RuneFrontierMvpInscriptionRuntime;
+  if (runtime && typeof runtime.normalizeMvpInscription === "function") {
+    return runtime.normalizeMvpInscription(value || {}, () => Date.now());
+  }
+  const base = defaultMvpInscriptionState();
+  const source = value && typeof value === "object" ? value : {};
+  const level = clampNumber(Math.floor(source.level || base.level), 1, 100);
+  const breakthroughCap = Math.max(0, Math.min(90, Math.floor(level / 10) * 10));
+  return {
+    ...base,
+    ...source,
+    level,
+    exp: Math.max(0, Number(source.exp || 0)),
+    totalExp: Math.max(0, Number(source.totalExp || 0)),
+    breakthroughLevel: clampNumber(Math.floor(source.breakthroughLevel || 0), 0, breakthroughCap),
+    unlockedMarks: Array.isArray(source.unlockedMarks) && source.unlockedMarks.length ? source.unlockedMarks.filter(Boolean) : ["kingPoring"],
+    bossFirstExpClaims: source.bossFirstExpClaims && typeof source.bossFirstExpClaims === "object" ? source.bossFirstExpClaims : {},
+    lastOnlineTickAt: Math.max(0, Number(source.lastOnlineTickAt || base.lastOnlineTickAt)),
+  };
+}
+
+function gainMvpInscriptionExp(amount, options = {}) {
+  const gain = Math.max(0, Number(amount || 0));
+  state.mvpInscription = normalizeMvpInscriptionState(state.mvpInscription);
+  if (!gain) return { gained: 0, levelsGained: 0, blocked: false, reachedMax: state.mvpInscription.level >= 100 };
+  const beforeLevel = state.mvpInscription.level;
+  const runtime = window.RuneFrontierMvpInscriptionRuntime;
+  let result = null;
+  if (runtime && typeof runtime.addMvpInscriptionExp === "function") {
+    result = runtime.addMvpInscriptionExp(state.mvpInscription, gain, options);
+  } else {
+    state.mvpInscription.exp += gain;
+    state.mvpInscription.totalExp += gain;
+    result = { gained: gain, levelsGained: 0, blocked: false, reachedMax: false };
+  }
+  if ((result?.levelsGained || 0) > 0 || state.mvpInscription.level > beforeLevel) {
+    addLog(`MVP铭刻提升到 Lv.${state.mvpInscription.level}。`);
+  }
+  if (result?.blocked && !options.silentBlocked) {
+    addLog("MVP铭刻已达到突破节点，请完成突破。");
+  }
+  return result;
+}
+
+function getMvpInscriptionView() {
+  state.mvpInscription = normalizeMvpInscriptionState(state.mvpInscription);
+  const runtime = window.RuneFrontierMvpInscriptionRuntime;
+  const context = { mapIndex: state.currentMap || 0, difficulty: state.currentDifficulty || "normal", rebirths: state.hero?.rebirths || 0 };
+  if (runtime && typeof runtime.getMvpInscriptionView === "function") return runtime.getMvpInscriptionView(state.mvpInscription, context);
+  return { stageName: "波利王铭刻", level: 1, exp: 0, nextRequirement: 120, progress: 0, bonuses: {} };
+}
+
+function canGainMvpInscriptionOnCurrentMap() {
+  const runtime = window.RuneFrontierMvpInscriptionRuntime;
+  if (!runtime || typeof runtime.isMvpInscriptionMonsterEffective !== "function") return true;
+  const map = currentMap();
+  const range = getMapLevelRange(map) || {};
+  const monsterLevel = Math.max(1, Number(range.maxLevel || map?.maxLevel || range.minLevel || map?.minLevel || 1));
+  return runtime.isMvpInscriptionMonsterEffective({
+    heroLevel: state.hero?.baseLevel || 1,
+    monsterLevel,
+    currentMapIndex: state.currentMap || 0,
+    bestMapIndex: state.bestMap || 0,
+    isBoss: false,
+    firstBossClear: false,
+  });
+}
+
+function getMvpInscriptionProgressContext() {
+  const unlockedDifficulties = {};
+  Object.values(state.mapDifficultyProgress || {}).forEach((entry) => {
+    if (entry?.hard?.unlocked) unlockedDifficulties.hard = true;
+    if (entry?.abyss?.unlocked) unlockedDifficulties.abyss = true;
+  });
+  return {
+    heroLevel: state.hero?.baseLevel || 1,
+    bossFirstKills: state.vip?.bossFirstKills || {},
+    unlockedDifficulties,
+  };
+}
+
+function breakthroughMvpInscription() {
+  state.mvpInscription = normalizeMvpInscriptionState(state.mvpInscription);
+  const runtime = window.RuneFrontierMvpInscriptionRuntime;
+  const result = runtime?.canBreakthroughMvpInscription?.(state.mvpInscription, getMvpInscriptionProgressContext()) || { ok: false, reason: "MVP铭刻突破条件不可用" };
+  if (!result.ok) {
+    showToast(`突破条件不足：${result.reason}`);
+    return false;
+  }
+  const level = Number(state.mvpInscription.level || 1);
+  state.mvpInscription.breakthroughLevel = Math.max(state.mvpInscription.breakthroughLevel || 0, level);
+  const nextView = getMvpInscriptionView();
+  const markId = nextView.nextStage?.id;
+  if (markId && !state.mvpInscription.unlockedMarks.includes(markId)) state.mvpInscription.unlockedMarks.push(markId);
+  addLog("MVP铭刻突破完成，新的铭刻气息正在苏醒。");
+  showToast("MVP铭刻突破完成");
+  renderAll();
+  save();
+  return true;
+}
+
+function tickMvpInscription(elapsedSeconds) {
+  if (backgroundStartedAt || document.hidden || state.paused || Number(state.hero?.currentHp || 0) <= 0) return;
+  const dt = Math.min(60, Math.max(0, Number(elapsedSeconds || 0)));
+  if (!dt) return;
+  state.mvpInscription = normalizeMvpInscriptionState(state.mvpInscription);
+  const runtime = window.RuneFrontierMvpInscriptionRuntime;
+  const perMinute = runtime?.calculateMvpInscriptionOnlinePerMinute?.({
+    mapIndex: state.currentMap || 0,
+    difficulty: state.currentDifficulty || "normal",
+    rebirths: state.hero?.rebirths || 0,
+  }) || 0;
+  if (perMinute > 0) gainMvpInscriptionExp((perMinute * dt) / 60, { source: "online", silentBlocked: true });
+  state.mvpInscription.lastOnlineTickAt = Date.now();
+}
+
+function grantMvpInscriptionKillExp(payload = {}) {
+  state.mvpInscription = normalizeMvpInscriptionState(state.mvpInscription);
+  const runtime = window.RuneFrontierMvpInscriptionRuntime;
+  const amount = runtime?.calculateMvpInscriptionMonsterExp?.({
+    ...payload,
+    heroLevel: state.hero?.baseLevel || 1,
+    currentMapIndex: payload.currentMapIndex ?? payload.mapIndex ?? state.currentMap,
+    bestMapIndex: state.bestMap || 0,
+  }) || 0;
+  return gainMvpInscriptionExp(amount, {
+    source: payload.isBoss ? "boss" : "monster",
+    monster: payload.monster,
+    map: payload.map,
+    difficulty: payload.difficulty,
+    silentBlocked: true,
+  });
 }
 
 function normalizeZodiacCollection(collection = {}) {
@@ -3059,14 +3468,6 @@ function applyRebirthPrestigeDropWeight(drop, weight, stats = computeStats(), co
   if (rank >= rarityRank("darkGold")) multiplier += mapBonus.darkGoldWeightBonus || 0;
   if (rank >= rarityRank("mythic")) multiplier += mapBonus.mythicWeightBonus || 0;
   return weight * multiplier;
-}
-
-function normalizeSkillGrowthSpecializations() {
-  Object.entries(state.skillGrowth || {}).forEach(([skillId, entry]) => {
-    if (!entry || typeof entry !== "object") return;
-    entry.specialization = entry.specialization || "";
-    state.skillGrowth[skillId] = entry;
-  });
 }
 
 function ensureQuestLists() {
@@ -3353,11 +3754,12 @@ function gainVipExp(amount) {
   }
 }
 
-function save() {
+function save(options = {}) {
   const runtime = window.RuneFrontierStateRuntime;
-  if (runtime && typeof runtime.save === "function") return runtime.save();
+  if (runtime && typeof runtime.save === "function") return runtime.save(options);
+  const shouldUpdateLastActive = options.updateLastActive !== false;
   state.lastSavedAt = Date.now();
-  state.lastActiveAt = state.lastSavedAt;
+  if (shouldUpdateLastActive) state.lastActiveAt = state.lastSavedAt;
   localStorage.setItem(SAVE_KEY, JSON.stringify(state));
   els.saveState.textContent = auth.token ? "同步中" : "已存档";
   queueRemoteSave();
@@ -3389,15 +3791,120 @@ async function flushRemoteSave() {
   }
 }
 
+function buildBackgroundOfflineReward(startedAt, now = Date.now()) {
+  const runtime = window.RuneFrontierOfflineRuntime;
+  if (runtime && typeof runtime.buildBackgroundOfflineReward === "function") {
+    return runtime.buildBackgroundOfflineReward(startedAt, now);
+  }
+  const elapsedMs = Math.max(0, Math.floor(now - startedAt));
+  const seconds = Math.floor(elapsedMs / 1000);
+  const settled = elapsedMs >= BACKGROUND_OFFLINE_THRESHOLD_MS;
+  return {
+    settled,
+    elapsedMs,
+    seconds: settled ? seconds : 0,
+    rewards: settled ? buildOfflineReward(seconds) : defaultOfflineRewards(),
+  };
+}
+
+function handleBackgroundStart() {
+  if (backgroundStartedAt) return;
+  backgroundStartedAt = Date.now();
+  backgroundStartedInBoss = Boolean(state.enemyBoss);
+  save({ updateLastActive: false });
+}
+
+function handleForegroundResume() {
+  if (!backgroundStartedAt) return false;
+  const startedAt = backgroundStartedAt;
+  const startedInBoss = backgroundStartedInBoss;
+  backgroundStartedAt = 0;
+  backgroundStartedInBoss = false;
+  const result = buildBackgroundOfflineReward(startedAt, Date.now());
+  const elapsedSec = Math.max(0, result.elapsedMs || 0) / 1000;
+  if (!startedInBoss && result.settled) {
+    state.offlinePending = mergeOfflineRewards(state.offlineRewards, result.rewards);
+    state.offlineRewards = state.offlinePending;
+    showToast("后台挂机收益已结算");
+  }
+  updateRecovery(elapsedSec);
+  updatePotionCooldown(elapsedSec);
+  maybeAutoUsePotion();
+  if (startedInBoss) {
+    simulateCombatElapsed(elapsedSec, { maxSeconds: BOSS_BACKGROUND_CATCHUP_MAX_SECONDS, stopWhenBossEnds: true });
+  } else if (!result.settled) {
+    simulateCombatElapsed(elapsedSec);
+  }
+  lastTick = performance.now();
+  save();
+  renderAll();
+  return Boolean(result.settled);
+}
+
+function handleVisibilityChange() {
+  if (document.hidden) {
+    handleBackgroundStart();
+    return;
+  }
+  handleForegroundResume();
+}
+
+function handlePageHide() {
+  if (backgroundStartedAt || document.hidden) {
+    handleBackgroundStart();
+    save({ updateLastActive: false });
+    return;
+  }
+  save();
+}
+
+function handleBeforeUnload() {
+  if (backgroundStartedAt || document.hidden) {
+    save({ updateLastActive: false });
+    return;
+  }
+  save();
+}
+
+function simulateCombatElapsed(elapsedSeconds, options = {}) {
+  const maxSeconds = Math.max(0, Number(options.maxSeconds ?? COMBAT_CATCHUP_MAX_SECONDS) || 0);
+  const total = Math.min(maxSeconds, Math.max(0, Number(elapsedSeconds) || 0));
+  if (total <= 0 || state.paused) return;
+  const runSimulation = () => {
+    let remaining = total;
+    let steps = 0;
+    const maxSteps = Math.ceil(maxSeconds / COMBAT_SIMULATION_STEP_SECONDS) + 1;
+    while (remaining > 0 && steps < maxSteps && !state.paused) {
+      if (options.stopWhenBossEnds && !state.enemyBoss) break;
+      const combatStep = Math.min(COMBAT_SIMULATION_STEP_SECONDS, remaining);
+      updateCombat(combatStep);
+      remaining -= combatStep;
+      steps += 1;
+    }
+  };
+  if (options.silentFeedback || document.hidden || total > COMBAT_SIMULATION_STEP_SECONDS * 2) return withSuppressedCombatFeedback(runSimulation);
+  return runSimulation();
+}
+
 function loop(now) {
-  const dt = Math.min(0.12, (now - lastTick) / 1000);
+  const elapsedDt = Math.max(0, (now - lastTick) / 1000);
+  const dt = Math.min(0.12, elapsedDt);
   lastTick = now;
   loopDt = dt;
 
-  updateRecovery(dt);
-  if (!state.paused) updateCombat(dt);
+  if (backgroundStartedAt) {
+    loopDt = 0;
+    requestAnimationFrame(loop);
+    return;
+  }
+
+  updateRecovery(elapsedDt);
+  updatePotionCooldown(elapsedDt);
+  maybeAutoUsePotion();
+  simulateCombatElapsed(elapsedDt);
   updateFloatTexts(dt);
   updateOnlinePlaytime(dt);
+  tickMvpInscription(elapsedDt);
 
   saveTimer += dt;
   if (saveTimer >= 4) {
@@ -3567,6 +4074,7 @@ function skillAttributeMultiplier(active = {}, stats = {}) {
 }
 
 function noteSkillCast(name, damage) {
+  window.RuneFrontierCombatRuntime?.recordSkillDamage?.(name, damage);
   const text = `${name} 造成 ${formatNumber(sanitizeDamage(damage))} 伤害`;
   state.skillLog.unshift(text);
   state.skillLog = state.skillLog.slice(0, 6);
@@ -3577,6 +4085,7 @@ function noteSkillCast(name, damage) {
 }
 
 function addFloatText(text, x, y, color) {
+  if (combatFeedbackSuppressed()) return;
   state.floatTexts.unshift({
     text,
     x: x + Math.random() * 44 - 22,
@@ -3588,23 +4097,261 @@ function addFloatText(text, x, y, color) {
   state.floatTexts = state.floatTexts.slice(0, 12);
 }
 
-function showDamageNumber(target, amount, type = "player", options = {}) {
+function combatSkillTone(skill) {
+  const name = String(typeof skill === "string" ? skill : skill?.name || "");
+  if (/火|炎|爆|陨石|龙息|burn/i.test(name)) return "fire";
+  if (/冰|雪|冻|霜|freeze/i.test(name)) return "ice";
+  if (/毒|暗|影|死神|黑暗|poison|shadow/i.test(name)) return "shadow";
+  if (/圣|天使|治|光|heal|holy/i.test(name)) return "holy";
+  if (/雷|风暴|星|storm|wind/i.test(name)) return "storm";
+  if (/盾|守护|护|buff|guard/i.test(name)) return "support";
+  return "physical";
+}
+
+function trimCombatLabel(label, max = 5) {
+  const text = String(label || "").trim();
+  if (!text) return "";
+  return text.length > max ? `${text.slice(0, max)}…` : text;
+}
+
+function combatDamageText(value, type, options = {}) {
+  const suffix = options.suffix || "";
+  if (type === "miss") return `MISS${suffix}`;
+  if (type === "heal") return `+${formatNumber(value)}${suffix}`;
+  if (type === "skill") return `${trimCombatLabel(options.skillName) || "技能"} -${formatNumber(value)}${suffix}`;
+  if (type === "crit") return `暴击 -${formatNumber(value)}${suffix}`;
+  return `-${formatNumber(value)}${suffix}`;
+}
+
+const COMBAT_VFX_ASSET_TYPES = {
+  strike: "slash",
+  crit: "crit",
+  skill: "skill",
+  "player-hit": "spark",
+  spark: "spark",
+};
+
+const COMBAT_VFX_TONE_ASSET_TYPES = {
+  fire: "fire",
+  ice: "ice",
+  shadow: "shadow",
+  holy: "holy",
+  storm: "storm",
+  support: "support",
+};
+
+const COMBAT_STATUS_VFX_ASSET_TYPES = {
+  burn: "burn",
+  freeze: "freeze",
+  poison: "poison",
+  snare: "snare",
+  mark: "mark",
+  "armor-break": "break",
+  wound: "wound",
+};
+
+const COMBAT_REWARD_VFX_ASSET_TYPES = {
+  death: "death",
+  "boss-death": "boss-death",
+  loot: "loot",
+  gold: "gold",
+};
+
+const COMBAT_PLAYER_FEEDBACK_VFX_ASSET_TYPES = {
+  heal: "heal",
+  shield: "shield",
+  dodge: "dodge",
+  hurt: "hurt",
+};
+
+const COMBAT_ENEMY_ACTION_VFX_ASSET_TYPES = {
+  "enemy-warning": "enemy-warning",
+  "boss-cast": "boss-cast",
+  "boss-impact": "boss-impact",
+  "danger-mark": "danger-mark",
+};
+
+function spawnCombatSparks(wrap, target, type = "normal", tone = "physical") {
+  if (!wrap || type === "heal" || type === "miss") return;
+  const sparks = wrap.querySelectorAll(".combat-spark");
+  if (sparks.length > 8) sparks[0].remove();
+  const vfxType = COMBAT_VFX_ASSET_TYPES.spark;
+  const baseLeft = target === "monster" ? (type === "skill" ? 70 : 73) : 23;
+  const baseTop = target === "monster" ? (type === "skill" ? 43 : 50) : 49;
+  const spark = document.createElement("span");
+  const angle = randomFloat(-80, 80);
+  const distance = type === "crit" ? randomFloat(18, 32) : randomFloat(8, 20);
+  spark.className = `ro-vfx ro-vfx-${vfxType} combat-spark combat-impact-tone-${tone}`;
+  spark.style.left = `${baseLeft + randomFloat(-4, 4)}%`;
+  spark.style.top = `${baseTop + randomFloat(-5, 5)}%`;
+  spark.style.setProperty("--vfx-x", `${Math.cos(angle * Math.PI / 180) * distance}px`);
+  spark.style.setProperty("--vfx-y", `${Math.sin(angle * Math.PI / 180) * distance}px`);
+  spark.style.setProperty("--vfx-rotate", `${randomFloat(-24, 24)}deg`);
+  spark.style.setProperty("--vfx-scale", type === "crit" ? "1.05" : type === "skill" ? "0.92" : "0.86");
+  wrap.appendChild(spark);
+  window.setTimeout(() => spark.remove(), type === "crit" ? 820 : type === "skill" ? 720 : 680);
+}
+
+function spawnCombatImpact(wrap, target, type = "normal", tone = "physical") {
+  if (!wrap || type === "heal" || type === "miss") return;
+  const impacts = wrap.querySelectorAll(".combat-impact");
+  if (impacts.length > 12) impacts[0].remove();
+  const el = document.createElement("span");
+  const impactType = target === "monster"
+    ? type === "crit"
+      ? "crit"
+      : type === "skill"
+        ? "skill"
+        : "strike"
+    : "player-hit";
+  const vfxType = type === "skill" ? (COMBAT_VFX_TONE_ASSET_TYPES[tone] || COMBAT_VFX_ASSET_TYPES.skill) : (COMBAT_VFX_ASSET_TYPES[impactType] || COMBAT_VFX_ASSET_TYPES.strike);
+  el.className = `ro-vfx ro-vfx-${vfxType} combat-impact combat-impact-${impactType} combat-impact-tone-${tone}`;
+  const baseLeft = target === "monster" ? (type === "skill" ? 70 : 73) : 23;
+  const baseTop = target === "monster" ? (type === "skill" ? 43 : 50) : 49;
+  el.style.left = `${baseLeft + randomFloat(-3, 3)}%`;
+  el.style.top = `${baseTop + randomFloat(-5, 5)}%`;
+  el.style.setProperty("--vfx-rotate", type === "crit" ? `${randomFloat(-5, 5)}deg` : type === "skill" ? `${randomFloat(-8, 8)}deg` : `${randomFloat(-10, 4)}deg`);
+  el.style.setProperty("--vfx-scale", type === "crit" ? "1.03" : type === "skill" ? "0.98" : target === "monster" ? "0.92" : "0.82");
+  wrap.appendChild(el);
+  spawnCombatSparks(wrap, target, type, tone);
+  window.setTimeout(() => el.remove(), type === "skill" ? 860 : type === "crit" ? 880 : 760);
+}
+
+function spawnCombatRewardVfx(wrap, type = "death", options = {}) {
+  if (!wrap) return null;
+  const effects = wrap.querySelectorAll(".ro-reward-vfx");
+  if (effects.length > 8) effects[0].remove();
+  const vfxType = COMBAT_REWARD_VFX_ASSET_TYPES[type] || COMBAT_REWARD_VFX_ASSET_TYPES.death;
+  const legacyClass = type === "boss-death"
+    ? options.abyss
+      ? "abyss-boss-death-pop"
+      : "boss-death-pop"
+    : type === "death"
+      ? options.mutation
+        ? "mutation-death-pop"
+        : "monster-death-pop"
+      : type === "gold"
+        ? "gold-reward-pop"
+        : "loot-reward-pop";
+  const el = document.createElement("span");
+  el.className = `ro-reward-vfx ro-reward-vfx-${vfxType} ${legacyClass} reward-vfx-${type}${options.rarity ? ` reward-vfx-rarity-${options.rarity}` : ""}`;
+  const baseLeft = type === "loot" ? 83 : type === "gold" ? 70 : 74;
+  const baseTop = type === "loot" ? 49 : type === "gold" ? 63 : 51;
+  el.style.left = `${baseLeft + randomFloat(-2, 2)}%`;
+  el.style.top = `${baseTop + randomFloat(-3, 3)}%`;
+  el.style.setProperty("--reward-rotate", type === "loot" ? `${randomFloat(-4, 4)}deg` : "0deg");
+  el.style.setProperty("--reward-scale", type === "boss-death" ? "1.08" : type === "gold" ? "0.72" : "0.92");
+  wrap.appendChild(el);
+  window.setTimeout(() => el.remove(), type === "boss-death" ? 1320 : type === "loot" ? 1450 : type === "gold" ? 980 : 860);
+  return el;
+}
+
+function spawnPlayerFeedbackVfx(wrap, target, type) {
+  if (!wrap || target === "monster") return null;
+  const effects = wrap.querySelectorAll(".ro-player-vfx");
+  if (effects.length > 8) effects[0].remove();
+  const feedbackType = type === "heal"
+    ? "heal"
+    : type === "miss"
+      ? "dodge"
+      : type === "block"
+        ? "shield"
+        : "hurt";
+  const vfxType = COMBAT_PLAYER_FEEDBACK_VFX_ASSET_TYPES[feedbackType] || COMBAT_PLAYER_FEEDBACK_VFX_ASSET_TYPES.hurt;
+  const el = document.createElement("span");
+  el.className = `ro-player-vfx ro-player-vfx-${vfxType} player-feedback-vfx player-feedback-${type}`;
+  const baseLeft = 21;
+  const baseTop = 66;
+  el.style.left = `${baseLeft + randomFloat(-1, 1)}%`;
+  el.style.top = `${baseTop + randomFloat(-1.5, 1.5)}%`;
+  el.style.setProperty("--player-vfx-rotate", feedbackType === "dodge" ? `${randomFloat(-6, 6)}deg` : "0deg");
+  el.style.setProperty("--player-vfx-scale", feedbackType === "shield" ? "0.78" : feedbackType === "hurt" ? "0.68" : "0.74");
+  wrap.appendChild(el);
+  window.setTimeout(() => el.remove(), feedbackType === "heal" ? 1120 : feedbackType === "shield" ? 980 : 860);
+  return el;
+}
+
+function spawnEnemyActionVfx(wrap, type = "enemy-warning", options = {}) {
+  if (!wrap) return null;
+  const effects = wrap.querySelectorAll(".ro-enemy-action-vfx");
+  if (effects.length > 10) effects[0].remove();
+  const vfxType = COMBAT_ENEMY_ACTION_VFX_ASSET_TYPES[type] || COMBAT_ENEMY_ACTION_VFX_ASSET_TYPES["enemy-warning"];
+  const boss = Boolean(options.boss) || type === "boss-cast" || type === "boss-impact";
+  const layerClass = type === "boss-cast" ? "enemy-action-behind" : "enemy-action-front";
+  const el = document.createElement("span");
+  el.className = `ro-enemy-action-vfx ro-enemy-action-vfx-${vfxType} enemy-action-vfx ${layerClass} enemy-action-${type}${boss ? " enemy-action-boss" : ""}`;
+  const baseLeft = type === "boss-impact" || type === "danger-mark" ? 23 : type === "boss-cast" ? 78 : 66;
+  const baseTop = type === "danger-mark" ? 39 : type === "boss-impact" ? 50 : type === "boss-cast" ? 58 : 57;
+  el.style.left = `${baseLeft + randomFloat(-2, 2)}%`;
+  el.style.top = `${baseTop + randomFloat(-3, 3)}%`;
+  el.style.setProperty("--enemy-action-rotate", type === "enemy-warning" ? `${randomFloat(-5, 5)}deg` : "0deg");
+  el.style.setProperty("--enemy-action-scale", type === "boss-cast" ? "0.9" : type === "boss-impact" ? "0.88" : type === "danger-mark" ? "0.74" : "0.8");
+  wrap.appendChild(el);
+  window.setTimeout(() => el.remove(), type === "boss-cast" ? 1160 : type === "boss-impact" ? 980 : type === "danger-mark" ? 860 : 760);
+  return el;
+}
+
+function showEnemyAttackWarning(payload = {}) {
+  if (combatFeedbackSuppressed()) return;
+  const wrap = document.querySelector(".scene-wrap");
+  if (!wrap) return;
+  const boss = Boolean(payload.boss);
+  if (boss) {
+    spawnEnemyActionVfx(wrap, "boss-cast", { boss: true });
+    spawnEnemyActionVfx(wrap, "danger-mark", { boss: true });
+    wrap.classList.remove("enemy-warning-active", "boss-warning-active");
+    void wrap.offsetWidth;
+    wrap.classList.add("enemy-warning-active", "boss-warning-active");
+    window.setTimeout(() => wrap.classList.remove("enemy-warning-active", "boss-warning-active"), 760);
+    return;
+  }
+  spawnEnemyActionVfx(wrap, "enemy-warning", { boss: false });
+  wrap.classList.remove("enemy-warning-active");
+  void wrap.offsetWidth;
+  wrap.classList.add("enemy-warning-active");
+  window.setTimeout(() => wrap.classList.remove("enemy-warning-active"), 520);
+}
+
+function showEnemyAttackImpact(payload = {}) {
+  if (combatFeedbackSuppressed()) return;
+  const wrap = document.querySelector(".scene-wrap");
+  if (!wrap) return;
+  const boss = Boolean(payload.boss);
+  spawnEnemyActionVfx(wrap, boss ? "boss-impact" : "enemy-warning", {
+    boss,
+    critical: Boolean(payload.critical),
+    blocked: Boolean(payload.blocked),
+  });
+  if (!boss) return;
+  wrap.classList.remove("boss-impact-flash");
+  void wrap.offsetWidth;
+  wrap.classList.add("boss-impact-flash");
+  window.setTimeout(() => wrap.classList.remove("boss-impact-flash"), 360);
+}
+
+function combatFeedbackSuppressed() {
+  return combatFeedbackSuppressionDepth > 0 || document.hidden;
+}
+
+function withSuppressedCombatFeedback(fn) {
+  combatFeedbackSuppressionDepth += 1;
+  try { return fn(); }
+  finally { combatFeedbackSuppressionDepth = Math.max(0, combatFeedbackSuppressionDepth - 1); }
+}
+
+function damageBatchKey(target, type, options = {}) {
+  return [target, type, options.skillName || "", options.batchKey || ""].join("|");
+}
+
+function renderDamageNumberNow(target, amount, type = "player", options = {}) {
   const wrap = document.querySelector(".scene-wrap");
   if (type !== "miss" && (!Number.isFinite(Number(amount)) || Number(amount) <= 0)) return;
   const value = type === "heal" ? normalizeDamage(amount, { allowZero: true }) : normalizeDamage(amount, { allowZero: type === "miss" });
   if (type === "heal" && value <= 0) return;
-  const text =
-    type === "miss"
-      ? "MISS"
-      : type === "heal"
-        ? `+${formatNumber(value)}`
-        : type === "skill"
-          ? `${options.skillName ? `${options.skillName}！` : ""}-${formatNumber(value)}`
-        : type === "crit"
-          ? `暴击！-${formatNumber(value)}`
-          : `-${formatNumber(value)}`;
+  const text = combatDamageText(value, type, options);
+  const tone = type === "skill" ? combatSkillTone(options.skillName) : "physical";
   if (target === "monster") {
-    addFloatText(text, 680, 260, type === "crit" ? "#ff7a3d" : type === "skill" ? "#6d5dfc" : "#f5efe2");
+    addFloatText(text, 680, 260, type === "crit" ? "#ff7a3d" : type === "skill" ? "#ffe38a" : "#f5efe2");
   } else {
     addFloatText(text, 190, 260, type === "heal" ? "#2f9e55" : type === "miss" ? "#7b8a9a" : "#b74236");
   }
@@ -3612,19 +4359,58 @@ function showDamageNumber(target, amount, type = "player", options = {}) {
   const floats = wrap.querySelectorAll(".damage-float");
   if (floats.length > 18) floats[0].remove();
   const el = document.createElement("span");
-  el.className = `damage-float damage-number damage-${type === "crit" ? "crit" : type === "skill" ? "skill" : type === "miss" ? "miss" : type === "heal" ? "heal" : target === "monster" ? (state.enemyBoss ? "boss" : "normal") : "player"}`;
+  el.className = `damage-float damage-number damage-${type === "crit" ? "crit" : type === "skill" ? "skill" : type === "miss" ? "miss" : type === "heal" ? "heal" : target === "monster" ? (state.enemyBoss ? "boss" : "normal") : "player"} damage-tone-${tone}`;
   el.textContent = text;
-  const baseLeft = target === "monster" ? 74 : 22;
-  const baseTop = target === "monster" ? 45 : 50;
-  el.style.left = `${baseLeft + randomFloat(-4, 4)}%`;
-  el.style.top = `${baseTop + randomFloat(-4, 4)}%`;
+  const baseLeft = target === "monster" ? (type === "skill" ? 68 : type === "crit" ? 72 : 75) : 22;
+  const baseTop = target === "monster" ? (type === "crit" ? 34 : type === "skill" ? 54 : 47) : 50;
+  el.style.left = `${baseLeft + randomFloat(-3, 3)}%`;
+  el.style.top = `${baseTop + randomFloat(-2, 2)}%`;
   wrap.appendChild(el);
+  spawnPlayerFeedbackVfx(wrap, target, type);
+  spawnCombatImpact(wrap, target, type, tone);
   window.setTimeout(() => el.remove(), 900);
 }
 
+function showDamageNumber(target, amount, type = "player", options = {}) {
+  if (combatFeedbackSuppressed() || options.silentFeedback) return;
+  if (type !== "miss" && (!Number.isFinite(Number(amount)) || Number(amount) <= 0)) return;
+  const shouldBatch = target === "monster" && (type === "skill" || type === "player" || type === "crit");
+  if (!shouldBatch) {
+    renderDamageNumberNow(target, amount, type, options);
+    return;
+  }
+  const key = damageBatchKey(target, type, options);
+  const value = normalizeDamage(amount);
+  const pending = pendingDamageFloats.get(key);
+  if (pending) {
+    pending.amount += value;
+    pending.count += 1;
+    pending.options = { ...pending.options, ...options };
+    return;
+  }
+  const entry = {
+    target,
+    type,
+    amount: value,
+    count: 1,
+    options: { ...options },
+  };
+  entry.timer = window.setTimeout(() => {
+    pendingDamageFloats.delete(key);
+    if (combatFeedbackSuppressed()) return;
+    const suffix = entry.count > 1 ? `${entry.options.suffix || ""} ×${entry.count}` : entry.options.suffix;
+    renderDamageNumberNow(entry.target, entry.amount, entry.type, { ...entry.options, suffix });
+  }, DAMAGE_FLOAT_BATCH_WINDOW_MS);
+  pendingDamageFloats.set(key, entry);
+}
+
 function showHitFeedback(kind = "normal") {
+  if (combatFeedbackSuppressed()) return;
+  const now = Date.now();
+  if (now - lastHitFeedbackAt < HIT_FEEDBACK_MIN_INTERVAL_MS) return;
   const wrap = document.querySelector(".scene-wrap");
   if (!wrap) return;
+  lastHitFeedbackAt = now;
   const className = state.enemyBoss ? "boss-hit-shake" : kind === "crit" ? "hit-crit-shake" : kind === "skill" ? "hit-skill-shake" : "hit-shake";
   wrap.classList.remove("hit-shake", "hit-crit-shake", "hit-skill-shake", "boss-hit-shake");
   void wrap.offsetWidth;
@@ -3634,17 +4420,22 @@ function showHitFeedback(kind = "normal") {
 }
 
 function showSkillCastFeedback(skill) {
-  const wrap = document.querySelector(".scene-wrap");
   const name = typeof skill === "string" ? skill : skill?.name;
   if (!name) return;
+  if (combatFeedbackSuppressed()) return;
+  const wrap = document.querySelector(".scene-wrap");
+  const now = Date.now();
   recentCombatSkillCast = {
     id: skill && typeof skill === "object" && skill.id ? skill.id : "",
     name,
-    startedAt: Date.now(),
-    until: Date.now() + 850
+    startedAt: now,
+    until: now + 850
   };
   renderSkillCastBanner();
+  if (name === lastSkillFeedbackName && now - lastSkillFeedbackAt < SKILL_FEEDBACK_MIN_INTERVAL_MS) return;
   if (!wrap) return;
+  lastSkillFeedbackAt = now;
+  lastSkillFeedbackName = name;
   window.clearTimeout(skillFeedbackTimer);
   const existing = wrap.querySelectorAll(".skill-cast-feedback");
   existing.forEach((node) => node.remove());
@@ -3652,9 +4443,10 @@ function showSkillCastFeedback(skill) {
   void wrap.offsetWidth;
   wrap.classList.add("skill-cast-active");
   const el = document.createElement("span");
-  el.className = "skill-cast-feedback";
+  el.className = `skill-cast-feedback skill-cast-feedback-${combatSkillTone(skill)}`;
   el.textContent = `${name}！`;
   wrap.appendChild(el);
+  spawnCombatImpact(wrap, "monster", "skill", combatSkillTone(skill));
   skillFeedbackTimer = window.setTimeout(() => {
     el.remove();
     wrap.classList.remove("skill-cast-active");
@@ -3662,14 +4454,12 @@ function showSkillCastFeedback(skill) {
 }
 
 function showMonsterDeathFeedback(monster = currentMonsterStats()) {
+  if (combatFeedbackSuppressed()) return;
   const wrap = document.querySelector(".scene-wrap");
   if (!wrap) return;
   const isAbyssBoss = state.enemyBoss && state.currentDifficulty === "abyss";
-  const className = isAbyssBoss ? "abyss-boss-death-pop" : state.enemyBoss ? "boss-death-pop" : monster?.mutation ? "mutation-death-pop" : "monster-death-pop";
-  const el = document.createElement("span");
-  el.className = `death-pop ${className}`;
-  wrap.appendChild(el);
-  window.setTimeout(() => el.remove(), state.enemyBoss ? 1500 : 760);
+  spawnCombatRewardVfx(wrap, state.enemyBoss ? "boss-death" : "death", { mutation: Boolean(monster?.mutation), abyss: isAbyssBoss });
+  if (!state.enemyBoss) spawnCombatRewardVfx(wrap, "gold", { compact: true });
   if (state.enemyBoss) { wrap.classList.add("boss-death-shake"); wrap.classList.add("boss-death-flash"); window.setTimeout(() => { wrap.classList.remove("boss-death-shake"); wrap.classList.remove("boss-death-flash"); }, 1100); }
   playSfx(state.enemyBoss ? "boss_die" : "monster_die");
 }
@@ -3701,6 +4491,7 @@ function showLootDropFeedback(item) {
   el.className = `loot-drop-banner loot-drop-${rarity} ${top.setId ? "loot-drop-set" : ""}`;
   el.innerHTML = `<strong>${escapeHtml(lootFeedbackTitle(top))}</strong><span>${escapeHtml(getDisplayItemName(top))}</span>`;
   wrap.appendChild(el);
+  spawnCombatRewardVfx(wrap, "loot", { rarity, set: Boolean(top.setId) });
   window.setTimeout(() => {
     el.remove();
     recentLootFeedback = recentLootFeedback.filter((entry) => entry.id !== top.id);
@@ -3717,10 +4508,13 @@ function lootFeedbackRank(item) {
 }
 
 function lootFeedbackTitle(item) {
-  if (item.setId) return "获得星座装备！";
-  if (item.rarity === "mythic") return "获得神话装备！";
-  if (item.rarity === "darkGold") return "获得暗金装备！";
-  return `获得${rarityName(item.rarity)}装备！`;
+  const archetypeLabel = getEquipmentArchetypeLabel(item?.archetype || inferEquipmentArchetype(item));
+  const fitTags = getEquipmentFitTags(item);
+  const suffix = fitTags.includes("可打造成胚子") ? " · 可打造成胚子" : fitTags.includes("适合当前职业") ? " · 适合当前职业" : "";
+  if (item.setId) return `获得星座${archetypeLabel}装备！${suffix}`;
+  if (item.rarity === "mythic") return `获得神话${archetypeLabel}装备！${suffix}`;
+  if (item.rarity === "darkGold") return `获得暗金${archetypeLabel}装备！${suffix}`;
+  return `获得${rarityName(item.rarity)}${archetypeLabel}装备！${suffix}`;
 }
 
 function playSfx(name) {
@@ -3899,6 +4693,50 @@ function spawnEnemy(isBoss) {
 }
 
 function legacySpawnEnemy(isBoss) { return; }
+
+const EARLY_GRASS_SAFE_KILLS = 5;
+
+function isFreshGrassProtectionWindow() {
+  const map = currentMap();
+  const progressKills = Math.max(Number(state.totalKills || 0), Number(state.areaKills || 0));
+  return Boolean(
+    map?.id === "grass" &&
+    (state.currentDifficulty || "normal") === "normal" &&
+    !state.enemyBoss &&
+    !(state.rebirthMode && (state.hero?.rebirths || 0) > 0) &&
+    progressKills < EARLY_GRASS_SAFE_KILLS
+  );
+}
+
+function isUnsafeFreshEncounterMonster(monster) {
+  if (!monster || monster.alive === false) return false;
+  return monster.type === "elite" || Boolean(monster.mutation || monster.mutationId);
+}
+
+function hasUnsafeFreshEncounter() {
+  const monsters = Array.isArray(state.enemyGroup?.monsters) ? state.enemyGroup.monsters : [];
+  if (monsters.some(isUnsafeFreshEncounterMonster)) return true;
+  return isUnsafeFreshEncounterMonster(state.enemy) || Boolean(state.enemyMutationId);
+}
+
+function resetUnsafeEarlyEncounter(stats = {}) {
+  if (!isFreshGrassProtectionWindow() || !hasUnsafeFreshEncounter()) return false;
+  state.enemyGroup = null;
+  state.enemy = null;
+  state.enemyBoss = false;
+  state.enemyHp = 0;
+  state.enemyMaxHp = 0;
+  state.enemyTemplateId = "";
+  state.enemyMutationId = "";
+  const fallbackStats = stats.maxHp ? stats : computeStats();
+  const maxHp = Math.max(1, Number(fallbackStats.maxHp || 1));
+  if (Number(state.hero?.currentHp || 0) <= 0) state.hero.currentHp = Math.max(1, Math.round(maxHp * 0.45));
+  state.paused = false;
+  addLog("新手保护：避开过强遭遇，重新寻找适合的魔物。");
+  spawnEnemy(false);
+  renderCombatSettlementUi();
+  return true;
+}
 
 function currentMonsterStats() {
   const runtime = window.RuneFrontierCombatRuntime;
@@ -4282,16 +5120,6 @@ function rollZodiacSetDrops(monster, stats, options = {}) {
   return legacyRollZodiacSetDrops(monster, stats, options);
 }
 
-function legacyRollTransitionSetDrops(monster, stats, options = {}) { return; }
-
-function rollTransitionSetDrops(monster, stats, options = {}) {
-  const runtime = window.RuneFrontierDropsRuntime;
-  if (runtime && typeof runtime.rollTransitionSetDrops === "function") {
-    return runtime.rollTransitionSetDrops(monster, stats, options);
-  }
-  return legacyRollTransitionSetDrops(monster, stats, options);
-}
-
 function legacyRollEquipmentTableDrops(stats, options = {}) { return; }
 
 function rollEquipmentTableDrops(stats, options = {}) {
@@ -4313,6 +5141,7 @@ function rollEquipmentDropsFromTable(rows, stats, options = {}) {
 }
 
 function getEquipmentPityThreshold() {
+  if (state.totalKills <= EARLY_EQUIPMENT_PITY_KILL_LIMIT) return EARLY_EQUIPMENT_PITY_THRESHOLD;
   const configured = EQUIPMENT_PITY_THRESHOLDS[currentMap().id] || {};
   return Number(configured[state.currentDifficulty] || configured.normal || 60);
 }
@@ -4367,6 +5196,30 @@ function getOnlineEquipmentDropChance(stats, options = {}) {
   return Math.min(0.75, baseRate * (1 + equipmentBonus) * bossMultiplier * abyssBossMultiplier * currentDifficultyConfig().equipmentDrop);
 }
 
+function getAverageMapMonsterGold(map = currentMap(), stats = computeStats()) {
+  const monsters = Array.isArray(map.monsters) && map.monsters.length
+    ? map.monsters
+    : (mapMonsterConfig[map.id]?.monsters || []);
+  if (!monsters.length) {
+    return Math.max(0, Number(map.gold || 0) * Number(currentDifficultyConfig().gold || 1));
+  }
+  const total = monsters.reduce((sum, template) => {
+    const range = template.levelRange || [map.minLevel || 1, map.maxLevel || 1];
+    const level = Math.round((Number(range[0]) + Number(range[1])) / 2);
+    const monster = buildMonsterStats(map, false, level, template, "");
+    return sum + Math.max(0, Number(monster.gold || 0));
+  }, 0);
+  const average = total / monsters.length;
+  const goldMultiplier = Math.max(0, Number(stats.goldMultiplier || 1)) * Math.max(0, Number(stats.monsterGoldMultiplier || 1));
+  return average * goldMultiplier;
+}
+
+function getBossCycleGoldBonus({ map = currentMap(), difficulty = state.currentDifficulty, stats = computeStats() } = {}) {
+  const rate = Number(BOSS_CYCLE_GOLD_BONUS_RATE[difficulty] ?? BOSS_CYCLE_GOLD_BONUS_RATE.normal ?? 0);
+  if (rate <= 0) return 0;
+  return Math.max(0, Math.round(getAverageMapMonsterGold(map, stats) * bossRequirement() * rate));
+}
+
 function legacyRollMutationExtraDrops(monster, stats, existingEquipmentDrops = 0) { return; }
 
 function rollMutationExtraDrops(monster, stats, existingEquipmentDrops = 0) {
@@ -4397,17 +5250,44 @@ function maybeDropMythicEssence(stats = computeStats(), options = {}) {
   return legacyMaybeDropMythicEssence(stats, options);
 }
 
+function resolveProgressionDropTemplate(drop) {
+  if (!drop?.equipmentId) return null;
+  return window.RuneFrontierEquipmentRuntime?.getProgressionEquipmentTemplate?.(drop.equipmentId) || equipmentTemplateDb[drop.equipmentId] || null;
+}
+
+function getCurrentProgressionEquipmentRows(options = {}) {
+  const map = currentMap();
+  const difficulty = state.currentDifficulty || "normal";
+  const rows = window.RuneFrontierEquipmentRuntime?.getProgressionEquipmentDropTable?.(map.id, difficulty) || [];
+  const minRarity = options.minRarity || "normal";
+  const slot = options.slot || "";
+  const hasTemplate = (drop) => Boolean(resolveProgressionDropTemplate(drop));
+  const matchesSlot = (drop) => !slot || equipmentSlot(resolveProgressionDropTemplate(drop)) === slot;
+  const matchesRarity = (drop) => !minRarity || rarityRank(drop.rarity) >= rarityRank(minRarity);
+  let filtered = rows.filter((drop) => hasTemplate(drop) && matchesSlot(drop) && matchesRarity(drop));
+  if (!filtered.length && options.allowFallback !== false) {
+    filtered = rows.filter((drop) => hasTemplate(drop) && matchesSlot(drop));
+  }
+  return filtered;
+}
+
+function pickProgressionEquipmentTemplate(options = {}) {
+  const rows = getCurrentProgressionEquipmentRows(options);
+  const row = rows.length ? weightedChoice(rows, (drop) => Math.max(0.0001, drop.dropRate || drop.weight || 1)) : null;
+  const template = resolveProgressionDropTemplate(row);
+  return template ? { row, template } : null;
+}
+
 function createMutationEquipment(rarity) {
-  const tableId = mapDropTableAlias[currentMap().id] || currentMap().id;
-  const rows = (equipmentDropTables[tableId] || []).filter((drop) => rarityRank(drop.rarity) >= rarityRank(rarity === "darkGold" ? "legend" : rarity));
-  const pick = rows.length ? weightedChoice(rows, (drop) => Math.max(0.0001, drop.dropRate)) : null;
-  const fallback = allEquipmentTemplates.filter((item) => rarityRank(item.rarity) >= rarityRank("legend"));
-  const template = pick ? equipmentTemplateDb[pick.equipmentId] : fallback[Math.floor(Math.random() * fallback.length)];
-  if (!template) return null;
+  const minRarity = rarity === "darkGold" || rarity === "mythic" ? "legend" : rarity;
+  const pick = pickProgressionEquipmentTemplate({ minRarity, allowFallback: true });
+  if (!pick) return null;
   const bonus = DIFFICULTY_DROP_LEVEL_BONUS[state.currentDifficulty] || DIFFICULTY_DROP_LEVEL_BONUS.normal;
-  const rawLevel = pick ? randomInt(pick.minLevel, pick.maxLevel) : (currentMonsterStats().level || 30);
+  const minLevel = Math.max(1, Number(pick.row.minLevel) || 1);
+  const maxLevel = Math.max(minLevel, Number(pick.row.maxLevel) || currentMonsterStats().level || minLevel);
+  const rawLevel = randomInt(minLevel, maxLevel);
   const dropLevel = clampNumber(rawLevel + randomInt(bonus.min, bonus.max), 1, MAX_EQUIPMENT_LEVEL);
-  return createItem(template, dropLevel, rarity, { dropMapId: currentMap().id, dropLevel, difficulty: state.currentDifficulty, allowMythic: rarity === "mythic" });
+  return createItem(pick.template, dropLevel, rarity, { dropMapId: currentMap().id, dropLevel, difficulty: state.currentDifficulty, allowMythic: rarity === "mythic" });
 }
 
 function weightedChoice(items, weightFn) {
@@ -4431,6 +5311,7 @@ function shouldAutoSalvage(item) {
   const setting = state.autoSalvage || {};
   if (!setting.enabled || item.locked || item.setId || item.rarity === "mythic" || item.rarity === "darkGold") return false;
   if (isAbyssEquipment(item) && !(setting.autoDismantleAbyss || state.autoDismantleAbyss)) return false;
+  if (shouldProtectEquipment(item)) return false;
   return rarityRank(item.rarity) >= 0 && rarityRank(item.rarity) <= rarityRank(setting.maxRarity || "normal");
 }
 
@@ -4451,8 +5332,11 @@ function addMaterials(rewards = {}) {
 }
 
 function addDropLog(item) {
-  const prefix = item.rarity === "normal" ? "获得装备" : `获得${rarityName(item.rarity)}装备`;
-  addLogHtml(`${escapeHtml(prefix)}：${renderItemName(item)}`);
+  const archetypeLabel = getEquipmentArchetypeLabel(item?.archetype || inferEquipmentArchetype(item));
+  const fitTags = getEquipmentFitTags(item);
+  const suffix = fitTags.includes("可打造成胚子") ? " · 可打造成胚子" : fitTags.includes("适合当前职业") ? " · 适合当前职业" : "";
+  const prefix = item.rarity === "normal" ? `获得${archetypeLabel}装备` : `获得${rarityName(item.rarity)}${archetypeLabel}装备`;
+  addLogHtml(`${escapeHtml(prefix + suffix)}：${renderItemName(item)}`);
 }
 
 function createScaledItem(mapIndex) {
@@ -4523,6 +5407,7 @@ function legacyCreateItem(template, level, forcedTierId = null, context = {}) {
   const slotGrowth = getSlotLevelGrowth(template.slot);
   const quality = randomFloat(safeTier.rolls[0], safeTier.rolls[1]);
   const statScale = safeTier.scale * itemTier.scale * quality * (1 + level * slotGrowth);
+  const archetype = normalizeEquipmentArchetype(context.targetArchetype || context.archetype || rollEquipmentArchetype(template, context));
   const item = {
     id: `${template.slot}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     instanceId: "",
@@ -4543,6 +5428,7 @@ function legacyCreateItem(template, level, forcedTierId = null, context = {}) {
     setName: template.setName || "",
     baseStats: template.baseStats || {},
     description: template.description || "",
+    archetype,
     rarity: safeTier.id,
     tier: safeTier.id,
     itemTier: itemTier.id,
@@ -4568,7 +5454,7 @@ function legacyCreateItem(template, level, forcedTierId = null, context = {}) {
     affixDetails: [],
     mechanicAffixes: [],
     ranges: {},
-    randomStats: shouldRollRandomStats(template) ? rollRandomStats(safeTier.id) : defaultRandomStats(),
+    randomStats: shouldRollRandomStats(template) ? rollRandomStats(safeTier.id, archetype) : defaultRandomStats(),
     level,
     atk: Math.round((template.atk || 0) * statScale),
     matk: Math.round((template.matk || 0) * statScale),
@@ -4602,6 +5488,7 @@ function legacyCreateItem(template, level, forcedTierId = null, context = {}) {
     rareDropBonus: template.rareDropBonus || 0,
     damageReductionPct: template.damageReductionPct || 0,
     lifeSteal: template.lifeSteal || 0,
+    blockRate: template.blockRate || 0,
     dodgeRatePct: template.dodgeRatePct || 0,
     hpRegenPct: template.hpRegenPct || 0,
     ignoreDefense: template.ignoreDefense || 0,
@@ -4610,10 +5497,7 @@ function legacyCreateItem(template, level, forcedTierId = null, context = {}) {
     equipmentDrop: template.equipmentDrop || 0,
     cardDrop: template.cardDrop || 0,
     materialQuantityBonus: template.materialQuantityBonus || 0,
-    powerPct: template.powerPct || 0,
-    combatPaceBonus: template.combatPaceBonus || 0,
-    patrolEfficiency: template.patrolEfficiency || 0,
-    hitRate: template.hitRate || 0,
+    combatPaceBonus: (template.combatPaceBonus || 0) + (template.patrolEfficiency || 0) + (template.powerPct || 0),
     statusResist: template.statusResist || 0,
     abyssDamageBonus: template.abyssDamageBonus || 0,
     abyssBossDamageBonus: template.abyssBossDamageBonus || 0,
@@ -4629,7 +5513,7 @@ function legacyCreateItem(template, level, forcedTierId = null, context = {}) {
   applyRandomAffixes(item, safeTier, level, itemTier);
   applyAbyssEquipmentBonus(item);
   applyRarityPerk(item, safeTier, template);
-  return item;
+  return canonicalizeLegacyItemAliases(item);
 }
 
 function createItem(template, level, forcedTierId = null, context = {}) {
@@ -4684,7 +5568,7 @@ function applyRarityPerk(item, tier, template) {
   if (!perkType) return;
   switch (perkType) {
     case 'randomStats':
-      item.randomStats = shouldRollRandomStats(template || {}) ? rollRandomStats(tier.id) : defaultRandomStats();
+      item.randomStats = shouldRollRandomStats(template || {}) ? rollRandomStats(tier.id, item.archetype) : defaultRandomStats();
       break;
     case 'specialAffix': {
       var affix = EPIC_SPECIAL_AFFIX_POOL[Math.floor(Math.random() * EPIC_SPECIAL_AFFIX_POOL.length)];
@@ -4785,13 +5669,13 @@ function getSocketCardEffects(card = {}) {
     "atkPct", "matkPct", "hpPct", "defPct", "attackSpeedPct", "critRatePct",
     "critDamageBonus", "skillDamageBonus", "monsterDamageBonus", "bossDamageBonus",
     "abyssDamageBonus", "abyssBossDamageBonus", "abyssDamageReduction", "damageReductionPct",
-    "finalDamageBonus", "physicalFinalDamageBonus", "eliteDamageBonus", "rareDropBonus", "lifeSteal", "hitRate",
+    "finalDamageBonus", "physicalFinalDamageBonus", "eliteDamageBonus", "rareDropBonus", "lifeSteal", "combatPaceBonus",
     "dodgeRatePct", "baseExpBonus", "jobExpBonus", "equipmentDrop", "cardDrop",
     "materialQuantityBonus", "mythicWeightBonus", "mythicEssenceDropBonus", "drop", "gold",
-    "crit", "aspd", "aspdPct", "normalAttackDamageBonus", "higherLevelDamageBonus",
+    "crit", "aspd", "aspdPct", "normalAttackDamageBonus",
     "offlineEfficiencyBonus", "magicDamageReduction", "skillDamageReduction", "skillCooldownPenalty",
     "skillHitHealPct", "splashTargets", "splashDamagePct", "fireBurstChance", "fireBurstAtkPct",
-    "meteorCounterChance", "meteorCounterMatkPct", "statusResist", "patrolEfficiency",
+    "meteorCounterChance", "meteorCounterMatkPct", "statusResist",
   ];
   directStats.forEach((stat) => {
     if (Number(card[stat] || 0)) effects[stat] = (effects[stat] || 0) + Number(card[stat] || 0);
@@ -4979,9 +5863,19 @@ function shouldRollRandomStats(template) {
   return template.source === "monster_drop";
 }
 
-function rollRandomStats(rarity) {
+function rollRandomStats(rarity, archetype = "general") {
   const range = randomStatRanges[rarity] || randomStatRanges.normal;
-  return Object.fromEntries(attributeKeys.map((stat) => [stat, randomInt(range[0], range[1])]));
+  const lower = range[0];
+  const upper = range[1];
+  const pools = getArchetypeStatPools(archetype);
+  const primary = new Set([...(pools.primary || []), ...(pools.flat || [])]);
+  const secondary = new Set(pools.secondary || []);
+  return Object.fromEntries(attributeKeys.map((stat) => {
+    const rolled = randomInt(lower, upper);
+    if (primary.has(stat)) return [stat, Math.min(upper, Math.max(lower, Math.round(rolled * 1.35)))];
+    if (secondary.has(stat)) return [stat, Math.min(upper, Math.max(lower, Math.round(rolled * 1.15)))];
+    return [stat, Math.min(upper, Math.max(lower, Math.round(rolled * 0.65)))];
+  }));
 }
 
 function rollEquipmentTier() {
@@ -5027,16 +5921,39 @@ function applyTierExtra(item, tier, level, itemTier = getItemTierForLevel(level)
   });
 }
 
+function buildArchetypeAffixPool(type, slot, slotPool, archetypePools) {
+  const fallback = type === "flat"
+    ? archetypePools.primary || []
+    : type === "percent"
+      ? [...(archetypePools.secondary || []), ...(archetypePools.utility || [])]
+      : [];
+  const archetypeEntries = archetypePools[type]?.length ? archetypePools[type] : fallback;
+  const weighted = [...(archetypeEntries || []), ...(slotPool[type] || [])];
+  if (type === "mechanic") {
+    return weighted.filter((id) => {
+      const mechanic = MECHANIC_AFFIXES[id];
+      return mechanic && (!Array.isArray(mechanic.slots) || mechanic.slots.includes(slot));
+    });
+  }
+  return weighted.filter((stat) => Boolean(AFFIX_TIERS[type]?.[stat]));
+}
+
 function applyRandomAffixes(item, tier, level, itemTier = getItemTierForLevel(level)) {
   const slot = equipmentSlot(item);
-  const pool = SLOT_AFFIX_POOLS[slot] || SLOT_AFFIX_POOLS.trinket;
+  const slotPool = SLOT_AFFIX_POOLS[slot] || SLOT_AFFIX_POOLS.trinket;
+  const archetypePools = getArchetypeStatPools(item?.archetype || "general");
+  const pool = {
+    flat: buildArchetypeAffixPool("flat", slot, slotPool, archetypePools),
+    percent: buildArchetypeAffixPool("percent", slot, slotPool, archetypePools),
+    mechanic: buildArchetypeAffixPool("mechanic", slot, slotPool, archetypePools),
+  };
   let mechanicUsed = false;
   for (let i = 0; i < tier.affixes; i += 1) {
     const type = rollAffixType(tier.id, mechanicUsed);
     if (type === "mechanic") {
       const id = randomPick(pool.mechanic || []);
       const mechanic = id ? MECHANIC_AFFIXES[id] : null;
-      if (!mechanic) continue;
+      if (!mechanic || Array.isArray(mechanic.slots) && !mechanic.slots.includes(slot)) continue;
       mechanicUsed = true;
       item.mechanicAffixes.push(id);
       item.affixes.push(`【${mechanic.label}】${mechanic.description}`);
@@ -5048,10 +5965,13 @@ function applyRandomAffixes(item, tier, level, itemTier = getItemTierForLevel(le
     if (!affix) continue;
     const key = canonicalItemStat(stat);
     const value = rollAffixStat(affix, level, itemTier, tier, type);
+    const before = Number(item[key] || 0);
     addItemStat(item, key, value, affix.cap);
+    const after = Number(item[key] || 0);
+    const appliedValue = Number((after - before).toFixed(3));
     item.ranges[key] = mergeRange(item.ranges[key], [rollAffixStatMin(affix, level, itemTier, tier, type), rollAffixStatMax(affix, level, itemTier, tier, type)]);
     item.affixes.push(`${type === "percent" ? "[百分比]" : "[固定]"}${affix.label}${formatStatValue(key, value)}`);
-    item.affixDetails.push({ type, stat: key, label: affix.label, value });
+    item.affixDetails.push({ type, stat: key, label: affix.label, value, appliedValue, cap: affix.cap });
   }
 }
 
@@ -5118,7 +6038,52 @@ function addItemStat(item, stat, value, cap = null) {
 }
 
 function canonicalItemStat(stat) {
-  return stat === "luck" ? "luk" : stat;
+  const aliases = {
+    luck: "luk",
+    critRatePct: "crit",
+    dodgeRatePct: "dodgeRate",
+    baseExpBonus: "expBonus",
+    jobExpBonus: "expBonus",
+    patrolEfficiency: "combatPaceBonus",
+    powerPct: "combatPaceBonus",
+    abyssBossDamageBonus: "abyssDamageBonus",
+    abyssSkillDamageBonus: "abyssDamageBonus",
+    abyssMaterialDropBonus: "materialQuantityBonus",
+    mutationMaterialDoubleChance: "materialQuantityBonus",
+    mythicEssenceDropBonus: "highTierFind",
+    mythicWeightBonus: "highTierFind",
+    rebirthPrestigeWeightBonus: "highTierFind",
+  };
+  return aliases[stat] || stat;
+}
+
+function canonicalizeLegacyItemAliases(item = {}) {
+  const aliasKeys = [
+    "luck",
+    "critRatePct",
+    "dodgeRatePct",
+    "baseExpBonus",
+    "jobExpBonus",
+    "patrolEfficiency",
+    "powerPct",
+    "abyssBossDamageBonus",
+    "abyssSkillDamageBonus",
+    "abyssMaterialDropBonus",
+    "mutationMaterialDoubleChance",
+    "mythicEssenceDropBonus",
+    "mythicWeightBonus",
+    "rebirthPrestigeWeightBonus",
+  ];
+  aliasKeys.forEach((stat) => {
+    const value = Number(item[stat] || 0);
+    if (value) {
+      const key = canonicalItemStat(stat);
+      item[key] = Number(((Number(item[key] || 0) || 0) + value).toFixed(statIsPercent(key) ? 3 : 0));
+    }
+    delete item[stat];
+  });
+  ["antiCrit", "hitRate", "higherLevelDamageBonus", "damageReduction"].forEach((stat) => delete item[stat]);
+  return item;
 }
 
 function mergeRange(current, next) {
@@ -5334,10 +6299,10 @@ function equipItem(id) {
 }
 
 function salvageItem(id, options = {}) {
-  const runtime = window.RuneFrontierEquipmentRuntime;
-  if (runtime && typeof runtime.salvageItem === "function") return runtime.salvageItem(id, options);
   const item = state.inventory.find((entry) => entry.id === id);
   if (!item) return { ok: false };
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.salvageItem === "function") return runtime.salvageItem(id, options);
   if (item.locked) {
     if (!options.silent) showToast("已锁定的装备不能分解");
     return { ok: false };
@@ -5374,14 +6339,13 @@ function getSalvageRewards(item) {
 }
 
 function salvageAllUnequipped() {
-  const runtime = window.RuneFrontierEquipmentRuntime;
-  if (runtime && typeof runtime.salvageAllUnequipped === "function") return runtime.salvageAllUnequipped();
   const equippedIds = new Set(Object.values(state.equipped).filter(Boolean));
   const targets = state.inventory.filter((item) => !equippedIds.has(item.id) && !item.locked);
   if (!targets.length) {
     showToast("没有可分解的未穿戴装备");
     return;
   }
+  const targetIds = new Set(targets.map((item) => item.id));
   const totals = {};
   targets.forEach((item) => {
     const rewards = getSalvageRewards(item);
@@ -5390,7 +6354,7 @@ function salvageAllUnequipped() {
       state.materials[material] = (state.materials[material] || 0) + amount;
     });
   });
-  state.inventory = state.inventory.filter((item) => equippedIds.has(item.id) || item.locked);
+  state.inventory = state.inventory.filter((item) => !targetIds.has(item.id));
   addLog(`批量分解 ${targets.length} 件未穿戴装备，获得 ${materialText(totals)}。`);
   showSalvageResultModal("批量分解完成", targets.length, totals);
   renderAll();
@@ -5529,8 +6493,16 @@ function diffRefineStats(before = {}, after = {}, statIsPercentFn = statIsPercen
   return diff;
 }
 
+function isDisplayZeroStatDelta(stat, value) {
+  const numeric = Number(value || 0);
+  if (!Number.isFinite(numeric) || numeric === 0) return true;
+  const normalized = formatStatValue(stat, numeric).replace(/[+\-\s%]/g, "");
+  return normalized === "" || Number(normalized) === 0;
+}
+
 function renderRefineStatDelta(delta = {}) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderRefineStatDelta === "function") return runtime.renderRefineStatDelta(delta);
   return Object.entries(delta)
+    .filter(([stat, value]) => !isDisplayZeroStatDelta(stat, value))
     .map(([stat, value]) => statLabel(stat, value))
     .filter(Boolean)
     .join(" · ");
@@ -5571,7 +6543,7 @@ function equipBest() {
   ["weapon", "armor", "headgear", "shoes", "trinket"].forEach((slot) => {
     const best = state.inventory
       .filter((item) => equipmentSlot(item) === slot)
-      .sort((a, b) => itemScore(b) - itemScore(a))[0];
+      .sort((a, b) => equipmentAutoEquipScore(b) - equipmentAutoEquipScore(a))[0];
     if (best) state.equipped[slot] = best.id;
   });
   addLog("工坊已整理装备。");
@@ -5631,11 +6603,29 @@ function closeOfflineRewardModal() {
   renderOfflineRewardModal();
 }
 
+function releaseFocusBeforeHiding(container) {
+  if (!container || !container.contains(document.activeElement)) return;
+  if (document.activeElement && typeof document.activeElement.blur === "function") {
+    document.activeElement.blur();
+  }
+  if (container.contains(document.activeElement) && document.body && typeof document.body.focus === "function") {
+    document.body.focus({ preventScroll: true });
+  }
+}
+
+function setModalVisibility(modal, visible) {
+  if (!modal) return;
+  if (!visible) releaseFocusBeforeHiding(modal);
+  if (visible) modal.removeAttribute("inert");
+  modal.classList.toggle("hidden", !visible);
+  modal.setAttribute("aria-hidden", visible ? "false" : "true");
+  if (!visible) modal.setAttribute("inert", "");
+}
+
 function renderOfflineRewardModal() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderOfflineRewardModal === "function") return runtime.renderOfflineRewardModal();
   if (!els.offlineRewardModal || !els.offlineRewardBody) return;
   const visible = offlineRewardModalOpen;
-  els.offlineRewardModal.classList.toggle("hidden", !visible);
-  els.offlineRewardModal.setAttribute("aria-hidden", visible ? "false" : "true");
+  setModalVisibility(els.offlineRewardModal, visible);
   if (!visible) {
     els.offlineRewardBody.innerHTML = "";
     return;
@@ -5673,8 +6663,7 @@ function getRefineMilestone(level) {
 function renderRefineResultModal() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderRefineResultModal === "function") return runtime.renderRefineResultModal();
   if (!els.refineResultModal || !els.refineResultBody || !els.refineResultTitle) return;
   const visible = Boolean(refineResultState);
-  els.refineResultModal.classList.toggle("hidden", !visible);
-  els.refineResultModal.setAttribute("aria-hidden", visible ? "false" : "true");
+  setModalVisibility(els.refineResultModal, visible);
   if (!visible) {
     els.refineResultBody.innerHTML = "";
     return;
@@ -5793,6 +6782,7 @@ function normalizeOfflineRewards(rewards = {}) {
     gold: Number(source.gold || 0),
     baseExp: Number(source.baseExp || 0),
     jobExp: Number(source.jobExp || 0),
+    mvpInscriptionExp: Number(source.mvpInscriptionExp || 0),
     items: Array.isArray(source.items) ? source.items : [],
     equipments: [...equipmentList, ...pendingEquipment].filter(Boolean).map(normalizeItem),
     cards: cardList.filter((card) => Number(card.qty || 0) > 0),
@@ -5971,6 +6961,7 @@ function mergeOfflineRewards(existing, fresh) {
     gold: a.gold + b.gold,
     baseExp: a.baseExp + b.baseExp,
     jobExp: a.jobExp + b.jobExp,
+    mvpInscriptionExp: a.mvpInscriptionExp + b.mvpInscriptionExp,
     equipments: [...a.equipments, ...b.equipments],
     cards: mergeCountEntries([...a.cards, ...b.cards], "cardId"),
     materials: mergeCountEntries([...a.materials, ...b.materials], "materialId"),
@@ -6043,16 +7034,30 @@ function buildOfflineMonsterStats(map) {
 function legacyBuildOfflineMonsterStats(map) { return; }
 
 function rollOfflineEquipmentDrops(rewards, stats, map, mapIndex, killCount) {
-  const tableId = mapDropTableAlias[map.id] || map.id;
-  const rows = equipmentDropTables[tableId] || [];
+  const progressionRows = window.RuneFrontierEquipmentRuntime?.getProgressionEquipmentDropTable?.(map.id, state.currentDifficulty) || [];
+  const rows = progressionRows;
+  if (!rows.length) return;
   const capacity = { freeSlots: Math.max(0, getInventoryLimit() - state.inventory.length) };
+  const pityThreshold = Math.max(0, Math.floor(Number(getEquipmentPityThreshold()) || 0));
+  let pityKills = Math.max(0, Math.floor(Number(state.equipmentPityKills) || 0));
   for (let kill = 0; kill < killCount; kill += 1) {
-    const drops = rollEquipmentDropsFromTable(rows, stats, { offline: true });
+    let drops = rollEquipmentDropsFromTable(rows, stats, { offline: true });
+    if (drops.length) {
+      pityKills = 0;
+    } else if (pityThreshold > 0) {
+      pityKills += 1;
+      if (pityKills >= pityThreshold) {
+        drops = rollEquipmentDropsFromTable(rows, stats, { offline: true, guaranteed: true });
+        if (drops.length) pityKills = 0;
+      }
+    }
     processOfflineGeneratedEquipment(rewards, drops, capacity);
   }
+  if (pityThreshold > 0) state.equipmentPityKills = pityKills;
 }
 
 function canOfflineFullSalvage(item) {
+  if (shouldProtectEquipment(item)) return false;
   return !item.setId && !["darkGold", "mythic"].includes(item.rarity) && rarityRank(item.rarity) <= rarityRank("epic");
 }
 
@@ -6088,16 +7093,6 @@ function rollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills
     return runtime.rollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills);
   }
   return legacyRollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills);
-}
-
-function legacyRollOfflineTransitionSetDrops(rewards, stats, map, killCount) { return; }
-
-function rollOfflineTransitionSetDrops(rewards, stats, map, killCount) {
-  const runtime = window.RuneFrontierOfflineRuntime;
-  if (runtime && typeof runtime.rollOfflineTransitionSetDrops === "function") {
-    return runtime.rollOfflineTransitionSetDrops(rewards, stats, map, killCount);
-  }
-  return legacyRollOfflineTransitionSetDrops(rewards, stats, map, killCount);
 }
 
 function legacyRollOfflineMythicDrops(rewards, stats, map, killCount, mutationKills = 0) { return; }
@@ -6160,7 +7155,7 @@ function normalizeLootRewards(input = {}) {
 }
 
 function renderLootSummaryCard(rewards) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderLootSummaryCard === "function") return runtime.renderLootSummaryCard(rewards);
-  const hasAny = rewards.seconds > 0 || rewards.gold > 0 || rewards.baseExp > 0 || rewards.jobExp > 0 || rewards.materials.length || rewards.cards.length || rewards.equipment.length || rewards.pendingEquipment.length || offlineObjectTotal(rewards.salvagedMaterials) > 0;
+  const hasAny = rewards.seconds > 0 || rewards.gold > 0 || rewards.baseExp > 0 || rewards.jobExp > 0 || rewards.mvpInscriptionExp > 0 || rewards.materials.length || rewards.cards.length || rewards.equipment.length || rewards.pendingEquipment.length || offlineObjectTotal(rewards.salvagedMaterials) > 0;
   if (!hasAny) {
     return `<article class="loot-modal"><div class="loot-empty"><h3>暂无战利品</h3><p>如果你刚上线，请等待离线收益结算完成。</p></div></article>`;
   }
@@ -6180,6 +7175,7 @@ function renderLootSummaryCard(rewards) { const runtime = window.RuneFrontierRen
         ${renderLootSummaryMini("金币", rewards.gold)}
         ${renderLootSummaryMini("BASE经验", rewards.baseExp)}
         ${renderLootSummaryMini("JOB经验", rewards.jobExp)}
+        ${renderLootSummaryMini("铭刻经验", rewards.mvpInscriptionExp)}
         ${renderLootSummaryMini("材料", offlineListTotal(rewards.materials))}
         ${renderLootSummaryMini("装备", rewards.equipment.length)}
         ${renderLootSummaryMini("待领取装备", rewards.pendingEquipment.length)}
@@ -6244,6 +7240,7 @@ function renderOfflineOverview(rewards, claimedEquipment, pendingEquipment) { co
       ${renderOfflineOverviewCard("金币", rewards.gold, "gold")}
       ${renderOfflineOverviewCard("BASE经验", rewards.baseExp, "base")}
       ${renderOfflineOverviewCard("JOB经验", rewards.jobExp, "job")}
+      ${renderOfflineOverviewCard("铭刻经验", rewards.mvpInscriptionExp, "mvp-inscription")}
       ${renderOfflineOverviewCard("材料", materialTotal, "material")}
       ${renderOfflineOverviewCard("卡片", cardTotal, "card")}
       ${renderOfflineOverviewCard("装备", claimedEquipment.length, "equipment")}
@@ -6270,6 +7267,7 @@ function renderOfflineGoldExpSection(rewards) { const runtime = window.RuneFront
         <div class="offline-gain offline-gain-gold"><span>金币</span><strong class="offline-number">+${formatNumber(rewards.gold)}</strong></div>
         <div class="offline-gain offline-gain-base"><span>BASE EXP</span><strong class="offline-number">+${formatNumber(rewards.baseExp)}</strong></div>
         <div class="offline-gain offline-gain-job"><span>JOB EXP</span><strong class="offline-number">+${formatNumber(rewards.jobExp)}</strong></div>
+        <div class="offline-gain offline-gain-mvp-inscription"><span>铭刻经验</span><strong class="offline-number">+${formatNumber(rewards.mvpInscriptionExp)}</strong></div>
       </div>
       <p class="offline-source-note">离线效率 ${Math.round(OFFLINE_EFFICIENCY * 100)}% · 最大离线时间 ${formatDuration(MAX_OFFLINE_SECONDS)} · VIP 与套装收益已计入本次真实结算</p>
     </section>
@@ -6442,6 +7440,25 @@ function summarizeByName(items) {
   return [...map.values()];
 }
 
+function computeEquipmentSynergyState() {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  const synergy = runtime?.computeEquipmentSynergies?.(state);
+  return synergy || { activeLines: [], stats: {}, skillEnhancements: [], activeLineIds: [], activeMechanismIds: [], bestLine: null };
+}
+
+function getEquipmentSynergyEffects() {
+  return computeEquipmentSynergyState();
+}
+
+function noteEquipmentSynergyKill(payload = {}) {
+  state.equipmentSynergyState = state.equipmentSynergyState || {};
+  state.equipmentSynergyState.lastKill = {
+    time: Date.now(),
+    boss: Boolean(payload.boss),
+    equipmentDrops: Number(payload.equipmentDrops || 0),
+  };
+}
+
 function computeStats() {
   const equip = computeEquipmentFullStats();
   const costumeEffects = getCostumeEffects();
@@ -6453,6 +7470,16 @@ function computeStats() {
     const key = stat === "goldBonus" ? "gold" : stat;
     equip[key] = (equip[key] || 0) + value;
   });
+  const equipmentSynergies = computeEquipmentSynergyState();
+  Object.entries(equipmentSynergies.stats || {}).forEach(([stat, value]) => {
+    equip[stat] = Number(((equip[stat] || 0) + (Number(value) || 0)).toFixed(3));
+  });
+  const equipmentTraitItems = Object.fromEntries(equippedItems().map((item) => [item.equipSlot || item.slot || item.id, item]));
+  const equipmentTraitTotals = window.RuneFrontierEquipmentRuntime?.collectEquippedTraitStats?.(equipmentTraitItems) || { stats: {}, effects: {} };
+  Object.entries(equipmentTraitTotals.stats || {}).forEach(([stat, value]) => {
+    equip[stat] = Number(((equip[stat] || 0) + (Number(value) || 0)).toFixed(3));
+  });
+  const lineMasteryGlobalBonus = applyLineMasteryGlobalBonus(equip);
   const explorationBonuses = getMapExplorationBonuses(currentMap().id);
   const passive = getPassiveSkillTotals();
   const job = currentJob();
@@ -6460,6 +7487,11 @@ function computeStats() {
   const jobLevel = state.hero.jobLevel;
   const cardStats = getCardStats();
   const vipBonuses = getVipBonuses();
+  const mvpInscriptionBonuses = window.RuneFrontierMvpInscriptionRuntime?.getMvpInscriptionBonuses?.(state.mvpInscription) || {};
+  ["hpPct", "atkPct", "matkPct", "defPct", "attackSpeedPct", "combatPaceBonus", "hitRate", "statusResist", "physicalFinalDamageBonus", "normalAttackDamageBonus", "skillDamageBonus"].forEach((stat) => {
+    equip[stat] = (equip[stat] || 0) + (Number(mvpInscriptionBonuses[stat]) || 0);
+  });
+  equip.crit = (equip.crit || 0) + (Number(mvpInscriptionBonuses.crit || 0) || 0) + (Number(mvpInscriptionBonuses.critRatePct || 0) || 0);
   const attrBreakdown = calculateFinalStats({ equip });
   const attrs = { ...attrBreakdown.final };
   attributeKeys.forEach((stat) => {
@@ -6474,9 +7506,10 @@ function computeStats() {
   });
   if (isAbyss && setBonuses.abyssDexPct) attrs.dex = Math.round(attrs.dex * (1 + setBonuses.abyssDexPct));
   if (isAbyss && setBonuses.abyssAttackSpeedPct) equip.attackSpeedPct = (equip.attackSpeedPct || 0) + setBonuses.abyssAttackSpeedPct;
-  if (isAbyss && setBonuses.abyssCritRatePct) equip.critRatePct = (equip.critRatePct || 0) + setBonuses.abyssCritRatePct;
+  if (isAbyss && setBonuses.abyssCritRatePct) equip.crit = (equip.crit || 0) + setBonuses.abyssCritRatePct;
   if (isAbyss && setBonuses.abyssMagicDamageBonus) equip.matkPct = (equip.matkPct || 0) + setBonuses.abyssMagicDamageBonus;
-  if (equip.patrolEfficiency) equip.combatPaceBonus = (equip.combatPaceBonus || 0) + equip.patrolEfficiency * 0.5;
+  const hpRatioForLowHpEffects = Number(state.hero.maxHp || 0) > 0 ? Number(state.hero.currentHp || 0) / Math.max(1, Number(state.hero.maxHp || 1)) : 1;
+  if (hpRatioForLowHpEffects <= 0.35 && equip.lowHpAtkPct) equip.atkPct = (equip.atkPct || 0) + equip.lowHpAtkPct;
   const battleStats = calculateBattleStats({ attrs, equip, passive, cardStats, job, level, jobLevel, setBonuses });
   syncHeroHp({ maxHp: battleStats.maxHp }, false);
   const dps = battleStats.dps;
@@ -6484,11 +7517,12 @@ function computeStats() {
   const equipmentDropBonus = calculateEquipmentDropBonus({ equip, cardStats, passive, attrs, vipBonuses }) + setBonuses.equipmentDropPct + explorationBonuses.equipmentDropBonus;
   const codexS = getCodexBonusStats();
   const vipMs = getVipMilestoneBonuses();
-  const bossDamageBonusTotal = setBonuses.bossDamagePct + (equip.bossDamageBonus || 0) + (passive.bossDamageBonus || 0) + explorationBonuses.bossDamageBonus + (codexS.bossDamage || 0);
+  const bossDamageBonusTotal = setBonuses.bossDamagePct + (equip.bossDamageBonus || 0) + (passive.bossDamageBonus || 0) + explorationBonuses.bossDamageBonus + (codexS.bossDamage || 0) + (mvpInscriptionBonuses.bossDamageBonus || 0);
   const critDamageBonusTotal = setBonuses.critDamagePct + (equip.critDamageBonus || 0) + (passive.critDamageBonus || 0) + (isAbyss ? setBonuses.abyssCritDamageBonus || 0 : 0);
   const damageReductionTotal = setBonuses.damageReductionPct + (equip.damageReductionPct || 0) + (passive.damageReductionPct || 0) + (isAbyss ? (setBonuses.abyssDamageReduction || 0) + (equip.abyssDamageReduction || 0) + (passive.abyssDamageReduction || 0) + (state.enemyBoss ? setBonuses.abyssBossDamageReduction || 0 : 0) : 0);
   const abyssDamageBonusTotal = (setBonuses.abyssDamageBonus || 0) + (equip.abyssDamageBonus || 0) + (passive.abyssDamageBonus || 0);
-  const mythicWeightBonusTotal = (setBonuses.mythicWeightBonus || 0) + (equip.mythicWeightBonus || 0) + (equip.rebirthPrestigeWeightBonus || 0) + getRebirthPrestigeBonuses().mythicWeightBonus + (codexS.mythicQualityWeight || 0);
+  const highTierFind = equip.highTierFind || 0;
+  const mythicWeightBonusTotal = (setBonuses.mythicWeightBonus || 0) + highTierFind + getRebirthPrestigeBonuses().mythicWeightBonus + (codexS.mythicQualityWeight || 0);
 
   return {
     dps,
@@ -6512,24 +7546,32 @@ function computeStats() {
     baseAttrs: attrBreakdown.base,
     trainingPct: attrBreakdown.trainingPct,
     setBonuses,
+    equipmentSynergies,
+    equipmentTraitStats: equipmentTraitTotals.stats || {},
+    equipmentTraitEffects: equipmentTraitTotals.effects || {},
+    equipmentSynergyDropEffects: equipmentSynergies.dropEffects || {},
+    equipmentSynergyCombatEffects: equipmentSynergies.combatEffects || {},
+    lineMasteryGlobalBonus,
     monsterDamageBonus: Math.min(2, (cardStats.monsterDamage || 0) + (equip.monsterDamageBonus || 0) + (passive.monsterDamageBonus || 0)),
     bossDamageBonus: bossDamageBonusTotal,
     mutationDamageBonus: setBonuses.mutationDamagePct,
     eliteDamageBonus: setBonuses.eliteDamagePct + (equip.eliteDamageBonus || 0) + (passive.eliteDamageBonus || 0),
     normalAttackBonus: setBonuses.normalAttackPct + (equip.normalAttackDamageBonus || 0),
-    skillDamageBonus: setBonuses.skillDamagePct + (equip.skillDamageBonus || 0) + (passive.skillDamageBonus || 0) + (isAbyss ? (setBonuses.abyssSkillDamageBonus || 0) + (equip.abyssSkillDamageBonus || 0) : 0),
+    skillDamageBonus: setBonuses.skillDamagePct + (equip.skillDamageBonus || 0) + (passive.skillDamageBonus || 0) + (isAbyss ? (setBonuses.abyssSkillDamageBonus || 0) : 0),
     critDamageBonus: critDamageBonusTotal,
     critDamage: 1.85 + critDamageBonusTotal,
     ignoreDefensePct: setBonuses.ignoreDefensePct + (equip.ignoreDefense || 0) + (passive.ignoreDefense || 0) + (isAbyss ? setBonuses.abyssIgnoreDefense || 0 : 0),
-    finalDamageBonus: (equip.finalDamageBonus || 0) + (equip.physicalFinalDamageBonus || 0) + (passive.finalDamageBonus || 0),
+    finalDamageBonus: (equip.finalDamageBonus || 0) + (passive.finalDamageBonus || 0) + (mvpInscriptionBonuses.finalDamageBonus || 0),
+    physicalFinalDamageBonus: equip.physicalFinalDamageBonus || 0,
     lifeSteal: Math.min(0.35, (equip.lifeSteal || 0) + (passive.lifeSteal || passive.lifeStealPct || 0)),
-    goldMultiplier: 1 + calculateGoldBonus({ equip, cardStats, passive, vipBonuses }) + explorationBonuses.goldBonus + (isAbyss ? setBonuses.abyssGoldPct || 0 : 0) + (codexS.goldBonus || 0),
+    goldMultiplier: 1 + calculateGoldBonus({ equip, cardStats, passive, vipBonuses }) + explorationBonuses.goldBonus + (isAbyss ? setBonuses.abyssGoldPct || 0 : 0) + (codexS.goldBonus || 0) + (mvpInscriptionBonuses.goldBonus || 0),
     monsterGoldMultiplier: 1 + setBonuses.monsterGoldPct,
-    baseExpMultiplier: 1 + setBonuses.baseExpPct + (equip.baseExpBonus || 0) + (passive.baseExpBonus || 0) + explorationBonuses.expBonus + (isAbyss ? setBonuses.abyssBaseExpPct || 0 : 0) + (codexS.expBonus || 0),
-    jobExpMultiplier: 1 + setBonuses.jobExpPct + (equip.jobExpBonus || 0) + (passive.jobExpBonus || 0) + explorationBonuses.expBonus + (isAbyss ? setBonuses.abyssJobExpPct || 0 : 0),
+    baseExpMultiplier: 1 + setBonuses.baseExpPct + (equip.expBonus || 0) + (passive.baseExpBonus || 0) + explorationBonuses.expBonus + (isAbyss ? setBonuses.abyssBaseExpPct || 0 : 0) + (codexS.expBonus || 0) + (mvpInscriptionBonuses.baseExpBonus || 0),
+    jobExpMultiplier: 1 + setBonuses.jobExpPct + (equip.expBonus || 0) + (passive.jobExpBonus || 0) + explorationBonuses.expBonus + (isAbyss ? setBonuses.abyssJobExpPct || 0 : 0) + (mvpInscriptionBonuses.jobExpBonus || 0),
     materialQuantityBonus: setBonuses.materialQuantityPct + (equip.materialQuantityBonus || 0) + (passive.materialQuantityBonus || 0),
     damageReductionPct: damageReductionTotal,
-    echoChance: Math.min(0.25, (equip.echoChance || 0) + (passive.echoChance || 0)),
+    blockRate: Math.min(0.45, (equip.blockRate || 0) + attrs.str * 0.0002),
+    echoChance: Math.min(0.25, (equip.echoChance || 0) + (passive.echoChance || 0) + attrs.dex * 0.00015),
     skillHitHealPct: Math.min(0.05, equip.skillHitHealPct || 0),
     magicDamageReduction: Math.min(0.6, equip.magicDamageReduction || 0),
     skillDamageReduction: Math.min(0.6, equip.skillDamageReduction || 0),
@@ -6537,24 +7579,24 @@ function computeStats() {
     offlineEfficiencyBonus: Math.min(0.2, equip.offlineEfficiencyBonus || 0),
     mutationMaterialDoubleChance: Math.min(0.25, equip.mutationMaterialDoubleChance || 0),
     thornVitMultiplier: Math.min(5, equip.thornVitMultiplier || 0),
-    combatPaceBonus: Math.min(0.25, (equip.combatPaceBonus || 0) + (passive.combatPaceBonus || 0) + (equip.patrolEfficiency || 0) * 0.5),
+    combatPaceBonus: Math.min(0.25, (equip.combatPaceBonus || 0) + (passive.combatPaceBonus || 0)),
     hitRate: equip.hitRate || 0,
     statusResist: equip.statusResist || 0,
     higherLevelDamageBonus: equip.higherLevelDamageBonus || 0,
     splashTargets: equip.splashTargets || 0,
     splashDamagePct: equip.splashDamagePct || 0,
-    fireBurstChance: Math.min(0.25, equip.fireBurstChance || 0),
+    fireBurstChance: Math.min(0.25, (equip.fireBurstChance || 0) + attrs.dex * 0.0001),
     fireBurstAtkPct: equip.fireBurstAtkPct || 0,
     meteorCounterChance: Math.min(0.25, equip.meteorCounterChance || 0),
     meteorCounterMatkPct: equip.meteorCounterMatkPct || 0,
     abyssDamageBonus: abyssDamageBonusTotal,
-    abyssBossDamageBonus: (setBonuses.abyssBossDamageBonus || 0) + (equip.abyssBossDamageBonus || 0),
+    abyssBossDamageBonus: setBonuses.abyssBossDamageBonus || 0,
     abyssDamageReduction: (isAbyss ? (setBonuses.abyssDamageReduction || 0) + (equip.abyssDamageReduction || 0) + (passive.abyssDamageReduction || 0) + (state.enemyBoss ? setBonuses.abyssBossDamageReduction || 0 : 0) : 0),
-    abyssMaterialDropBonus: (setBonuses.abyssMaterialDropBonus || 0) + (equip.abyssMaterialDropBonus || 0) + (vipMs.abyssMaterialDropBonus || 0),
+    abyssMaterialDropBonus: (setBonuses.abyssMaterialDropBonus || 0) + (vipMs.abyssMaterialDropBonus || 0),
     mythicWeightBonus: mythicWeightBonusTotal,
     bossQualityWeight: codexS.bossQualityWeight || 0,
-    mythicEssenceDropBonus: (equip.mythicEssenceDropBonus || 0) + (vipMs.mythicEssenceDropBonus || 0),
-    rareDropBonus: (equip.rareDropBonus || 0) + (passive.rareDropBonus || 0) + (vipMs.rareQualityWeightBonus || 0),
+    mythicEssenceDropBonus: highTierFind + (vipMs.mythicEssenceDropBonus || 0),
+    rareDropBonus: (equip.rareDropBonus || 0) + (passive.rareDropBonus || 0) + (vipMs.rareQualityWeightBonus || 0) + attrs.luk * 0.001,
     abyssExecuteDamageBonus: (equip.abyssExecuteDamageBonus || 0) + (passive.abyssExecuteDamageBonus || 0),
     rawCritRate: battleStats.rawCritRate,
     crit: battleStats.critRate,
@@ -6568,6 +7610,17 @@ function computeStats() {
     explorationBonuses,
     passive,
   };
+}
+
+function applyLineMasteryGlobalBonus(equip = {}) {
+  const runtime = equipmentProgressionRuntime();
+  const bonus = runtime?.getLineMasteryGlobalBonus?.(state) || { totalLevel: 0, statMultiplier: 1, bonusStats: {} };
+  Object.entries(bonus.bonusStats || {}).forEach(([stat, value]) => {
+    const numeric = Number(value || 0);
+    if (!Number.isFinite(numeric) || !numeric) return;
+    equip[stat] = Number(((equip[stat] || 0) + numeric).toFixed(3));
+  });
+  return bonus;
 }
 
 function getCostumeEffects() {
@@ -6732,7 +7785,10 @@ function showRareLootBroadcast(item) {
   else if (rank >= rarityRank("ancient")) prefix = "【远古遗物】";
   else if (rank >= rarityRank("epic")) prefix = "【稀有掉落】";
   else return;
-  addLogHtml(`${prefix} 获得 ${renderItemName(item)}`);
+  const archetypeLabel = getEquipmentArchetypeLabel(item?.archetype || inferEquipmentArchetype(item));
+  const fitTags = getEquipmentFitTags(item);
+  const suffix = fitTags.includes("可打造成胚子") ? " · 可打造成胚子" : fitTags.includes("适合当前职业") ? " · 适合当前职业" : "";
+  addLogHtml(`${prefix} 获得${archetypeLabel}装备${escapeHtml(suffix)}：${renderItemName(item)}`);
 }
 
 function calculateFinalStats(character = {}) {
@@ -6760,11 +7816,11 @@ function calculateBattleStats({ attrs, equip, passive, cardStats, job, level, jo
   const maxHp = Math.round((job.baseHp + equip.hp + attrs.vit * battleStatConfig.hpPerVit + level * battleStatConfig.hpPerLevel + jobLevel * 10) * (1 + jobHpPct));
   const defense = Math.round((job.baseDef + equip.def + attrs.vit * battleStatConfig.defensePerVit) * (1 + jobDefPct));
   const hpRegen = Math.max(1, Math.round((battleStatConfig.hpRegenBase + (equip.hpRegen || 0) + attrs.vit * battleStatConfig.hpRegenPerVit + level * battleStatConfig.hpRegenPerLevel) * (1 + (equip.hpRegenPct || 0))));
-  const rawCritRate = calculateRawCritRate({ equip, cardStats, passive, attrs }) + (setBonuses.critRatePct || 0) + (equip.critRatePct || 0);
+  const rawCritRate = calculateRawCritRate({ equip, cardStats, passive, attrs }) + (setBonuses.critRatePct || 0);
   const critRate = clampNumber(rawCritRate, 0, PLAYER_CRIT_RATE_CAP);
-  const dodgeRate = clampNumber(calculateDodgeRate({ attrs, level }) + (equip.dodgeRate || 0) + (equip.dodgeRatePct || 0), 0, battleStatConfig.maxDodge);
+  const dodgeRate = clampNumber(calculateDodgeRate({ attrs, level }) + (equip.dodgeRate || 0), 0, battleStatConfig.maxDodge);
   const mainPower = Math.max(physicalAttack, magicAttack);
-  const dps = mainPower * attackSpeed * COMBAT_PACE * (1 + passive.dpsPct + cardStats.dps + (setBonuses.powerPct || 0) + (equip.powerPct || 0) + (equip.combatPaceBonus || 0));
+  const dps = mainPower * attackSpeed * COMBAT_PACE * (1 + passive.dpsPct + cardStats.dps + (setBonuses.powerPct || 0) + (equip.combatPaceBonus || 0));
   return { physicalAttack, magicAttack, maxHp, defense, hpRegen, attackSpeed, dodgeRate, rawCritRate, critRate, dps };
 }
 
@@ -6975,8 +8031,8 @@ function calculatePower({ attrs, equip, battleStats, setBonuses }) {
       (equip.echoChance || 0) * 220 +
       (equip.thornVitMultiplier || 0) * 55 +
       (equip.hpRegenPct || 0) * 180 +
-      (equip.baseExpBonus || 0) * 45 +
-      (equip.jobExpBonus || 0) * 45 +
+      (equip.expBonus || 0) * 90 +
+      (equip.highTierFind || 0) * 180 +
       refinePower +
       rarityPower +
       setPower +
@@ -7096,6 +8152,11 @@ function renderAll() {
   }
 }
 
+function renderDungeons() {
+  const runtime = window.RuneFrontierRenderRuntime;
+  if (runtime && typeof runtime.renderDungeonPage === "function") return runtime.renderDungeonPage();
+}
+
 function renderActivePage() {
   document.documentElement.dataset.runeRenderStage = activePage;
   switch (activePage) {
@@ -7133,6 +8194,9 @@ function renderActivePage() {
       break;
     case "tasks":
       renderTasks();
+      break;
+    case "dungeons":
+      renderDungeons();
       break;
     case "logs":
       renderLog();
@@ -7326,13 +8390,17 @@ function renderSkillBarV3() {
     return;
   }
   bar.style.display = '';
-  var composition = jobId + ':' + activeSkills.map(function (skill) { return skill.id; }).join('|');
+  var skillLevelForBar = function (skill) {
+    return Math.max(1, Math.floor(getSkillGrowthEntry(skill).level || state.hero.skillLevels?.[skill.id] || 1));
+  };
+  var composition = jobId + ':' + activeSkills.map(function (skill) { return skill.id + '@' + skillLevelForBar(skill); }).join('|');
   if (bar.dataset.skillComposition !== composition) {
     bar.dataset.skillComposition = composition;
     bar.innerHTML = activeSkills.map(function (skill) {
+      var level = skillLevelForBar(skill);
       return '<div class="skill-bar-icon" data-skill-id="' + escapeHtml(skill.id) + '">' +
         '<div class="skill-bar-overlay"></div>' +
-        '<span class="skill-bar-name">' + escapeHtml(skill.name) + '</span>' +
+        '<span class="skill-bar-name">' + escapeHtml(skill.name) + ' Lv.' + level + '</span>' +
         '<span class="skill-bar-timer"></span>' +
         '<span class="skill-bar-awaken" hidden></span>' +
         '</div>';
@@ -7379,9 +8447,10 @@ function renderSkillBarV3() {
 
     icon = bar.children[i];
     if (!icon) continue;
+    var skillLevel = skillLevelForBar(skill);
     var casting = recentCombatSkillCast.id === skill.id && recentCombatSkillCast.until > now;
     icon.className = 'skill-bar-icon ' + stateClass + (casting ? ' casting' : '');
-    icon.title = skill.name + (stateClass === 'cooldown' ? ' - \u51b7\u5374\u4e2d ' + timerText : stateClass === 'ready' ? ' - \u5df2\u5c31\u7eea' : ' - ' + timerText);
+    icon.title = skill.name + ' Lv.' + skillLevel + (stateClass === 'cooldown' ? ' - \u51b7\u5374\u4e2d ' + timerText : stateClass === 'ready' ? ' - \u5df2\u5c31\u7eea' : ' - ' + timerText);
     overlay = icon.querySelector('.skill-bar-overlay');
     timer = icon.querySelector('.skill-bar-timer');
     awakenEl = icon.querySelector('.skill-bar-awaken');
@@ -7431,6 +8500,38 @@ function renderEnemyStatusBar() {
     return '<span class="enemy-status-chip ' + escapeHtml(status.tone || '') + '">' +
       escapeHtml(status.label + countText + timeText) + '</span>';
   }).join('');
+  renderEnemyStatusVfx(statuses);
+}
+
+function renderEnemyStatusVfx(statuses) {
+  var layer = els.enemyStatusVfxLayer || document.getElementById("enemyStatusVfxLayer");
+  if (!layer) {
+    var wrap = document.querySelector(".scene-wrap");
+    if (!wrap) return;
+    layer = document.createElement("div");
+    layer.id = "enemyStatusVfxLayer";
+    layer.className = "enemy-status-vfx-layer";
+    layer.setAttribute("aria-hidden", "true");
+    wrap.appendChild(layer);
+    els.enemyStatusVfxLayer = layer;
+  }
+  var active = (statuses || []).filter(function (status) {
+    return COMBAT_STATUS_VFX_ASSET_TYPES[status.id] || COMBAT_STATUS_VFX_ASSET_TYPES[status.tone];
+  }).slice(0, 3);
+  var signature = active.map(function (status) {
+    var type = COMBAT_STATUS_VFX_ASSET_TYPES[status.id] || COMBAT_STATUS_VFX_ASSET_TYPES[status.tone];
+    return [type, Number(status.stacks || 0)].join(":");
+  }).join("|");
+  if (layer.dataset.statusVfxSignature === signature) {
+    layer.hidden = active.length === 0;
+    return;
+  }
+  layer.dataset.statusVfxSignature = signature;
+  layer.hidden = active.length === 0;
+  layer.innerHTML = active.map(function (status, index) {
+    var type = COMBAT_STATUS_VFX_ASSET_TYPES[status.id] || COMBAT_STATUS_VFX_ASSET_TYPES[status.tone];
+    return '<span class="ro-status-vfx ro-status-vfx-' + escapeHtml(type) + ' ro-status-vfx-slot-' + index + '"></span>';
+  }).join('');
 }
 
 function renderFast(force = false) {
@@ -7474,6 +8575,35 @@ function renderFast(force = false) {
     els.playerHpBar.classList.toggle("danger", hpRatio < 0.3);
   }
   if (els.playerHpRegen) els.playerHpRegen.textContent = `每 ${HP_REGEN_INTERVAL} 秒恢复 ${formatNumber(stats.hpRegen)} HP`;
+  const potionInfo = getHealingPotionInfo(stats);
+  if (els.potionButton) {
+    els.potionButton.disabled = !potionInfo.canUse;
+    els.potionButton.textContent = potionInfo.cooldown > 0
+      ? `补给 ${Math.ceil(potionInfo.cooldown)}s`
+      : potionInfo.missingHp <= 0
+        ? "补给 已满"
+        : `补给 ${formatNumber(potionInfo.cost)}G`;
+    els.potionButton.title = `红药水：消耗 ${formatNumber(potionInfo.cost)} 金币，恢复 ${formatNumber(potionInfo.healAmount)} HP`;
+    els.potionButton.classList.toggle("is-ready", potionInfo.canUse);
+    els.potionButton.classList.toggle("is-warning", potionInfo.canUse && potionInfo.hpRatio <= 0.4);
+  }
+  if (els.autoPotionToggle) {
+    els.autoPotionToggle.checked = getAutoPotionEnabled();
+    const line = els.autoPotionToggle.closest(".toggle-line");
+    if (line) {
+      const status = getAutoPotionEnabled()
+        ? potionInfo.cooldown > 0
+          ? `冷却 ${Math.ceil(potionInfo.cooldown)}s`
+          : potionInfo.canUse
+            ? "低血量触发"
+            : "待命"
+        : "关闭";
+      [...line.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).forEach((node) => {
+        node.textContent = ` 自动补给：${status}`;
+      });
+      line.classList.toggle("is-on", getAutoPotionEnabled());
+    }
+  }
   els.bossButton.disabled = state.enemyBoss || !isBossChallengeReady();
   if (els.autoBossToggle) {
     els.autoBossToggle.checked = getAutoBossEnabled();
@@ -7569,7 +8699,6 @@ function renderCharacterStatSections(stats = computeStats()) { const runtime = w
       '<span>' + formatCritRateSummary(stats) + '<small>造成暴击的概率，玩家最高生效 100%。</small></span>',
       statLine('暴击伤害', stats.critDamage || (1.85 + (stats.critDamageBonus || 0)), '', { percent: true, showZero: true, note: '目前无硬上限' }),
       statLine('攻速', stats.attackSpeed || stats.aspd, '', { showZero: true, decimals: 2, note: '约 ' + (1 / Math.max(0.01, stats.attackSpeed || stats.aspd || 0.5)).toFixed(1) + ' 秒/次' }),
-      statLine('命中', stats.hitRate, 'hitRate'),
       statLine('最终伤害', stats.finalDamageBonus, 'finalDamageBonus'),
       statLine('技能伤害', stats.skillDamageBonus, 'skillDamageBonus', { note: '仅作用于技能' }),
       statLine('对怪物伤害', stats.monsterDamageBonus, 'monsterDamageBonus'),
@@ -7579,7 +8708,6 @@ function renderCharacterStatSections(stats = computeStats()) { const runtime = w
       statLine('伤害减免', stats.damageReductionPct, 'damageReductionPct'),
       statLine('闪避', stats.dodgeRate, '', { percent: true }),
       statLine('格挡率', stats.blockRate, 'blockRate'),
-      statLine('抗暴率', stats.antiCrit, 'antiCrit'),
       statLine('生命恢复', stats.hpRegen, '', { showZero: true }),
     ]) +
     panel('abyss', 'Boss / 深渊属性', [
@@ -7639,7 +8767,7 @@ function getCharacterStatBreakdown(stats = computeStats()) {
     },
     sources: {
       "基础/职业": { atk: state.hero.baseLevel * 2, hp: state.hero.baseLevel * 10, def: currentJob().baseDef || 0 },
-      装备: { atk: equip.atk || 0, matk: equip.matk || 0, def: equip.def || 0, hp: equip.hp || 0, critRate: (equip.crit || 0) + (equip.critRatePct || 0), critDamage: equip.critDamageBonus || 0, bossDamage: equip.bossDamageBonus || 0, abyssDamage: equip.abyssDamageBonus || 0 },
+      装备: { atk: equip.atk || 0, matk: equip.matk || 0, def: equip.def || 0, hp: equip.hp || 0, critRate: equip.crit || 0, critDamage: equip.critDamageBonus || 0, bossDamage: equip.bossDamageBonus || 0, abyssDamage: equip.abyssDamageBonus || 0 },
       星炼: estimateRefineSourceStats(),
       卡片: { atk: cardStats.atk || 0, matk: cardStats.matk || 0, hp: cardStats.hp || 0, critRate: cardStats.crit || 0, bossDamage: cardStats.bossDamageBonus || 0 },
       套装: { critRate: setBonuses.critRatePct || 0, critDamage: setBonuses.critDamagePct || 0, bossDamage: setBonuses.bossDamagePct || 0, abyssDamage: setBonuses.abyssDamageBonus || 0, abyssReduction: setBonuses.abyssDamageReduction || 0 },
@@ -7863,11 +8991,12 @@ function renderSmithy() { const runtime = window.RuneFrontierRenderRuntime; if (
 function renderSmithyContent() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderSmithyContent === "function") return runtime.renderSmithyContent();
   const tabs = [
     ["enhance", "装备精炼"],
+    ["upgrade", "装备进阶"],
     ["star", "装备星炼"],
     ["socket", "装备打孔"],
     ["set", "套装打造"],
     ["costume", "时装打造"],
-    ["materials", "材料说明"],
+    ["materials", "材料目标"],
   ];
   const craftableSets = Object.values(equipmentSets)
     .map((set) => ({
@@ -7930,11 +9059,12 @@ function renderSmithyContent() { const runtime = window.RuneFrontierRenderRuntim
     .join("");
   const panes = {
     enhance: `<section class="smithy-category"><h3>装备精炼</h3>${renderEnhancePanel()}</section><section class="smithy-category"><h3>暗金兑换</h3>${renderDarkGoldExchangePanel()}</section>`,
+    upgrade: `<section class="smithy-category"><h3>装备进阶</h3>${renderEquipmentProgressionSmithyPanel()}</section>`,
     star: `<section class="smithy-category"><h3>装备星炼</h3>${renderStarRefineSmithyPanel()}</section>`,
     socket: `<section class="smithy-category"><h3>装备打孔</h3>${renderCardSocketSmithyPanel()}</section>`,
     set: `<section class="smithy-category"><h3>套装打造</h3>${setCraftHtml || `<p class="academy-meta">星座套装通过怪物掉落获得。已穿戴部件可在装备页查看套装进度，未穿戴部件在图鉴页查看全貌。</p>`}</section>`,
     costume: `<section class="smithy-category"><h3>时装打造</h3>${costumeCraftHtml}</section>`,
-    materials: `<section class="smithy-category"><h3>材料说明</h3>${renderSmithyMaterialGuide()}</section>`,
+    materials: `<section class="smithy-category"><h3>材料目标</h3>${renderMaterialGoalPanel()}</section>`,
   };
   if (!panes[smithyActiveTab]) smithyActiveTab = "enhance";
   return `
@@ -8000,6 +9130,12 @@ function renderSmithyMaterialGuide() { const runtime = window.RuneFrontierRender
     ["advancedSocketStone", "用于高品质装备或第 2 / 第 3 孔。主要来源：Boss、商店、高阶材料。"],
     ["mythicSocketStone", "用于暗金、神话或深渊装备高级孔位。主要来源：深渊、Boss、商店。"],
     ["cardRemover", "用于拆除装备卡槽中的卡片，卡片会回到卡片背包。"],
+    ["ancientHeroShard", "古代英雄线基础进阶材料。主要来源：困难南门、森林与下水道。"],
+    ["heroReformInscription", "古代英雄线改良材料。主要来源：深渊南门与下水道困难。"],
+    ["mythicHeroCore", "古代英雄线核心材料。主要来源：深渊南门 Boss。"],
+    ["osGear", "OS线基础进阶材料。主要来源：森林困难、沙漠与兽人村。"],
+    ["illusionModule", "OS线改良材料。主要来源：下水道/沙漠困难与深渊。"],
+    ["osAdCore", "OS-AD核心材料。主要来源：OS线深渊 Boss。"],
     ["oridecon", "武器精炼材料，主要用于 +N 精炼。"],
     ["elunium", "防具精炼材料，主要用于 +N 精炼。"],
     ["starShard", "高阶星炼、套装打造和神话相关材料。"],
@@ -8009,6 +9145,129 @@ function renderSmithyMaterialGuide() { const runtime = window.RuneFrontierRender
     <strong class="material-count">×${formatNumber(state.materials[id] || 0)}</strong>
     <small class="material-desc">${escapeHtml(desc)}</small>
   </article>`).join("")}</div>`;
+}
+
+function renderMaterialGoalPanel() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderMaterialGoalPanel === "function") return runtime.renderMaterialGoalPanel();
+  const equipmentRuntime = equipmentProgressionRuntime();
+  const overviews = equipmentRuntime?.getAllEquipmentLineMaterialOverviews?.() || [];
+  if (!overviews.length) return renderSmithyMaterialGuide();
+  return `<div class="material-goal-layout">
+    ${renderCurrentMaterialGoal()}
+    <div class="material-line-grid">
+      ${overviews.map(renderMaterialLineCard).join("")}
+    </div>
+  </div>`;
+}
+
+function equippedItems() {
+  return Object.values(state.equipped || {})
+    .map((id) => state.inventory.find((item) => item.id === id))
+    .filter(Boolean);
+}
+
+function canAffordEquipmentCost(cost) {
+  return Boolean(cost && (state.gold || 0) >= (cost.gold || 0) && hasMaterials(cost.materials || {}));
+}
+
+function renderCurrentMaterialGoal() {
+  const runtime = equipmentProgressionRuntime();
+  const equipped = equippedItems();
+  const upgradeTarget = equipped.find((item) => getEquipmentUpgradeCost(item));
+  const temperTarget = equipped.find((item) => runtime?.canTemperAbyssItem?.(item));
+  if (!upgradeTarget && !temperTarget) {
+    return `<article class="material-goal-card material-current-goal">
+      <div class="material-goal-head"><strong>当前目标</strong><span class="equipment-badge equipment-badge-slot">待定</span></div>
+      <p class="academy-meta">先获取 T2 以上成长装备。</p>
+    </article>`;
+  }
+  const upgradeCost = upgradeTarget ? getEquipmentUpgradeCost(upgradeTarget) : null;
+  const temperMode = temperTarget?.abyssTempered ? "reroll" : "infuse";
+  const temperCost = temperTarget ? runtime?.getAbyssTemperingCost?.(temperTarget, temperMode) : null;
+  const empowerCost = temperTarget ? runtime?.getAbyssTemperingCost?.(temperTarget, "empower") : null;
+  return `<article class="material-goal-card material-current-goal">
+    <div class="material-goal-head"><strong>当前目标</strong><span class="equipment-badge equipment-badge-progression">装备成长</span></div>
+    ${upgradeTarget ? `<div class="material-goal-action-row">
+      <span>${renderItemName(upgradeTarget)}<small>${escapeHtml(equipmentProgressionCostText(upgradeCost))}</small></span>
+      <button type="button" data-upgrade-progression-item="${escapeAttr(upgradeTarget.id)}" ${!canUpgradeEquipmentProgression(upgradeTarget) ? "disabled" : ""}>进阶</button>
+    </div>` : ""}
+    ${temperTarget ? `<div class="material-goal-action-row">
+      <span>${renderItemName(temperTarget)}<small>${escapeHtml(equipmentProgressionCostText(temperCost))}</small></span>
+      <button type="button" data-temper-abyss-item="${escapeAttr(temperTarget.id)}" data-temper-mode="${temperMode}" ${!canAffordEquipmentCost(temperCost) ? "disabled" : ""}>${temperTarget.abyssTempered ? "重洗深渊" : "深渊淬炼"}</button>
+      <button type="button" data-temper-abyss-item="${escapeAttr(temperTarget.id)}" data-temper-mode="empower" ${!temperTarget.abyssTempered || !canAffordEquipmentCost(empowerCost) ? "disabled" : ""}>强化淬炼</button>
+    </div>` : ""}
+  </article>`;
+}
+
+function formatLineMasteryBonusStats(stats = {}) {
+  const rows = Object.entries(stats || {})
+    .filter(([, value]) => Number(value || 0) > 0)
+    .map(([stat, value]) => `${statLabelName(stat)} +${percent(Number(value || 0))}`);
+  return rows.length ? rows.join(" / ") : "里程碑未解锁";
+}
+
+function formatLineMasteryNextText(currentBonus = {}, nextBonus = null) {
+  if (!nextBonus) return "已满级";
+  const globalGain = Math.max(0, Number(nextBonus.globalStatMultiplier || 1) - Number(currentBonus.globalStatMultiplier || 1));
+  const resonanceGain = Math.max(0, Number(nextBonus.statMultiplier || 1) - Number(currentBonus.statMultiplier || 1));
+  const milestoneGains = [];
+  Object.entries(nextBonus.globalBonusStats || {}).forEach(([stat, value]) => {
+    const gain = Number(value || 0) - Number(currentBonus.globalBonusStats?.[stat] || 0);
+    if (gain > 0) milestoneGains.push(`全局${statLabelName(stat)} +${percent(gain)}`);
+  });
+  Object.entries(nextBonus.bonusStats || {}).forEach(([stat, value]) => {
+    const gain = Number(value || 0) - Number(currentBonus.bonusStats?.[stat] || 0);
+    if (gain > 0) milestoneGains.push(`同线${statLabelName(stat)} +${percent(gain)}`);
+  });
+  return [`全局基础 +${percent(globalGain)}`, `同线基础 +${percent(resonanceGain)}`, ...milestoneGains].join(" · ");
+}
+
+function renderMaterialLineCard(overview) {
+  const runtime = equipmentProgressionRuntime();
+  const level = runtime?.getLineMasteryLevel?.(state, overview.series) || 0;
+  const cost = runtime?.getLineMasteryCost?.(overview.series, level);
+  const canUpgrade = runtime?.canUpgradeLineMastery?.(overview.series);
+  const bonus = runtime?.getLineMasteryBonus?.(overview.series, level) || {};
+  const nextBonus = cost ? runtime?.getLineMasteryBonus?.(overview.series, cost.nextLevel) : null;
+  const materialRows = Object.entries(overview.materials || {})
+    .map(([kind, material]) => {
+      const qty = (state.materials || {})[material.id] || 0;
+      const rarity = MATERIAL_DB[material.id]?.rarity || material.rarity || "normal";
+      return `<span class="equipment-stat-chip ${getRarityClass({ rarity })}">
+        <span class="equipment-stat-name">${escapeHtml(material.name || material.id)}</span>
+        <span class="equipment-stat-value">×${formatNumber(qty)}</span>
+      </span>`;
+    })
+    .join("");
+  const sourceRows = formatMaterialSourceSummary(overview, 5);
+  return `<article class="material-goal-card">
+    <div class="material-goal-head">
+      <strong>${escapeHtml(overview.label)}精通 Lv.${formatNumber(level)}</strong>
+      <span class="equipment-badge equipment-badge-slot">${escapeHtml(overview.series)}</span>
+    </div>
+    <div class="equipment-stat-grid">${materialRows}</div>
+    <p class="academy-meta">来源：${escapeHtml(sourceRows || "暂无")}</p>
+    <div class="line-mastery-bonus-list">
+      <p><strong>全局传承</strong><span>所有装备基础属性 +${percent(Math.max(0, Number(bonus.globalStatMultiplier || 1) - 1))} · ${escapeHtml(formatLineMasteryBonusStats(bonus.globalBonusStats))}</span></p>
+      <p><strong>同线共鸣</strong><span>${escapeHtml(overview.label)}装备基础属性 +${percent(Math.max(0, Number(bonus.statMultiplier || 1) - 1))} · ${escapeHtml(formatLineMasteryBonusStats(bonus.bonusStats))}</span></p>
+      <p><strong>下级收益</strong><span>${escapeHtml(formatLineMasteryNextText(bonus, nextBonus))}</span></p>
+    </div>
+    <p class="academy-meta">消耗：${escapeHtml(equipmentProgressionCostText(cost))}</p>
+    <button type="button" data-upgrade-line-mastery="${escapeAttr(overview.series)}" ${!canUpgrade ? "disabled" : ""}>提升精通</button>
+  </article>`;
+}
+
+function mapNameById(mapId) {
+  return maps.find((map) => map.id === mapId)?.name || mapId;
+}
+
+function formatMaterialSourceSummary(overview, limit = 4) {
+  const labelSource = (source) => `${mapNameById(source.mapId)} ${DIFFICULTY_CONFIG[source.difficulty]?.label || source.difficulty}`;
+  const direct = (overview.directSources || []).slice(0, limit).map(labelSource);
+  const salvage = (overview.salvageSources || []).slice(0, Math.max(0, limit - direct.length)).map(labelSource);
+  return [
+    direct.length ? `直接掉落：${direct.join(" / ")}` : "",
+    salvage.length ? `装备分解：${salvage.join(" / ")}` : "",
+  ].filter(Boolean).join(" · ");
 }
 
 function renderDarkGoldExchangePanel() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderDarkGoldExchangePanel === "function") return runtime.renderDarkGoldExchangePanel();
@@ -8313,27 +9572,19 @@ function exchangeDarkGoldEquipment(mode = "random", slot = "") {
 
 function createDarkGoldExchangeItem(mode = "random", slot = "") {
   const map = currentMap();
-  const tableId = mapDropTableAlias[map.id] || map.id;
-  let templates = [];
-  if (mode === "map") {
-    templates = (equipmentDropTables[tableId] || [])
-      .filter((drop) => equipmentTemplateDb[drop.equipmentId])
-      .map((drop) => equipmentTemplateDb[drop.equipmentId]);
-  } else {
-    templates = allEquipmentTemplates.filter((template) => template && rarityRank(template.rarity) >= rarityRank("rare"));
-  }
-  if (mode === "slot" && slot) {
-    templates = templates.filter((template) => equipmentSlot(template) === slot);
-  }
-  if (!templates.length) {
-    templates = allEquipmentTemplates.filter((template) => template && rarityRank(template.rarity) >= rarityRank("legend"));
-  }
-  const template = templates[Math.floor(Math.random() * templates.length)];
-  if (!template) return null;
+  const pick = pickProgressionEquipmentTemplate({
+    minRarity: "rare",
+    slot: mode === "slot" ? slot : "",
+    allowFallback: true,
+  });
+  if (!pick) return null;
   const mapRange = getMapLevelRange(map);
-  const baseLevel = mode === "map" ? mapRange.maxLevel : Math.max(mapRange.maxLevel, state.hero.baseLevel || template.level || 1);
+  const rowMaxLevel = Math.max(1, Number(pick.row.maxLevel) || mapRange.maxLevel || 1);
+  const baseLevel = mode === "map"
+    ? rowMaxLevel
+    : Math.max(rowMaxLevel, state.hero.baseLevel || pick.template.level || 1);
   const dropLevel = clampNumber(baseLevel + randomInt(8, 18), 1, MAX_EQUIPMENT_LEVEL);
-  return createItem(template, dropLevel, "darkGold", { dropMapId: mode === "map" ? map.id : "dark_gold_exchange", dropLevel, difficulty: state.currentDifficulty });
+  return createItem(pick.template, dropLevel, "darkGold", { dropMapId: mode === "map" ? map.id : "dark_gold_exchange", dropLevel, difficulty: state.currentDifficulty });
 }
 
 function isZodiacSetId(setId) {
@@ -8455,7 +9706,7 @@ function unequipCostume(slot) {
 function equippedSlotMeta(item) {
   if (!item) return "未装备";
   return `<div class="equipped-slot-summary">
-    <div class="equipped-slot-title">${renderItemName(item, `Lv.${item.level} ${refineText(item)} ${empowerText(item)}`)}</div>
+    <div class="equipped-slot-title">${renderItemName(item, `${refineText(item)} ${empowerText(item)}`)}</div>
     ${item.setName ? `<div class="equip-meta">${renderSetName(item.setName)}</div>` : ""}
     ${renderEquipmentSummaryStats(item, 3)}
   </div>`;
@@ -8515,7 +9766,7 @@ function renderCoreStatBars(item, limit = 4) { const runtime = window.RuneFronti
 }
 
 function renderEquipmentSpecialTags(item, limit = 3) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentSpecialTags === "function") return runtime.renderEquipmentSpecialTags(item, limit);
-  var specialKeys = ["ignoreDefense", "echoChance", "splashTargets", "splashDamagePct", "fireBurstChance", "fireBurstAtkPct", "meteorCounterChance", "meteorCounterMatkPct", "lifeSteal", "skillHitHealPct", "mutationMaterialDoubleChance", "thornVitMultiplier"];
+  var specialKeys = ["ignoreDefense", "echoChance", "splashTargets", "splashDamagePct", "fireBurstChance", "fireBurstAtkPct", "meteorCounterChance", "meteorCounterMatkPct", "lifeSteal", "skillHitHealPct", "mutationMaterialDoubleChance", "thornVitMultiplier", "combatPaceBonus"];
   var effective = getEffectiveItemStats(item, false);
   var tags = [];
   for (var i = 0; i < specialKeys.length && tags.length < limit; i++) {
@@ -8530,9 +9781,11 @@ function renderEquipmentSpecialTags(item, limit = 3) { const runtime = window.Ru
 
 function renderEquipmentCardScore(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentCardScore === "function") return runtime.renderEquipmentCardScore(item);
   const scores = calculateEquipmentScores(item, currentJob());
+  const archetype = normalizeEquipmentArchetype(item?.archetype || inferEquipmentArchetype(item));
+  const primary = archetype === "physical" ? scores.physicalScore : archetype === "magic" ? scores.magicScore : scores.generalScore;
   return `<div class="equipment-card-score">
-    <span>综合评分</span>
-    <strong>${formatNumber(scores.comprehensive)}</strong>
+    <span>${escapeHtml(getEquipmentArchetypeLabel(archetype))}评分</span>
+    <strong>${formatNumber(primary || scores.comprehensive)}</strong>
   </div>`;
 }
 
@@ -8565,9 +9818,97 @@ function toggleEquipmentDetailExpanded(key) {
   renderEquipment();
 }
 
+function renderEquipmentSynergyStatChips(stats = {}) {
+  const entries = Object.entries(stats || {}).filter(([, value]) => Number(value) !== 0).slice(0, 4);
+  if (!entries.length) return "";
+  return `<div class="equipment-synergy-stats">
+    ${entries.map(([stat, value]) => `<span>${escapeHtml(statLabelName(stat))} ${escapeHtml(formatStatValue(stat, value))}</span>`).join("")}
+  </div>`;
+}
+
+function renderEquipmentSynergyPanel() {
+  const synergy = computeEquipmentSynergyState();
+  const line = synergy.bestLine || synergy.activeLines?.[0];
+  if (!line) {
+    return `<section class="slot-card equipment-synergy-panel">
+      <div class="equipment-synergy-head">
+        <span class="slot-name">装备联动</span>
+        <span class="equipment-synergy-count">0/5</span>
+      </div>
+      <p class="slot-meta">装备同一成长线的 4 件装备可激活核心机制，5 件会升级效果。</p>
+    </section>`;
+  }
+  const mechanismRows = (line.activeMechanisms || []).map((entry) => `
+    <span class="equipment-synergy-chip">${escapeHtml(entry.label)}</span>
+  `).join("");
+  const routeRows = (line.routeEnhancements || []).map((entry) => `
+    <span class="equipment-synergy-route">精炼总和 +${entry.enhanceTotalRequired} ${escapeHtml((entry.skillNames || []).join(" / "))}</span>
+  `).join("");
+  const nextParts = [
+    line.nextMechanism ? `${line.nextMechanism.unlockPieces}件：${line.nextMechanism.label}` : "",
+    line.nextThreshold ? `精炼总和 +${line.nextThreshold.enhanceTotal}：${line.nextThreshold.label}` : "",
+  ].filter(Boolean);
+  return `<section class="slot-card equipment-synergy-panel active">
+    <div class="equipment-synergy-head">
+      <span class="slot-name">${escapeHtml(line.label)}</span>
+      <span class="equipment-synergy-count">${line.pieceCount}/5 · 精炼+${line.enhanceTotal}</span>
+    </div>
+    <p class="slot-meta">${escapeHtml(line.activeMechanisms?.[0]?.description || "同线装备正在形成联动。")}</p>
+    ${mechanismRows ? `<div class="equipment-synergy-chips">${mechanismRows}</div>` : ""}
+    ${routeRows ? `<div class="equipment-synergy-routes">${routeRows}</div>` : ""}
+    ${renderEquipmentSynergyStatChips(synergy.stats)}
+    ${nextParts.length ? `<p class="slot-meta">下一目标：${escapeHtml(nextParts[0])}</p>` : `<p class="slot-meta">这条装备线的当前联动已全部激活。</p>`}
+  </section>`;
+}
+
+function equipmentTraitLabelName(key) {
+  const labels = {
+    activeSkillCooldownReduction: "主动冷却",
+    activeSkillExtraCastChance: "主动追加",
+    bossExecuteDamageBonus: "Boss斩杀",
+    lowHpShieldPct: "低血护盾",
+    abyssCycleBoost: "深渊循环",
+    eliteBossExecuteDamageBonus: "首领斩杀",
+    extraLineMaterialChance: "同线材料",
+    v3SkillCooldownReduction: "V3冷却",
+    v3CircuitEffectBonus: "回路效果",
+    v3GlobalSkillEffectBonus: "V3全局",
+    v3FinalCircuitEffectBonus: "最终回路",
+  };
+  return labels[key] || statLabelName(key);
+}
+
+function renderEquipmentTraitPreview(item) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  const preview = runtime?.getEquipmentTraitPreview?.(item);
+  const current = preview?.current;
+  if (!current?.series) return "";
+  const formatEntry = ([key, value]) => `${equipmentTraitLabelName(key)} +${percent(value)}`;
+  const currentRows = [
+    ...Object.entries(current.stats || {}).map(formatEntry),
+    ...Object.entries(current.effects || {}).map(formatEntry),
+  ];
+  if (!currentRows.length) return "";
+  const stageRows = (preview.stages || []).map((stage) => {
+    const rows = [
+      ...Object.entries(stage.stats || {}).map(formatEntry),
+      ...Object.entries(stage.effects || {}).map(formatEntry),
+    ];
+    const active = stage.stage === current.stage ? " active" : "";
+    return `<span class="equipment-trait-stage${active}"><small>${escapeHtml(stage.stageLabel)}</small>${escapeHtml(rows.join(" · ") || "无")}</span>`;
+  }).join("");
+  return `<section class="equipment-trait-preview">
+    <strong>装备线特性 · ${escapeHtml(current.label)} · ${escapeHtml(current.stageLabel)}</strong>
+    <p>${escapeHtml(currentRows.join(" · "))}</p>
+    <div class="equipment-trait-stage-list">${stageRows}</div>
+  </section>`;
+}
+
 function renderEquipment() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipment === "function") return runtime.renderEquipment();
   pruneEquipmentDetailExpandedState();
-  els.equippedSlots.innerHTML = ["weapon", "armor", "headgear", "shoes", "trinket"]
+  els.equippedSlots.innerHTML = `
+    ${renderEquipmentSynergyPanel()}
+    ${["weapon", "armor", "headgear", "shoes", "trinket"]
     .map((slot) => {
       const item = state.inventory.find((entry) => entry.id === state.equipped[slot]);
       return `
@@ -8577,16 +9918,17 @@ function renderEquipment() { const runtime = window.RuneFrontierRenderRuntime; i
         </div>
       `;
     })
-    .join("");
+    .join("")}
+  `;
 
   els.materialList.innerHTML = `
-    ${renderMaterialGroups()}
     ${renderEquipmentBatchPanel()}
+    ${renderMaterialGroups()}
     ${renderZodiacCollectionPanel()}
     ${renderCostumePanel()}
     <div class="slot-card auto-salvage-card">
       <span class="slot-name">自动分解</span>
-      <p class="slot-meta">仅对新获得装备生效，不会默认分解传说/暗金/神话/套装。</p>
+      <p class="slot-meta">仅对新获得装备生效，不会默认分解传说/暗金/神话/套装/成长装备。</p>
       <label class="setting-line"><input type="checkbox" data-auto-salvage-enabled ${state.autoSalvage?.enabled ? "checked" : ""}> 开启自动分解</label>
       <select data-auto-salvage-rarity>
         ${["normal", "fine", "rare", "epic"].map((rarity) => `<option value="${rarity}" ${state.autoSalvage?.maxRarity === rarity ? "selected" : ""}>${rarityName(rarity)}及以下</option>`).join("")}
@@ -8607,16 +9949,19 @@ function renderEquipment() { const runtime = window.RuneFrontierRenderRuntime; i
       const empowerCost = getEmpowerCost(item);
       const nextStar = (item.refine || 0) + 1;
       const nextEmpower = (item.empower || 0) + 1;
-      const detailKey = equipmentDetailKey(item);
-      const detailExpanded = Boolean(equipmentDetailExpandedState[detailKey]);
+      const progressionCost = getEquipmentUpgradeCost(item);
+      const primaryGrowthButton = progressionCost
+        ? `<button class="equipment-primary-action" type="button" data-upgrade-progression-item="${item.id}" ${!canUpgradeEquipmentProgression(item) ? "disabled" : ""}>进阶</button>`
+        : nextStar <= 15
+          ? `<button class="equipment-primary-action" type="button" data-refine-item="${item.id}" ${!hasMaterials(refineCost) ? "disabled" : ""}>星炼</button>`
+          : "";
       return `
-        <article class="equip-item equipment-detail-card ${equipmentVisualClass(item)} ${equipped ? "equipped" : ""} ${(item.enhanceLevel || 0) >= 10 ? "enhance-glow" : ""}" data-tooltip="${escapeAttr(itemRangeTooltip(item))}" title="${escapeAttr(itemRangeTooltip(item))}">
+        <article class="equip-item equipment-detail-card ${equipmentVisualClass(item)} ${equipped ? "equipped" : ""} ${(item.enhanceLevel || 0) >= 10 ? "enhance-glow" : ""}" data-equipment-archetype="${normalizeEquipmentArchetype(item.archetype)}" data-tooltip="${escapeAttr(itemRangeTooltip(item))}" title="${escapeAttr(itemRangeTooltip(item))}">
           <div class="equip-head equipment-detail-header">
               <span class="item-icon" style="background-image:${imageBackgroundList(itemImageCandidates(item))}"></span>
             <div class="equipment-name-main">
-              <span class="equip-name equipment-name-row">${renderItemName(item, `Lv.${item.level} ${refineText(item)} ${empowerText(item)}`)}</span>
+              <span class="equip-name equipment-name-row">${renderItemName(item, `${refineText(item)} ${empowerText(item)}`)}</span>
               ${renderEquipmentBadges(item)}
-              ${renderEquipmentUsageTags(item)}
               ${renderEquipmentStateBadges(item, equipped, nextStar)}
             </div>
           </div>
@@ -8626,22 +9971,33 @@ function renderEquipment() { const runtime = window.RuneFrontierRenderRuntime; i
           ${renderEquipmentCardScore(item)}
           ${renderCoreStatBars(item, 4)}
           ${renderEquipmentSpecialTags(item, 3)}
-          <details class="equipment-detail-toggle" data-equipment-detail-key="${escapeAttr(detailKey)}" ${detailExpanded ? "open" : ""}>
-            <summary data-equipment-detail-toggle="${escapeAttr(detailKey)}">${detailExpanded ? "收起完整属性" : "查看完整属性"}</summary>
-            ${renderCardSocketSection(item)}
-            ${renderEquipmentStatSections(item)}
-            ${renderSalvagePreviewSection(item)}
-            <span class="equip-meta">星炼 ${Math.round(getRefineChance(nextStar, item) * 100)}% · 保底 +${Math.round((item.refineFailCount || 0) * 1.5 * 10) / 10}% · ${nextStar <= 15 ? materialText(refineCost) : "已满星"}</span>
-            <span class="equip-meta">赋能 ${nextEmpower <= 10 ? materialText(empowerCost) : "已满阶"}</span>
-          </details>
-          <div class="equip-actions equipment-action-row">
-            <button type="button" data-equip-item="${item.id}">${equipped ? "已装备" : "装备"}</button>
-            <button type="button" data-refine-item="${item.id}" ${nextStar > 15 || !hasMaterials(refineCost) ? "disabled" : ""}>星炼</button>
-            <button type="button" data-empower-item="${item.id}" ${nextEmpower > 10 || !hasMaterials(empowerCost) ? "disabled" : ""}>赋能</button>
-            <button class="ghost" type="button" data-lock-item="${item.id}">${item.locked ? "解锁" : "锁定"}</button>
-            ${isZodiacItem(item) ? `<button class="ghost" type="button" data-collect-zodiac="${item.id}">收藏</button><button class="ghost" type="button" data-zodiac-salvage="${item.id}" ${equipped || item.locked ? "disabled" : ""}>星座分解</button>` : ""}
-            <button class="ghost" type="button" data-salvage-item="${item.id}" ${equipped || item.locked || isZodiacItem(item) ? "disabled" : ""}>分解</button>
+          ${renderEquipmentTraitPreview(item)}
+          <div class="equip-actions equipment-primary-actions">
+            <button class="equipment-primary-action" type="button" data-equip-item="${item.id}">${equipped ? "已装备" : "装备"}</button>
+            ${primaryGrowthButton}
+            <button class="ghost equipment-lock-action" type="button" data-lock-item="${item.id}">${item.locked ? "解锁" : "锁定"}</button>
           </div>
+          <details class="equipment-more-actions">
+            <summary class="equipment-more-summary">更多</summary>
+            <div class="equipment-more-panel">
+              <div class="equipment-secondary-actions">
+                ${progressionCost && nextStar <= 15 ? `<button type="button" data-refine-item="${item.id}" ${!hasMaterials(refineCost) ? "disabled" : ""}>星炼</button>` : ""}
+                <button type="button" data-empower-item="${item.id}" ${nextEmpower > 10 || !hasMaterials(empowerCost) ? "disabled" : ""}>赋能</button>
+                ${isZodiacItem(item) ? `<button class="ghost" type="button" data-collect-zodiac="${item.id}">收藏</button><button class="ghost" type="button" data-zodiac-salvage="${item.id}" ${equipped || item.locked ? "disabled" : ""}>星座分解</button>` : ""}
+                <button class="ghost equipment-danger-action" type="button" data-salvage-item="${item.id}" ${equipped || item.locked || isZodiacItem(item) ? "disabled" : ""}>分解</button>
+              </div>
+              <details class="equipment-detail-toggle equipment-detail-compact">
+                <summary class="equipment-detail-summary">明细</summary>
+                ${renderEquipmentProgressionTags(item)}
+                ${renderEquipmentUsageTags(item)}
+                ${renderCardSocketSection(item)}
+                ${renderEquipmentStatSections(item)}
+                ${renderSalvagePreviewSection(item)}
+                <span class="equip-meta">星炼 ${Math.round(getRefineChance(nextStar, item) * 100)}% · 保底 +${Math.round((item.refineFailCount || 0) * 1.5 * 10) / 10}% · ${nextStar <= 15 ? materialText(refineCost) : "已满星"}</span>
+                <span class="equip-meta">赋能 ${nextEmpower <= 10 ? materialText(empowerCost) : "已满阶"}</span>
+              </details>
+            </div>
+          </details>
         </article>
       `;
     })
@@ -8649,15 +10005,44 @@ function renderEquipment() { const runtime = window.RuneFrontierRenderRuntime; i
   `;
 }
 
+function getEquipmentLineFilterOptions() {
+  const runtime = equipmentProgressionRuntime();
+  return runtime && typeof runtime.getEquipmentLineFilterOptions === "function" ? runtime.getEquipmentLineFilterOptions() : [];
+}
+
+function equipmentMatchesCurrentProgressionTarget(item) {
+  const runtime = equipmentProgressionRuntime();
+  if (!runtime || typeof runtime.getMapEquipmentProgression !== "function") return false;
+  const progression = runtime.getMapEquipmentProgression(currentMap().id, state.currentDifficulty);
+  return (progression.series || []).includes(item.series) && (progression.tiers || []).includes(item.growthTier);
+}
+
+function equipmentMissingProgressionMaterials(item) {
+  const cost = getEquipmentUpgradeCost(item);
+  return Boolean(cost && !hasMaterials(cost.materials || {}));
+}
+
 function renderEquipmentFilterBar(count) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentFilterBar === "function") return runtime.renderEquipmentFilterBar(count);
-  const filters = [
+  const lineFilters = getEquipmentLineFilterOptions().map((entry) => [entry.id, entry.label]);
+  const primaryFilters = [
     ["all", "全部"],
     ["equipped", "已装备"],
     ["weapon", "武器"],
     ["armor", "防具"],
+    ["jobFit", "职业适配"],
+    ["upgradeable", "可进阶"],
+    ["salvageable", "可分解"],
+  ];
+  const extraFilters = [
     ["headgear", "头饰"],
     ["shoes", "鞋子"],
     ["trinket", "饰品"],
+    ["physical", "物理"],
+    ["magic", "魔法"],
+    ["craftBase", "可打造成胚子"],
+    ["currentTarget", "当前地图目标"],
+    ["missingMaterial", "缺进阶材料"],
+    ...lineFilters,
     ["socketed", "有孔"],
     ["socketable", "可打孔"],
     ["set", "套装"],
@@ -8667,36 +10052,54 @@ function renderEquipmentFilterBar(count) { const runtime = window.RuneFrontierRe
     ["legend", "传说"],
     ["locked", "已锁定"],
     ["refinable", "可星炼"],
-    ["salvageable", "可分解"],
   ];
+  const activeExtraFilter = extraFilters.find(([id]) => equipmentFilter === id);
+  const filterButton = ([id, label]) => `<button type="button" data-equipment-filter="${id}" class="eq-filter-btn${equipmentFilter === id ? " active" : ""}">${label}</button>`;
+  const sortOptions = getEquipmentCompactSortOptions();
+  const effectiveSort = normalizeEquipmentSort(equipmentSort);
   return `<div class="equipment-filter-bar">
-    ${filters.map(([id, label]) => `<button type="button" data-equipment-filter="${id}" class="eq-filter-btn${equipmentFilter === id ? " active" : ""}">${label}</button>`).join("")}
+    <div class="equipment-filter-primary">${primaryFilters.map(filterButton).join("")}</div>
+    <details class="equipment-filter-more"${activeExtraFilter ? " open" : ""}>
+      <summary class="equipment-filter-summary">更多筛选${activeExtraFilter ? ` · ${activeExtraFilter[1]}` : ""}</summary>
+      <div class="equipment-filter-extra">${extraFilters.map(filterButton).join("")}</div>
+    </details>
     <label class="equipment-sort-control">排序
       <select data-equipment-sort>
-        ${[
-          ["score", "综合评分"],
-          ["level", "装备等级"],
-          ["rarity", "品质"],
-          ["refine", "星炼等级"],
-          ["sockets", "孔位数量"],
-          ["recent", "最近获得"],
-          ["output", "输出评分"],
-          ["survival", "生存评分"],
-          ["abyss", "深渊评分"],
-          ["treasure", "打宝评分"],
-        ].map(([id, label]) => `<option value="${id}" ${equipmentSort === id ? "selected" : ""}>${label}</option>`).join("")}
+        ${sortOptions.map(([id, label]) => `<option value="${id}" ${effectiveSort === id ? "selected" : ""}>${label}</option>`).join("")}
       </select>
     </label>
     <button type="button" data-equipment-show-all class="eq-filter-btn">${equipmentShowAll ? "收起" : `显示全部（${count}）`}</button>
   </div>`;
 }
 
+function getEquipmentCompactSortOptions() {
+  return [
+    ["score", "综合"],
+    ["level", "来源强度"],
+    ["rarity", "品质"],
+    ["refine", "星炼"],
+    ["recent", "最近"],
+    ["output", "输出"],
+    ["survival", "生存"],
+    ["treasure", "打宝"],
+  ];
+}
+
+function normalizeEquipmentSort(sort) {
+  return getEquipmentCompactSortOptions().some(([id]) => id === sort) ? sort : "score";
+}
+
 function filterEquipmentList(items) {
   const equippedIds = new Set(Object.values(state.equipped || {}).filter(Boolean));
   return items.filter((item) => {
     const slot = equipmentSlot(item);
+    const archetype = normalizeEquipmentArchetype(item.archetype || inferEquipmentArchetype(item));
+    const fitTags = getEquipmentFitTags(item);
     if (equipmentFilter === "equipped") return equippedIds.has(item.id);
     if (["weapon", "armor", "headgear", "shoes", "trinket"].includes(equipmentFilter)) return slot === equipmentFilter;
+    if (["physical", "magic", "general"].includes(equipmentFilter)) return archetype === equipmentFilter;
+    if (equipmentFilter === "jobFit") return fitTags.includes("适合当前职业");
+    if (equipmentFilter === "craftBase") return fitTags.includes("可打造成胚子");
     if (equipmentFilter === "socketed") return getEquipmentCardSlotCount(item) > 0;
     if (equipmentFilter === "socketable") return getMaxEquipmentCardSlots(item) > getEquipmentCardSlotCount(item);
     if (equipmentFilter === "set") return Boolean(item.setId);
@@ -8705,29 +10108,34 @@ function filterEquipmentList(items) {
     if (equipmentFilter === "darkGold") return item.rarity === "darkGold";
     if (equipmentFilter === "legend") return item.rarity === "legend";
     if (equipmentFilter === "locked") return Boolean(item.locked);
+    if (equipmentFilter === "upgradeable") return canUpgradeEquipmentProgression(item);
+    if (equipmentFilter === "currentTarget") return equipmentMatchesCurrentProgressionTarget(item);
+    if (equipmentFilter === "missingMaterial") return equipmentMissingProgressionMaterials(item);
+    if (equipmentFilter.startsWith("line:")) return item.series === equipmentFilter.slice(5);
     if (equipmentFilter === "refinable") return (item.refine || 0) < 15 && hasMaterials(getRefineCost(item));
-    if (equipmentFilter === "salvageable") return !equippedIds.has(item.id) && !item.locked && !isHighValueEquipment(item);
+    if (equipmentFilter === "salvageable") return !equippedIds.has(item.id) && !item.locked && !shouldProtectEquipment(item);
     return true;
   });
 }
 
 function sortEquipmentList(items) {
   const indexed = items.map((item, index) => ({ item, index }));
+  const activeSort = normalizeEquipmentSort(equipmentSort);
   const scoreOf = (item, key) => {
     const scores = calculateEquipmentScores(item, currentJob());
     if (key === "output") return scores.output || 0;
     if (key === "survival") return scores.survival || 0;
     if (key === "abyss") return scores.abyss || 0;
     if (key === "treasure") return scores.treasure || 0;
+    if (key === "physicalScore" || key === "magicScore" || key === "generalScore") return scores[key] || 0;
     return scores.comprehensive || itemScore(item);
   };
   indexed.sort((a, b) => {
-    if (equipmentSort === "recent") return a.index - b.index;
-    if (equipmentSort === "level") return (b.item.level || 0) - (a.item.level || 0);
-    if (equipmentSort === "rarity") return rarityRank(b.item.rarity) - rarityRank(a.item.rarity);
-    if (equipmentSort === "refine") return (b.item.refine || 0) - (a.item.refine || 0);
-    if (equipmentSort === "sockets") return getEquipmentCardSlotCount(b.item) - getEquipmentCardSlotCount(a.item);
-    return scoreOf(b.item, equipmentSort) - scoreOf(a.item, equipmentSort);
+    if (activeSort === "recent") return a.index - b.index;
+    if (activeSort === "level") return (b.item.dropLevel || b.item.level || 0) - (a.item.dropLevel || a.item.level || 0);
+    if (activeSort === "rarity") return rarityRank(b.item.rarity) - rarityRank(a.item.rarity);
+    if (activeSort === "refine") return (b.item.refine || 0) - (a.item.refine || 0);
+    return scoreOf(b.item, activeSort) - scoreOf(a.item, activeSort);
   });
   return indexed.map((entry) => entry.item);
 }
@@ -8760,16 +10168,146 @@ function isHighValueEquipment(item) {
   );
 }
 
+function isProgressionLineEquipment(item = {}) {
+  return Boolean(
+    item &&
+      typeof item === "object" &&
+      ((item.series && item.series !== "oldWorld") ||
+        (item.upgradePathId && item.upgradePathId !== "oldWorld") ||
+        (item.growthTier && item.growthTier !== "T1")),
+  );
+}
+
+function equipmentGrowthTierRank(item = {}) {
+  const match = String(item.growthTier || "T1").match(/^T(\d+)$/i);
+  return match ? Number(match[1]) : 1;
+}
+
+function renderEquipmentPotentialBadge(item = {}) {
+  if (!isProgressionLineEquipment(item)) return "";
+  const tier = escapeHtml(item.growthTier || "T1");
+  const stage = Math.max(0, Number(item.upgradeStage || 0));
+  return `<span class="equipment-badge equipment-potential-badge">成长潜力 ${tier}${stage ? ` · 阶段${stage + 1}` : ""}</span>`;
+}
+
+function shouldProtectEquipment(item) {
+  if (isProgressionLineEquipment(item)) return true;
+  const runtime = equipmentArchetypeRuntime();
+  if (runtime && typeof runtime.shouldProtectEquipmentByArchetype === "function") {
+    try {
+      if (runtime.shouldProtectEquipmentByArchetype(item, { job: currentJob(), currentJob })) return true;
+    } catch {}
+  }
+  return isHighValueEquipment(item);
+}
+
+function equipmentProgressionRuntime() {
+  return window.RuneFrontierEquipmentRuntime || null;
+}
+
+function getEquipmentProgressionTags(item) {
+  const runtime = equipmentProgressionRuntime();
+  if (runtime && typeof runtime.getEquipmentProgressionTags === "function") return runtime.getEquipmentProgressionTags(item);
+  return [];
+}
+
+function renderEquipmentProgressionTags(item) {
+  const tags = getEquipmentProgressionTags(item);
+  if (!tags.length) return "";
+  return `<div class="equipment-badge-row equipment-progression-tags">${tags.map((tag) => `<span class="equipment-badge equipment-badge-progression">${escapeHtml(tag)}</span>`).join("")}</div>`;
+}
+
+function getEquipmentUpgradeCost(item) {
+  const runtime = equipmentProgressionRuntime();
+  return runtime && typeof runtime.getEquipmentUpgradeCost === "function" ? runtime.getEquipmentUpgradeCost(item) : null;
+}
+
+function getNextEquipmentUpgrade(item) {
+  const runtime = equipmentProgressionRuntime();
+  return runtime && typeof runtime.getNextEquipmentUpgrade === "function" ? runtime.getNextEquipmentUpgrade(item) : null;
+}
+
+function canUpgradeEquipmentProgression(item) {
+  const cost = getEquipmentUpgradeCost(item);
+  return Boolean(cost && (state.gold || 0) >= (cost.gold || 0) && hasMaterials(cost.materials || {}));
+}
+
+function equipmentProgressionCostText(cost) {
+  if (!cost) return "已到顶点";
+  const parts = [];
+  const matText = materialText(cost.materials || {});
+  if (matText) parts.push(matText);
+  if (cost.gold) parts.push(`金币 ${formatNumber(cost.gold)}`);
+  return parts.join(" · ") || "无消耗";
+}
+
+function upgradeEquipmentProgression(itemId) {
+  const runtime = equipmentProgressionRuntime();
+  if (!runtime || typeof runtime.upgradeEquipmentProgression !== "function") return showToast("装备进阶系统尚未就绪");
+  return runtime.upgradeEquipmentProgression(itemId);
+}
+
+function upgradeLineMastery(series) {
+  const runtime = equipmentProgressionRuntime();
+  if (!runtime || typeof runtime.upgradeLineMastery !== "function") return showToast("装备线精通系统尚未就绪");
+  return runtime.upgradeLineMastery(series);
+}
+
+function temperAbyssItem(itemId, mode = "infuse") {
+  const runtime = equipmentProgressionRuntime();
+  if (!runtime || typeof runtime.temperAbyssItem !== "function") return showToast("深渊淬炼系统尚未就绪");
+  return runtime.temperAbyssItem(itemId, mode);
+}
+
+function renderEquipmentProgressionSmithyPanel() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentProgressionSmithyPanel === "function") return runtime.renderEquipmentProgressionSmithyPanel();
+  const progressionRuntime = equipmentProgressionRuntime();
+  const candidates = [...state.inventory]
+    .filter((item) => getEquipmentUpgradeCost(item) || progressionRuntime?.canTemperAbyssItem?.(item))
+    .sort((a, b) => itemScore(b) - itemScore(a))
+    .slice(0, 24);
+  if (!candidates.length) return `<p class="academy-meta">暂无可进阶或淬炼装备。困难地图主要掉落下一装备线材料，深渊 Boss 会稳定给核心材料。</p>`;
+  return `<div class="smithy-items smithy-progression-list">${candidates.map((item) => {
+    const cost = getEquipmentUpgradeCost(item);
+    const next = cost?.next;
+    const disabled = !canUpgradeEquipmentProgression(item);
+    const temperable = progressionRuntime?.canTemperAbyssItem?.(item);
+    const temperMode = item.abyssTempered ? "reroll" : "infuse";
+    const temperCost = temperable ? progressionRuntime?.getAbyssTemperingCost?.(item, temperMode) : null;
+    const empowerCost = temperable ? progressionRuntime?.getAbyssTemperingCost?.(item, "empower") : null;
+    return `<article class="smithy-item smithy-progression-item">
+      <span class="item-icon" style="background-image:${imageBackgroundList(itemImageCandidates(item))}"></span>
+      <div>
+        ${renderItemName(item)}
+        ${renderEquipmentProgressionTags(item)}
+        <p class="academy-meta">${slotName(equipmentSlot(item))} · ${rarityName(item.rarity)}${next ? ` · 目标 ${escapeHtml(next.label || "下一阶段")}` : " · 深渊成长"}</p>
+        <p class="academy-meta">进阶：${equipmentProgressionCostText(cost)}</p>
+        ${temperable ? `<p class="academy-meta">淬炼：${equipmentProgressionCostText(temperCost)} · 强化：${equipmentProgressionCostText(empowerCost)}</p>` : ""}
+      </div>
+      <div class="smithy-action-stack">
+        ${cost ? `<button type="button" data-upgrade-progression-item="${escapeAttr(item.id)}" ${disabled ? "disabled" : ""}>进阶</button>` : ""}
+        ${temperable ? `<button type="button" data-temper-abyss-item="${escapeAttr(item.id)}" data-temper-mode="${temperMode}" ${!canAffordEquipmentCost(temperCost) ? "disabled" : ""}>${item.abyssTempered ? "重洗深渊" : "深渊淬炼"}</button>
+        <button type="button" data-temper-abyss-item="${escapeAttr(item.id)}" data-temper-mode="empower" ${!item.abyssTempered || !canAffordEquipmentCost(empowerCost) ? "disabled" : ""}>强化淬炼</button>` : ""}
+      </div>
+    </article>`;
+  }).join("")}</div>`;
+}
+
+function formatMapEquipmentProgression(mapId, difficulty = "normal") {
+  const runtime = equipmentProgressionRuntime();
+  if (!runtime || typeof runtime.formatEquipmentProgressionSummary !== "function") return "";
+  return runtime.formatEquipmentProgressionSummary(mapId, difficulty);
+}
+
 function runEquipmentBatchAction(action) {
   if (action === "lock-high-value") {
-    const targets = state.inventory.filter((item) => !item.locked && isHighValueEquipment(item));
+    const targets = state.inventory.filter((item) => !item.locked && shouldProtectEquipment(item));
     if (!targets.length) return showToast("暂无需要锁定的高价值装备");
     if (!window.confirm(`将锁定 ${targets.length} 件高价值装备，是否继续？`)) return;
     targets.forEach((item) => (item.locked = true));
     showToast(`已锁定 ${targets.length} 件装备`);
   } else if (action === "salvage-low" || action === "salvage-normal-fine-rare") {
     const equippedIds = new Set(Object.values(state.equipped || {}).filter(Boolean));
-    const targets = state.inventory.filter((item) => !equippedIds.has(item.id) && !item.locked && ["normal", "fine", "rare"].includes(item.rarity) && !isHighValueEquipment(item));
+    const targets = state.inventory.filter((item) => !equippedIds.has(item.id) && !item.locked && ["normal", "fine", "rare"].includes(item.rarity) && !shouldProtectEquipment(item));
     if (!targets.length) return showToast("暂无可安全批量分解的低品质装备");
     if (!window.confirm(`将分解 ${targets.length} 件低品质装备，是否继续？`)) return;
     const totals = {};
@@ -8818,15 +10356,13 @@ function equipmentVisualClass(item) {
 
 function renderEquipmentBadges(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentBadges === "function") return runtime.renderEquipmentBadges(item);
   const subTypeName = equipmentSubTypeName(item);
-  const badges = [
-    { text: rarityName(item.rarity), cls: "equipment-badge-rarity" },
-    { text: slotName(item.slot), cls: "equipment-badge-slot" },
-  ];
+  const badges = [];
   if (subTypeName) badges.push({ text: subTypeName, cls: "equipment-badge-slot" });
   if (isAbyssEquipment(item)) badges.push({ text: "深渊", cls: "equipment-badge-abyss" });
   if (item.rarity === "mythic") badges.push({ text: "神话", cls: "equipment-badge-mythic" });
+  if (item.rarity === "darkGold") badges.push({ text: "暗金", cls: "equipment-badge-mythic" });
   if (item.setId) badges.push({ text: "套装", cls: "equipment-badge-set" });
-  return `<div class="equipment-badge-row">${badges.map((badge) => `<span class="equipment-badge ${badge.cls}">${escapeHtml(badge.text)}</span>`).join("")}</div>`;
+  return `<div class="equipment-badge-row">${renderEquipmentArchetypeBadge(item)}${renderEquipmentPotentialBadge(item)}${badges.map((badge) => `<span class="equipment-badge ${badge.cls}">${escapeHtml(badge.text)}</span>`).join("")}</div>`;
 }
 
 function renderMaps() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderMaps === "function") return runtime.renderMaps();
@@ -8858,6 +10394,8 @@ function renderMaps() { const runtime = window.RuneFrontierRenderRuntime; if (ru
         : previewDifficulty === "hard"
           ? HARD_MAP_TIER_SCALE[map.id]?.recommendedPower || 130000
           : Math.round(range.recommendedPower * (DIFFICULTY_CONFIG[previewDifficulty]?.power || 1));
+      const difficultyRole = previewDifficulty === "abyss" ? "终局挑战" : previewDifficulty === "hard" ? "周回挑战" : "主线推进";
+      const equipmentProgression = formatMapEquipmentProgression(map.id, previewDifficulty);
       const bossName = bossDisplayName(map, previewDifficulty);
       const exploration = getMapExplorationEntry(map.id);
       const nextNeed = MAP_EXPLORATION_REQUIREMENTS[Math.min(10, exploration.level + 1)] || MAP_EXPLORATION_REQUIREMENTS[10];
@@ -8870,12 +10408,14 @@ function renderMaps() { const runtime = window.RuneFrontierRenderRuntime; if (ru
             <span class="map-name">${map.name}</span>
             <p class="map-meta">怪物：${monsterNames || map.enemy}</p>
             <p class="map-meta">推荐等级 ${range.minLevel}-${range.maxLevel} · 推荐战力 ${formatNumber(displayPower)} · 当前难度 ${difficultyLabel}</p>
+            <p class="map-meta map-difficulty-role">难度定位：${difficultyRole}</p>
             <p class="map-meta">等级 ${preview.levelRange[0]}-${preview.levelRange[1]} · HP ${formatRangeNumber(preview.hpRange)} · 攻击 ${formatRangeNumber(preview.attackRange)} · 防御 ${formatRangeNumber(preview.defenseRange)}</p>
             <p class="map-meta">推荐评分：输出 ${formatNumber(recommendedScores.output)} · 生存 ${formatNumber(recommendedScores.survival)}${recommendedScores.abyss ? ` · 深渊 ${formatNumber(recommendedScores.abyss)}` : ""}</p>
             <p class="map-meta">难度倍率：HP x${preview.difficulty.hp} / ATK x${preview.difficulty.attack} / EXP x${preview.difficulty.exp}</p>
+            ${equipmentProgression ? `<p class="map-meta map-equipment-progression">装备目标：${escapeHtml(equipmentProgression)}</p>` : ""}
             ${
               previewDifficulty === "abyss"
-                ? `<p class="map-meta map-abyss-preview">深渊主要掉落：深渊前缀装备 / 深渊化套装 / 神话装备。神话掉率极低，变异怪与 Boss 机会更高。</p>`
+                ? `<p class="map-meta map-abyss-preview">本地图困难 Boss 通关后解锁本地图深渊。深渊用于深化当前装备线：掉落深渊淬炼材料、进阶核心材料和少量深渊前缀装备；它不是普通推图必刷路线。</p>`
                 : ""
             }
             <p class="map-boss">${bossName} · ${map.bossSkill}</p>
@@ -9530,8 +11070,8 @@ function renderVip() { const runtime = window.RuneFrontierRenderRuntime; if (run
 
 function renderTasks() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderTasks === "function") return runtime.renderTasks();
   const hideCompleted = state.hideCompletedTasks !== false;
-  const main = state.quests.active.filter((quest) => quest.category === "main" && (!hideCompleted || !quest.completed));
-  const daily = state.quests.active.filter((quest) => quest.category === "daily" && (!hideCompleted || !quest.completed));
+  const main = state.quests.active.filter((quest) => quest.category === "main" && (!hideCompleted || !quest.completed || !quest.claimed));
+  const daily = state.quests.active.filter((quest) => quest.category === "daily" && (!hideCompleted || !quest.completed || !quest.claimed));
   const toggleLabel = hideCompleted ? "已完成任务已隐藏，点击显示" : "显示全部任务";
   els.taskPage.innerHTML = `
     <div class="task-toggle-bar"><button class="task-toggle-btn" data-toggle-completed-tasks type="button">${toggleLabel}</button></div>
@@ -9652,14 +11192,25 @@ function renderQuestList() { const runtime = window.RuneFrontierRenderRuntime; i
       <p class="quest-meta">${state.enemyBoss ? progress : `${progress} 后可挑战本地图首领`}</p>
     </div>
     <div class="quest-item">
-      <span class="quest-name">当前首领</span>
-      <p class="quest-meta">${bossDisplayName(currentMap())} · ${currentMap().bossSkill}</p>
-    </div>
-    <div class="quest-item">
       <span class="quest-name">技能触发</span>
       <p class="quest-meta">${state.skillLog[0] || "挂机时会按概率释放已解锁主动技能"}</p>
     </div>
   `;
+}
+
+function renderFallbackSkillDpsPanel() {
+  const rows = window.RuneFrontierCombatRuntime?.getSkillDpsRows?.(5) || [];
+  if (!rows.length) {
+    return `<section class="skill-dps-panel"><div class="panel-heading compact"><div><p class="eyebrow">技能输出</p><h2>最近 30 秒</h2></div></div><p class="quest-meta">暂无技能伤害记录</p></section>`;
+  }
+  return `<section class="skill-dps-panel"><div class="panel-heading compact"><div><p class="eyebrow">技能输出</p><h2>最近 30 秒</h2></div></div><div class="skill-dps-list">${rows.map((row) => {
+    const share = Math.max(0, Math.min(1, Number(row.share || 0)));
+    return `<div class="skill-dps-row"><div><strong>${escapeHtml(row.name)}</strong><small>${formatNumber(row.dps)} / 秒</small></div><span>${Math.round(share * 100)}%</span><i style="transform:scaleX(${Math.max(0.02, share)})"></i></div>`;
+  }).join("")}</div></section>`;
+}
+
+function renderFallbackDungeonEntryPanel() {
+  return `<section class="dungeon-entry-panel"><div class="panel-heading compact"><div><p class="eyebrow">副本</p><h2>每日挑战</h2></div></div><p class="quest-meta">材料副本与 Boss 试炼已开放。</p><button class="ro-light-control" data-page="dungeons" data-adventure-page="dungeons" type="button">进入副本</button></section>`;
 }
 
 function renderPartyList() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderPartyList === "function") return runtime.renderPartyList();
@@ -9675,6 +11226,8 @@ function renderPartyList() { const runtime = window.RuneFrontierRenderRuntime; i
       <span class="party-name">技能记录</span>
       <p class="party-meta">${state.skillLog.slice(0, 3).join(" / ") || "尚未触发主动技能"}</p>
     </div>
+    ${renderFallbackSkillDpsPanel()}
+    ${renderFallbackDungeonEntryPanel()}
     ${renderSessionRewardPanel()}
   `;
 }
@@ -9846,43 +11399,244 @@ function renderLog() { const runtime = window.RuneFrontierRenderRuntime; if (run
     .join("");
 }
 
+const battleSceneThemes = {
+  grass: { sky: ["#9fd7ef", "#dff1d3", "#f1d694"], far: "#8ec777", hill: "#68a65f", ground: "#6fae64", groundDark: "#3d7341", accent: "#f3cf73" },
+  forest: { sky: ["#9bc9b3", "#c8dfb8", "#caa96a"], far: "#4f7d50", hill: "#2f5d3d", ground: "#4d7f4a", groundDark: "#263f2d", accent: "#d5b45f" },
+  sewer: { sky: ["#899990", "#758077", "#5d655f"], far: "#68726d", hill: "#48534f", ground: "#4d5a52", groundDark: "#27342f", accent: "#b7c77d" },
+  desert: { sky: ["#f0c982", "#f3d99f", "#d7a45a"], far: "#c79552", hill: "#a66f3b", ground: "#c88f4d", groundDark: "#754629", accent: "#f5df91" },
+  orc_village: { sky: ["#bfcf8f", "#d5d19a", "#a98955"], far: "#7c8d4f", hill: "#566a3c", ground: "#667a42", groundDark: "#324029", accent: "#d1a654" },
+  mine: { sky: ["#526d84", "#6f8fa0", "#465a70"], far: "#425f78", hill: "#2f4458", ground: "#394d5c", groundDark: "#1f2b36", accent: "#8fd7ff" },
+  clock: { sky: ["#c7b798", "#d6c09a", "#9c7657"], far: "#9c744e", hill: "#6d503e", ground: "#785a42", groundDark: "#3c2c24", accent: "#e1bd68" },
+  glast_heim: { sky: ["#8f8797", "#b9adba", "#725f72"], far: "#6d6072", hill: "#4c4050", ground: "#514654", groundDark: "#29242d", accent: "#bda6d8" },
+  abyss_lake: { sky: ["#79b6d2", "#9fc8d9", "#537b99"], far: "#4d7895", hill: "#315f79", ground: "#356f84", groundDark: "#173848", accent: "#99e0ff" },
+  sky: { sky: ["#a8d7f2", "#d8edf7", "#b9b0de"], far: "#9eb9df", hill: "#776aa4", ground: "#8fa7cf", groundDark: "#5c5a8b", accent: "#fff0a6" },
+};
+
+function battleSceneTheme(map, colors = []) {
+  const fallback = {
+    sky: [colors[0] || "#bfe4d2", "#f3e6c8", "#d7b77a"],
+    far: colors[2] || "#52785a",
+    hill: colors[2] || "#52785a",
+    ground: colors[1] || "#7dbb87",
+    groundDark: "#315441",
+    accent: "#f3cf73",
+  };
+  return { ...fallback, ...(battleSceneThemes[map?.id] || {}) };
+}
+
+function drawBattleBackdrop(ctx, width, height, map, time) {
+  if (drawBattleBackgroundImage(ctx, width, height, map)) return;
+  const theme = battleSceneTheme(map, map?.palette || []);
+  const horizon = 340;
+  const sky = ctx.createLinearGradient(0, 0, 0, height);
+  sky.addColorStop(0, theme.sky[0]);
+  sky.addColorStop(0.62, theme.sky[1]);
+  sky.addColorStop(1, theme.sky[2]);
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, width, height);
+
+  drawMapSkyDetails(ctx, map?.id, width, theme, time);
+
+  ctx.fillStyle = theme.far;
+  drawHill(ctx, -90, 318, 330, 130);
+  drawHill(ctx, 220, 330, 340, 150);
+  drawHill(ctx, 560, 320, 410, 145);
+
+  drawMapBackLandmarks(ctx, map?.id, width, theme, time);
+
+  ctx.fillStyle = theme.ground;
+  ctx.fillRect(0, horizon, width, height - horizon);
+  drawBattleGroundTexture(ctx, width, height, theme, time);
+  drawMapFrontLandmarks(ctx, map?.id, width, theme, time);
+}
+
+function battleBackgroundSource(mapId) {
+  const safe = String(mapId || "grass").replace(/[^A-Za-z0-9_-]/g, "_");
+  return `assets/images/battle-backgrounds/${safe}.png`;
+}
+
+function getBattleBackgroundImage(mapId) {
+  const source = battleBackgroundSource(mapId);
+  let entry = battleBackgroundCache[source];
+  if (!entry) {
+    const image = new Image();
+    image.src = source;
+    image.onerror = () => {
+      image.failed = true;
+    };
+    entry = battleBackgroundCache[source] = image;
+  }
+  return entry.failed ? null : entry;
+}
+
+function drawBattleBackgroundImage(ctx, width, height, map) {
+  const image = getBattleBackgroundImage(map?.id);
+  if (!image || !image.complete || !image.naturalWidth) return false;
+  const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
+  const drawWidth = Math.ceil(image.naturalWidth * scale);
+  const drawHeight = Math.ceil(image.naturalHeight * scale);
+  const x = Math.floor((width - drawWidth) / 2);
+  const y = Math.floor((height - drawHeight) / 2);
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(image, x, y, drawWidth, drawHeight);
+  ctx.restore();
+  return true;
+}
+
+function drawMapSkyDetails(ctx, mapId, width, theme, time) {
+  if (mapId === "mine" || mapId === "sewer" || mapId === "glast_heim") {
+    ctx.fillStyle = "rgba(255, 245, 196, 0.12)";
+    for (let i = 0; i < 9; i += 1) {
+      const x = 80 + i * 92 + Math.sin(time * 0.6 + i) * 6;
+      ctx.fillRect(x, 42 + (i % 3) * 22, 3, 3);
+    }
+    return;
+  }
+  if (mapId === "sky") {
+    drawCloud(ctx, 150 + Math.sin(time * 0.2) * 22, 82, 1.25);
+    drawCloud(ctx, 620 + Math.cos(time * 0.16) * 26, 118, 1.05);
+    drawCloud(ctx, 770 + Math.sin(time * 0.13) * 18, 60, 0.72);
+    return;
+  }
+  if (mapId === "desert") {
+    ctx.fillStyle = "rgba(255, 238, 167, 0.72)";
+    ctx.beginPath();
+    ctx.arc(width - 150, 92, 34, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+  drawCloud(ctx, 110 + Math.sin(time * 0.2) * 16, 80, 1.1);
+  drawCloud(ctx, 670 + Math.cos(time * 0.17) * 22, 95, 0.85);
+}
+
+function drawBattleGroundTexture(ctx, width, height, theme, time) {
+  ctx.fillStyle = "rgba(255, 250, 226, 0.22)";
+  for (let i = 0; i < 15; i += 1) {
+    const x = (i * 74 + time * 18) % (width + 80) - 40;
+    ctx.fillRect(x, 392 + Math.sin(i) * 18, 42, 3);
+  }
+  ctx.fillStyle = theme.groundDark;
+  ctx.globalAlpha = 0.14;
+  for (let i = 0; i < 18; i += 1) {
+    const x = (i * 61 - time * 12) % (width + 70) - 30;
+    ctx.fillRect(x, 455 + (i % 4) * 12, 34, 4);
+  }
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "rgba(49, 84, 65, 0.24)";
+  ctx.fillRect(0, height - 34, width, 34);
+}
+
+function drawMapBackLandmarks(ctx, mapId, width, theme, time) {
+  switch (mapId) {
+    case "forest":
+      drawTree(ctx, 90, 305, 1.45, "#31543a", "#497b47");
+      drawTree(ctx, 790, 312, 1.25, "#2d4f36", "#3f6f43");
+      break;
+    case "sewer":
+      drawStoneWall(ctx, 0, 210, width, 135, "#59645e", "#343f3a");
+      drawPipe(ctx, 92, 250, 110, 42, "#6f7d77", theme.accent);
+      drawPipe(ctx, 710, 262, 94, 34, "#5d6963", theme.accent);
+      break;
+    case "desert":
+      drawDune(ctx, -60, 330, 360, 84, "#d3a25a");
+      drawDune(ctx, 410, 318, 420, 102, "#b98245");
+      drawRuinedPillar(ctx, 150, 292, 1.05, "#9c6a3b");
+      break;
+    case "orc_village":
+      drawPalisade(ctx, 0, 262, width, "#61412b");
+      drawOrcHut(ctx, 104, 296, 1, "#7d4b2a");
+      drawOrcHut(ctx, 716, 302, 0.9, "#6b4227");
+      break;
+    case "mine":
+      drawCaveOpening(ctx, 54, 202, 246, 142, "#1f2b36");
+      drawCrystal(ctx, 720, 312, 1.1, theme.accent);
+      drawCrystal(ctx, 778, 326, 0.72, "#d7f7ff");
+      break;
+    case "clock":
+      drawClockTower(ctx, 96, 282, 1, theme.accent);
+      drawGear(ctx, 722, 272, 42, "#bd8f52", time * 0.25);
+      drawGear(ctx, 790, 306, 30, "#8d633f", -time * 0.35);
+      break;
+    case "glast_heim":
+      drawCastleWall(ctx, 30, 250, 290, 95, "#4b4050");
+      drawCastleArch(ctx, 690, 265, 135, 82, "#5c5060");
+      break;
+    case "abyss_lake":
+      drawLakeBand(ctx, 0, 288, width, 68, "#4fa0bf");
+      drawDragonRib(ctx, 646, 292, 1.05, "#d7e9ef");
+      break;
+    case "sky":
+      drawFloatingIsland(ctx, 92, 292, 210, 72, "#7d91bd");
+      drawFloatingIsland(ctx, 650, 292, 190, 62, "#7989b6");
+      drawTemplePillar(ctx, 720, 250, 1, "#eee1b8");
+      break;
+    default:
+      drawTree(ctx, 90, 310, 1, "#5b7d45", "#77ab62");
+      drawFence(ctx, 690, 326, 145, "#8b5f38");
+      break;
+  }
+}
+
+function drawMapFrontLandmarks(ctx, mapId, width, theme, time) {
+  switch (mapId) {
+    case "grass":
+      drawFence(ctx, 86, 382, 160, "#8b5f38");
+      drawTree(ctx, 790, 355, 0.88, "#5b7d45", "#77ab62");
+      break;
+    case "forest":
+      drawMushroom(ctx, 710, 384, 1, "#d65c5c");
+      drawMushroom(ctx, 760, 398, 0.75, "#f0c36b");
+      break;
+    case "sewer":
+      ctx.fillStyle = "rgba(138, 166, 128, 0.42)";
+      ctx.fillRect(0, 418, width, 32);
+      break;
+    case "desert":
+      drawCactus(ctx, 760, 370, 1, "#587944");
+      drawCactus(ctx, 96, 392, 0.72, "#5f8248");
+      break;
+    case "orc_village":
+      drawBannerPole(ctx, 790, 356, "#d2a44d");
+      break;
+    case "mine":
+      drawCrystal(ctx, 136, 382, 0.82, theme.accent);
+      drawCrystal(ctx, 188, 398, 0.54, "#d7f7ff");
+      break;
+    case "clock":
+      drawGear(ctx, 124, 382, 22, "#d1aa66", time * 0.7);
+      break;
+    case "glast_heim":
+      drawRuinedPillar(ctx, 790, 372, 0.82, "#756579");
+      break;
+    case "abyss_lake":
+      ctx.fillStyle = "rgba(190, 238, 255, 0.28)";
+      ctx.fillRect(0, 358, width, 20);
+      break;
+    case "sky":
+      drawCloud(ctx, 82, 390, 0.62);
+      drawCloud(ctx, 772, 372, 0.58);
+      break;
+    default:
+      break;
+  }
+}
+
 function drawScene(time) {
   const canvas = els.sceneCanvas;
   const ctx = canvas.getContext("2d");
   const { width, height } = canvas;
   const map = currentMap();
-  const colors = map.palette;
+  const heroX = 190;
+  const heroY = 344 + Math.sin(time * 3.1) * 4;
 
   ctx.clearRect(0, 0, width, height);
-  const sky = ctx.createLinearGradient(0, 0, 0, height);
-  sky.addColorStop(0, colors[0]);
-  sky.addColorStop(0.68, "#f3e6c8");
-  sky.addColorStop(1, "#d7b77a");
-  ctx.fillStyle = sky;
-  ctx.fillRect(0, 0, width, height);
+  drawBattleBackdrop(ctx, width, height, map, time);
 
-  drawCloud(ctx, 100 + Math.sin(time * 0.2) * 16, 80, 1.2);
-  drawCloud(ctx, 670 + Math.cos(time * 0.17) * 22, 95, 0.9);
-
-  ctx.fillStyle = colors[2];
-  drawHill(ctx, -80, 330, 330, 150);
-  drawHill(ctx, 190, 340, 360, 170);
-  drawHill(ctx, 520, 330, 420, 160);
-
-  ctx.fillStyle = colors[1];
-  ctx.fillRect(0, 340, width, 180);
-  ctx.fillStyle = "rgba(255, 250, 240, 0.28)";
-  for (let i = 0; i < 16; i += 1) {
-    const x = (i * 72 + time * 24) % (width + 80) - 40;
-    ctx.fillRect(x, 394 + Math.sin(i) * 18, 40, 3);
-  }
-
-  drawHero(ctx, 190, 344 + Math.sin(time * 3.1) * 4, currentJob().color, currentJob().id, time);
+  drawMvpInscriptionAura(ctx, heroX, heroY, time);
+  drawHero(ctx, heroX, heroY, currentJob().color, currentJob().id, time);
   drawEnemy(ctx, 680, 340 + Math.sin(time * 2) * 7, state.enemyBoss ? 1.55 : 1, time);
   drawFloatTexts(ctx);
-
-  ctx.fillStyle = "rgba(49, 84, 65, 0.24)";
-  ctx.fillRect(0, height - 34, width, 34);
 }
 
 function drawFloatTexts(ctx) {
@@ -9919,6 +11673,279 @@ function drawHill(ctx, x, y, w, h) {
   ctx.beginPath();
   ctx.moveTo(x, y + h);
   ctx.quadraticCurveTo(x + w * 0.5, y - h, x + w, y + h);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawTree(ctx, x, y, scale, trunk, leaves) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.fillStyle = trunk;
+  ctx.fillRect(-8, -54, 16, 58);
+  ctx.fillStyle = leaves;
+  ctx.beginPath();
+  ctx.arc(-26, -62, 31, 0, Math.PI * 2);
+  ctx.arc(4, -84, 36, 0, Math.PI * 2);
+  ctx.arc(31, -58, 30, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawFence(ctx, x, y, width, color) {
+  ctx.fillStyle = color;
+  for (let i = 0; i <= width; i += 28) ctx.fillRect(x + i, y - 34, 9, 40);
+  ctx.fillRect(x - 8, y - 25, width + 24, 8);
+  ctx.fillRect(x - 8, y - 9, width + 24, 7);
+}
+
+function drawStoneWall(ctx, x, y, width, height, color, line) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, width, height);
+  ctx.strokeStyle = line;
+  ctx.lineWidth = 3;
+  for (let row = 0; row < height; row += 26) {
+    ctx.beginPath();
+    ctx.moveTo(x, y + row);
+    ctx.lineTo(x + width, y + row);
+    ctx.stroke();
+    for (let col = row % 52 ? 0 : 34; col < width; col += 68) {
+      ctx.beginPath();
+      ctx.moveTo(x + col, y + row);
+      ctx.lineTo(x + col, y + row + 26);
+      ctx.stroke();
+    }
+  }
+}
+
+function drawPipe(ctx, x, y, w, h, color, glow) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = "rgba(33, 45, 39, 0.42)";
+  ctx.fillRect(x + 12, y + h - 10, w - 24, 10);
+  ctx.fillStyle = glow;
+  ctx.globalAlpha = 0.22;
+  ctx.fillRect(x + 8, y + h, w - 16, 18);
+  ctx.globalAlpha = 1;
+}
+
+function drawDune(ctx, x, y, w, h, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x, y + h);
+  ctx.quadraticCurveTo(x + w * 0.42, y - h * 0.35, x + w, y + h);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawRuinedPillar(ctx, x, y, scale, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.fillStyle = color;
+  ctx.fillRect(-13, -72, 26, 72);
+  ctx.fillRect(-22, -82, 44, 12);
+  ctx.fillStyle = "rgba(255, 238, 185, 0.16)";
+  ctx.fillRect(-8, -64, 7, 56);
+  ctx.restore();
+}
+
+function drawPalisade(ctx, x, y, width, color) {
+  ctx.fillStyle = color;
+  for (let i = -10; i < width + 20; i += 24) {
+    ctx.beginPath();
+    ctx.moveTo(x + i, y);
+    ctx.lineTo(x + i + 10, y - 38);
+    ctx.lineTo(x + i + 20, y);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+function drawOrcHut(ctx, x, y, scale, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.fillStyle = color;
+  ctx.fillRect(-42, -48, 84, 48);
+  ctx.fillStyle = "#5c3321";
+  ctx.beginPath();
+  ctx.moveTo(-55, -46);
+  ctx.lineTo(0, -86);
+  ctx.lineTo(55, -46);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawCaveOpening(ctx, x, y, w, h, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.ellipse(x + w * 0.5, y + h * 0.92, w * 0.5, h * 0.9, 0, Math.PI, Math.PI * 2);
+  ctx.lineTo(x + w, y + h);
+  ctx.lineTo(x, y + h);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawCrystal(ctx, x, y, scale, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(0, -58);
+  ctx.lineTo(25, -18);
+  ctx.lineTo(13, 0);
+  ctx.lineTo(-16, 0);
+  ctx.lineTo(-27, -18);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
+  ctx.fillRect(-4, -42, 7, 31);
+  ctx.restore();
+}
+
+function drawClockTower(ctx, x, y, scale, accent) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.fillStyle = "#6d503e";
+  ctx.fillRect(-38, -104, 76, 104);
+  ctx.fillStyle = "#3c2c24";
+  ctx.fillRect(-48, -118, 96, 18);
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  ctx.arc(0, -74, 24, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#4a2f1c";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(0, -74);
+  ctx.lineTo(0, -91);
+  ctx.moveTo(0, -74);
+  ctx.lineTo(14, -66);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawGear(ctx, x, y, radius, color, rotation) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rotation);
+  ctx.fillStyle = color;
+  for (let i = 0; i < 12; i += 1) {
+    ctx.rotate(Math.PI / 6);
+    ctx.fillRect(-5, -radius - 10, 10, 18);
+  }
+  ctx.beginPath();
+  ctx.arc(0, 0, radius, 0, Math.PI * 2);
+  ctx.arc(0, 0, radius * 0.42, 0, Math.PI * 2, true);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawCastleWall(ctx, x, y, w, h, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, w, h);
+  for (let i = 0; i < w; i += 44) ctx.fillRect(x + i, y - 22, 27, 24);
+  ctx.fillStyle = "rgba(20, 16, 22, 0.26)";
+  ctx.fillRect(x + 42, y + 34, 52, 61);
+}
+
+function drawCastleArch(ctx, x, y, w, h, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = "rgba(24, 18, 28, 0.42)";
+  ctx.beginPath();
+  ctx.arc(x + w * 0.5, y + h, w * 0.28, Math.PI, Math.PI * 2);
+  ctx.fillRect(x + w * 0.22, y + h * 0.58, w * 0.56, h * 0.42);
+  ctx.fill();
+}
+
+function drawLakeBand(ctx, x, y, width, height, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, width, height);
+  ctx.fillStyle = "rgba(225, 250, 255, 0.35)";
+  for (let i = 0; i < 10; i += 1) ctx.fillRect(x + i * 96, y + 12 + (i % 3) * 14, 58, 4);
+}
+
+function drawDragonRib(ctx, x, y, scale, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.arc(0, 22, 76, Math.PI * 1.08, Math.PI * 1.86);
+  ctx.stroke();
+  for (let i = -3; i <= 3; i += 1) {
+    ctx.beginPath();
+    ctx.moveTo(i * 18, -30 + Math.abs(i) * 6);
+    ctx.lineTo(i * 22, 22);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawFloatingIsland(ctx, x, y, w, h, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.ellipse(x + w / 2, y, w / 2, h * 0.35, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "rgba(70, 56, 92, 0.48)";
+  ctx.beginPath();
+  ctx.moveTo(x + 30, y + 12);
+  ctx.lineTo(x + w * 0.5, y + h);
+  ctx.lineTo(x + w - 30, y + 12);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawTemplePillar(ctx, x, y, scale, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.fillStyle = color;
+  ctx.fillRect(-16, -88, 32, 88);
+  ctx.fillRect(-30, -100, 60, 14);
+  ctx.fillRect(-24, 0, 48, 12);
+  ctx.restore();
+}
+
+function drawMushroom(ctx, x, y, scale, cap) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.fillStyle = "#f3d6a3";
+  ctx.fillRect(-8, -27, 16, 28);
+  ctx.fillStyle = cap;
+  ctx.beginPath();
+  ctx.arc(0, -30, 25, Math.PI, Math.PI * 2);
+  ctx.fillRect(-25, -30, 50, 14);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawCactus(ctx, x, y, scale, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.fillStyle = color;
+  ctx.fillRect(-8, -62, 16, 64);
+  ctx.fillRect(-30, -39, 24, 12);
+  ctx.fillRect(6, -30, 28, 12);
+  ctx.restore();
+}
+
+function drawBannerPole(ctx, x, y, color) {
+  ctx.fillStyle = "#4b2f1d";
+  ctx.fillRect(x, y - 86, 8, 88);
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x + 8, y - 82);
+  ctx.lineTo(x + 62, y - 70);
+  ctx.lineTo(x + 8, y - 52);
   ctx.closePath();
   ctx.fill();
 }
@@ -10034,6 +12061,54 @@ function drawHero(ctx, x, y, color, kind, time) {
   ctx.restore();
 }
 
+function drawMvpInscriptionAura(ctx, heroX, heroY, time) {
+  const stageId = getMvpInscriptionView()?.stage?.id || "kingPoring";
+  const sprite = getMvpInscriptionAuraSprite(stageId);
+  if (!sprite || !sprite.complete || !sprite.naturalWidth) return false;
+
+  const frame = Math.floor(time * MVP_INSCRIPTION_AURA_FRAME_RATE) % MVP_INSCRIPTION_AURA_FRAME_COUNT;
+  const sx = (frame % MVP_INSCRIPTION_AURA_COLUMNS) * MVP_INSCRIPTION_AURA_FRAME_SIZE;
+  const sy = Math.floor(frame / MVP_INSCRIPTION_AURA_COLUMNS) * MVP_INSCRIPTION_AURA_FRAME_SIZE;
+  const isAdvanced = MVP_INSCRIPTION_AURA_ADVANCED_STAGE_IDS.has(stageId);
+  const width = isAdvanced ? 286 : 248;
+  const height = isAdvanced ? 178 : 154;
+  const footY = heroY + 50;
+
+  ctx.save();
+  ctx.globalAlpha = isAdvanced ? 0.88 : 0.78;
+  ctx.globalCompositeOperation = "lighter";
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(
+    sprite,
+    sx,
+    sy,
+    MVP_INSCRIPTION_AURA_FRAME_SIZE,
+    MVP_INSCRIPTION_AURA_FRAME_SIZE,
+    heroX - width / 2,
+    footY - height * 0.68,
+    width,
+    height
+  );
+  ctx.restore();
+  return true;
+}
+
+function getMvpInscriptionAuraSprite(stageId) {
+  if (typeof Image === "undefined") return null;
+  const src = MVP_INSCRIPTION_AURA_SPRITE_SHEETS[stageId] || MVP_INSCRIPTION_AURA_SPRITE_SHEETS.default;
+  if (!src) return null;
+  let image = mvpInscriptionAuraSpriteCache[src];
+  if (!image) {
+    image = new Image();
+    image.src = src;
+    image.onerror = () => {
+      image.failed = true;
+    };
+    mvpInscriptionAuraSpriteCache[src] = image;
+  }
+  return image.failed ? null : image;
+}
+
 function drawAuthorizedJobSprite(ctx, kind, time) {
   const sprite = getJobSprite(kind);
   if (!sprite || !sprite.complete || !sprite.naturalWidth) return false;
@@ -10095,9 +12170,84 @@ function equipmentImagePath(id) {
   return `assets/images/equipment/${safe}.png`;
 }
 
+const equipmentIconAssetIds = new Set([
+  "extra_equipment_5",
+  "one_hand_sword_long_sword",
+  "one_hand_sword_saber",
+  "ro_armor_abyss_dragon_scale",
+  "ro_axe_orc_battle",
+  "ro_book_arcane",
+  "ro_bow_hunter",
+  "ro_head_angel_circlet",
+  "ro_head_dark_lord_crown",
+  "ro_katar_briar",
+  "ro_knuckle_iron",
+  "ro_mace_golden",
+  "ro_plate_glast_knight",
+  "ro_robe_priest",
+  "ro_shoes_abyss_walker",
+  "ro_spear_trident",
+  "ro_staff_dark_lord",
+  "ro_sword_ancient_dragonfang",
+  "ro_trinket_abyss_mark",
+  "ro_trinket_dragonblood",
+  "slot-armor",
+  "slot-headgear",
+  "slot-shoes",
+  "slot-trinket",
+  "slot-weapon",
+  "type-axe",
+  "type-book",
+  "type-boots",
+  "type-bow",
+  "type-charm",
+  "type-circlet",
+  "type-crown",
+  "type-katar",
+  "type-knuckle",
+  "type-mace",
+  "type-necklace",
+  "type-oneHandStaff",
+  "type-oneHandSword",
+  "type-plate",
+  "type-ring",
+  "type-robe",
+  "type-shoes",
+  "type-spear",
+  "type-staff",
+  "type-sword",
+]);
+
+function equipmentIconIdFromPath(src) {
+  const match = String(src || "").match(/assets\/images\/equipment\/([^/.]+)\.(?:png|gif|webp)$/i);
+  return match ? match[1] : "";
+}
+
 function itemImageCandidates(item) {
-  const src = item.image || equipmentImagePath(item.templateId || item.id || item.name);
-  return imageCandidates(src);
+  const sourceItem = item || {};
+  const sources = [];
+  const pushSource = (src) => {
+    if (!src || sources.includes(src)) return;
+    sources.push(src);
+  };
+  const pushEquipmentSource = (id) => {
+    if (!id || !equipmentIconAssetIds.has(String(id))) return;
+    pushSource(equipmentImagePath(id));
+  };
+
+  pushEquipmentSource(equipmentIconIdFromPath(sourceItem.image));
+  pushEquipmentSource(sourceItem.templateId || sourceItem.id || sourceItem.name);
+
+  const subType = sourceItem.subType || inferEquipmentSubType(sourceItem);
+  const equipType = sourceItem.equipType || sourceItem.weaponType || sourceItem.armorType;
+  const normalizedSlot = equipmentSlot(sourceItem);
+  const rawSlot = sourceItem.slot || sourceItem.equipSlot;
+  pushEquipmentSource(subType ? `type-${subType}` : "");
+  pushEquipmentSource(equipType ? `type-${equipType}` : "");
+  pushEquipmentSource(rawSlot ? `slot-${rawSlot}` : "");
+  pushEquipmentSource(normalizedSlot ? `slot-${normalizedSlot}` : "");
+  pushSource("assets/ui/slot-item.png");
+  return sources;
 }
 
 function imageBackgroundList(candidates) {
@@ -10308,7 +12458,7 @@ function computeEquipmentFullStats() {
         sum.gold += effective.gold || 0;
         sum.crit += effective.crit || 0;
         sum.drop += effective.drop || 0;
-        ["atkPct", "matkPct", "hpPct", "defPct", "attackSpeedPct", "critRatePct", "critDamageBonus", "skillDamageBonus", "monsterDamageBonus", "bossDamageBonus", "bossDamageReduction", "damageReductionPct", "damageReduction", "lifeSteal", "blockRate", "antiCrit", "dodgeRatePct", "hpRegenPct", "ignoreDefense", "baseExpBonus", "jobExpBonus", "equipmentDrop", "cardDrop", "materialQuantityBonus", "powerPct", "combatPaceBonus", "patrolEfficiency", "hitRate", "statusResist", "echoChance", "mutationMaterialDoubleChance", "thornVitMultiplier", "abyssDamageBonus", "abyssBossDamageBonus", "abyssDamageReduction", "abyssPower", "abyssResist", "abyssMaterialDropBonus", "abyssSkillDamageBonus", "mythicWeightBonus", "mythicEssenceDropBonus", "rebirthPrestigeWeightBonus", "abyssExecuteDamageBonus", "setPowerBonus", "finalDamageBonus", "physicalFinalDamageBonus", "eliteDamageBonus", "rareDropBonus", "normalAttackDamageBonus", "higherLevelDamageBonus", "offlineEfficiencyBonus", "magicDamageReduction", "skillDamageReduction", "skillCooldownPenalty", "skillHitHealPct", "splashTargets", "splashDamagePct", "fireBurstChance", "fireBurstAtkPct", "meteorCounterChance", "meteorCounterMatkPct"].forEach((stat) => {
+        ["atkPct", "matkPct", "hpPct", "defPct", "attackSpeedPct", "critRatePct", "critDamageBonus", "skillDamageBonus", "monsterDamageBonus", "bossDamageBonus", "bossDamageReduction", "damageReductionPct", "damageReduction", "lifeSteal", "blockRate", "dodgeRatePct", "hpRegenPct", "ignoreDefense", "baseExpBonus", "jobExpBonus", "equipmentDrop", "cardDrop", "materialQuantityBonus", "powerPct", "combatPaceBonus", "patrolEfficiency", "hitRate", "statusResist", "echoChance", "mutationMaterialDoubleChance", "thornVitMultiplier", "abyssDamageBonus", "abyssBossDamageBonus", "abyssDamageReduction", "abyssPower", "abyssResist", "abyssMaterialDropBonus", "abyssSkillDamageBonus", "mythicWeightBonus", "mythicEssenceDropBonus", "rebirthPrestigeWeightBonus", "abyssExecuteDamageBonus", "setPowerBonus", "finalDamageBonus", "physicalFinalDamageBonus", "eliteDamageBonus", "rareDropBonus", "normalAttackDamageBonus", "higherLevelDamageBonus", "offlineEfficiencyBonus", "magicDamageReduction", "skillDamageReduction", "skillCooldownPenalty", "skillHitHealPct", "splashTargets", "splashDamagePct", "fireBurstChance", "fireBurstAtkPct", "meteorCounterChance", "meteorCounterMatkPct", "lowHpAtkPct"].forEach((stat) => {
           sum[stat] += effective[stat] || 0;
         });
         return sum;
@@ -10344,7 +12494,6 @@ function computeEquipmentFullStats() {
         damageReduction: 0,
         lifeSteal: 0,
         blockRate: 0,
-        antiCrit: 0,
         dodgeRatePct: 0,
         hpRegenPct: 0,
         ignoreDefense: 0,
@@ -10390,6 +12539,7 @@ function computeEquipmentFullStats() {
         fireBurstAtkPct: 0,
         meteorCounterChance: 0,
         meteorCounterMatkPct: 0,
+        lowHpAtkPct: 0,
       },
     );
 }
@@ -10420,11 +12570,31 @@ function itemScore(item) {
     (effective.abyssDamageReduction || 0) * 260 +
     (effective.magicDamageReduction || 0) * 220 +
     (effective.skillDamageReduction || 0) * 220 +
-    (effective.hitRate || 0) * 160 +
+    (effective.blockRate || 0) * 260 +
     (effective.statusResist || 0) * 90 +
     (item.refine || 0) * 18 +
     (item.empower || 0) * 22
   );
+}
+
+function equipmentAutoEquipScore(item, job = currentJob()) {
+  const scores = calculateEquipmentScores(item, job) || {};
+  const runtime = equipmentArchetypeRuntime();
+  let preferred = "";
+  if (runtime && typeof runtime.getJobPreferredArchetype === "function") {
+    try {
+      preferred = runtime.getJobPreferredArchetype(job);
+    } catch {}
+  }
+  const jobId = typeof job === "string" ? job : job?.id || "";
+  if (!preferred) {
+    if (["mage", "wizard", "highWizard", "warlock", "acolyte", "priest", "highPriest", "archbishop"].includes(jobId)) preferred = "magic";
+    else if (["swordman", "knight", "lordKnight", "runeKnight", "archer", "hunter", "sniper", "ranger", "thief", "assassin", "assassinCross", "guillotineCross", "merchant", "blacksmith", "whiteSmith", "mechanic"].includes(jobId)) preferred = "physical";
+    else preferred = "general";
+  }
+  if (preferred === "physical") return scores.physicalScore || scores.currentJobScore || scores.comprehensive || itemScore(item);
+  if (preferred === "magic") return scores.magicScore || scores.currentJobScore || scores.comprehensive || itemScore(item);
+  return scores.generalScore || scores.comprehensive || itemScore(item);
 }
 
 function getUnlockedSkills() {
@@ -10450,7 +12620,7 @@ function renderSkillPanel() { const runtime = window.RuneFrontierRenderRuntime; 
   var passiveV3 = v3Skills.filter(function (s) { return s.kind === '被动'; });
   var levelMap = state.hero.skillLevels || {};
   function skillLevelRow(skill) {
-    var lvl = levelMap[skill.id] || 1;
+    var lvl = getSkillGrowthEntry(skill).level || levelMap[skill.id] || 1;
     var cost = getSkillFragmentCost(skill);
     var canUpgrade = lvl < maxLevel && fragments >= cost;
     return '<div class="skill-level-row"><span class="skill-level-name">' + escapeHtml(skill.name) + '</span><span class="skill-level-badge">Lv.' + lvl + '</span>' + (canUpgrade ? '<button class="skill-upgrade-btn" data-skill-upgrade="' + escapeHtml(skill.id) + '" type="button">' + cost + ' 碎片</button>' : lvl >= maxLevel ? '<span class="skill-max-tag">MAX</span>' : '<span class="skill-locked-tag">' + cost + ' 碎片</span>') + '</div>';
@@ -10562,7 +12732,6 @@ function renderJobSkills() { const runtime = window.RuneFrontierRenderRuntime; i
               <span>${unlocked ? (growth.level >= SKILL_MAX_LEVEL ? "已满级" : `下一级需求 ${formatNumber(need)}`) : `Job ${entry.level} 解锁`}</span>
             </div>
             ${renderSkillMilestonePanel(entry, unlocked)}
-            ${renderSkillSpecialization(entry, unlocked, growth)}
           </details>
         </article>
       `;
@@ -10585,23 +12754,6 @@ function renderSkillMilestonePanel(entry, unlocked) { const runtime = window.Run
       <span>Lv.${row.level}</span>
       <small>${row.active ? "已激活" : "未激活"} · ${escapeHtml(row.text)}</small>
     </div>`).join("")}
-  </div>`;
-}
-
-function renderSkillSpecialization(entry, unlocked, growth) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderSkillSpecialization === "function") return runtime.renderSkillSpecialization(entry, unlocked, growth);
-  if (!unlocked) return "";
-  if (growth.level < 15) return `<div class="skill-specialization spec-locked">专精：技能 Lv.15 解锁</div>`;
-  const selected = growth.specialization;
-  const options = getSkillSpecializationOptions(entry);
-  if (selected) {
-    const option = options.find((spec) => spec.id === selected);
-    return `<div class="skill-specialization spec-selected">专精：${escapeHtml(option?.name || selected)}<small>${escapeHtml(option?.description || "")}</small></div>`;
-  }
-  return `<div class="skill-specialization">
-    <strong>选择专精</strong>
-    <div class="spec-option-list">
-      ${options.map((option) => `<button class="ghost spec-option-card" type="button" data-skill-id="${entry.id}" data-skill-spec="${option.id}"><strong>${option.name}</strong><small>${option.description}</small></button>`).join("")}
-    </div>
   </div>`;
 }
 
@@ -10725,8 +12877,8 @@ function itemRangeTooltip(item) {
   const empowerInfo = empowerNext <= 10 ? `${empowerNext}阶消耗 ${materialText(getEmpowerCost(item))}` : "已满阶";
   const starBonus = star15Bonus(item);
   const starInfo = item.refine >= 15 && Object.keys(starBonus).length ? `\n15星附加\n${statObjectText(starBonus)}` : "";
-  const tierInfo = inferItemTier(item);
-  const basicInfo = `基础信息\n品质：${rarityName(item.rarity)}\n等阶：${item.itemTier || tierInfo.id}（Lv.${tierInfo.minLevel}-${tierInfo.maxLevel}）\n等级：${item.level || 1}\n部位：${slotName(equipmentSlot(item))}\n${SLOT_ROLE_DESCRIPTIONS[equipmentSlot(item)] || ""}`;
+  const progressionTags = getEquipmentProgressionTags(item).join(" / ") || "旧世过渡";
+  const basicInfo = `基础信息\n品质：${rarityName(item.rarity)}\n成长：${progressionTags}\n来源强度：${item.dropLevel || item.level || 1}\n部位：${slotName(equipmentSlot(item))}\n${SLOT_ROLE_DESCRIPTIONS[equipmentSlot(item)] || ""}`;
   const attrInfo = `基础属性\n${itemAttrText(item)}`;
   const affixInfo = (item.affixes || []).length ? (item.affixes || []).join("\n") : "无随机词条";
   const mechanicInfo = (item.mechanicAffixes || []).length
@@ -10814,6 +12966,8 @@ function empowerText(item) {
 }
 
 function getSalvageRewardsPreview(item) {
+  const runtime = window.RuneFrontierEquipmentRuntime;
+  if (runtime && typeof runtime.getSalvageRewards === "function") return runtime.getSalvageRewards(item, { preview: true });
   const tier = item.tier || item.rarity || "normal";
   const table = salvageRewards[tier] || salvageRewards.normal;
   const rewards = {};
@@ -10836,37 +12990,425 @@ function materialInventoryText() {
 }
 
 function renderMaterialGroups() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderMaterialGroups === "function") return runtime.renderMaterialGroups();
+  return renderOwnedMaterialBag();
+}
+
+function renderOwnedMaterialBag() {
+  const owned = collectOwnedMaterialBagItems();
+  const filters = materialBagFilterOptions();
+  const activeFilter = filters.some((filter) => filter.id === materialBagFilter) ? materialBagFilter : "all";
+  const visible = activeFilter === "all" ? owned : owned.filter((item) => item.category === activeFilter);
+  const selected = visible.find((item) => item.id === selectedMaterialBagId) || visible[0] || null;
+  const occupiedSlots = visible.map((item) => renderMaterialBagSlot(item, selected?.id === item.id)).join("");
+  const slotBase = visible.length ? Math.ceil(visible.length / 4) * 4 : 8;
+  const emptySlotCount = Math.max(0, slotBase - visible.length);
+  const emptySlots = Array.from({ length: emptySlotCount }, () => `<span class="material-empty-slot" aria-hidden="true"></span>`).join("");
+  return `<section class="material-page material-bag-page">
+    <div class="material-bag-board">
+      <div class="material-bag-heading">
+        <h4 class="material-group-title">材料背包</h4>
+        <span class="equipment-badge equipment-badge-slot">${formatNumber(owned.length)} / 240</span>
+      </div>
+      <div class="material-bag-filters">
+        ${filters.map((filter) => `<button type="button" class="material-bag-filter ${activeFilter === filter.id ? "active" : ""}" data-material-bag-filter="${escapeAttr(filter.id)}">${escapeHtml(filter.label)}</button>`).join("")}
+      </div>
+      <div class="material-bag-grid">
+        ${visible.length ? occupiedSlots : `<div class="material-bag-empty">暂无已拥有材料</div>`}
+        ${emptySlots}
+      </div>
+    </div>
+    ${renderMaterialBagDetail(selected)}
+  </section>`;
+}
+
+function materialBagFilterOptions() {
+  return [
+    { id: "all", label: "全部" },
+    { id: "equipment", label: "装备" },
+    { id: "enhance", label: "强化" },
+    { id: "abyss", label: "深渊" },
+    { id: "boss", label: "Boss" },
+    { id: "card", label: "卡片" },
+    { id: "other", label: "其他" },
+  ];
+}
+
+function collectOwnedMaterialBagItems() {
+  const lineMeta = buildMaterialLineMeta();
+  return Object.entries(state.materials || {})
+    .map(([id, qty]) => buildMaterialBagItem(id, qty, lineMeta[id]))
+    .filter((item) => item && item.qty > 0)
+    .sort((a, b) => {
+      const categoryDelta = materialBagCategoryRank(a.category) - materialBagCategoryRank(b.category);
+      if (categoryDelta) return categoryDelta;
+      const rarityDelta = rarityRank(b.rarity) - rarityRank(a.rarity);
+      if (rarityDelta) return rarityDelta;
+      return a.name.localeCompare(b.name, "zh-Hans-CN");
+    });
+}
+
+function buildMaterialLineMeta() {
+  const runtime = equipmentProgressionRuntime();
+  const meta = {};
+  (runtime?.getAllEquipmentLineMaterialOverviews?.() || []).forEach((overview) => {
+    Object.entries(overview.materials || {}).forEach(([kind, material]) => {
+      if (!material?.id) return;
+      const sources = (overview.sources || [])
+        .filter((source) => {
+          const kinds = Array.isArray(source.materialKinds) ? source.materialKinds : [];
+          if (!kinds.length) return true;
+          return kinds.includes(kind);
+        })
+        .slice(0, 4)
+        .map((source) => `${mapNameById(source.mapId)} ${DIFFICULTY_CONFIG[source.difficulty]?.label || source.difficulty}`);
+      meta[material.id] = {
+        series: overview.series,
+        lineLabel: overview.label,
+        kind,
+        sources,
+      };
+    });
+  });
+  return meta;
+}
+
+function buildMaterialBagItem(id, qty, lineMeta = null) {
+  const amount = Math.max(0, Number(qty || 0));
+  if (amount <= 0) return null;
+  const db = MATERIAL_DB[id] || {};
+  const name = materialNames[id] || db.name || id;
+  const category = lineMeta ? "equipment" : materialBagCategory(id, db);
+  return {
+    id,
+    qty: amount,
+    name,
+    rarity: db.rarity || "normal",
+    category,
+    categoryLabel: materialBagCategoryLabel(category),
+    typeLabel: lineMeta ? `${lineMeta.lineLabel}线材料` : materialBagCategoryLabel(category),
+    lineLabel: lineMeta?.lineLabel || "",
+    lineKind: lineMeta?.kind || "",
+    uses: materialBagUseLabels(id, category, lineMeta),
+    sources: materialBagSources(id, category, lineMeta),
+    note: materialBagNote(id, category, lineMeta, db),
+  };
+}
+
+function materialBagCategory(id, db = {}) {
+  if (db.type === "equipment_progression") return "equipment";
+  if (["dust", "ore", "crystal", "rune", "oridecon", "elunium", "enhanceProtect", "enhanceAsh", "ancientCore", "starShard", "mythicEssence", "darkGoldFragment"].includes(id)) return "enhance";
+  if (["abyssShard", "abyssCore", "abyssEssence"].includes(id)) return "abyss";
+  if (bossEssenceByMap.includes(id) || id === "bossSoul") return "boss";
+  if (id === "bossCardShard" || id === "cardRemover" || Object.values(ZODIAC_CARD_BY_SET).includes(id)) return "card";
+  if (["socketStone", "advancedSocketStone", "mythicSocketStone"].includes(id)) return "card";
+  return "other";
+}
+
+function materialBagCategoryLabel(category) {
+  return {
+    equipment: "装备线材料",
+    enhance: "强化材料",
+    abyss: "深渊材料",
+    boss: "Boss材料",
+    card: "卡片材料",
+    other: "其他材料",
+  }[category] || "材料";
+}
+
+function materialBagCategoryRank(category) {
+  const order = ["equipment", "enhance", "abyss", "boss", "card", "other"];
+  const index = order.indexOf(category);
+  return index >= 0 ? index : order.length;
+}
+
+function materialBagUseLabels(id, category, lineMeta = null) {
+  if (lineMeta) return [materialLineKindUse(lineMeta.kind), `${lineMeta.lineLabel}装备线`];
+  if (["dust", "ore", "crystal", "rune"].includes(id)) return ["基础强化", "商店补给"];
+  if (["oridecon", "elunium", "enhanceProtect", "enhanceAsh"].includes(id)) return ["装备精炼", "失败保护"];
+  if (["ancientCore", "starShard", "mythicEssence", "darkGoldFragment"].includes(id)) return ["高阶打造", "稀有兑换"];
+  if (category === "abyss") return ["深渊淬炼", "后期成长"];
+  if (category === "boss") return ["Boss兑换", "特殊打造"];
+  if (category === "card") return ["打孔插卡", "卡片合成"];
+  if (id === "skillFragment") return ["技能升级"];
+  return ["材料库存"];
+}
+
+function materialLineKindUse(kind) {
+  return {
+    basic: "精通升级 / 基础进阶",
+    advanced: "装备进阶 / 深渊淬炼",
+    core: "高阶进阶 / 强化淬炼",
+  }[kind] || "装备成长";
+}
+
+function materialBagSources(id, category, lineMeta = null) {
+  if (lineMeta?.sources?.length) return lineMeta.sources;
+  if (id === "dust") return ["南门及后续地图", "离线收益", "商店补给"];
+  if (id === "ore") return ["森林及后续地图", "离线收益", "商店补给"];
+  if (id === "crystal") return ["下水道及后续地图", "商店补给"];
+  if (id === "rune") return ["中后期地图", "变异怪"];
+  if (["oridecon", "elunium"].includes(id)) return ["中后期地图", "商店补给"];
+  if (["socketStone", "advancedSocketStone", "mythicSocketStone", "cardRemover"].includes(id)) return ["Boss", "商店补给", "高阶地图"];
+  if (category === "abyss") return ["深渊地图", "深渊 Boss"];
+  if (bossEssenceByMap.includes(id)) {
+    const map = maps[bossEssenceByMap.indexOf(id)];
+    return [map ? `${map.name} Boss` : "Boss", "困难 / 深渊 Boss"];
+  }
+  if (category === "boss") return ["Boss", "首领奖励"];
+  if (Object.values(ZODIAC_CARD_BY_SET).includes(id)) return ["星座装备分解"];
+  if (id === "bossCardShard") return ["Boss", "商店兑换"];
+  return ["地图掉落", "任务 / 商店"];
+}
+
+function materialBagNote(id, category, lineMeta = null, db = {}) {
+  if (lineMeta) return `用于${lineMeta.lineLabel}装备线成长。背包只显示库存，具体缺口会在铁匠铺升级时显示。`;
+  if (category === "abyss") return "深渊相关材料主要服务后期淬炼和高阶成长。";
+  if (category === "boss") return "Boss产物保留为稀有库存，用于兑换、打造或特殊升级。";
+  if (category === "card") return "卡片相关材料用于打孔、拆卡或合成，具体操作在装备与卡片页面完成。";
+  return db.description || "当前已拥有的材料库存。";
+}
+
+function renderMaterialBagSlot(item, selected) {
+  const rarity = item.rarity || "normal";
+  return `<div class="material-bag-slot ${selected ? "selected" : ""} material-bag-rarity-${escapeHtml(rarity)}">
+    <button type="button" class="material-bag-item" data-material-bag-item="${escapeAttr(item.id)}" aria-pressed="${selected ? "true" : "false"}">
+      <span class="material-bag-icon ${getRarityClass({ rarity })}">${escapeHtml(materialBagIconText(item))}</span>
+      <span class="material-bag-name">${escapeHtml(item.name)}</span>
+      <span class="material-bag-qty">×${formatNumber(item.qty)}</span>
+    </button>
+  </div>`;
+}
+
+function materialBagIconText(item) {
+  if (item.id === "bossCardShard") return "卡";
+  if (item.id === "cardRemover") return "拆";
+  if (item.lineKind === "advanced") return "铭";
+  if (item.lineKind === "core") return "核";
+  const text = String(item.name || item.id || "?").replace(/[^\u4e00-\u9fa5A-Za-z0-9]/g, "");
+  return text.slice(0, 1) || "?";
+}
+
+function renderMaterialBagDetail(item) {
+  if (!item) {
+    return `<aside class="material-detail-panel material-detail-empty">
+      <strong>暂无材料</strong>
+      <p class="slot-meta">获得材料后会显示在左侧背包格子里。</p>
+    </aside>`;
+  }
+  return `<aside class="material-detail-panel">
+    <div class="material-detail-head">
+      <span class="material-bag-icon ${getRarityClass({ rarity: item.rarity })}">${escapeHtml(materialBagIconText(item))}</span>
+      <div>
+        <strong>${escapeHtml(item.name)}</strong>
+        <small>${escapeHtml(item.typeLabel)}</small>
+      </div>
+    </div>
+    <div class="material-detail-stats">
+      <span><small>持有</small><strong>${formatNumber(item.qty)}</strong></span>
+      <span><small>分类</small><strong>${escapeHtml(item.categoryLabel)}</strong></span>
+    </div>
+    <div class="material-detail-section">
+      <strong>当前用途</strong>
+      <div class="material-detail-chips">${item.uses.map((use) => `<span>${escapeHtml(use)}</span>`).join("")}</div>
+    </div>
+    <div class="material-detail-section">
+      <strong>主要来源</strong>
+      <div class="material-source-list">${item.sources.map((source, index) => `<span><b>${escapeHtml(source)}</b><em>${index === 0 ? "推荐" : "来源"}</em></span>`).join("")}</div>
+    </div>
+    <div class="material-detail-section">
+      <strong>说明</strong>
+      <p class="slot-meta">${escapeHtml(item.note)}</p>
+    </div>
+  </aside>`;
+}
+
+function renderEquipmentLineMaterialBoard() {
+  const runtime = equipmentProgressionRuntime();
+  const overviews = runtime?.getAllEquipmentLineMaterialOverviews?.() || [];
+  if (!overviews.length) return "";
+  const priorityOverviews = overviews.filter((overview, index) => shouldExpandMaterialLine(overview, index));
+  const futureOverviews = overviews.filter((overview) => !priorityOverviews.includes(overview));
+  return `<section class="material-line-inventory-board">
+    <div class="material-board-heading">
+      <div>
+        <h4 class="material-group-title">装备线材料</h4>
+        <p class="slot-meta">优先展开近期路线，后续路线先收起。</p>
+      </div>
+      <span class="equipment-badge equipment-badge-progression">${formatNumber(priorityOverviews.length)}/${formatNumber(overviews.length)} 条</span>
+    </div>
+    <div class="material-line-inventory-grid">
+      ${priorityOverviews.map(renderMaterialLineInventoryCard).join("")}
+    </div>
+    ${futureOverviews.length ? renderFutureMaterialLines(futureOverviews) : ""}
+  </section>`;
+}
+
+function shouldExpandMaterialLine(overview, index) {
+  if (index < 3) return true;
+  if ((state.inventory || []).some((item) => (item.series || item.upgradePathId) === overview.series)) return true;
+  return Object.values(overview.materials || {}).some((material) => Number((state.materials || {})[material.id] || 0) > 0);
+}
+
+function renderFutureMaterialLines(overviews) {
+  return `<details class="material-line-future-board">
+    <summary>后续装备线 <span>${formatNumber(overviews.length)} 条</span></summary>
+    <div class="material-line-future-grid">
+      ${overviews.map(renderFutureMaterialLineChip).join("")}
+    </div>
+  </details>`;
+}
+
+function renderFutureMaterialLineChip(overview) {
+  const materialNamesText = Object.values(overview.materials || {})
+    .map((material) => material.name || materialNames[material.id] || material.id)
+    .join(" / ");
+  return `<span class="material-line-future-chip">
+    <strong>${escapeHtml(overview.label)}线</strong>
+    <small>${escapeHtml(materialNamesText)}</small>
+  </span>`;
+}
+
+function renderMaterialLineInventoryCard(overview) {
+  const runtime = equipmentProgressionRuntime();
+  const level = runtime?.getLineMasteryLevel?.(state, overview.series) || 0;
+  const goals = collectMaterialLineGoals(overview.series);
+  const materialRows = Object.entries(overview.materials || {})
+    .map(([kind, material]) => renderMaterialLineInventoryRow(kind, material, goals))
+    .join("");
+  const sourceRows = formatMaterialSourceSummary(overview, 4);
+  return `<article class="material-line-inventory-card">
+    <div class="material-line-card-head">
+      <strong>${escapeHtml(overview.label)}线</strong>
+      <span>精通 Lv.${formatNumber(level)}</span>
+    </div>
+    <div class="material-line-material-list">${materialRows}</div>
+    <p class="material-source-line">来源：${escapeHtml(sourceRows || "暂无来源")}</p>
+  </article>`;
+}
+
+function collectMaterialLineGoals(series) {
+  const runtime = equipmentProgressionRuntime();
+  const goals = [];
+  const level = runtime?.getLineMasteryLevel?.(state, series) || 0;
+  addMaterialCostGoals(goals, "精通升级", runtime?.getLineMasteryCost?.(series, level));
+  const candidates = (state.inventory || [])
+    .filter((item) => (item.series || item.upgradePathId) === series)
+    .sort((a, b) => Number(Boolean(state.equipped?.[equipmentSlot(b)] === b.id)) - Number(Boolean(state.equipped?.[equipmentSlot(a)] === a.id)));
+  const upgradeTarget = candidates.find((item) => getEquipmentUpgradeCost(item));
+  addMaterialCostGoals(goals, "装备进阶", upgradeTarget ? getEquipmentUpgradeCost(upgradeTarget) : null);
+  const temperTarget = candidates.find((item) => runtime?.canTemperAbyssItem?.(item));
+  if (temperTarget) {
+    const temperMode = temperTarget.abyssTempered ? "reroll" : "infuse";
+    addMaterialCostGoals(goals, temperTarget.abyssTempered ? "重洗深渊" : "深渊淬炼", runtime?.getAbyssTemperingCost?.(temperTarget, temperMode));
+    if (temperTarget.abyssTempered) addMaterialCostGoals(goals, "强化淬炼", runtime?.getAbyssTemperingCost?.(temperTarget, "empower"));
+  }
+  return goals;
+}
+
+function addMaterialCostGoals(goals, label, cost) {
+  Object.entries(cost?.materials || {}).forEach(([materialId, amount]) => {
+    const need = Math.max(0, Number(amount || 0));
+    if (need > 0) goals.push({ label, materialId, amount: need });
+  });
+}
+
+function renderMaterialLineInventoryRow(kind, material, goals) {
+  const materialId = material.id;
+  const current = Number((state.materials || {})[materialId] || 0);
+  const matches = goals.filter((goal) => goal.materialId === materialId);
+  const primary = matches.find((goal) => current < goal.amount) || matches[0] || null;
+  const need = primary ? primary.amount : 0;
+  const missing = Math.max(0, need - current);
+  const stateClass = missing > 0 ? "material-missing" : need > 0 ? "material-ready" : "material-idle";
+  const useText = matches.length
+    ? [...new Set(matches.map((goal) => goal.label))].join(" / ")
+    : defaultLineMaterialUse(kind);
+  const countText = need > 0 ? `${formatNumber(current)} / ${formatNumber(need)}` : `×${formatNumber(current)}`;
+  const statusText = missing > 0 ? `缺 ${formatNumber(missing)}` : need > 0 ? "够用" : current > 0 ? "库存" : "未持有";
+  const rarity = MATERIAL_DB[materialId]?.rarity || material.rarity || "normal";
+  return `<div class="material-line-material-row ${stateClass}">
+    <div>
+      <span class="material-kind-label">${lineMaterialKindLabel(kind)}</span>
+      <strong class="${getRarityClass({ rarity })}">${escapeHtml(material.name || materialNames[materialId] || materialId)}</strong>
+      <small>${escapeHtml(useText)}</small>
+    </div>
+    <div class="material-line-need">
+      <strong>${countText}</strong>
+      <span>${statusText}</span>
+    </div>
+  </div>`;
+}
+
+function lineMaterialKindLabel(kind) {
+  return { basic: "基础", advanced: "进阶", core: "核心" }[kind] || "材料";
+}
+
+function defaultLineMaterialUse(kind) {
+  return {
+    basic: "精通升级 / 基础进阶",
+    advanced: "装备进阶 / 深渊淬炼",
+    core: "高阶进阶 / 强化淬炼",
+  }[kind] || "装备成长";
+}
+
+function equipmentLineMaterialIds() {
+  const runtime = equipmentProgressionRuntime();
+  const ids = new Set();
+  (runtime?.getAllEquipmentLineMaterialOverviews?.() || []).forEach((overview) => {
+    Object.values(overview.materials || {}).forEach((material) => {
+      if (material?.id) ids.add(material.id);
+    });
+  });
+  return ids;
+}
+
+function renderGeneralMaterialBoard() {
+  const lineIds = equipmentLineMaterialIds();
   const groups = [
-    { title: "基础材料", ids: ["dust", "ore", "crystal", "rune"] },
-    { title: "精炼 / 星炼材料", ids: ["ancientCore", "starShard", "mythicEssence", "oridecon", "elunium", "enhanceProtect"] },
-    { title: "打孔 / 镶嵌材料", ids: ["socketStone", "advancedSocketStone", "mythicSocketStone", "cardRemover"] },
-    { title: "深渊材料", ids: ["abyssShard", "abyssCore"] },
-    { title: "首领魂", ids: [...bossEssenceByMap, "bossSoul"] },
-    { title: "卡片材料", ids: ["bossCardShard"] },
-    { title: "星座圣卡", ids: Object.values(ZODIAC_CARD_BY_SET) },
+    { title: "精炼 / 星炼", ids: ["oridecon", "elunium", "enhanceProtect", "ancientCore", "starShard", "mythicEssence"] },
+    { title: "打孔 / 卡片", ids: ["socketStone", "advancedSocketStone", "mythicSocketStone", "cardRemover", "bossCardShard"] },
+    { title: "深渊通用", ids: ["abyssShard", "abyssCore", "abyssEssence"] },
+    { title: "首领 / 星座", ids: [...bossEssenceByMap, "bossSoul", ...Object.values(ZODIAC_CARD_BY_SET)] },
+    { title: "基础库存", ids: ["dust", "ore", "crystal", "rune"] },
   ];
   const used = new Set(groups.flatMap((group) => group.ids));
-  const specialIds = Object.keys(materialNames).filter((id) => !used.has(id));
-  if (specialIds.length) groups.push({ title: "特殊材料", ids: specialIds });
-  return `<section class="material-page">
-    ${groups
-      .map((group) => {
-        const rows = group.ids
-          .filter((id) => (state.materials[id] || 0) > 0 || group.title === "星座圣卡" || group.title === "打孔 / 镶嵌材料" || ["rune", "ancientCore", "starShard"].includes(id))
-          .map((id) => {
-            const material = MATERIAL_DB[id] || {};
-            return `<article class="material-card">
-              <span class="material-name ${getRarityClass({ rarity: material.rarity || "normal" })}">${escapeHtml(materialNames[id] || id)}</span>
-              <strong class="material-count">×${formatNumber(state.materials[id] || 0)}</strong>
-              <small class="material-desc">${escapeHtml(material.description || "材料")}</small>
-            </article>`;
-          })
-          .join("");
-        if (!rows) return "";
-        return `<div class="material-group"><h4 class="material-group-title">${group.title}</h4><div class="material-grid">${rows}</div></div>`;
-      })
-      .join("")}
-  </section>`;
+  const groupHtml = groups
+    .map((group) => renderGeneralMaterialGroup(group, lineIds))
+    .filter(Boolean)
+    .join("");
+  const extraIds = Object.keys(materialNames)
+    .filter((id) => !lineIds.has(id) && !used.has(id) && (state.materials[id] || 0) > 0);
+  const extraHtml = extraIds.length ? renderGeneralMaterialGroup({ title: "其他库存", ids: extraIds }, lineIds) : "";
+  const totalOwned = Object.keys(materialNames)
+    .filter((id) => !lineIds.has(id))
+    .reduce((sum, id) => sum + Number(state.materials[id] || 0), 0);
+  return `<details class="material-general-board">
+    <summary>通用材料 <span>总计 ×${formatNumber(totalOwned)}</span></summary>
+    <div class="material-general-content">
+      ${groupHtml}${extraHtml}
+    </div>
+  </details>`;
+}
+
+function renderGeneralMaterialGroup(group, lineIds) {
+  const rows = group.ids
+    .filter((id) => !lineIds.has(id))
+    .filter((id) => (state.materials[id] || 0) > 0 || ["oridecon", "elunium", "starShard", "socketStone", "abyssShard", "abyssCore"].includes(id))
+    .map(renderGeneralMaterialChip)
+    .join("");
+  if (!rows) return "";
+  return `<div class="material-general-group">
+    <h5>${escapeHtml(group.title)}</h5>
+    <div class="material-general-grid">${rows}</div>
+  </div>`;
+}
+
+function renderGeneralMaterialChip(id) {
+  const material = MATERIAL_DB[id] || {};
+  return `<span class="material-general-chip ${getRarityClass({ rarity: material.rarity || "normal" })}">
+    <strong>${escapeHtml(materialNames[id] || id)}</strong>
+    <em>×${formatNumber(state.materials[id] || 0)}</em>
+  </span>`;
 }
 
 function renderZodiacCollectionPanel() { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderZodiacCollectionPanel === "function") return runtime.renderZodiacCollectionPanel();
@@ -10931,7 +13473,7 @@ function itemAttrText(item) {
 }
 
 function renderEquipmentUsageTags(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentUsageTags === "function") return runtime.renderEquipmentUsageTags(item);
-  const tags = getEquipmentUsageTags(item, currentJob()).slice(0, 3);
+  const tags = [...getEquipmentFitTags(item), ...getEquipmentUsageTags(item, currentJob())].slice(0, 4);
   return `<div class="equipment-badge-row equipment-usage-tags">
     <span class="equipment-badge equipment-badge-slot">推荐用途</span>
     ${tags.map((tag) => `<span class="equipment-badge">${escapeHtml(tag)}</span>`).join("")}
@@ -11013,6 +13555,9 @@ function renderEquipmentScores(item) { const runtime = window.RuneFrontierRender
   const scores = calculateEquipmentScores(item, currentJob());
   const entries = [
     ["综合", scores.comprehensive],
+    ["物理", scores.physicalScore],
+    ["魔法", scores.magicScore],
+    ["通用", scores.generalScore],
     ["输出", scores.output],
     ["生存", scores.survival],
     ["Boss", scores.boss],
@@ -11060,41 +13605,18 @@ function mergeStatEntries(effective, statKeys) {
 
 function groupEquipmentStats(item) {
   const effective = getEffectiveItemStats(item, false);
-  var itemFind = mergeStatEntries(effective, ["drop", "rareDropBonus", "equipmentDrop", "cardDrop"]);
-  var goldFind = mergeStatEntries(effective, ["gold", "goldBonus"]);
-  var monsterDmg = mergeStatEntries(effective, ["monsterDamageBonus", "eliteDamageBonus", "normalAttackDamageBonus"]);
-  var abyssPower = mergeStatEntries(effective, ["abyssDamageBonus", "abyssBossDamageBonus", "abyssSkillDamageBonus"]);
-  var expBonus = mergeStatEntries(effective, ["baseExpBonus", "jobExpBonus"]);
   var groups = [
-    { title: "基础属性", stats: ["atk", "matk", "def", "hp"] },
-    { title: "职业属性", stats: ["str", "agi", "vit", "int", "dex", "luk"] },
-    { title: "输出属性", stats: ["aspd", "crit", "critRatePct", "critDamageBonus", "attackSpeedPct", "finalDamageBonus", "skillDamageBonus", "atkPct", "matkPct"] },
-    { title: "生存属性", stats: ["lifeSteal", "damageReductionPct", "hpRegen", "dodgeRate", "blockRate", "antiCrit", "hpPct", "defPct"] },
-    { title: "Boss属性", stats: ["bossDamageBonus", "bossDamageReduction"] },
-    { title: "深渊属性", stats: ["abyssDamageReduction", "abyssMaterialDropBonus", "mythicWeightBonus", "abyssExecuteDamageBonus"] },
-    { title: "收益属性", stats: ["materialQuantityBonus", "offlineEfficiencyBonus"] },
+    { title: "基础属性", stats: ["atk", "matk", "def", "hp", "str", "agi", "vit", "int", "dex", "luk"] },
+    { title: "输出属性", stats: ["aspd", "attackSpeedPct", "crit", "critDamageBonus", "ignoreDefense", "atkPct", "matkPct", "skillDamageBonus", "monsterDamageBonus", "bossDamageBonus", "finalDamageBonus", "physicalFinalDamageBonus", "eliteDamageBonus"] },
+    { title: "生存属性", stats: ["hpPct", "defPct", "damageReductionPct", "dodgeRate", "blockRate", "lifeSteal", "hpRegen", "hpRegenPct", "bossDamageReduction"] },
+    { title: "收益属性", stats: ["gold", "drop", "rareDropBonus", "equipmentDrop", "cardDrop", "materialQuantityBonus", "expBonus", "highTierFind"] },
+    { title: "深渊属性", stats: ["abyssDamageBonus", "abyssBossDamageBonus", "abyssDamageReduction", "abyssMaterialDropBonus", "abyssSkillDamageBonus", "mythicWeightBonus"] },
   ];
-  if (monsterDmg) groups.splice(2, 0, { title: "怪物伤害", value: monsterDmg });
-  if (abyssPower) groups.splice(groups.length - 2, 0, { title: "深渊强度", value: abyssPower });
   return groups
     .map(function (group) {
-      var entries;
-      if (group.value !== undefined) {
-        entries = [{ stat: group.title, label: group.title, value: group.value }];
-      } else {
-        var statsList = group.stats.slice();
-        if (group.title === "收益属性") {
-          if (itemFind) statsList.push("itemFind");
-          if (goldFind) statsList.push("goldFind");
-          if (expBonus) statsList.push("expBonus");
-        }
-        entries = statsList.map(function (stat) {
-          if (stat === "itemFind") return { stat: "itemFind", label: "物品发现", value: itemFind };
-          if (stat === "goldFind") return { stat: "goldFind", label: "金币获取", value: goldFind };
-          if (stat === "expBonus") return { stat: "expBonus", label: "经验加成", value: expBonus };
-          return equipmentStatEntry(effective, stat);
-        }).filter(Boolean);
-      }
+      var entries = group.stats.map(function (stat) {
+        return equipmentStatEntry(effective, stat);
+      }).filter(Boolean);
       return { title: group.title, entries: entries };
     })
     .filter(function (group) { return group.entries.length; });
@@ -11109,26 +13631,29 @@ function renderRarityPerk(item) { const runtime = window.RuneFrontierRenderRunti
 
 function renderEquipmentStatSections(item) { const runtime = window.RuneFrontierRenderRuntime; if (runtime && typeof runtime.renderEquipmentStatSections === "function") return runtime.renderEquipmentStatSections(item);
   const statGroups = groupEquipmentStats(item);
-  const specialStats = ["ignoreDefense", "echoChance", "splashTargets", "splashDamagePct", "fireBurstChance", "fireBurstAtkPct", "meteorCounterChance", "meteorCounterMatkPct", "mutationMaterialDoubleChance", "thornVitMultiplier", "hitRate", "statusResist", "powerPct"]
-    .map((stat) => equipmentStatEntry(getEffectiveItemStats(item, false), stat))
-    .filter(Boolean);
   const abyssStats = Object.entries(item.abyssBonus || {})
     .map(([stat, value]) => ({ stat, label: statLabelName(stat), value }))
     .filter((entry) => entry.value);
   const abyssAffixStats = (item.abyssAffixes || []).flatMap((affix) =>
     Object.entries(affix.effects || {}).map(([stat, value]) => ({ stat, label: affix.name || statLabelName(stat), value, desc: affix.desc || "" })),
   );
-  const mechanicStats = [...(item.affixes || []), ...(item.mechanicAffixes || []).map((id) => `【${MECHANIC_AFFIXES[id]?.label || id}】`)]
+  const mechanicStats = [...new Set([
+    ...(item.mechanicAffixes || []).map((id) => MECHANIC_AFFIXES[id]?.label || id),
+    ...(item.affixDetails || []).filter((entry) => entry.type === "mechanic").map((entry) => entry.label),
+  ].filter(Boolean))]
+    .map((text) => `【${text}】`)
     .filter(Boolean);
   const refineStats = item.refine ? statObjectText(star15Bonus(item)) : "";
   const setText = item.setId ? renderEquipmentSetProgress(item) : "";
+  const renderedStatGroups = statGroups.map((group, index) => index === 0
+    ? `<div class="equip-section equipment-stat-section equipment-stat-group-primary"><strong class="equipment-section-title">${group.title}</strong>${renderStatChipGrid(group.entries)}</div>`
+    : `<details class="equip-section equipment-stat-section equipment-stat-group-compact"><summary class="equipment-stat-group-summary">${group.title}</summary>${renderStatChipGrid(group.entries)}</details>`).join("");
   return `
-    ${renderEquipmentScores(item)}
     ${renderEquipmentScoreComparison(item)}
     ${renderRarityPerk(item)}
-    ${statGroups.map((group) => `<div class="equip-section equipment-stat-section"><strong class="equipment-section-title">${group.title}</strong>${renderStatChipGrid(group.entries)}</div>`).join("")}
+    ${renderedStatGroups}
     ${randomStatsHtml(item)}
-    ${(mechanicStats.length || specialStats.length) ? `<div class="equip-section equipment-stat-section"><strong class="equipment-section-title">特殊词条</strong>${renderStatChipGrid(specialStats, "equipment-special-chip")}${mechanicStats.length ? `<div class="equipment-mechanic-tags">${mechanicStats.map((text) => `<span>${escapeHtml(text)}</span>`).join("")}</div>` : ""}</div>` : ""}
+    ${mechanicStats.length ? `<div class="equip-section equipment-stat-section"><strong class="equipment-section-title">特殊效果</strong><div class="equipment-mechanic-tags">${mechanicStats.map((text) => `<span>${escapeHtml(text)}</span>`).join("")}</div></div>` : ""}
     ${(abyssStats.length || abyssAffixStats.length) ? `<div class="equip-section equipment-stat-section equipment-abyss-section"><strong class="equipment-section-title">深渊加成</strong>${renderStatChipGrid(abyssStats, "equipment-special-chip")}${renderStatChipGrid(abyssAffixStats, "equipment-special-chip abyss-affix-chip")}</div>` : ""}
     ${renderEmpowerSection(item)}
     ${renderRefineSection(item, refineStats)}
@@ -11414,8 +13939,8 @@ function star15Bonus(item) {
   const slot = equipmentSlot(item);
   if (slot === "weapon") return item.matk > item.atk ? { atk: 8, matk: 22, skillDamageBonus: 0.03 } : { atk: 22, matk: 8, skillDamageBonus: 0.03 };
   if (slot === "armor") return { hp: 20, damageReductionPct: 0.02 };
-  if (slot === "headgear") return { critRatePct: 0.01, allStats: 2 };
-  if (slot === "shoes") return { dodgeRatePct: 0.01, attackSpeedPct: 0.01 };
+  if (slot === "headgear") return { crit: 0.01, allStats: 2 };
+  if (slot === "shoes") return { dodgeRate: 0.01, attackSpeedPct: 0.01 };
   return { critDamageBonus: 0.04, drop: 0.01, gold: 0.01 };
 }
 
@@ -11428,8 +13953,8 @@ function getRefineMilestoneBonuses(item) {
   const tiers = {
     weapon: [{ str: 2 }, { skillDamageBonus: 0.01 }, { str: 2 }, { bossDamageBonus: 0.02 }, { finalDamageBonus: 0.02 }],
     armor: [{ vit: 2 }, { hp: 20 }, { damageReductionPct: 0.01 }, { hp: 30 }, { damageReductionPct: 0.02 }],
-    headgear: [{ int: 2 }, { critRatePct: 0.005 }, { baseExpBonus: 0.01 }, { allStats: 1 }, { skillDamageBonus: 0.01 }],
-    shoes: [{ agi: 2 }, { dodgeRatePct: 0.01 }, { attackSpeedPct: 0.01 }, { hpRegenPct: 0.02 }, { combatPaceBonus: 0.01 }],
+    headgear: [{ int: 2 }, { crit: 0.005 }, { expBonus: 0.01 }, { allStats: 1 }, { skillDamageBonus: 0.01 }],
+    shoes: [{ agi: 2 }, { dodgeRate: 0.01 }, { attackSpeedPct: 0.01 }, { hpRegenPct: 0.02 }, { combatPaceBonus: 0.01 }],
     trinket: [{ luk: 2 }, { drop: 0.005 }, { gold: 0.01 }, { cardDrop: 0.005 }, { drop: 0.01 }],
   };
   const tier = tiers[slot] || tiers.trinket;
@@ -11507,6 +14032,7 @@ function statLabelName(stat) {
     mythicWeightBonus: "神话权重",
     mythicEssenceDropBonus: "神话精粹掉率",
     rebirthPrestigeWeightBonus: "转生声望加成",
+    highTierFind: "高阶发现",
     abyssExecuteDamageBonus: "深渊斩杀",
     setPowerBonus: "套装战力",
     goldBonus: "金币收益",
@@ -11515,7 +14041,6 @@ function statLabelName(stat) {
     damageReductionPct: "伤害减免",
     lifeSteal: "吸血",
     blockRate: "格挡",
-    antiCrit: "抗暴",
     dodgeRatePct: "闪避率",
     hpRegenPct: "生命恢复",
     ignoreDefense: "破甲",
@@ -11625,6 +14150,7 @@ function statIsPercent(stat) {
     "mythicWeightBonus",
     "mythicEssenceDropBonus",
     "rebirthPrestigeWeightBonus",
+    "highTierFind",
     "abyssExecuteDamageBonus",
     "setPowerBonus",
     "abyssSkillChanceBonus",
@@ -11644,7 +14170,6 @@ function statIsPercent(stat) {
     "damageReduction",
     "lifeSteal",
     "blockRate",
-    "antiCrit",
     "ignoreDefense",
     "damageReductionPct",
     "dodgeRatePct",
@@ -11782,18 +14307,217 @@ function goToPage(page) {
 
 function handleOnboardingAction(action) {
   if (!action) return;
+  const runtime = window.RuneFrontierOnboardingRuntime;
   if (action === "skip-tutorial") {
-    const runtime = window.RuneFrontierOnboardingRuntime;
     state.onboarding = runtime?.skipOnboarding ? runtime.skipOnboarding(state.onboarding) : { ...normalizeOnboarding(state.onboarding), skipped: true };
     showToast("已跳过新手引导，目标手册仍会保留。");
     save();
     renderAll();
     return;
   }
+  const currentGoal = runtime?.getCurrentOnboardingGoal?.(state);
+  const nextOnboarding = runtime?.completeOnboardingAction?.(state.onboarding, currentGoal, action);
+  const onboardingChanged = nextOnboarding && nextOnboarding !== state.onboarding;
+  if (onboardingChanged) state.onboarding = nextOnboarding;
   if (action === "go-adventure") goToPage("adventure");
   if (action === "go-tasks") goToPage("tasks");
   if (action === "go-equipment") goToPage("equipment");
   if (action === "go-smithy") goToPage("smithy");
+  if (onboardingChanged) {
+    save();
+    renderAll();
+  }
+}
+
+const EQUIPMENT_ARCHETYPE_LABELS = Object.freeze({
+  physical: "物理",
+  magic: "魔法",
+  general: "通用",
+});
+
+const LEGACY_ARCHETYPE_STAT_POOLS = Object.freeze({
+  physical: Object.freeze({
+    primary: Object.freeze(["atkPct", "atk", "str", "dex", "critDamageBonus"]),
+    secondary: Object.freeze(["agi", "attackSpeedPct", "crit", "ignoreDefense"]),
+    utility: Object.freeze(["hpPct", "defPct", "lifeSteal", "bossDamageBonus"]),
+    flat: Object.freeze(["atk", "str", "dex", "agi", "crit", "aspd"]),
+    percent: Object.freeze(["atkPct", "crit", "critDamageBonus", "attackSpeedPct", "ignoreDefense", "lifeSteal"]),
+    mechanic: Object.freeze(["splash", "pursuit", "breaker"]),
+  }),
+  magic: Object.freeze({
+    primary: Object.freeze(["matkPct", "matk", "int", "skillDamageBonus"]),
+    secondary: Object.freeze(["dex", "finalDamageBonus", "echoChance", "monsterDamageBonus"]),
+    utility: Object.freeze(["hpPct", "defPct", "hpRegenPct", "abyssDamageBonus"]),
+    flat: Object.freeze(["matk", "int", "dex", "vit"]),
+    percent: Object.freeze(["matkPct", "skillDamageBonus", "echoChance", "hpRegenPct"]),
+    mechanic: Object.freeze(["echo", "starlight", "recovery"]),
+  }),
+  general: Object.freeze({
+    primary: Object.freeze(["str", "int", "dex", "vit", "agi", "luk"]),
+    secondary: Object.freeze(["hpPct", "defPct", "finalDamageBonus", "bossDamageBonus"]),
+    utility: Object.freeze(["drop", "gold", "rareDropBonus", "equipmentDrop", "materialQuantityBonus"]),
+    flat: Object.freeze(["hp", "def", "vit", "luk"]),
+    percent: Object.freeze(["hpPct", "defPct", "drop", "gold", "rareDropBonus", "equipmentDrop", "cardDrop", "materialQuantityBonus", "damageReductionPct", "expBonus"]),
+    mechanic: Object.freeze(["greed", "thorn", "recovery"]),
+  }),
+});
+
+function knownEquipmentArchetype(value) {
+  const key = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return Object.hasOwn({ physical: true, magic: true, general: true }, key) ? key : "";
+}
+
+function equipmentArchetypeRuntime() {
+  return window.RuneFrontierEquipmentRuntime;
+}
+
+function normalizeEquipmentArchetype(value) {
+  const runtime = equipmentArchetypeRuntime();
+  if (runtime && typeof runtime.normalizeEquipmentArchetype === "function") {
+    return runtime.normalizeEquipmentArchetype(value);
+  }
+  return knownEquipmentArchetype(value) || "general";
+}
+
+function getEquipmentArchetypeLabel(value) {
+  const runtime = equipmentArchetypeRuntime();
+  if (runtime && typeof runtime.getEquipmentArchetypeLabel === "function") {
+    return runtime.getEquipmentArchetypeLabel(value);
+  }
+  const labels = { physical: "物理", magic: "魔法", general: "通用" };
+  return labels[normalizeEquipmentArchetype(value)] || labels.general;
+}
+
+function cloneArchetypeStatPools(pools = {}) {
+  return {
+    primary: [...(pools.primary || [])],
+    secondary: [...(pools.secondary || [])],
+    utility: [...(pools.utility || [])],
+    flat: [...(pools.flat || [])],
+    percent: [...(pools.percent || [])],
+    mechanic: [...(pools.mechanic || [])],
+  };
+}
+
+function getArchetypeStatPools(archetype) {
+  const runtime = equipmentArchetypeRuntime();
+  if (runtime && typeof runtime.getArchetypeStatPools === "function") {
+    try {
+      return cloneArchetypeStatPools(runtime.getArchetypeStatPools(archetype));
+    } catch {}
+  }
+  const legacyPools = {
+    physical: {
+      primary: ["atkPct", "atk", "str", "dex", "critDamageBonus"],
+      secondary: ["agi", "attackSpeedPct", "crit", "ignoreDefense"],
+      utility: ["hpPct", "defPct", "lifeSteal", "bossDamageBonus"],
+      flat: ["atk", "str", "dex", "agi", "crit", "aspd"],
+      percent: ["atkPct", "crit", "critDamageBonus", "attackSpeedPct", "ignoreDefense", "lifeSteal"],
+      mechanic: ["splash", "pursuit", "breaker"],
+    },
+    magic: {
+      primary: ["matkPct", "matk", "int", "skillDamageBonus"],
+      secondary: ["dex", "finalDamageBonus", "echoChance", "monsterDamageBonus"],
+      utility: ["hpPct", "defPct", "hpRegenPct", "abyssDamageBonus"],
+      flat: ["matk", "int", "dex", "vit"],
+      percent: ["matkPct", "skillDamageBonus", "echoChance", "hpRegenPct"],
+      mechanic: ["echo", "starlight", "recovery"],
+    },
+    general: {
+      primary: ["str", "int", "dex", "vit", "agi", "luk"],
+      secondary: ["hpPct", "defPct", "finalDamageBonus", "bossDamageBonus"],
+      utility: ["drop", "gold", "rareDropBonus", "equipmentDrop", "materialQuantityBonus"],
+      flat: ["hp", "def", "vit", "luk"],
+      percent: ["hpPct", "defPct", "drop", "gold", "rareDropBonus", "equipmentDrop", "cardDrop", "materialQuantityBonus", "damageReductionPct", "expBonus"],
+      mechanic: ["greed", "thorn", "recovery"],
+    },
+  };
+  return cloneArchetypeStatPools(legacyPools[normalizeEquipmentArchetype(archetype)] || legacyPools.general);
+}
+
+function getEquipmentFitTags(item) {
+  const runtime = equipmentArchetypeRuntime();
+  if (runtime && typeof runtime.getEquipmentFitTags === "function") {
+    try {
+      return runtime.getEquipmentFitTags(item, { job: currentJob(), currentJob });
+    } catch {}
+  }
+  const archetype = normalizeEquipmentArchetype(item?.archetype || inferEquipmentArchetype(item));
+  return [getEquipmentArchetypeLabel(archetype), "通用定位"];
+}
+
+function renderEquipmentArchetypeBadge(item) {
+  const archetype = normalizeEquipmentArchetype(item?.archetype || inferEquipmentArchetype(item));
+  return `<span class="equipment-badge equipment-archetype-badge equipment-archetype-${archetype}">${escapeHtml(getEquipmentArchetypeLabel(archetype))}</span>`;
+}
+
+function equipmentArchetypeNumber(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function equipmentArchetypeStatSignal(item = {}, keys = []) {
+  return keys.reduce((sum, key) => {
+    const direct = key === "luk"
+      ? equipmentArchetypeNumber(item.luk) + equipmentArchetypeNumber(item.luck)
+      : equipmentArchetypeNumber(item[key]);
+    return sum +
+      Math.max(0, direct) +
+      Math.max(0, equipmentArchetypeNumber(item.randomStats?.[key])) +
+      Math.max(0, equipmentArchetypeNumber(item.baseStats?.[key])) +
+      Math.max(0, equipmentArchetypeNumber(item.templateBaseStats?.[key]));
+  }, 0);
+}
+
+function inferEquipmentArchetype(item = {}, context = {}) {
+  const runtime = equipmentArchetypeRuntime();
+  if (runtime && typeof runtime.inferEquipmentArchetype === "function") {
+    return runtime.inferEquipmentArchetype(item, buildEquipmentArchetypeContext(context));
+  }
+  if (!item || typeof item !== "object") return "general";
+  if (Object.hasOwn(item, "archetype")) return normalizeEquipmentArchetype(item.archetype);
+  const physicalSignal = equipmentArchetypeStatSignal(item, ["atk", "atkPct", "str", "agi", "dex", "aspd", "attackSpeedPct", "crit", "critDamageBonus", "ignoreDefense", "lifeSteal"]);
+  const magicSignal = equipmentArchetypeStatSignal(item, ["matk", "matkPct", "int", "skillDamageBonus", "echoChance"]);
+  if (physicalSignal > 0 && magicSignal > 0) return "general";
+  if (physicalSignal > 0) return "physical";
+  if (magicSignal > 0) return "magic";
+  return "general";
+}
+
+function buildEquipmentArchetypeContext(context = {}) {
+  let job = null;
+  let stateJobId = "";
+  try {
+    job = typeof currentJob === "function" ? currentJob() : null;
+  } catch {
+    job = null;
+  }
+  try {
+    stateJobId = state?.hero?.jobId || "";
+  } catch {
+    stateJobId = "";
+  }
+  const random = context.rng || context.random || (() => Math.random());
+  return {
+    ...context,
+    currentJobId: context.currentJobId || context.jobId || job?.id || stateJobId || "",
+    job: context.job || job || null,
+    currentJob,
+    rng: random,
+    random,
+    normalizeEquipmentSlot,
+  };
+}
+
+function rollEquipmentArchetype(template = {}, context = {}) {
+  const rollContext = buildEquipmentArchetypeContext(context);
+  const runtime = equipmentArchetypeRuntime();
+  if (runtime && typeof runtime.rollEquipmentArchetype === "function") {
+    return runtime.rollEquipmentArchetype(template, rollContext);
+  }
+  const explicit = knownEquipmentArchetype(template?.archetype) || knownEquipmentArchetype(template?.templateArchetype);
+  if (explicit) return explicit;
+  return inferEquipmentArchetype(template, rollContext);
 }
 
 // [AUTHORITY] equipment-runtime: 28 config tables exposed. Module-owned: itemFactory, itemStats, itemScore, itemNaming, dismantle, refine, starRefine, socket. Deferred: equipmentTiers, ITEM_TIER_CONFIG, salvageRewards (in game.js data section).
@@ -11811,6 +14535,25 @@ window.RuneFrontierLegacyEquipmentContext = () => Object.freeze({
   inferItemTier,
   getSlotLevelGrowth,
   normalizeEquipmentSlot,
+  normalizeEquipmentArchetype,
+  getEquipmentArchetypeLabel,
+  getArchetypeStatPools,
+  getEquipmentFitTags,
+  renderEquipmentArchetypeBadge,
+  inferEquipmentArchetype,
+  rollEquipmentArchetype,
+  resolveEquipmentProgressionContext(payload) {
+    return window.RuneFrontierEquipmentRuntime?.resolveEquipmentProgressionContext?.(payload);
+  },
+  getProgressionMaterialDrops(mapId, difficulty, options) {
+    return window.RuneFrontierEquipmentRuntime?.getProgressionMaterialDrops?.(mapId, difficulty, options) || [];
+  },
+  getProgressionEquipmentTemplate(id) {
+    return window.RuneFrontierEquipmentRuntime?.getProgressionEquipmentTemplate?.(id) || null;
+  },
+  getProgressionEquipmentDropTable(mapId, difficulty) {
+    return window.RuneFrontierEquipmentRuntime?.getProgressionEquipmentDropTable?.(mapId, difficulty) || [];
+  },
   inferEquipmentSubType,
   equipmentImagePath,
   getTemplateBaseStats,
@@ -11833,6 +14576,7 @@ window.RuneFrontierLegacyEquipmentContext = () => Object.freeze({
   safeHeroBaseLevel,
   rarityRank,
   isAbyssEquipment,
+  rollAbyssAffixes,
   createItemId(slot) {
     return `${slot}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   },
@@ -11841,6 +14585,12 @@ window.RuneFrontierLegacyEquipmentContext = () => Object.freeze({
   },
   getSalvageTable(tier) {
     return salvageRewards[tier] || salvageRewards.normal;
+  },
+  getEquipmentLineMaterials(series) {
+    return window.RuneFrontierEquipmentRuntime?.getEquipmentLineMaterials?.(series) || {};
+  },
+  normalizeEquipmentSeries(series, fallback = "oldWorld") {
+    return window.RuneFrontierEquipmentRuntime?.normalizeEquipmentSeries?.(series, fallback) || fallback;
   },
   getInventoryLimit,
   addMaterials,
@@ -11905,7 +14655,8 @@ window.RuneFrontierLegacyEquipmentContext = () => Object.freeze({
   statIsPercent,
   statLabelName,
   formatNumber,
-  itemScore,
+  itemScore: equipmentAutoEquipScore,
+  shouldProtectEquipment,
   showRefineResult: showRefineResultModal,
   renderRefineStatDelta,
   getEnhanceMaxLevel() { return ENHANCE_MAX_LEVEL; },
@@ -11938,8 +14689,13 @@ window.RuneFrontierLegacyDropsContext = () => Object.freeze({
   currentMap,
   getDifficultyConfig: currentDifficultyConfig,
   computeStats,
+  getEquipmentSynergyEffects,
+  noteEquipmentSynergyKill,
   getMaterialDropTable(mapId) {
     return materialDropTables[mapId] || [];
+  },
+  getProgressionMaterialDrops(mapId, difficulty, options) {
+    return window.RuneFrontierEquipmentRuntime?.getProgressionMaterialDrops?.(mapId, difficulty, options) || [];
   },
   getCardDropTable(mapId) {
     return cardDropTables[mapId] || [];
@@ -11959,17 +14715,11 @@ window.RuneFrontierLegacyDropsContext = () => Object.freeze({
   getZodiacSetIds(mapId) {
     return zodiacSetDropMap[mapId] || [];
   },
-  getTransitionSetIds(mapId) {
-    return transitionSetDropMap[mapId] || [];
-  },
   getEquipmentSet(setId) {
     return equipmentSets[setId];
   },
   getZodiacSetDropRates() {
     return ZODIAC_SET_DROP_RATES;
-  },
-  getTransitionSetDropRates() {
-    return TRANSITION_SET_DROP_RATES;
   },
   getMythicDropRates() {
     return MYTHIC_DROP_RATES;
@@ -11998,11 +14748,14 @@ window.RuneFrontierLegacyDropsContext = () => Object.freeze({
   getDropTableId(mapId) {
     return mapDropTableAlias[mapId] || mapId;
   },
-  getEquipmentDropTable(tableId) {
-    return equipmentDropTables[tableId] || [];
+  getEquipmentDropTable() {
+    return [];
+  },
+  getProgressionEquipmentDropTable(mapId, difficulty) {
+    return window.RuneFrontierEquipmentRuntime?.getProgressionEquipmentDropTable?.(mapId, difficulty) || [];
   },
   getEquipmentTemplate(id) {
-    return equipmentTemplateDb[id];
+    return window.RuneFrontierEquipmentRuntime?.getProgressionEquipmentTemplate?.(id) || equipmentTemplateDb[id];
   },
   getMaxEquipmentDrops(isBoss) {
     return isBoss ? MAX_BOSS_EQUIPMENT_DROPS : MAX_EQUIPMENT_DROPS_PER_KILL;
@@ -12012,6 +14765,9 @@ window.RuneFrontierLegacyDropsContext = () => Object.freeze({
   weightedChoice,
   applyRebirthPrestigeDropWeight,
   getDarkGoldUpgradeRate,
+  resolveEquipmentProgressionContext(payload) {
+    return window.RuneFrontierEquipmentRuntime?.resolveEquipmentProgressionContext?.(payload);
+  },
   getDifficultyDropLevelBonus() {
     return DIFFICULTY_DROP_LEVEL_BONUS[state.currentDifficulty] || DIFFICULTY_DROP_LEVEL_BONUS.normal;
   },
@@ -12059,6 +14815,7 @@ window.RuneFrontierLegacyOfflineContext = () => Object.freeze({
     return maps;
   },
   computeStats,
+  getEquipmentSynergyEffects,
   getDifficultyConfig: currentDifficultyConfig,
   getVipMilestoneBonuses,
   getCardDropTable(mapId) {
@@ -12070,8 +14827,11 @@ window.RuneFrontierLegacyOfflineContext = () => Object.freeze({
   getDropTableAlias(mapId) {
     return mapDropTableAlias[mapId] || mapId;
   },
-  getEquipmentDropTable(tableId) {
-    return equipmentDropTables[tableId] || [];
+  getEquipmentDropTable() {
+    return [];
+  },
+  getProgressionEquipmentDropTable(mapId, difficulty) {
+    return window.RuneFrontierEquipmentRuntime?.getProgressionEquipmentDropTable?.(mapId, difficulty) || [];
   },
   getCard(cardId) {
     return getSocketCard(cardId);
@@ -12085,17 +14845,11 @@ window.RuneFrontierLegacyOfflineContext = () => Object.freeze({
   getZodiacSetIds(mapId) {
     return zodiacSetDropMap[mapId] || [];
   },
-  getTransitionSetIds(mapId) {
-    return transitionSetDropMap[mapId] || [];
-  },
   getEquipmentSet(setId) {
     return equipmentSets[setId];
   },
   getZodiacSetDropRates() {
     return ZODIAC_SET_DROP_RATES;
-  },
-  getTransitionSetDropRates() {
-    return TRANSITION_SET_DROP_RATES;
   },
   getMythicDropRates() {
     return MYTHIC_DROP_RATES;
@@ -12119,6 +14873,13 @@ window.RuneFrontierLegacyOfflineContext = () => Object.freeze({
   getOfflineMaxKills() {
     return OFFLINE_MAX_KILLS;
   },
+  calculateMvpInscriptionOnlinePerMinute(options) {
+    return window.RuneFrontierMvpInscriptionRuntime?.calculateMvpInscriptionOnlinePerMinute?.(options) || 0;
+  },
+  calculateMvpInscriptionMonsterExp(options) {
+    return window.RuneFrontierMvpInscriptionRuntime?.calculateMvpInscriptionMonsterExp?.(options) || 0;
+  },
+  getEquipmentPityThreshold,
   getInventoryLimit,
   random() {
     return Math.random();
@@ -12139,6 +14900,7 @@ window.RuneFrontierLegacyOfflineContext = () => Object.freeze({
   canOfflineFullSalvage,
   mergeMaterialReward: mergeMaterialRewardIntoList,
   gainExp,
+  gainMvpInscriptionExp,
   grantCards(cards) {
     (cards || []).forEach((card) => {
       state.cards[card.cardId] = (state.cards[card.cardId] || 0) + (card.qty || 0);
@@ -12168,7 +14930,6 @@ window.RuneFrontierLegacyOfflineContext = () => Object.freeze({
   rollOfflineCardDrops,
   rollOfflineMaterialDrops,
   rollOfflineZodiacSetDrops,
-  rollOfflineTransitionSetDrops,
   rollOfflineMythicDrops,
   rollOfflineMutationExtraDrops,
 });
@@ -12243,6 +15004,7 @@ window.RuneFrontierLegacyCombatContext = () => Object.freeze({
   getDifficultyLabel(difficulty) {
     return DIFFICULTY_CONFIG[difficulty]?.label || difficulty;
   },
+  getBossCycleGoldBonus,
   applyMaterialQuantityBonus,
   computeStats,
   random() {
@@ -12271,6 +15033,7 @@ window.RuneFrontierLegacyCombatContext = () => Object.freeze({
   bossDisplayName,
   gainExp,
   gainVipExp,
+  grantMvpInscriptionKillExp,
   getAutoBossEnabled,
   bossRequirement,
   updateDailyGoalProgress,
@@ -12281,6 +15044,8 @@ window.RuneFrontierLegacyCombatContext = () => Object.freeze({
   showDamageNumber,
   showHitFeedback,
   showSkillCastFeedback,
+  showEnemyAttackWarning,
+  showEnemyAttackImpact,
   applySplashDamageToEncounter,
   applySkillSplashDamageToEncounter,
   flashPlayerHp() {
@@ -12302,6 +15067,7 @@ window.RuneFrontierLegacyCombatContext = () => Object.freeze({
   getUnlockedSkills,
   getV3CombatSkills,
   getSkillGrowthEntry,
+  getUnlockedSkillCircuits,
   getSkillMilestoneBonuses,
   getSkillLevelMultiplier,
   noteSkillCast,
@@ -12319,6 +15085,8 @@ window.RuneFrontierLegacyCombatContext = () => Object.freeze({
   },
   challengeBoss,
   defeatEnemy,
+  resetUnsafeEarlyEncounter,
+  maybeAutoUsePotion,
   syncActiveEnemyFromGroup,
   spawnEnemy,
   render: renderCombatSettlementUi,
@@ -12377,6 +15145,19 @@ window.RuneFrontierLegacyShopContext = () => Object.freeze({
   showToast,
   renderAll,
   save,
+});
+
+// [AUTHORITY] dungeon-runtime: daily dungeon state and instant settlement bridge.
+window.RuneFrontierLegacyDungeonContext = () => Object.freeze({
+  getState() { return state; },
+  computeStats,
+  grantGenericReward,
+  addLog,
+  showToast,
+  renderAll,
+  save,
+  formatNumber,
+  getMaterialName(materialId) { return materialNames[materialId] || materialId; },
 });
 
 // [AUTHORITY] state-runtime: Not yet module-owned. Delegation bridges exist on load/save/mergeState/sanitizeProgression/createDefaultState/resetSave.
@@ -12492,10 +15273,10 @@ Object.assign(window, {
   getUnlockedSkills,
   getPassiveSkillTotals,
   getSkillGrowthEntry,
+  getUnlockedSkillCircuits,
   getSkillMilestoneBonuses,
   describeSkillMilestone,
   getSkillMilestoneEntries,
-  getSkillSpecializationOptions,
   skillTooltip,
   formatSkillMultiplier,
   statLine,
@@ -12516,9 +15297,28 @@ Object.assign(window, {
   getSalvageRewardsPreview,
   getEquipmentSummaryEntries,
   calculateEquipmentScores,
+  equipmentAutoEquipScore,
   compareEquipmentScores,
   formatScoreDelta,
   getEquipmentUsageTags,
+  shouldProtectEquipment,
+  normalizeEquipmentArchetype,
+  getEquipmentArchetypeLabel,
+  getArchetypeStatPools,
+  getEquipmentFitTags,
+  renderEquipmentArchetypeBadge,
+  inferEquipmentArchetype,
+  getEquipmentProgressionTags,
+  renderEquipmentProgressionTags,
+  getEquipmentUpgradeCost,
+  getNextEquipmentUpgrade,
+  canUpgradeEquipmentProgression,
+  upgradeEquipmentProgression,
+  upgradeLineMastery,
+  temperAbyssItem,
+  renderMaterialGoalPanel,
+  renderEquipmentProgressionSmithyPanel,
+  formatMapEquipmentProgression,
   groupEquipmentStats,
   equipmentStatEntry,
   getEffectiveItemStats,
@@ -12531,6 +15331,8 @@ Object.assign(window, {
   hasMaterials,
   isZodiacItem,
   currentJob,
+  getMvpInscriptionView,
+  canGainMvpInscriptionOnCurrentMap,
   pruneEquipmentDetailExpandedState,
   equippedSlotMeta,
   sortEquipmentList,
@@ -12556,6 +15358,8 @@ Object.assign(window, {
   canAffordSocketCost,
   canContinueRefine,
   rarityRank,
+  defaultDungeonState,
+  normalizeDungeonState,
   normalizeDailyGoals,
   achievementRewardText,
   questRewardText,
@@ -12564,9 +15368,10 @@ Object.assign(window, {
   getPlayerWeakness,
   getRecommendedActions,
   getCurrentRecommendedScoreGap,
+  renderDungeons,
   renderAll,
 });
-window.specialStatKeys = ["ignoreDefense", "echoChance", "splashTargets", "splashDamagePct", "fireBurstChance", "fireBurstAtkPct", "meteorCounterChance", "meteorCounterMatkPct", "skillCooldownPenalty", "higherLevelDamageBonus", "mutationMaterialDoubleChance", "thornVitMultiplier", "combatPaceBonus", "patrolEfficiency", "hitRate", "statusResist", "powerPct", "setPowerBonus"];
+window.specialStatKeys = ["ignoreDefense", "echoChance", "splashTargets", "splashDamagePct", "fireBurstChance", "fireBurstAtkPct", "meteorCounterChance", "meteorCounterMatkPct", "skillCooldownPenalty", "mutationMaterialDoubleChance", "thornVitMultiplier", "combatPaceBonus", "statusResist", "setPowerBonus"];
 Object.defineProperties(window, {
   refineResultState: { configurable: true, get() { return refineResultState; } },
   equipmentDetailExpandedState: { configurable: true, get() { return equipmentDetailExpandedState; } },

@@ -1,23 +1,43 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { createRequire } from 'node:module';
 import { createContext, runInContext } from 'node:vm';
 
 const root = new URL('../', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 const read = (file) => readFileSync(join(root, file), 'utf8');
+const readPngInfo = (file) => {
+  const fullPath = join(root, file);
+  assert.ok(existsSync(fullPath), `${file} must exist`);
+  const buffer = readFileSync(fullPath);
+  assert.deepEqual(Array.from(buffer.subarray(0, 8)), [137, 80, 78, 71, 13, 10, 26, 10], `${file} must be a PNG asset`);
+  assert.equal(buffer.subarray(12, 16).toString('ascii'), 'IHDR', `${file} must have a valid PNG IHDR chunk`);
+  return {
+    width: buffer.readUInt32BE(16),
+    height: buffer.readUInt32BE(20),
+    colorType: buffer[25],
+    size: statSync(fullPath).size,
+  };
+};
 const importSource = async (source) => import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+const require = createRequire(import.meta.url);
 const game = read('game.js');
 const data = read('data.js');
 const tools = read('tools.js');
+const serverSource = read('server.js');
 const html = read('index.html');
 const styles = read('styles.css');
+const equipmentStyles = read('unified-equipment-ui.css');
 const main = read('src/main.js');
 const stateSurface = read('src/state/index.js');
+const equipmentIndexSource = read('src/systems/equipment/index.js');
+const statCatalogSource = read('src/systems/equipment/statCatalog.js');
 const itemStatsSource = read('src/systems/equipment/itemStats.js');
 const itemNamingSource = read('src/systems/equipment/itemNaming.js');
 const itemScoreSource = read('src/systems/equipment/itemScore.js');
 const itemFactorySource = read('src/systems/equipment/itemFactory.js');
 const dismantleSource = read('src/systems/equipment/dismantle.js');
+const equipmentGrowthSource = read('src/systems/equipment/equipmentGrowth.js');
 const equipmentDropsSource = read('src/systems/drops/equipmentDrops.js');
 const materialDropsSource = read('src/systems/drops/materialDrops.js');
 const cardDropsSource = read('src/systems/drops/cardDrops.js');
@@ -27,23 +47,39 @@ const lootRollSource = read('src/systems/drops/lootRoll.js');
 const recentLootSource = read('src/systems/drops/recentLoot.js');
 const lootModelSource = read('src/systems/drops/lootModel.js');
 const offlineSource = read('src/systems/offline.js');
+const offlineLootSource = read('src/ui/offlineLoot.js');
 const devBridgeSource = read('src/dev/devBridge.js');
+const combatIndexSource = read('src/systems/combat/index.js');
 const settlementSource = read('src/systems/combat/settlement.js');
 const bossCombatSource = read('src/systems/combat/bossCombat.js');
 const damageSource = read('src/systems/combat/damage.js');
 const skillsSource = read('src/systems/combat/skills.js');
 const skillMechanicsSource = read('src/systems/combat/skillMechanics.js');
+const skillDpsSource = read('src/systems/combat/skillDps.js');
 const normalCombatSource = read('src/systems/combat/normalCombat.js');
 const encounterSource = read('src/systems/combat/encounter.js');
+const monsterSource = read('src/systems/combat/monster.js');
 const taskPageSource = read('src/ui/taskPage.js');
 const cardPageSource = read('src/ui/cardPage.js');
+const equipmentPageSource = read('src/ui/equipmentPage.js');
+const characterPageSource = read('src/ui/characterPage.js');
+const mapPageSource = read('src/ui/mapPage.js');
 const onboardingSource = read('src/systems/onboarding.js');
 const onboardingGuideSource = read('src/ui/onboardingGuide.js');
+const adventurePageSource = read('src/ui/adventurePage.js');
+const dungeonSystemSource = read('src/systems/dungeons.js');
+const dungeonPageSource = read('src/ui/dungeonPage.js');
 
 const classicDataContext = { console };
 createContext(classicDataContext);
 runInContext(tools, classicDataContext, { filename: 'tools.js' });
 assert.doesNotThrow(() => runInContext(data, classicDataContext, { filename: 'data.js' }), 'Classic data script must initialize before game.js loads.');
+assert.match(serverSource, /require\.main\s*===\s*module/, 'Server module must be importable by tests without starting the HTTP listener.');
+assert.match(serverSource, /function\s+normalizeDb\s*\(/, 'Server account database reader must normalize cleared or partial stores.');
+const { normalizeDb } = require(join(root, 'server.js'));
+assert.deepEqual(normalizeDb({}), { users: {}, sessions: {} }, 'Cleared account database must preserve login/register routes.');
+assert.deepEqual(normalizeDb(null), { users: {}, sessions: {} }, 'Missing account database must fall back to empty users and sessions.');
+assert.deepEqual(normalizeDb({ users: { happycon01: { username: 'happycon01' } } }), { users: { happycon01: { username: 'happycon01' } }, sessions: {} }, 'Existing users must survive account database normalization.');
 assert.ok(classicDataContext.v3JobSkills && typeof classicDataContext.v3JobSkills === 'object', 'V4 skill table must initialize from data.js.');
 assert.equal(Object.keys(classicDataContext.v3SkillAwakenings || {}).length, 6, 'Six V4 awakening configurations must remain available.');
 assert.equal(classicDataContext.getV3CombatSkills('runeKnight').length, 9, 'Rune Knight must inherit Swordman and Knight V4 skills.');
@@ -54,6 +90,47 @@ const assassinSkills = classicDataContext.getV3CombatSkills('assassin');
 assert.equal(assassinSkills.find((entry) => entry.name === '毒性扩散').mechanism.poisonStackAdd, 1, 'Poison Spread must add poison stacks.');
 assert.equal(classicDataContext.getV3CombatSkills('priest').find((entry) => entry.name === '信仰守护').mechanism.extra.cleanseDebuff, undefined, 'Faith Guard must not advertise an unimplemented cleanse.');
 assert.equal(classicDataContext.getV3CombatSkills('blacksmith').find((entry) => entry.name === '武器精炼').mechanism.goldCost, undefined, 'Weapon Refinement must not invent an unspecified gold cost.');
+assert.match(data, /\bcircuit\b/, 'V3 skills must define circuit nodes.');
+assert.match(data, /\bgetV3SkillMaxLevel\b/, 'Data must expose V3 skill max level helper.');
+assert.equal(classicDataContext.getV3SkillMaxLevel?.('swordman'), 10, 'First-job V3 skills should cap at Lv.10.');
+assert.equal(classicDataContext.getV3SkillMaxLevel?.('knight'), 20, 'Second-job V3 skills should cap at Lv.20.');
+assert.equal(classicDataContext.getV3SkillMaxLevel?.('runeKnight'), 30, 'Third-job V3 skills should cap at Lv.30.');
+assert.ok(classicDataContext.getV3CombatSkills('swordman').some((entry) => Array.isArray(entry.circuits) && entry.circuits.some((node) => node.level === 10)), 'First-job skills should expose early circuit nodes.');
+assert.ok(classicDataContext.getV3CombatSkills('runeKnight').some((entry) => Array.isArray(entry.circuits) && entry.circuits.some((node) => node.level === 30)), 'Third-job routes should expose final circuit nodes.');
+assert.match(game, /getUnlockedSkillCircuits/, 'game.js must expose unlocked skill circuit helper.');
+assert.doesNotMatch(game, /SKILL_MAX_LEVEL_BY_RANK\s*=\s*\{\s*novice:\s*5,\s*first:\s*5,\s*second:\s*10,\s*third:\s*15\s*\}/, 'Old V3 max level caps should be replaced.');
+assert.match(characterPageSource, /renderSkillCircuitNodes/, 'Character page must render V3 skill circuit nodes.');
+assert.match(characterPageSource, /技能回路/, 'Character page should label circuit nodes in Chinese.');
+assert.match(styles, /\.skill-circuit-node/, 'Styles must include skill circuit node classes.');
+assert.match(skillMechanicsSource, /getUnlockedSkillCircuits/, 'Skill mechanics must read unlocked V3 circuit nodes.');
+assert.match(skillMechanicsSource, /extraHit/, 'Skill mechanics must support extraHit circuit effect.');
+assert.match(skillMechanicsSource, /armorBreak/, 'Skill mechanics must support armorBreak circuit effect.');
+assert.match(skillMechanicsSource, /finalCircuitBoost/, 'Skill mechanics must support final circuit boost.');
+assert.match(skillMechanicsSource, /MIN_ACTIVE_SKILL_COOLDOWN/, 'V3 active skills should have a minimum effective cooldown.');
+assert.match(skillMechanicsSource, /Math\.max\(MIN_ACTIVE_SKILL_COOLDOWN,\s*cd\)/, 'V3 cooldown reductions should be floored after all refunds.');
+assert.match(data, /cooldownPerLevel:\s*0\.97/, 'V3 active cooldown scaling should be slower after balance pass.');
+assert.match(data, /multiplierPerLevel:\s*1\.06/, 'V3 active damage scaling should avoid exponential late-game burst.');
+assert.match(skillMechanicsSource, /MIN_ACTIVE_SKILL_COOLDOWN\s*=\s*3\.6/, 'V3 active skills should have a higher minimum cooldown.');
+assert.ok((classicDataContext.ABYSS_ZODIAC_SET_EFFECTS?.taurus_aldbaran?.abyssGoldPct || 0) <= 0.25, 'Abyss Taurus collection bonus should be toned down.');
+assert.ok((classicDataContext.ABYSS_ZODIAC_SET_EFFECTS?.aries_mu?.abyssDamageBonus || 0) <= 0.05, 'Abyss zodiac combat collection bonuses should stay lightweight.');
+assert.doesNotMatch(game, /\bgetSkillSpecializationOptions\b/, 'Legacy skill specialization option helper should be removed.');
+assert.doesNotMatch(game, /\bselectSkillSpecialization\b/, 'Legacy skill specialization setter should be removed.');
+assert.doesNotMatch(game, /data-skill-spec/, 'Legacy skill specialization buttons should be removed from game.js.');
+assert.doesNotMatch(characterPageSource, /data-skill-spec/, 'Legacy skill specialization buttons should be removed from character page.');
+assert.doesNotMatch(characterPageSource, /renderSkillSpecialization/, 'Character page should render V3 circuits instead of legacy specialization.');
+assert.ok(classicDataContext.HARD_MAP_TIER_SCALE.grass.recommendedPower < classicDataContext.mapLevelRanges.sky.recommendedPower, 'Hard grass must not be harder than normal sky after map difficulty V2.');
+assert.ok(classicDataContext.ABYSS_MAP_TIER_SCALE.grass.recommendedPower < classicDataContext.mapLevelRanges.sky.recommendedPower, 'Abyss grass must not be harder than normal sky after map difficulty V2.');
+assert.ok(classicDataContext.HARD_MAP_TIER_SCALE.grass.recommendedPower >= classicDataContext.mapLevelRanges.sewer.recommendedPower, 'Hard grass should roughly start around the next-map challenge band.');
+assert.ok(classicDataContext.ABYSS_MAP_TIER_SCALE.grass.recommendedPower >= classicDataContext.mapLevelRanges.orc_village.recommendedPower, 'Abyss grass should roughly start around a later normal-map challenge band.');
+assert.equal(classicDataContext.DIFFICULTY_CONFIG.hard.gold, 2.05, 'Hard difficulty gold should support repeat-challenge income.');
+assert.equal(classicDataContext.DIFFICULTY_CONFIG.abyss.gold, 3.25, 'Abyss difficulty gold should support endgame repeat income.');
+assert.equal(classicDataContext.HARD_BASELINE.gold, 165, 'Hard baseline gold should make early hard maps feel rewarding.');
+assert.equal(classicDataContext.ABYSS_BASELINE.gold, 330, 'Abyss baseline gold should make endgame maps feel rewarding.');
+for (const mapId of classicDataContext.mapOrder || []) {
+  const rows = classicDataContext.materialDropTables?.[mapId] || [];
+  assert.ok(rows.some((row) => row.materialId === 'oridecon' && row.dropRate > 0), `${mapId} must drop oridecon for early refine access.`);
+  assert.ok(rows.some((row) => row.materialId === 'elunium' && row.dropRate > 0), `${mapId} must drop elunium for early refine access.`);
+}
 
 const requiredLegacyFunctions = [
   'createDefaultState',
@@ -72,38 +149,359 @@ for (const name of requiredLegacyFunctions) {
 assert.match(main, /window\.RuneFrontierDevBridge\s*=/, 'Developer diagnostics bridge must remain available (now installed via main.js).');
 assert.doesNotMatch(main, /state:\s*window\.state\s*\|\|\s*\{\}/, 'Developer diagnostics must not capture an unrelated window.state snapshot.');
 assert.match(main, /RuneFrontierLegacyDevContext/, 'Developer diagnostics must obtain its live legacy context.');
+assert.match(html, /data-page="dungeons"[^>]*>副本<\/button>/, 'Navigation should include the dungeon page.');
+assert.match(html, /data-view="dungeons"/, 'HTML should include a dedicated dungeon page view.');
+assert.match(html, /id="dungeonPage"/, 'Dungeon page should expose a render target.');
+assert.match(game, /defaultDungeonState/, 'game.js should provide default dungeon state.');
+assert.match(game, /normalizeDungeonState/, 'game.js should normalize dungeon state.');
+assert.match(game, /case "dungeons":/, 'renderActivePage should render the dungeon page.');
+assert.match(main, /installDungeonRuntime/, 'Main should install the dungeon runtime.');
+assert.match(main, /installDungeonRenderRuntime/, 'Main should install the dungeon render runtime.');
+assert.match(dungeonSystemSource, /daily_material/, 'Dungeon definitions should include Daily Material Dungeon.');
+assert.match(dungeonSystemSource, /boss_trial/, 'Dungeon definitions should include Boss Trial.');
+assert.match(dungeonSystemSource, /enterDungeon/, 'Dungeon runtime should expose dungeon entry settlement.');
+assert.match(dungeonPageSource, /renderDungeonPage/, 'Dungeon page renderer should exist.');
+assert.match(styles, /\.dungeon-page/, 'Styles should include dungeon page layout.');
+const dungeonSystem = await importSource(dungeonSystemSource);
+const rolledDungeonState = dungeonSystem.normalizeDungeonState(
+  { date: '2026-05-30', entries: { daily_material: { used: 2, bestClearPower: 5000 } } },
+  '2026-05-31',
+);
+assert.equal(rolledDungeonState.entries.daily_material.used, 0, 'Dungeon daily reset must clear used attempts.');
+assert.equal(rolledDungeonState.entries.daily_material.bestClearPower, 5000, 'Dungeon daily reset must preserve historical best clear power.');
+{
+  const lowPowerState = { dungeons: dungeonSystem.defaultDungeonState() };
+  const lowPowerResult = dungeonSystem.enterDungeon('daily_material', {
+    getState: () => lowPowerState,
+    computeStats: () => ({ power: 1199 }),
+    formatNumber: String,
+    showToast: () => {},
+  });
+  assert.equal(lowPowerResult, false, 'Low power dungeon entry must be rejected.');
+  assert.equal(lowPowerState.dungeons.entries.daily_material.used, 0, 'Rejected dungeon entry must not consume attempts.');
+}
+{
+  const rewardState = { dungeons: dungeonSystem.defaultDungeonState(), gold: 0, materials: {} };
+  const rewardResult = dungeonSystem.enterDungeon('daily_material', {
+    getState: () => rewardState,
+    computeStats: () => ({ power: 1500 }),
+    grantGenericReward: (reward = {}) => {
+      rewardState.gold += reward.gold || 0;
+      Object.entries(reward.materials || {}).forEach(([id, amount]) => {
+        rewardState.materials[id] = (rewardState.materials[id] || 0) + amount;
+      });
+    },
+    addLog: () => {},
+    showToast: () => {},
+    save: () => {},
+    renderAll: () => {},
+  });
+  assert.equal(rewardResult, true, 'Sufficient power dungeon entry must settle successfully.');
+  assert.equal(rewardState.dungeons.entries.daily_material.used, 1, 'Successful dungeon entry must consume one attempt.');
+  assert.equal(rewardState.gold, 5000, 'Successful dungeon entry must grant gold through grantGenericReward.');
+  assert.equal(rewardState.materials.ancientHeroShard, 3, 'Successful dungeon entry must grant material rewards through grantGenericReward.');
+}
+assert.match(game, /getBossCycleGoldBonus/, 'Combat settlement context should provide Boss cycle gold bonuses.');
+assert.match(mapPageSource, /周回挑战/, 'Map difficulty UI should explain hard mode as a repeat challenge.');
+assert.match(mapPageSource, /终局挑战/, 'Map difficulty UI should explain abyss mode as an endgame challenge.');
 assert.match(html, /id="enemyStatusBar"/, 'Adventure battle UI must expose the enemy status strip.');
 assert.match(html, /id="skillCastBanner"/, 'Adventure battle UI must expose a visible skill cast banner.');
 assert.match(html, /class="page-tabs[^"]*ro-main-tabs/, 'main tabs should opt into RO navigation styling');
 assert.match(html, /class="adventure-grid[^"]*ro-adventure-workspace/, 'Adventure workspace class should exist');
 assert.match(html, /class="stage-panel[^"]*ro-surface-card[^"]*ro-stage-card/, 'stage panel should use RO surface styling');
+assert.match(html, /class="ro-battle-frame"[\s\S]*class="panel-heading[^"]*ro-battle-topline/, 'Battle HUD should wrap the stage header in a compact top line.');
+assert.match(html, /class="scene-wrap[^"]*ro-battle-canvas"[\s\S]*id="sceneCanvas"/, 'Battle HUD canvas wrapper should preserve the scene canvas.');
+assert.match(html, /class="combat-layout[^"]*ro-hp-hud-layer"[\s\S]*class="combat-unit-card[^"]*ro-player-hud"[\s\S]*id="playerHpBar"[\s\S]*class="combat-unit-card[^"]*ro-enemy-hud"[\s\S]*id="enemyHpBar"/, 'Battle HUD should expose player and enemy HP as edge HUD cards.');
+assert.match(html, /id="skillBarV3"[^>]*class="[^"]*ro-skill-dock/, 'Battle HUD should turn the skill bar into a dock.');
+assert.match(html, /class="action-row[^"]*ro-battle-action-strip/, 'Battle actions should use the HUD action strip.');
 assert.match(html, /id="bossButton"[^>]*class="[^"]*ro-wood-button/, 'Boss action should use the wooden primary button');
 assert.match(html, /class="summary-panel[^"]*ro-command-sidebar/, 'sidebar should use compact command styling');
 for (const id of [
   "pauseButton", "sceneCanvas", "playerHpBar", "enemyHpBar", "enemyStatusBar",
-  "skillCastBanner", "skillBarV3", "autoBossToggle", "claimButton",
-  "offlineViewButton", "combatSidebar", "questList", "townTips"
+  "skillCastBanner", "skillBarV3", "autoBossToggle", "potionButton", "autoPotionToggle", "claimButton",
+  "offlineViewButton", "combatSidebar", "questList", "partyList"
 ]) {
   assert.match(html, new RegExp(`id="${id}"`), `${id} must remain available to the active runtime`);
 }
 assert.match(game, /bar\.dataset\.skillComposition/, 'The RO skill bar must update existing nodes instead of rebuilding on every fast render.');
 assert.match(game, /renderSkillCastBanner\(\)/, 'Skill casts must update their visible combat banner.');
+assert.match(game, /DAMAGE_FLOAT_BATCH_WINDOW_MS/, 'Combat feedback should batch frequent damage floats.');
+assert.match(game, /SKILL_FEEDBACK_MIN_INTERVAL_MS/, 'Skill cast banners should be throttled.');
+assert.match(game, /HIT_FEEDBACK_MIN_INTERVAL_MS/, 'Hit feedback should be throttled.');
+assert.match(game, /withSuppressedCombatFeedback/, 'Combat catch-up should suppress heavy visual feedback.');
+assert.match(game, /renderDamageNumberNow/, 'Damage number rendering should have a single immediate renderer behind the batcher.');
+assert.match(game, /pendingDamageFloats\.set/, 'Damage float batching should retain pending batches before rendering.');
+assert.match(game, /options\.suffix\s*\|\|\s*""/, 'Combat damage text should append an optional batch suffix.');
+assert.match(game, /const\s+runSimulation\s*=\s*\(\)\s*=>\s*\{[\s\S]*updateCombat\(combatStep\)[\s\S]*withSuppressedCombatFeedback\(runSimulation\)/, 'Combat catch-up should wrap the simulation loop when visual feedback is suppressed.');
+assert.match(skillMechanicsSource, /function\s+applyDamage\s*\([^)]*skillOrName[\s\S]*showDamageNumber\?\.\('monster',\s*damage,\s*'skill',\s*\{\s*skillName\s*\}/, 'Skill damage batching should key damage numbers by the current skill name.');
+assert.doesNotMatch(skillMechanicsSource, /applyDamage\([^,\n]+,\s*state,\s*ctx\)/, 'Skill damage callers should pass skill context into applyDamage.');
+assert.match(skillDpsSource, /SKILL_DPS_WINDOW_MS\s*=\s*30000/, 'Skill DPS tracker should use a 30 second rolling window.');
+assert.match(skillDpsSource, /export function createSkillDpsTracker/, 'Skill DPS tracker should expose a factory for tests and runtime use.');
+assert.match(skillDpsSource, /recordSkillDamage/, 'Skill DPS tracker should expose skill damage recording.');
+assert.match(skillDpsSource, /getSkillDpsRows/, 'Skill DPS tracker should expose sorted DPS rows.');
+assert.match(skillDpsSource, /skillDamage\s*\/\s*30/, 'Skill DPS should use the fixed 30 second display denominator.');
+assert.match(combatIndexSource, /getSkillDpsRows/, 'Combat runtime should expose Skill DPS rows.');
+assert.match(combatIndexSource, /recordSkillDamage/, 'Combat runtime should expose Skill DPS recording.');
+assert.match(skillMechanicsSource, /ctx\.recordSkillDamage\s*\|\|\s*mechContext\.recordSkillDamage/, 'V3 skill DPS recording should fall back to the installed mechanics context when runtime ctx lacks a recorder.');
+assert.match(skillMechanicsSource, /recordSkillDamage\(ctx,\s*skillName,\s*damage\)/, 'V3 skill damage should feed the DPS tracker from applyDamage.');
+assert.match(combatIndexSource, /configureNormalCombatContext\(\{\s*\.\.\.context,\s*recordSkillDamage/s, 'Normal combat context should receive Skill DPS recording.');
+assert.match(combatIndexSource, /configureEncounterContext\(\{\s*\.\.\.context,\s*recordSkillDamage/s, 'Encounter context should receive Skill DPS recording.');
+assert.match(normalCombatSource, /recordSkillDamage\?\.\('溅射转化',\s*convertedSplash\)/, 'Converted splash damage should feed the Skill DPS tracker.');
+assert.match(normalCombatSource, /recordSkillDamage\?\.\('火焰爆发',\s*burstDamage\)/, 'Fire burst damage should feed the Skill DPS tracker.');
+assert.match(normalCombatSource, /recordSkillDamage\?\.\('陨石反击',\s*meteorDamage\)/, 'Meteor counter damage should feed the Skill DPS tracker.');
+assert.match(encounterSource, /recordSkillDamage\?\.\('溅射',\s*totalSplashDamage\)/, 'Encounter splash damage should feed the Skill DPS tracker.');
+assert.match(encounterSource, /recordSkillDamage\?\.\(skillName,\s*totalSplashDamage\)/, 'V3 skill splash damage should feed the Skill DPS tracker.');
+assert.match(game, /RuneFrontierCombatRuntime\?\.recordSkillDamage\?\.\(name,\s*damage\)/, 'Legacy skill casts should feed the DPS tracker.');
+{
+  const skillDpsModule = await importSource(skillDpsSource);
+  let skillClock = 100000;
+  const tracker = skillDpsModule.createSkillDpsTracker({ now: () => skillClock, windowMs: 30000 });
+  tracker.recordSkillDamage('Stone', 300);
+  tracker.recordSkillDamage('Fire', 900);
+  tracker.recordSkillDamage('Stone', 300);
+  const rows = tracker.getSkillDpsRows(5);
+  assert.deepEqual(rows.map((row) => row.name), ['Fire', 'Stone'], 'Skill DPS rows should sort by recent damage total.');
+  assert.equal(rows[0].dps, 30, 'Skill DPS should divide total damage by 30 seconds.');
+  assert.equal(rows[1].share, 0.4, 'Skill DPS share should use total recent skill damage.');
+  skillClock += 31000;
+  assert.deepEqual(tracker.getSkillDpsRows(5), [], 'Skill DPS rows should expire events outside the rolling window.');
+}
+{
+  const skillFeedbackSource = game.match(/function\s+showSkillCastFeedback\s*\([^)]*\)\s*\{[\s\S]*?\n\}/)?.[0] || '';
+  assert.ok(
+    skillFeedbackSource.indexOf('if (combatFeedbackSuppressed()) return;') >= 0 &&
+      skillFeedbackSource.indexOf('if (combatFeedbackSuppressed()) return;') < skillFeedbackSource.indexOf('recentCombatSkillCast ='),
+    'Suppressed skill cast feedback must return before updating the visible cast banner state.',
+  );
+}
 assert.match(styles, /\.skill-bar-icon\.cooldown\.casting/, 'Casting feedback must remain visible when a skill immediately enters cooldown.');
 assert.match(styles, /\.scene-wrap\.skill-cast-active::after/, 'Skill casts must create a visible battle-scene impact pulse.');
+assert.match(game, /function\s+spawnCombatSparks\s*\(/, 'Combat impacts should spawn lightweight pixel spark accents.');
+assert.match(game, /spawnCombatSparks\(wrap,\s*target,\s*type,\s*tone\)/, 'Slash and critical impacts should trigger pixel sparks through the shared combat impact hook.');
+assert.match(game, /const\s+COMBAT_VFX_ASSET_TYPES\s*=/, 'Combat impact routing should choose generated VFX asset types explicitly.');
+assert.match(game, /const\s+COMBAT_VFX_TONE_ASSET_TYPES\s*=/, 'Skill impact routing should choose generated VFX assets by combat tone.');
+assert.match(game, /const\s+COMBAT_STATUS_VFX_ASSET_TYPES\s*=/, 'Enemy status residues should choose generated VFX assets explicitly.');
+assert.match(game, /const\s+COMBAT_REWARD_VFX_ASSET_TYPES\s*=/, 'Death and reward feedback should choose generated VFX assets explicitly.');
+assert.match(game, /const\s+COMBAT_PLAYER_FEEDBACK_VFX_ASSET_TYPES\s*=/, 'Player-side combat feedback should choose generated VFX assets explicitly.');
+assert.match(game, /const\s+COMBAT_ENEMY_ACTION_VFX_ASSET_TYPES\s*=/, 'Enemy attack and Boss warning feedback should choose generated VFX assets explicitly.');
+assert.match(game, /ro-vfx\s+ro-vfx-\$\{vfxType\}/, 'Combat impacts should render generated VFX sprites instead of CSS-only shapes.');
+assert.match(game, /type\s*===\s*"skill"\s*\?\s*\(COMBAT_VFX_TONE_ASSET_TYPES\[tone\]/, 'Skill impacts should prefer tone-specific generated assets.');
+assert.match(game, /function\s+renderEnemyStatusVfx\s*\(/, 'Enemy status chips should have a matching battle-scene residue layer.');
+assert.match(game, /renderEnemyStatusVfx\(statuses\)/, 'Enemy status bar rendering should keep the battle-scene residue layer in sync.');
+assert.match(game, /function\s+spawnCombatRewardVfx\s*\(/, 'Death and loot events should spawn generated reward VFX.');
+assert.match(game, /spawnCombatRewardVfx\(wrap,\s*state\.enemyBoss\s*\?\s*"boss-death"\s*:\s*"death"/, 'Monster death should use generated death or boss-death VFX.');
+assert.match(game, /spawnCombatRewardVfx\(wrap,\s*"loot"/, 'High-value loot banners should add generated loot VFX.');
+assert.match(game, /function\s+spawnPlayerFeedbackVfx\s*\(/, 'Player heal, block, dodge, and hurt events should spawn generated player-side VFX.');
+assert.match(game, /spawnPlayerFeedbackVfx\(wrap,\s*target,\s*type\)/, 'Damage-number routing should attach player-side VFX to existing combat feedback events.');
+assert.match(game, /const\s+baseLeft\s*=\s*21/, 'Player feedback VFX should be anchored over the player character instead of beside the HUD.');
+assert.match(game, /const\s+baseTop\s*=\s*66/, 'Player feedback VFX should appear on the player character body.');
+assert.match(game, /function\s+spawnEnemyActionVfx\s*\(/, 'Enemy attacks should have generated warning and impact VFX.');
+assert.match(game, /function\s+showEnemyAttackWarning\s*\(/, 'Enemy attack windups should expose a scene warning hook.');
+assert.match(game, /function\s+showEnemyAttackImpact\s*\(/, 'Enemy attack hits should expose a scene impact hook.');
+assert.match(game, /const\s+layerClass\s*=\s*type\s*===\s*"boss-cast"\s*\?\s*"enemy-action-behind"\s*:\s*"enemy-action-front"/, 'Boss charge windups should opt into a behind-monster visual layer while normal enemy warnings stay in front.');
+assert.match(game, /showEnemyAttackWarning,\s*\n\s*showEnemyAttackImpact,/, 'Combat runtime context should receive enemy warning and impact hooks.');
+assert.match(styles, /\.ro-vfx\s*\{[\s\S]*background-repeat:\s*no-repeat/, 'Generated combat VFX should share a sprite display primitive.');
+assert.match(styles, /\.ro-vfx-slash\s*\{[\s\S]*assets\/ui\/fx\/hit-slash\.png/, 'Slash hits should use the generated slash asset.');
+assert.match(styles, /\.ro-vfx-crit\s*\{[\s\S]*assets\/ui\/fx\/hit-crit\.png/, 'Critical hits should use the generated crit burst asset.');
+assert.match(styles, /\.ro-vfx-spark\s*\{[\s\S]*assets\/ui\/fx\/hit-spark\.png/, 'Small impacts should use the generated spark asset.');
+assert.match(styles, /\.ro-vfx-skill\s*\{[\s\S]*assets\/ui\/fx\/hit-skill\.png/, 'Skill hits should use the generated skill arc asset.');
+for (const tone of ['fire', 'ice', 'shadow', 'holy', 'storm', 'support']) {
+  assert.match(styles, new RegExp(`\\.ro-vfx-${tone}\\s*\\{[\\s\\S]*assets\\/ui\\/fx\\/skill-${tone}\\.png`), `${tone} skills should use a generated element VFX asset.`);
+}
+for (const status of ['burn', 'freeze', 'poison', 'snare', 'mark', 'break', 'wound']) {
+  assert.match(styles, new RegExp(`\\.ro-status-vfx-${status}\\s*\\{[\\s\\S]*assets\\/ui\\/fx\\/status-${status}\\.png`), `${status} enemy statuses should use a generated residue VFX asset.`);
+}
+for (const reward of ['death', 'boss-death', 'loot', 'gold']) {
+  assert.match(styles, new RegExp(`\\.ro-reward-vfx-${reward}\\s*\\{[\\s\\S]*assets\\/ui\\/fx\\/reward-${reward}\\.png`), `${reward} reward feedback should use a generated VFX asset.`);
+}
+for (const playerFeedback of ['heal', 'shield', 'dodge', 'hurt']) {
+  assert.match(styles, new RegExp(`\\.ro-player-vfx-${playerFeedback}\\s*\\{[\\s\\S]*assets\\/ui\\/fx\\/player-${playerFeedback}\\.png`), `${playerFeedback} player feedback should use a generated VFX asset.`);
+}
+assert.match(styles, /\.ro-player-vfx\s*\{[\s\S]*--player-vfx-hold-opacity:\s*0\.5/, 'Player feedback VFX should render as semi-transparent overlays on the player.');
+assert.match(styles, /@keyframes\s+roPlayerFeedbackPop\s*\{[\s\S]*24%\s*\{[\s\S]*opacity:\s*0\.52[\s\S]*74%\s*\{[\s\S]*opacity:\s*0\.42/, 'Player hurt feedback should stay semi-transparent over the character.');
+assert.match(styles, /@keyframes\s+roPlayerHeal\s*\{[\s\S]*26%\s*\{[\s\S]*opacity:\s*0\.52[\s\S]*76%\s*\{[\s\S]*opacity:\s*0\.4/, 'Player heal feedback should stay semi-transparent over the character.');
+assert.match(styles, /@keyframes\s+roPlayerShield\s*\{[\s\S]*22%\s*\{[\s\S]*opacity:\s*0\.54[\s\S]*64%\s*\{[\s\S]*opacity:\s*0\.44/, 'Player shield feedback should stay semi-transparent over the character.');
+assert.match(styles, /@keyframes\s+roPlayerDodge\s*\{[\s\S]*24%\s*\{[\s\S]*opacity:\s*0\.5/, 'Player dodge feedback should stay semi-transparent over the character.');
+for (const enemyAction of ['enemy-warning', 'boss-cast', 'boss-impact', 'danger-mark']) {
+  assert.match(styles, new RegExp(`\\.ro-enemy-action-vfx-${enemyAction}\\s*\\{[\\s\\S]*assets\\/ui\\/fx\\/${enemyAction}\\.png`), `${enemyAction} enemy action feedback should use a generated VFX asset.`);
+}
+assert.match(styles, /\.ro-enemy-action-vfx-enemy-warning\s*\{[\s\S]*z-index:\s*9/, 'Normal monster attack warnings should sit in front of the monster-side action layer.');
+assert.match(styles, /\.ro-enemy-action-vfx-boss-cast\s*\{[\s\S]*z-index:\s*4/, 'Boss charge windups should sit on a lower behind-monster visual layer.');
+assert.match(styles, /@keyframes\s+roBossCast\s*\{[\s\S]*22%\s*\{[\s\S]*opacity:\s*0\.58[\s\S]*68%\s*\{[\s\S]*opacity:\s*0\.44/, 'Boss charge windups should stay translucent so the monster remains readable.');
+assert.match(html, /id="enemyStatusVfxLayer"[\s\S]*class="enemy-status-vfx-layer"/, 'Battle canvas should expose a dedicated enemy status VFX layer without changing combat ids.');
+assert.match(styles, /\.ro-vfx-spark\s*\{[\s\S]*width:\s*64px[\s\S]*height:\s*64px/, 'Generated spark VFX should stay compact enough to avoid covering the hero.');
+assert.match(styles, /\.combat-impact-player-hit\.ro-vfx-spark\s*\{[\s\S]*width:\s*74px[\s\S]*height:\s*74px/, 'Player-hit generated spark should be smaller than the first preview implementation.');
+assert.match(styles, /@media\s*\(max-width:\s*640px\)[\s\S]*\.combat-impact-player-hit\.ro-vfx-spark\s*\{[\s\S]*width:\s*60px[\s\S]*height:\s*60px/, 'Mobile player-hit generated spark should be compact on 390px screens.');
+for (const bossAction of ['boss-cast', 'boss-impact', 'danger-mark']) {
+  assert.match(styles, new RegExp(`url\\("/assets/ui/fx/${bossAction}\\.png"\\)`), `${bossAction} should use an absolute asset URL to avoid short-path 404s.`);
+}
+assert.match(html, /styles\.css\?v=20260531-adventure-dps-dungeon-v2/, 'Adventure DPS and dungeon CSS must use a fresh cache-busting version.');
+assert.match(html, /game\.js\?v=20260531-adventure-dps-dungeon-v2/, 'Adventure DPS and dungeon classic runtime must use a fresh cache-busting version.');
+assert.match(game, /function\s+releaseFocusBeforeHiding\s*\(/, 'Modal close flow should release focus before hiding the active modal.');
+assert.match(game, /setModalVisibility\(els\.offlineRewardModal,\s*visible\)/, 'Offline reward modal should use the shared focus-safe visibility helper.');
+assert.match(game, /setModalVisibility\(els\.refineResultModal,\s*visible\)/, 'Refine result modal should use the shared focus-safe visibility helper.');
+assert.match(html, /id="offlineRewardModal"[^>]*inert/, 'Offline reward modal should start inert while hidden.');
+assert.match(html, /id="refineResultModal"[^>]*inert/, 'Refine result modal should start inert while hidden.');
+assert.match(main, /getMvpInscriptionView:\s*window\.getMvpInscriptionView/, 'Character page runtime must receive the live MVP inscription view helper.');
+assert.match(main, /canGainMvpInscriptionOnCurrentMap:\s*window\.canGainMvpInscriptionOnCurrentMap/, 'Character page runtime must receive the live MVP inscription map eligibility helper.');
+assert.match(html, /src="\.\/src\/main\.js\?v=20260531-adventure-dps-dungeon-v2"/, 'Adventure DPS and dungeon runtime must use a fresh module cache-busting version.');
+assert.doesNotMatch(game, /renderItemName\(item,\s*`Lv\.\$\{item\.level\}/, 'Equipment list and equipped slot names should not expose internal item level.');
+assert.doesNotMatch(game, /等级：\$\{item\.level \|\| 1\}/, 'Equipment detail tooltips should not label internal item level as player-facing level.');
+assert.match(game, /来源强度：\$\{item\.dropLevel \|\| item\.level \|\| 1\}/, 'Equipment detail tooltips should preserve internal strength as source strength.');
+assert.match(game, /成长：\$\{progressionTags\}/, 'Equipment detail tooltips should expose progression tags.');
+assert.match(game, /\|\|\s*"旧世过渡"/, 'Equipment detail tooltips should fall back to old-world wording when progression tags are absent.');
+assert.doesNotMatch(offlineLootSource, /等级\s*\$\{fmtn\(item\?\.level,\s*ctx\)\}/, 'Offline equipment loot should not expose internal item level.');
+for (const file of [
+  'assets/ui/fx/hit-slash.png',
+  'assets/ui/fx/hit-crit.png',
+  'assets/ui/fx/hit-spark.png',
+  'assets/ui/fx/hit-skill.png',
+  'assets/ui/fx/skill-fire.png',
+  'assets/ui/fx/skill-ice.png',
+  'assets/ui/fx/skill-shadow.png',
+  'assets/ui/fx/skill-holy.png',
+  'assets/ui/fx/skill-storm.png',
+  'assets/ui/fx/skill-support.png',
+  'assets/ui/fx/status-burn.png',
+  'assets/ui/fx/status-freeze.png',
+  'assets/ui/fx/status-poison.png',
+  'assets/ui/fx/status-snare.png',
+  'assets/ui/fx/status-mark.png',
+  'assets/ui/fx/status-break.png',
+  'assets/ui/fx/status-wound.png',
+  'assets/ui/fx/reward-death.png',
+  'assets/ui/fx/reward-boss-death.png',
+  'assets/ui/fx/reward-loot.png',
+  'assets/ui/fx/reward-gold.png',
+  'assets/ui/fx/player-heal.png',
+  'assets/ui/fx/player-shield.png',
+  'assets/ui/fx/player-dodge.png',
+  'assets/ui/fx/player-hurt.png',
+  'assets/ui/fx/enemy-warning.png',
+  'assets/ui/fx/boss-cast.png',
+  'assets/ui/fx/boss-impact.png',
+  'assets/ui/fx/danger-mark.png',
+]) {
+  const png = readPngInfo(file);
+  assert.equal(png.colorType, 6, `${file} must be RGBA so the generated effect has transparency.`);
+  assert.ok(png.width >= 48 && png.height >= 48, `${file} must remain readable at battle scale.`);
+  assert.ok(png.size > 1024, `${file} must contain real generated effect data.`);
+}
+assert.ok(existsSync(join(root, 'assets/ui/fx/manifest.json')), 'Generated VFX assets must have a manifest documenting source style and future element prompts.');
+const battleVfxManifest = JSON.parse(read('assets/ui/fx/manifest.json'));
+assert.equal(battleVfxManifest.style, 'ro-pixel-generated-vfx', 'Combat VFX manifest should lock the RO pixel generated style.');
+assert.equal(battleVfxManifest.rules.generatedOnly, true, 'Combat VFX manifest should require generated assets for image-based effects.');
+assert.equal(battleVfxManifest.rules.noGifSpriteSheets, true, 'Persistent animated battle auras should use PNG/WebP sprite sheets instead of GIF.');
+for (const file of ['hit-slash.png', 'hit-crit.png', 'hit-spark.png', 'hit-skill.png', 'skill-fire.png', 'skill-ice.png', 'skill-shadow.png', 'skill-holy.png', 'skill-storm.png', 'skill-support.png', 'status-burn.png', 'status-freeze.png', 'status-poison.png', 'status-snare.png', 'status-mark.png', 'status-break.png', 'status-wound.png', 'reward-death.png', 'reward-boss-death.png', 'reward-loot.png', 'reward-gold.png', 'player-heal.png', 'player-shield.png', 'player-dodge.png', 'player-hurt.png', 'enemy-warning.png', 'boss-cast.png', 'boss-impact.png', 'danger-mark.png']) {
+  assert.ok(battleVfxManifest.assets.some((asset) => asset.path === `assets/ui/fx/${file}` && asset.generated === true), `${file} must be tracked as a generated VFX asset.`);
+}
+const mvpAuraStageAssets = [
+  ['kingPoring', 'mvp-aura-king-poring.png'],
+  ['goldenThiefBug', 'mvp-aura-golden-thief-bug.png'],
+  ['moonlightFlower', 'mvp-aura-moonlight-flower.png'],
+  ['drake', 'mvp-aura-drake.png'],
+  ['phreeoni', 'mvp-aura-phreeoni.png'],
+  ['orcHero', 'mvp-aura-orc-hero.png'],
+  ['turtleGeneral', 'mvp-aura-turtle-general.png'],
+  ['doppelganger', 'mvp-aura-doppelganger.png'],
+  ['darkLord', 'mvp-aura-dark-lord.png'],
+  ['baphomet', 'mvp-aura-baphomet.png'],
+];
+const mvpAuraAssets = [
+  'assets/ui/fx/mvp-aura-early.png',
+  'assets/ui/fx/mvp-aura-advanced.png',
+  ...mvpAuraStageAssets.map(([, file]) => `assets/ui/fx/${file}`),
+];
+for (const file of mvpAuraAssets) {
+  const png = readPngInfo(file);
+  assert.equal(png.colorType, 6, `${file} must be an RGBA sprite sheet with true transparency.`);
+  assert.equal(png.width, 1024, `${file} should contain four 256px aura frames per row.`);
+  assert.equal(png.height, 1024, `${file} should contain four 256px aura frames per column.`);
+  assert.ok(png.size > 8192, `${file} must contain real generated aura frame data.`);
+  assert.ok(battleVfxManifest.assets.some((asset) => asset.path === file && asset.generated === true && asset.spriteSheet === true), `${file} must be tracked as a generated sprite sheet asset.`);
+}
+assert.match(game, /const\s+MVP_INSCRIPTION_AURA_FRAME_COUNT\s*=\s*16/, 'MVP inscription aura playback should use a fixed 16-frame sprite sheet.');
+assert.match(game, /const\s+MVP_INSCRIPTION_AURA_SPRITE_SHEETS\s*=\s*Object\.freeze\(/, 'MVP inscription aura stages should map to generated sprite sheet assets.');
+assert.match(game, /mvp-aura-early\.png/, 'MVP inscription aura playback should retain a generated fallback aura sprite sheet.');
+assert.ok(battleVfxManifest.assets.some((asset) => asset.path === 'assets/ui/fx/mvp-aura-advanced.png' && asset.generated === true && asset.spriteSheet === true), 'Advanced MVP inscription fallback aura should remain documented as a generated sprite sheet.');
+for (const [stageId, file] of mvpAuraStageAssets) {
+  assert.match(game, new RegExp(`${stageId}:\\s*"assets/ui/fx/${file}"`), `${stageId} should use its own dedicated MVP inscription aura sprite sheet.`);
+  assert.ok(battleVfxManifest.plannedElements.some((entry) => entry.tone === file.replace(/\.png$/, '') && entry.promptBasis), `${file} should document the generated visual direction.`);
+}
+assert.match(game, /MVP_INSCRIPTION_AURA_ADVANCED_STAGE_IDS/, 'High MVP inscription stages should have an explicit advanced draw profile instead of relying on shared asset equality.');
+assert.match(game, /function\s+getMvpInscriptionAuraSprite\s*\(/, 'MVP inscription aura rendering should load the generated sprite sheet through a cache.');
+assert.match(game, /function\s+drawMvpInscriptionAura\s*\(/, 'MVP inscription aura rendering should have a dedicated canvas draw helper.');
+assert.match(game, /const\s+width\s*=\s*isAdvanced\s*\?\s*286\s*:\s*248/, 'MVP inscription aura should draw large enough to remain visible above the battle HUD.');
+assert.match(game, /const\s+height\s*=\s*isAdvanced\s*\?\s*178\s*:\s*154/, 'MVP inscription aura should keep the generated ellipse readable at battle scale.');
+assert.match(game, /getMvpInscriptionView\(\)\?\.stage\?\.id/, 'MVP inscription aura should follow the current breakthrough stage.');
+assert.match(game, /drawMvpInscriptionAura\(ctx,\s*heroX,\s*heroY,\s*time\)[\s\S]*drawHero\(ctx,\s*heroX,\s*heroY/, 'The MVP inscription aura must be drawn below the hero before the hero sprite.');
+assert.doesNotMatch(game, /mvp-aura-[a-z-]+\.gif/i, 'MVP inscription aura playback must not depend on GIF assets.');
+for (const tone of ['physical', 'fire', 'ice', 'shadow', 'holy', 'storm', 'support', 'burn', 'freeze', 'poison', 'snare', 'mark', 'break', 'wound', 'death', 'boss-death', 'loot', 'gold', 'player-heal', 'player-shield', 'player-dodge', 'player-hurt', 'enemy-warning', 'boss-cast', 'boss-impact', 'danger-mark']) {
+  assert.ok(battleVfxManifest.plannedElements.some((entry) => entry.tone === tone && entry.promptBasis), `${tone} VFX should have a planned generated prompt basis.`);
+}
+assert.doesNotMatch(styles, /\.combat-impact-strike\s*\{[\s\S]*border-top:/, 'Slash hits should not fall back to the hard-edged CSS border line.');
+assert.doesNotMatch(styles, /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?\.combat-impact,[\s\S]*?\.combat-spark,[\s\S]*?\.damage-float\.damage-number\s*\{[\s\S]*?animation-duration:\s*1ms\s*!important;[\s\S]*?\}/, 'Reduced-motion combat feedback must not collapse to an invisible final frame.');
+assert.match(styles, /@keyframes\s+roReducedDamageFloat\s*\{/, 'Reduced-motion damage numbers should use a readable static keyframe.');
+assert.match(styles, /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?\.ro-vfx\s*\{[\s\S]*?animation:\s*roVfxReducedHold\s+880ms/, 'Reduced-motion generated VFX should hold a static visible sprite until the runtime removes it.');
+assert.match(styles, /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?\.damage-float\.damage-number\s*\{[\s\S]*?animation:\s*roReducedDamageFloat\s+920ms/, 'Reduced-motion damage numbers should remain readable until the runtime removes them.');
 assert.match(styles, /--ro-parchment:/, 'RO parchment token should exist');
 assert.match(styles, /--ro-wood-top:/, 'RO wood button token should exist');
+assert.match(styles, /--ro-vnext-paper:/, 'RO vNext paper token should exist');
+assert.match(styles, /--ro-vnext-hp:/, 'RO vNext HP token should exist');
 assert.match(styles, /\.ro-surface-card\s*\{/, 'RO surface card primitive should exist');
 assert.match(styles, /\.ro-wood-button\s*\{/, 'RO wood action button primitive should exist');
 assert.match(styles, /\.ro-light-control\s*\{/, 'RO light control primitive should exist');
+assert.match(html, /class="topbar[^"]*ro-game-hud/, 'Topbar should opt into the compact RO game HUD.');
+assert.match(html, /class="resource-strip[^"]*ro-resource-hud/, 'Resource strip should opt into the compact RO resource HUD.');
+assert.match(html, /class="ro-play-layout"/, 'Main play layout should wrap navigation and pages for the desktop side rail.');
+assert.match(html, /class="page-tabs[^"]*ro-main-tabs[^"]*ro-side-nav/, 'Main navigation should opt into the RO side navigation shell.');
+assert.match(html, /class="ro-desktop-nav"[\s\S]*data-page="adventure"[\s\S]*data-page="news"/, 'Desktop side navigation should expose all pages.');
+assert.match(html, /class="ro-mobile-bottom-bar"[\s\S]*data-page="adventure"[\s\S]*data-page="heroes"[\s\S]*data-page="equipment"[\s\S]*data-page="smithy"[\s\S]*data-page="tasks"/, 'Mobile bottom navigation should expose the common pages.');
+assert.match(html, /class="ro-mobile-more-panel"[\s\S]*<summary[^>]*>更多[\s\S]*data-page="town"[\s\S]*data-page="maps"[\s\S]*data-page="news"/, 'Mobile more menu should expose the extended pages.');
+assert.match(html, /class="action-row[^"]*ro-combat-actions/, 'Adventure action row should opt into the compact combat action layout.');
+assert.match(styles, /\.ro-resource-hud\s*>\s*div/, 'RO resource HUD should style resource chips directly.');
+assert.match(styles, /\.ro-play-layout\s*\{/, 'RO play layout styling should exist.');
+assert.match(styles, /\.ro-side-nav\s*\{/, 'RO side navigation styling should exist.');
+assert.match(styles, /\.ro-desktop-nav\s*\{/, 'RO desktop navigation styling should exist.');
+assert.match(styles, /\.ro-mobile-bottom-bar\s*\{/, 'RO mobile bottom navigation styling should exist.');
+assert.match(styles, /\.ro-mobile-more-grid\s*\{/, 'RO mobile more menu grid styling should exist.');
+assert.match(styles, /@media\s*\(max-width:\s*640px\)[\s\S]*\.ro-resource-hud/, 'phone RO resource HUD should be explicitly adjusted.');
+assert.match(equipmentStyles, /var\(--ro-vnext-paper\)/, 'Equipment override should use the shared RO vNext paper token.');
+assert.match(equipmentStyles, /var\(--ro-vnext-line\)/, 'Equipment override should use the shared RO vNext line token.');
 assert.match(styles, /\.ro-main-tabs\s*\{/, 'RO main tab styling should exist');
 assert.match(styles, /\.ro-adventure-workspace\s*\{/, 'RO Adventure workspace layout should exist');
 assert.match(styles, /\.ro-stage-card\s*\{/, 'RO stage card styling should exist');
+assert.match(styles, /\.ro-battle-frame\s*\{/, 'RO battle frame styling should exist');
+assert.match(styles, /\.ro-hp-hud-layer\s*\{/, 'RO HP HUD layer styling should exist');
+assert.match(styles, /\.ro-skill-dock\s*\{/, 'RO skill dock styling should exist');
+assert.match(styles, /\.ro-battle-action-strip\s*\{/, 'RO battle action strip styling should exist');
 assert.match(styles, /\.ro-command-sidebar\s*\{/, 'RO sidebar styling should exist');
 assert.match(styles, /\.ro-boss-action\s*\{/, 'Boss action hierarchy should exist');
+assert.match(characterPageSource, /class="hero-card[^"]*ro-character-workbench/, 'Character page should render the hero card as an RO workbench.');
+assert.match(characterPageSource, /ro-character-identity[\s\S]*ro-character-growth[\s\S]*ro-character-stats-panel[\s\S]*ro-character-skill-board[\s\S]*ro-character-detail-drawer/, 'Character workbench should expose identity, growth, stats, skills, and details zones.');
+for (const attr of [
+  'data-upgrade="base"',
+  'data-batch-upgrade="base"',
+  'data-rebirth',
+  'data-rebirth-mode',
+  'data-rename-hero',
+  'data-skill-upgrade',
+  'data-stat-panel-toggle',
+]) {
+  assert.match(characterPageSource, new RegExp(attr), `Character workbench must preserve ${attr}.`);
+}
+assert.match(styles, /\.ro-character-workbench\s*\{/, 'Character workbench styling should exist.');
+assert.match(styles, /\.ro-character-identity\s*\{/, 'Character identity styling should exist.');
+assert.match(styles, /\.ro-character-growth\s*\{/, 'Character growth panel styling should exist.');
+assert.match(styles, /\.ro-character-stats-panel\s*\{/, 'Character stats panel styling should exist.');
+assert.match(styles, /\.ro-character-skill-board\s*\{/, 'Character skill board styling should exist.');
+assert.match(styles, /\.ro-character-detail-drawer\s*\{/, 'Character detail drawer styling should exist.');
+assert.match(styles, /@media\s*\(max-width:\s*820px\)[\s\S]*\.ro-character-workbench/, 'Character workbench should have tablet/mobile layout rules.');
+assert.match(styles, /@media\s*\(max-width:\s*640px\)[\s\S]*\.ro-character-skill-board/, 'Character skill board should have phone-safe layout rules.');
 assert.match(
   styles,
-  /@media\s*\(max-width:\s*820px\)[\s\S]*\.ro-main-tabs/,
-  'mobile RO tabs should be adjusted under the existing small-screen breakpoint'
+  /@media\s*\(max-width:\s*820px\)[\s\S]*\.ro-mobile-nav/,
+  'mobile RO navigation should switch to the bottom menu under the existing small-screen breakpoint'
 );
 assert.match(
   styles,
@@ -114,6 +512,11 @@ assert.match(
   styles,
   /@media\s*\(max-width:\s*820px\)[\s\S]*\.ro-boss-action/,
   'mobile Boss action should fit the control row'
+);
+assert.match(
+  styles,
+  /@media\s*\(max-width:\s*640px\)[\s\S]*\.ro-hp-hud-layer/,
+  'phone battle HUD should stack HP under the canvas instead of overlaying it'
 );
 assert.match(encounterSource, /resetEnemySkillStatuses\(state,\s*'spawn'\)/, 'Fresh encounters must clear target-bound skill statuses.');
 assert.match(encounterSource, /resetEnemySkillStatuses\(state,\s*'target-change'\)/, 'Encounter member changes must clear target-bound skill statuses.');
@@ -142,24 +545,61 @@ assert.match(main, /installOnboardingRuntime\(\)/, 'Onboarding runtime must be i
 assert.match(game, /onboarding:\s*defaultOnboardingState\(\)/, 'Default state must include onboarding.');
 assert.match(game, /onboarding:\s*normalizeOnboarding\(saved\.onboarding\s*\|\|\s*base\.onboarding\)/, 'Saved state merge must normalize onboarding.');
 assert.match(game, /state\.onboarding\s*=\s*normalizeOnboarding\(state\.onboarding\)/, 'Sanitize pass must keep onboarding normalized.');
+assert.match(game, /const EQUIPMENT_STAT_VERSION\s*=\s*2/, 'Equipment V2 must define a stat-version gate.');
+assert.match(game, /equipmentStatVersion:\s*EQUIPMENT_STAT_VERSION/, 'Default state must mark fresh saves as Equipment V2.');
+assert.match(game, /equipmentLineMastery:\s*\{\}/, 'Default state must initialize equipment line mastery.');
+assert.match(game, /equipmentLineMastery:\s*window\.RuneFrontierEquipmentRuntime\?\.normalizeLineMasteryState\?\.\(saved\.equipmentLineMastery\)/, 'Saved state merge must normalize equipment line mastery.');
+assert.doesNotMatch(game, /EQUIPMENT_V2_REFORGE_TICKET_ID|equipmentReforgeTicket/, 'Equipment reforge tickets should be removed with the reforge feature.');
+assert.doesNotMatch(game, /antiCrit:\s*"抗暴"/, 'Equipment V2 UI labels must not expose antiCrit.');
+assert.doesNotMatch(game, /data-reforge-v2-item|function\s+reforgeEquipmentV2|reforgeEquipmentV2\(/, 'Equipment page must not expose direct reforge actions.');
+assert.match(game, /blockRate:\s*\{\s*label:\s*"格挡"/, 'Equipment V2 random affixes must include real blockRate.');
+assert.doesNotMatch(game, /percent:\s*\[[^\]]*"powerPct"/s, 'Equipment V2 random pools must not roll powerPct as a separate equipment stat.');
+assert.doesNotMatch(game, /percent:\s*\[[^\]]*"patrolEfficiency"/s, 'Equipment V2 random pools must not roll patrolEfficiency as a separate equipment stat.');
 assert.match(onboardingGuideSource, /renderOnboardingTaskSection/, 'Onboarding UI must expose a task-page section renderer.');
 assert.match(main, /installOnboardingGuideRuntime\(onboardingGuideContext\)/, 'Onboarding guide render runtime must be installed before startup.');
+assert.match(main, /installAdventureRenderRuntime/, 'Main module should install the adventure render runtime.');
+assert.match(main, /installAdventureRenderRuntime\(\{[\s\S]*currentJob:\s*window\.currentJob/, 'Adventure render runtime should receive the current job resolver.');
+assert.match(adventurePageSource, /renderSkillDpsPanel/, 'Adventure page should render a Skill DPS panel.');
+assert.match(adventurePageSource, /getSkillDpsRows\?\.\(5\)/, 'Adventure Skill DPS panel should request the top five skills.');
+assert.match(adventurePageSource, /data-page="dungeons"/, 'Adventure sidebar should expose a dungeon page entry.');
+assert.match(adventurePageSource, /data-adventure-page="dungeons"/, 'Adventure dungeon entry should use a scoped page navigation marker.');
+assert.match(adventurePageSource, /currentJob\?\.\(\)\s*\|\|\s*\{\}/, 'Adventure party panel should resolve the current job before rendering job text.');
+assert.match(adventurePageSource, /jobSummary\?\.\(job\)/, 'Adventure party panel should pass the current job into jobSummary.');
+assert.match(adventurePageSource, /BASE\s+\$\{state\.hero\.baseLevel\}[\s\S]*JOB\s+\$\{state\.hero\.jobLevel\}[\s\S]*fmtn\(stats\.dps\)/, 'Adventure party panel should retain BASE/JOB/output summary.');
+assert.match(game, /button\[data-adventure-page\]/, 'Adventure delegated page navigation should be scoped to adventure page buttons.');
+assert.match(game, /button\.dataset\.adventurePage/, 'Adventure delegated page navigation should read the scoped page target.');
+assert.doesNotMatch(game, /<span class="quest-name">当前首领<\/span>/, 'Classic fallback current target should no longer show the current boss row.');
+assert.match(game, /renderFallbackSkillDpsPanel/, 'Classic fallback party panel should include Skill DPS display.');
+assert.match(game, /renderFallbackDungeonEntryPanel/, 'Classic fallback party panel should include the dungeon entry.');
+assert.match(styles, /\.skill-dps-panel/, 'Styles should include the Skill DPS panel.');
+assert.match(styles, /\.dungeon-entry-panel/, 'Styles should include the adventure dungeon entry panel.');
+assert.match(styles, /\.skill-dps-row\s*>\s*div\s*\{[\s\S]*min-width:\s*0/, 'Skill DPS row text column should be allowed to shrink.');
 assert.match(taskPageSource, /renderOnboardingTaskSection/, 'Task page must render the beginner goal section.');
 assert.match(onboardingGuideSource, /renderQuestList/, 'Onboarding UI must own the adventure current-goal renderer.');
+assert.doesNotMatch(onboardingGuideSource, /<span class="quest-name">当前首领<\/span>/, 'Adventure current target should no longer show the current boss row.');
+assert.match(onboardingGuideSource, /<span class="quest-name">首领进度<\/span>/, 'Adventure current target should keep Boss progress visible.');
+assert.match(onboardingGuideSource, /renderCurrentGoal\(currentGoal\)/, 'Onboarding current goal hints should remain available.');
 assert.match(game, /handleOnboardingAction/, 'Classic runtime must handle onboarding action buttons.');
+assert.match(game, /completeOnboardingAction/, 'Onboarding action clicks must be able to complete click-only goals.');
 assert.match(styles, /\.onboarding-current-goal/, 'Onboarding current-goal styles must exist.');
 assert.match(main, /migrated:\s*\[[^\]]*'kill-and-boss-settlement'/s, 'Combat settlement migration status is incomplete.');
 assert.match(stateSurface, /loadGame/);
 assert.match(stateSurface, /migrateSave/);
 assert.match(stateSurface, /normalizePlayerState/);
+assert.match(characterPageSource, /renderV3SkillEntry\(entry,\s*job,\s*cds,\s*growthFn(?:,\s*ctx)?\)/, 'V3 skill cards should receive the skill growth resolver so they can show levels.');
+assert.match(skillMechanicsSource, /ctx\.getSkillGrowthEntry\?\.\(skill\)\?\.level/, 'V3 combat scaling should read skillGrowth levels, not the deprecated hero.skillLevels map.');
+assert.match(game, /function\s+isDisplayZeroStatDelta\s*\(/, 'Refine result rendering should hide stat deltas that format to +0.');
 
 assert.equal((game.match(/^function\s+init\s*\(/gm) || []).length, 1, 'Classic runtime must declare one init function.');
 assert.equal((game.match(/^init\(\);/gm) || []).length, 0, 'Classic runtime must not auto-start before modules are installed.');
 assert.match(game, /window\.bootstrapLegacyRuntime\s*=\s*\(\)\s*=>/, 'Classic runtime bootstrap bridge is missing.');
 assert.match(game, /if\s*\(legacyRuntimeStarted\)\s*return false/, 'Classic runtime bootstrap must be guarded against duplicate starts.');
 assert.match(game, /RuneFrontierLegacyEquipmentContext/, 'Legacy runtime must expose read-only equipment dependencies.');
+assert.match(game, /applyRarityPerk,/, 'Classic equipment context must expose rarity perk completion to modules.');
 assert.match(game, /RuneFrontierEquipmentRuntime/, 'Classic equipment entry points must forward to module implementations.');
 assert.match(game, /showSalvageResult\(title,\s*count,\s*rewards\)/, 'Dismantle result dialog must receive title, count, and material rewards.');
+assert.match(game, /getSalvageRewardsPreview\(item\)[\s\S]*getSalvageRewards/, 'Salvage preview should use the same reward rules as actual dismantle.');
+assert.match(game, /preview:\s*true/, 'Salvage preview should request deterministic preview rewards.');
 assert.match(game, /\n\s*renderAll,\s*\n\s*render:\s*renderAll,/, 'Equipment mutations must be able to rerender after state changes.');
 assert.match(game, /RuneFrontierLegacyDropsContext/, 'Legacy runtime must expose online drop dependencies.');
 assert.match(game, /RuneFrontierDropsRuntime/, 'Classic online drop entry points must forward to module implementations.');
@@ -168,7 +608,7 @@ assert.match(game, /runtime\.rollCardDropsFromTable/, 'Card drop entry points mu
 assert.match(game, /runtime\.maybeDropBossCardFragments/, 'Boss card fragment entry points must forward to the drops runtime.');
 assert.match(game, /runtime\.rollDrops/, 'Online drop orchestration must forward to the drops runtime.');
 assert.match(game, /runtime\.rollZodiacSetDrops/, 'Zodiac-set drop entry points must forward to the drops runtime.');
-assert.match(game, /runtime\.rollTransitionSetDrops/, 'Transition-set drop entry points must forward to the drops runtime.');
+assert.doesNotMatch(game, /runtime\.rollTransitionSetDrops/, 'Transition-set drop entry points should be removed.');
 assert.match(game, /runtime\.rollMythicEquipmentDrop/, 'Mythic drop entry points must forward to the drops runtime.');
 assert.match(game, /runtime\.rollMutationExtraDrops/, 'Mutation reward entry points must forward to the drops runtime.');
 assert.match(game, /runtime\.normalizeLootRewards/, 'Loot summary view data must forward to the drops runtime.');
@@ -189,6 +629,11 @@ assert.match(game, /runtime\.updateCombat/, 'Online combat rounds must forward t
 assert.match(game, /runtime\.updateMonsterAttack/, 'Monster counterattacks must forward to the combat runtime.');
 assert.match(game, /runtime\.updateRecovery/, 'Recovery ticks must forward to the combat runtime.');
 assert.match(game, /runtime\.rollActiveSkill/, 'Active-skill execution must forward to the combat runtime.');
+assert.match(game, /resetUnsafeEarlyEncounter,/, 'Combat runtime context must expose the fresh-start encounter reset hook.');
+assert.match(game, /function\s+useHealingPotion\s*\(/, 'Gold potion healing must expose a manual action.');
+assert.match(game, /function\s+maybeAutoUsePotion\s*\(/, 'Gold potion healing must expose an automatic combat check.');
+assert.match(game, /potionCooldown:\s*0/, 'Default state must track potion cooldown.');
+assert.match(game, /autoPotion:\s*true/, 'New saves must start with automatic potion usage enabled.');
 assert.match(game, /const FAST_RENDER_INTERVAL_MS\s*=\s*100/, 'Fast HUD rendering must remain throttled.');
 assert.match(game, /const PASSIVE_PAGE_REFRESH_INTERVAL_MS\s*=\s*2000/, 'Background combat updates must not continuously rebuild heavy pages.');
 assert.match(game, /const SCENE_RENDER_INTERVAL_MS\s*=\s*33/, 'Visible battle scene rendering must remain frame-capped.');
@@ -198,7 +643,9 @@ assert.match(game, /function updateOnlinePlaytime\s*\(dt\)/, 'Online-time reward
 assert.match(game, /estimateGoldPerSecond\(stats\)/, 'Fast HUD updates must reuse the already computed stat snapshot.');
 assert.match(game, /activePage\s*===\s*"adventure"[\s\S]*drawScene\(now\s*\/\s*1000\)/, 'Hidden pages must not continue drawing the battle canvas.');
 assert.match(game, /runtime\.normalizeDamage/, 'Damage normalization must forward to the combat runtime.');
-assert.equal((game.match(/requestAnimationFrame\(loop\);/g) || []).length, 2, 'Loop registration shape changed unexpectedly.');
+assert.equal((game.match(/requestAnimationFrame\(loop\);/g) || []).length, 3, 'Loop registration shape changed unexpectedly.');
+assert.match(game, /const elapsedDt = Math\.max\(0,\s*\(now - lastTick\) \/ 1000\);[\s\S]*const dt = Math\.min\(0\.12,\s*elapsedDt\);/, 'The main loop must keep uncapped elapsed time for page-background recovery.');
+assert.match(game, /updateRecovery\(elapsedDt\);/, 'Recovery ticks must receive uncapped elapsed time so hidden-tab time is not lost.');
 
 const onboardingModule = await importSource(onboardingSource);
 assert.deepEqual(onboardingModule.defaultOnboardingState(), {
@@ -250,6 +697,40 @@ assert.equal(
   'Skipping tutorial should hide strong tutorial hints.'
 );
 
+assert.equal(typeof onboardingModule.completeOnboardingAction, 'function', 'Onboarding action completion helper must exist.');
+const finalOnboardingAction = onboardingModule.completeOnboardingAction(
+  { completedStepIds: ['grow_once'] },
+  { id: 'see_boss_goal', action: 'go-adventure' },
+  'go-adventure'
+);
+assert.equal(finalOnboardingAction.tutorialCompleted, true, 'Clicking the final Boss goal action must complete the tutorial.');
+assert.ok(
+  finalOnboardingAction.completedStepIds.includes('see_boss_goal'),
+  'Clicking the final Boss goal action must mark that goal complete.'
+);
+assert.equal(
+  onboardingModule.getCurrentOnboardingGoal({
+    totalKills: 35,
+    areaKills: 35,
+    quests: { completed: ['main_1_grass'] },
+    inventory: [{ id: 'starter', refine: 1 }],
+    equipped: { weapon: 'starter' },
+    onboarding: finalOnboardingAction,
+  }),
+  null,
+  'The final Boss goal must disappear after its action is clicked.'
+);
+const earlyOnboardingAction = onboardingModule.completeOnboardingAction(
+  onboardingModule.defaultOnboardingState(),
+  { id: 'grow_once', action: 'go-equipment' },
+  'go-equipment'
+);
+assert.equal(
+  earlyOnboardingAction.completedStepIds.includes('grow_once'),
+  false,
+  'Navigation alone must not complete progress-driven onboarding goals.'
+);
+
 const devBridgeModule = await importSource(devBridgeSource);
 const priorWindow = globalThis.window;
 globalThis.window = { RuneFrontierModuleStatus: { authority: 'test' } };
@@ -284,7 +765,41 @@ assert.equal(maintenanceSaves, 2, 'State-changing developer maintenance must sav
 assert.equal(maintenanceRenders, 2, 'State-changing developer maintenance must rerender after each operation.');
 globalThis.window = priorWindow;
 
-const itemStats = await importSource(itemStatsSource);
+const statCatalog = await importSource(statCatalogSource);
+assert.equal(statCatalog.canonicalEquipmentStat('critRatePct'), 'crit', 'critRatePct should merge into crit.');
+assert.equal(statCatalog.canonicalEquipmentStat('dodgeRatePct'), 'dodgeRate', 'dodgeRatePct should merge into dodgeRate.');
+assert.equal(statCatalog.canonicalEquipmentStat('baseExpBonus'), 'expBonus', 'baseExpBonus should merge into expBonus.');
+assert.equal(statCatalog.canonicalEquipmentStat('jobExpBonus'), 'expBonus', 'jobExpBonus should merge into expBonus.');
+assert.equal(statCatalog.canonicalEquipmentStat('patrolEfficiency'), 'combatPaceBonus', 'patrolEfficiency should merge into combatPaceBonus.');
+assert.equal(statCatalog.canonicalEquipmentStat('powerPct'), 'combatPaceBonus', 'powerPct should merge into combatPaceBonus.');
+assert.ok(statCatalog.DEPRECATED_EQUIPMENT_STATS.has('antiCrit'), 'antiCrit must stay deprecated.');
+assert.ok(statCatalog.DEPRECATED_EQUIPMENT_STATS.has('hitRate'), 'hitRate must stay deprecated.');
+assert.ok(statCatalog.DEPRECATED_EQUIPMENT_STATS.has('higherLevelDamageBonus'), 'higherLevelDamageBonus must stay deprecated.');
+assert.ok(!statCatalog.ORDINARY_EQUIPMENT_AFFIX_STATS.has('statusResist'), 'statusResist should not roll as ordinary equipment stat.');
+assert.ok(!statCatalog.ORDINARY_EQUIPMENT_AFFIX_STATS.has('offlineEfficiencyBonus'), 'offlineEfficiencyBonus should not roll as ordinary equipment stat.');
+const mergedCatalogStats = statCatalog.canonicalizeEquipmentStats({
+  crit: 0.02,
+  critRatePct: 0.03,
+  dodgeRatePct: 0.04,
+  baseExpBonus: 0.05,
+  jobExpBonus: 0.07,
+  patrolEfficiency: 0.02,
+  powerPct: 0.01,
+  antiCrit: 0.99,
+});
+assert.equal(mergedCatalogStats.crit, 0.05, 'crit aliases should add together.');
+assert.equal(mergedCatalogStats.dodgeRate, 0.04, 'dodge aliases should merge into dodgeRate.');
+assert.equal(mergedCatalogStats.expBonus, 0.12, 'experience aliases should add together.');
+assert.equal(mergedCatalogStats.combatPaceBonus, 0.03, 'pace aliases should add together.');
+assert.equal(mergedCatalogStats.antiCrit, undefined, 'deprecated antiCrit should be stripped.');
+assert.match(equipmentIndexSource, /statCatalog/, 'Equipment index should re-export the stat catalog.');
+assert.match(equipmentIndexSource, /import\s+\{[^}]*applyRarityUpgradeRewards[^}]*usesProgressionGrowth[^}]*\}\s+from\s+['"]\.\/equipmentGrowth\.js['"]/, 'Equipment runtime must import growth bridge helpers.');
+assert.match(equipmentIndexSource, /usesProgressionGrowth,/, 'Equipment runtime must expose progression growth detection.');
+assert.match(equipmentIndexSource, /applyRarityUpgradeRewards:\s*\(item,\s*rarity\)\s*=>\s*applyRarityUpgradeRewards\(item,\s*rarity,\s*context\)/, 'Equipment runtime must bridge rarity reward completion with the legacy context.');
+
+const statCatalogModuleUrl = `data:text/javascript;base64,${Buffer.from(statCatalogSource).toString('base64')}`;
+const withStatCatalogImport = (source) => source.replace(/from\s+['"]\.\/statCatalog\.js['"]/g, `from '${statCatalogModuleUrl}'`);
+const itemStats = await importSource(withStatCatalogImport(itemStatsSource));
 const itemNaming = await importSource(itemNamingSource);
 const itemFixture = {
   name: 'Test Blade',
@@ -319,27 +834,1036 @@ assert.equal(effective.abyssDamageBonus, 0.103, 'Abyss bonus scaling changed.');
 assert.equal(effective.bossDamageBonus, 0.052, 'Abyss affix scaling changed.');
 assert.equal(effective.lifeSteal, 0.03, 'Socket bonus merge changed.');
 assert.equal(JSON.stringify(itemFixture), frozenFixture, 'Read-only equipment calculation mutated the item.');
+itemStats.configureItemStatsContext({
+  getMechanicAffixEffects: () => ({}),
+  computeCardSocketBonuses: () => ({}),
+  getEnhanceMilestoneLevels: () => [7, 10, 15],
+  getEnhanceMilestoneBonuses: () => ({
+    weapon: [
+      { monsterDamageBonus: 0.02 },
+      { skillDamageBonus: 0.03 },
+      { finalDamageBonus: 0.05 },
+    ],
+  }),
+  getEnhancePassiveDb: () => ({
+    bossHunter: { effect: { bossDamageBonus: 0.06 } },
+  }),
+});
+const enhancedWeaponStats = itemStats.getEffectiveItemStats({
+  name: 'Enhanced Blade',
+  slot: 'weapon',
+  atk: 100,
+  matk: 50,
+  enhanceLevel: 10,
+  specialPassives: ['bossHunter'],
+});
+assert.equal(enhancedWeaponStats.atk, 130, 'Weapon refine must increase effective attack.');
+assert.equal(enhancedWeaponStats.matk, 65, 'Weapon refine must increase effective magic attack.');
+assert.equal(enhancedWeaponStats.monsterDamageBonus, 0.02, 'Enhance +7 weapon milestone must affect combat stats.');
+assert.equal(enhancedWeaponStats.skillDamageBonus, 0.03, 'Enhance +10 weapon milestone must affect combat stats.');
+assert.equal(enhancedWeaponStats.bossDamageBonus, 0.06, 'Enhance special passives must affect combat stats.');
 assert.equal(itemNaming.getEquipmentDisplayName(itemFixture), '\u6df1\u6e0a Test Blade', 'Abyss display prefix changed.');
 assert.equal(itemNaming.getEquipmentDisplayName({ name: '\u6df1\u6e0a Blade', abyssForged: true }), '\u6df1\u6e0a Blade', 'Abyss prefix must not duplicate.');
 assert.equal(itemNaming.getEquipmentDisplayName(null), '\u672a\u77e5\u88c5\u5907', 'Missing items must display safely.');
 assert.ok(Object.values(itemStats.getEffectiveItemStats(null)).every(Number.isFinite), 'Missing item stats must be finite.');
-
-const scoreStandaloneSource = itemScoreSource
-  .replace("import { getEffectiveItemStats } from './itemStats.js';", 'const getEffectiveItemStats = (item) => item;')
-  .replace("import { isAbyssEquipment } from './itemNaming.js';", "const isAbyssEquipment = (item) => Boolean(item?.abyssForged);");
-const itemScore = await importSource(scoreStandaloneSource);
-const scores = itemScore.calculateEquipmentScores({
-  atk: 100,
-  hp: 200,
-  bossDamageBonus: 0.05,
-  abyssDamageBonus: 0.08,
-  abyssDamageReduction: 0.05,
-  abyssForged: true,
+assert.equal(itemStats.getEffectiveItemStats({ antiCrit: 0.5 }).antiCrit || 0, 0, 'Equipment V2 must not preserve antiCrit as an effective stat.');
+assert.ok(itemStats.getEffectiveItemStats({ blockRate: 0.12 }).blockRate > 0, 'Equipment V2 must preserve blockRate as an effective stat.');
+const canonicalEffective = itemStats.getEffectiveItemStats({
+  atk: 10,
+  crit: 0.02,
+  critRatePct: 0.03,
+  dodgeRatePct: 0.04,
+  baseExpBonus: 0.05,
+  jobExpBonus: 0.07,
+  patrolEfficiency: 0.02,
+  powerPct: 0.01,
+  damageReduction: 0.99,
+  antiCrit: 0.5,
+}, true, {
+  getMechanicAffixEffects: () => ({}),
+  computeCardSocketBonuses: () => ({}),
 });
-assert.ok(scores.output > 0 && scores.survival > 0 && scores.boss > 0 && scores.abyss > 0, 'Equipment score outputs must remain finite and positive.');
-assert.ok(Object.values(scores).every(Number.isFinite), 'Equipment scores must not contain invalid numbers.');
+assert.equal(canonicalEffective.crit, 0.05, 'Effective stats should merge crit aliases.');
+assert.equal(canonicalEffective.dodgeRate, 0.04, 'Effective stats should merge dodge aliases.');
+assert.equal(canonicalEffective.expBonus, 0.12, 'Effective stats should merge experience aliases.');
+assert.equal(canonicalEffective.combatPaceBonus, 0.03, 'Effective stats should merge pace aliases.');
+assert.equal(canonicalEffective.antiCrit, undefined, 'Effective stats should strip antiCrit.');
+assert.equal(canonicalEffective.damageReduction, undefined, 'Effective stats should strip damageReduction.');
+itemStats.configureItemStatsContext({
+  getMechanicAffixEffects: () => ({}),
+  computeCardSocketBonuses: () => ({}),
+  getLineMasteryBonus: (series) => series === 'ancientHero'
+    ? { statMultiplier: 1.06, bonusStats: { skillDamageBonus: 0.01 }, abyssAffixMultiplier: 1 }
+    : { statMultiplier: 1, bonusStats: {}, abyssAffixMultiplier: 1 },
+  getAbyssTemperingBonus: (item) => item?.abyssTemperingLevel
+    ? { abyssDamageBonus: 0.012, abyssDamageReduction: 0.003 }
+    : {},
+});
+const masteredStats = itemStats.getEffectiveItemStats({
+  series: 'ancientHero',
+  atk: 100,
+  skillDamageBonus: 0.02,
+});
+assert.equal(masteredStats.atk, 106, 'Line mastery should scale matching line flat stats.');
+assert.ok(masteredStats.skillDamageBonus >= 0.03, 'Line mastery should add milestone bonus stats.');
+const oldWorldStats = itemStats.getEffectiveItemStats({
+  series: 'oldWorld',
+  atk: 100,
+});
+assert.equal(oldWorldStats.atk, 100, 'Line mastery should not affect T1 old-world equipment.');
+const temperedStats = itemStats.getEffectiveItemStats({
+  series: 'ancientHero',
+  growthTier: 'T2',
+  abyssTemperingLevel: 2,
+});
+assert.equal(temperedStats.abyssDamageBonus, 0.012, 'Abyss tempering bonus should apply to effective stats.');
+assert.equal(temperedStats.abyssDamageReduction, 0.003, 'Abyss tempering defensive bonus should apply to effective stats.');
+itemStats.configureItemStatsContext({
+  getMechanicAffixEffects: () => ({}),
+  computeCardSocketBonuses: () => ({}),
+  getLineMasteryBonus: (series) => series === 'ancientHero'
+    ? { statMultiplier: 1.085, bonusStats: { skillDamageBonus: 0.015 }, abyssAffixMultiplier: 1 }
+    : { statMultiplier: 1, bonusStats: {}, abyssAffixMultiplier: 1 },
+  getLineMasteryGlobalBonus: () => ({
+    statMultiplier: 1.015,
+    bonusStats: { bossDamageBonus: 0.003 },
+  }),
+});
+const globalMasteredStats = itemStats.getEffectiveItemStats({
+  series: 'ancientHero',
+  atk: 100,
+  skillDamageBonus: 0.02,
+});
+assert.equal(globalMasteredStats.atk, 110, 'Line mastery should combine global legacy and same-line resonance for base stats.');
+assert.equal(globalMasteredStats.skillDamageBonus, 0.035, 'Same-line mastery should add stronger milestone stats.');
+assert.equal(globalMasteredStats.bossDamageBonus || 0, 0, 'Global mastery milestone stats must not be added per item.');
+const globalOldWorldStats = itemStats.getEffectiveItemStats({
+  series: 'oldWorld',
+  atk: 100,
+});
+assert.equal(globalOldWorldStats.atk, 102, 'Global line mastery legacy should apply to all equipment base stats.');
+itemStats.configureItemStatsContext({
+  getMechanicAffixEffects: () => ({}),
+  computeCardSocketBonuses: () => ({}),
+  getLineMasteryBonus: (series) => series === 'ancientHero'
+    ? { statMultiplier: 1, bonusStats: {}, abyssAffixMultiplier: 1.05 }
+    : { statMultiplier: 1, bonusStats: {}, abyssAffixMultiplier: 1 },
+});
+const masteryAbyssStats = itemStats.getEffectiveItemStats({
+  series: 'ancientHero',
+  abyssBonus: { abyssDamageBonus: 0.1 },
+  abyssAffixes: [{ effects: { bossDamageBonus: 0.05 } }],
+});
+assert.equal(masteryAbyssStats.abyssDamageBonus, 0.105, 'Same-line mastery should strengthen abyss bonus values.');
+assert.equal(masteryAbyssStats.bossDamageBonus, 0.053, 'Same-line mastery should strengthen abyss affix values.');
 
-const itemFactory = await importSource(itemFactorySource);
+let itemArchetypeSource = '';
+assert.doesNotThrow(() => {
+  itemArchetypeSource = read('src/systems/equipment/itemArchetype.js');
+}, 'Equipment archetype module must exist.');
+assert.match(itemArchetypeSource, /\bEQUIPMENT_ARCHETYPES\b/, 'Equipment archetypes must define EQUIPMENT_ARCHETYPES.');
+for (const name of [
+  'normalizeEquipmentArchetype',
+  'inferEquipmentArchetype',
+  'rollEquipmentArchetype',
+  'getArchetypeStatPools',
+  'calculateArchetypeScores',
+  'getEquipmentFitTags',
+]) {
+  assert.match(
+    itemArchetypeSource,
+    new RegExp(`(?:export\\s+)?function\\s+${name}\\s*\\(|(?:export\\s+)?const\\s+${name}\\s*=`),
+    `Equipment archetype module must define ${name}.`
+  );
+}
+const itemArchetype = await importSource(itemArchetypeSource);
+assert.ok(itemArchetype.EQUIPMENT_ARCHETYPES && typeof itemArchetype.EQUIPMENT_ARCHETYPES === 'object', 'Equipment archetypes must export EQUIPMENT_ARCHETYPES.');
+for (const key of ['physical', 'magic', 'general']) {
+  assert.ok(Object.hasOwn(itemArchetype.EQUIPMENT_ARCHETYPES, key), `EQUIPMENT_ARCHETYPES must include ${key}.`);
+}
+assert.equal(itemArchetype.normalizeEquipmentArchetype('physical'), 'physical', 'Physical archetype must normalize to itself.');
+assert.equal(itemArchetype.normalizeEquipmentArchetype('magic'), 'magic', 'Magic archetype must normalize to itself.');
+assert.equal(itemArchetype.normalizeEquipmentArchetype('general'), 'general', 'General archetype must normalize to itself.');
+assert.equal(itemArchetype.normalizeEquipmentArchetype('unknown'), 'general', 'Unknown archetypes must fall back to general.');
+assert.equal(itemArchetype.getArchetypeLabel('physical'), '\u7269\u7406', 'Physical archetype label changed.');
+assert.equal(itemArchetype.getArchetypeLabel('magic'), '\u9b54\u6cd5', 'Magic archetype label changed.');
+assert.equal(itemArchetype.getArchetypeLabel('general'), '\u901a\u7528', 'General archetype label changed.');
+for (const jobId of ['swordman', 'archer', 'assassin']) {
+  assert.equal(itemArchetype.getJobPreferredArchetype(jobId), 'physical', `${jobId} must prefer physical equipment.`);
+}
+for (const jobId of ['mage', 'priest']) {
+  assert.equal(itemArchetype.getJobPreferredArchetype(jobId), 'magic', `${jobId} must prefer magic equipment.`);
+}
+assert.equal(itemArchetype.getJobPreferredArchetype('unknown-job'), 'general', 'Unknown jobs must prefer general equipment.');
+assert.equal(itemArchetype.inferEquipmentArchetype({ atk: 100, matk: 0 }), 'physical', 'ATK-only equipment must infer physical.');
+assert.equal(itemArchetype.inferEquipmentArchetype({ matk: 100 }), 'magic', 'MATK-only equipment must infer magic.');
+assert.equal(itemArchetype.inferEquipmentArchetype({ atk: 100, matk: 100 }), 'general', 'Mixed attack equipment must infer general.');
+assert.equal(itemArchetype.inferEquipmentArchetype({}), 'general', 'Empty equipment must infer general.');
+const physicalPools = itemArchetype.getArchetypeStatPools('physical');
+const magicPools = itemArchetype.getArchetypeStatPools('magic');
+const generalPools = itemArchetype.getArchetypeStatPools('general');
+assert.ok(Array.from(physicalPools.primary || []).includes('atkPct'), 'Physical primary pool must include atkPct.');
+assert.ok(!Array.from(physicalPools.primary || []).includes('matkPct'), 'Physical primary pool must not include matkPct.');
+assert.ok(Array.from(magicPools.primary || []).includes('matkPct'), 'Magic primary pool must include matkPct.');
+assert.ok(!Array.from(magicPools.primary || []).includes('atkPct'), 'Magic primary pool must not include atkPct.');
+assert.ok(Array.from(generalPools.primary || []).includes('str'), 'General primary pool must include str.');
+assert.ok(Array.from(generalPools.primary || []).includes('int'), 'General primary pool must include int.');
+assert.equal(itemArchetype.rollEquipmentArchetype({ slot: 'weapon' }, { currentJobId: 'swordman', rng: () => 0 }), 'physical', 'Swordman rolls must be predictable as physical with fixed rng.');
+assert.equal(itemArchetype.rollEquipmentArchetype({ slot: 'weapon' }, { currentJobId: 'mage', rng: () => 0 }), 'magic', 'Mage rolls must be predictable as magic with fixed rng.');
+assert.equal(itemArchetype.rollEquipmentArchetype({ slot: 'weapon', archetype: 'magic' }, { currentJobId: 'swordman', rng: () => 0 }), 'magic', 'Template archetype should override job preference.');
+assert.doesNotMatch(equipmentIndexSource, /\bgetReforgeCost\b/, 'Equipment runtime should not export reforge costs after reforge removal.');
+const physicalArchetypeScores = itemArchetype.calculateArchetypeScores({ archetype: 'physical', atk: 100, matk: 0 }, { currentJobId: 'swordman' });
+const magicArchetypeScores = itemArchetype.calculateArchetypeScores({ archetype: 'magic', matk: 100 }, { currentJobId: 'mage' });
+for (const key of ['physicalScore', 'magicScore', 'generalScore', 'currentJobScore', 'archetypeFit']) {
+  assert.ok(Object.hasOwn(physicalArchetypeScores, key), `Archetype scores must include ${key}.`);
+}
+assert.ok(physicalArchetypeScores.physicalScore > physicalArchetypeScores.magicScore, 'Physical equipment must score higher for physical than magic.');
+assert.ok(magicArchetypeScores.magicScore > magicArchetypeScores.physicalScore, 'Magic equipment must score higher for magic than physical.');
+const fitTagText = (tag) => typeof tag === 'string' ? tag : String(tag?.label || tag?.text || tag?.title || tag?.name || '');
+const currentJobTags = itemArchetype.getEquipmentFitTags({ archetype: 'physical', atk: 100 }, { currentJobId: 'swordman' }).map(fitTagText).join(' ');
+const crossJobTags = itemArchetype.getEquipmentFitTags({ archetype: 'magic', matk: 100 }, { currentJobId: 'swordman' }).map(fitTagText).join(' ');
+assert.match(currentJobTags, /\u9002\u5408\u5f53\u524d\u804c\u4e1a/, 'Current-job fit tags must identify suitable equipment.');
+assert.match(crossJobTags, /\u53ef\u7559\u7ed9\u5176\u4ed6\u804c\u4e1a|\u5176\u4ed6\u804c\u4e1a/, 'Cross-archetype tags must identify equipment for other jobs.');
+
+let itemProgressionSource = '';
+assert.doesNotThrow(() => {
+  itemProgressionSource = read('src/systems/equipment/itemProgression.js');
+}, 'Equipment progression module must exist.');
+for (const name of [
+  'MAP_EQUIPMENT_PROGRESSION',
+  'EQUIPMENT_LINE_MATERIALS',
+  'PROGRESSION_EQUIPMENT_SLOTS',
+  'getMapEquipmentProgression',
+  'getEquipmentLineMaterials',
+  'getProgressionEquipmentTemplates',
+  'getProgressionEquipmentDropTable',
+  'getEquipmentLineFilterOptions',
+  'getProgressionMaterialDrops',
+  'getEquipmentUpgradeCost',
+  'getEquipmentLineMaterialOverview',
+  'getAllEquipmentLineMaterialOverviews',
+]) {
+  assert.match(itemProgressionSource, new RegExp(`\\b${name}\\b`), `Equipment progression module must define ${name}.`);
+}
+const itemProgression = await importSource(itemProgressionSource);
+const grassHardProgression = itemProgression.getMapEquipmentProgression('grass', 'hard');
+assert.equal(grassHardProgression.targetMapOffset, 2, 'Hard maps should point at a +2 normal-map equipment target.');
+assert.ok((grassHardProgression.materialSeries || []).includes('ancientHero'), 'Hard grass should start dropping Ancient Hero line materials.');
+assert.deepEqual(grassHardProgression.materialSeries, ['ancientHero'], 'Hard grass should prepare Ancient Hero materials.');
+assert.deepEqual(grassHardProgression.tiers, ['T1'], 'Hard grass equipment can remain T1 while materials carry the progression goal.');
+const grassAbyssProgression = itemProgression.getMapEquipmentProgression('grass', 'abyss');
+assert.equal(grassAbyssProgression.targetMapOffset, 4, 'Abyss maps should point at a +4 normal-map equipment target.');
+assert.ok((grassAbyssProgression.series || []).includes('ancientHero'), 'Abyss grass should expose the next equipment-line embryo.');
+assert.deepEqual(grassAbyssProgression.series, ['ancientHero'], 'Abyss grass should deepen Ancient Hero equipment line.');
+const ancientHeroMaterials = itemProgression.getEquipmentLineMaterials('ancientHero');
+assert.equal(ancientHeroMaterials.advanced.id, 'heroReformInscription', 'Ancient Hero advanced material id changed.');
+assert.equal(ancientHeroMaterials.advanced.name, '\u82f1\u96c4\u6539\u826f\u94ed\u6587', 'Ancient Hero advanced material must be line-level, not boot-specific.');
+assert.ok(itemProgression.getProgressionMaterialDrops('grass', 'hard', { boss: false }).some((drop) => drop.materialId === 'ancientHeroShard'), 'Hard grass should drop basic Ancient Hero upgrade material.');
+assert.ok(itemProgression.getProgressionMaterialDrops('grass', 'abyss', { boss: false }).some((drop) => drop.materialId === 'heroReformInscription'), 'Abyss grass should drop advanced Ancient Hero material.');
+assert.ok(itemProgression.getProgressionMaterialDrops('grass', 'abyss', { boss: true }).some((drop) => drop.materialId === 'mythicHeroCore'), 'Abyss grass Boss should drop Ancient Hero core material.');
+const grassHardSummary = itemProgression.formatEquipmentProgressionSummary('grass', 'hard');
+assert.match(grassHardSummary, /材料：/, 'Equipment progression summary should label material goals in readable Chinese.');
+assert.doesNotMatch(grassHardSummary, /\{materials\}/, 'Equipment progression summary must not leak a broken template placeholder.');
+assert.match(game, /深渊用于深化当前装备线/, 'Classic map page should explain abyss as an equipment deepening route.');
+assert.match(mapPageSource, /深渊用于深化当前装备线/, 'Modular map page should explain abyss as an equipment deepening route.');
+assert.doesNotMatch(game, /深渊主要掉落：深渊前缀装备/, 'Classic map page should not frame abyss as a main push loot route.');
+assert.doesNotMatch(mapPageSource, /深渊主要掉落：深渊前缀装备/, 'Modular map page should not frame abyss as a main push loot route.');
+const ancientHeroUpgradeCost = itemProgression.getEquipmentUpgradeCost({ series: 'ancientHero', growthTier: 'T2', upgradeStage: 0, slot: 'weapon' });
+assert.ok(ancientHeroUpgradeCost.materials.heroReformInscription > 0, 'Ancient Hero upgrades should consume Hero Reform Inscription.');
+assert.ok(ancientHeroUpgradeCost.gold > 0, 'Equipment progression upgrade should include a gold cost.');
+const progressionTemplates = itemProgression.getProgressionEquipmentTemplates();
+assert.ok(progressionTemplates.length >= 100, 'Progression equipment pool should cover all lines, slots, and physical/magic variants.');
+const ancientHeroWeapon = progressionTemplates.find((template) => template.id === 'prog_ancientHero_base_physical_weapon');
+assert.ok(ancientHeroWeapon, 'Progression equipment pool must include Ancient Hero physical weapon.');
+assert.match(ancientHeroWeapon.name, /古代英雄/, 'Progression equipment names should expose the equipment line, not old map-template names.');
+assert.equal(ancientHeroWeapon.series, 'ancientHero', 'Progression templates must carry series metadata.');
+assert.equal(ancientHeroWeapon.archetype, 'physical', 'Progression templates must carry archetype metadata.');
+const ancientHeroPhysicalWeapon = itemProgression.getProgressionEquipmentTemplate('prog_ancientHero_base_physical_weapon');
+const osPhysicalWeapon = itemProgression.getProgressionEquipmentTemplate('prog_os_os_physical_weapon');
+const osAdPhysicalWeapon = itemProgression.getProgressionEquipmentTemplate('prog_os_osAd_physical_weapon');
+const dimensionalPhysicalWeapon = itemProgression.getProgressionEquipmentTemplate('prog_dimensional_base_physical_weapon');
+const dimensionalPhysicalArmor = itemProgression.getProgressionEquipmentTemplate('prog_dimensional_base_physical_armor');
+assert.equal(ancientHeroPhysicalWeapon.atk, 20, 'T2 Ancient Hero physical weapon base ATK should use the new T2 output curve.');
+assert.equal(osPhysicalWeapon.atk, 36, 'T3 OS physical weapon base ATK should use the new T3 output curve.');
+assert.ok(osPhysicalWeapon.atk >= ancientHeroPhysicalWeapon.atk * 1.35, 'T3 base weapon should clearly beat T2 base weapon before rarity/affixes.');
+assert.equal(dimensionalPhysicalWeapon.atk, 340, 'T10 physical weapon base ATK should make late equipment tiers feel meaningful.');
+assert.equal(dimensionalPhysicalWeapon.str, 75, 'T10 physical weapon STR should use the stronger output tier curve.');
+assert.equal(dimensionalPhysicalWeapon.atkPct, 0.288, 'T10 weapon percentage bonuses should use the softer support curve.');
+assert.equal(dimensionalPhysicalArmor.hp, 1680, 'T10 armor HP should rise without using the full output curve.');
+assert.equal(dimensionalPhysicalArmor.damageReductionPct, 0.096, 'T10 armor mitigation should stay on the softer support curve.');
+assert.match(itemProgressionSource, /T3:\s*3\.60/, 'T3 equipment output power should clearly exceed old T3 growth.');
+assert.match(itemProgressionSource, /T10:\s*34\.00/, 'T10 equipment output power should provide a visible endgame chase.');
+assert.match(itemProgressionSource, /T10:\s*24\.00/, 'T10 equipment support power should stay below output power.');
+assert.ok(osAdPhysicalWeapon.atk > osPhysicalWeapon.atk, 'T4 OS-AD should be a visible upgrade over T3 OS.');
+assert.deepEqual(
+  itemProgression.getEquipmentProgressionTags({ series: 'ancientHero', growthTier: 'T3', upgradeStage: 2, grade: 'lt' }),
+  ['古代英雄', '英雄-LT'],
+  'Ancient Hero LT tags should show the item line and stage, not the T3 OS / Illusion growth tier label.',
+);
+assert.deepEqual(
+  itemProgression.getEquipmentProgressionTags({ series: 'ancientHero', growthTier: 'T2', upgradeStage: 0, grade: 'base' }),
+  ['古代英雄'],
+  'Ancient Hero base tags should not repeat identical line and stage labels.',
+);
+const sewerProgressionRows = itemProgression.getProgressionEquipmentDropTable('sewer', 'normal');
+assert.ok(sewerProgressionRows.length > 0, 'Sewer normal should have a generated progression equipment table.');
+assert.ok(sewerProgressionRows.every((row) => String(row.equipmentId).startsWith('prog_')), 'Progression map tables must not rely on old one-hand-sword rows.');
+assert.ok(sewerProgressionRows.some((row) => row.series === 'ancientHero' && row.growthTier === 'T2'), 'Sewer normal should drop Ancient Hero line equipment.');
+const skyAbyssRows = itemProgression.getProgressionEquipmentDropTable('sky', 'abyss');
+assert.ok(skyAbyssRows.some((row) => row.series === 'dimensional' && row.growthTier === 'T10'), 'Sky abyss should expose Dimensional top-line equipment.');
+const progressionMaps = Object.keys(itemProgression.MAP_EQUIPMENT_PROGRESSION);
+for (const mapId of progressionMaps) {
+  for (const difficulty of ['normal', 'hard', 'abyss']) {
+    const rows = itemProgression.getProgressionEquipmentDropTable(mapId, difficulty);
+    assert.ok(rows.length > 0, `${mapId} ${difficulty} must have progression equipment drops.`);
+  }
+}
+assert.ok(
+  itemProgression.getProgressionEquipmentDropTable('abyss_lake', 'hard').some((row) => row.series === 'muqaddas' || row.series === 'nebula'),
+  'Abyss Lake hard should advance through modern progression equipment, not old fallback tables.',
+);
+const lineFilters = itemProgression.getEquipmentLineFilterOptions();
+assert.ok(lineFilters.some((entry) => entry.id === 'line:ancientHero' && entry.label === '古代英雄'), 'Equipment filters should expose Ancient Hero line filtering.');
+const ancientHeroOverview = itemProgression.getEquipmentLineMaterialOverview('ancientHero');
+assert.equal(ancientHeroOverview.series, 'ancientHero', 'Material overview should preserve series id.');
+assert.equal(ancientHeroOverview.materials.basic.id, 'ancientHeroShard', 'Overview should include basic material.');
+assert.equal(ancientHeroOverview.materials.advanced.id, 'heroReformInscription', 'Overview should include advanced material.');
+assert.equal(ancientHeroOverview.materials.core.id, 'mythicHeroCore', 'Overview should include core material.');
+assert.ok(ancientHeroOverview.sources.some((source) => source.mapId === 'grass' && source.difficulty === 'hard'), 'Overview should expose hard grass as Ancient Hero source.');
+assert.ok(ancientHeroOverview.sources.some((source) => source.mapId === 'grass' && source.difficulty === 'abyss'), 'Overview should expose abyss grass as Ancient Hero source.');
+assert.ok(ancientHeroOverview.sources.every((source) => Array.isArray(source.materialKinds) && Array.isArray(source.tiers)), 'Material overview sources should normalize list fields.');
+assert.ok(ancientHeroOverview.directSources.some((source) => source.mapId === 'grass' && source.difficulty === 'hard' && source.materialKinds.includes('basic')), 'Overview should mark hard grass as a direct Ancient Hero material source.');
+assert.ok(ancientHeroOverview.directSources.some((source) => source.mapId === 'grass' && source.difficulty === 'abyss' && source.materialKinds.includes('advanced')), 'Overview should mark abyss grass as a direct Hero Reform Inscription source.');
+assert.ok(ancientHeroOverview.salvageSources.some((source) => source.mapId === 'sewer' && source.difficulty === 'hard' && source.series.includes('ancientHero')), 'Overview should mark Ancient Hero equipment drop maps as salvage sources.');
+assert.ok(!ancientHeroOverview.directSources.some((source) => source.mapId === 'sewer' && source.difficulty === 'hard'), 'Direct material sources must not include maps that only drop the equipment line.');
+const allLineOverviews = itemProgression.getAllEquipmentLineMaterialOverviews();
+assert.ok(allLineOverviews.length >= 9, 'All material overviews should cover progression lines.');
+assert.ok(!allLineOverviews.some((overview) => overview.series === 'oldWorld'), 'Old-world temporary gear should not appear in material overviews.');
+const equipmentGrowth = await importSource(equipmentGrowthSource);
+assert.equal(
+  equipmentGrowth.usesProgressionGrowth({ source: 'progression_drop' }, {}),
+  true,
+  'Progression drops should use growth-v2 scaling.'
+);
+assert.equal(
+  equipmentGrowth.usesProgressionGrowth({ source: 'monster_drop' }, {}),
+  false,
+  'Legacy monster templates should keep legacy level scaling.'
+);
+const legacySnapshot = equipmentGrowth.snapshotLegacyPower({ atk: 123, level: 88, rarity: 'legend' });
+assert.equal(legacySnapshot.model, 'legacy-level', 'Legacy snapshots should record the old growth model.');
+assert.equal(legacySnapshot.stats.atk, 123, 'Legacy snapshots should preserve current stat values.');
+const legacySpecialSnapshot = equipmentGrowth.snapshotLegacyPower({
+  monsterDamageBonus: 0.12,
+  eliteDamageBonus: 0.08,
+  statusResist: 0.04,
+  mutationMaterialDoubleChance: 0.2,
+  dodgeRatePct: 0.03,
+  critRatePct: 0.07,
+  baseExpBonus: 0.11,
+  jobExpBonus: 0.13,
+  mythicWeightBonus: 0.15,
+  abyssBossDamageBonus: 0.17,
+  bossDamageReduction: 0.19,
+  offlineEfficiencyBonus: 0.21,
+  magicDamageReduction: 0.23,
+  splashTargets: 2,
+  fireBurstChance: 0.25,
+  meteorCounterChance: 0.27,
+  normalAttackDamageBonus: 0.29,
+  abyssPower: 31,
+  setPowerBonus: 0.33,
+  physicalFinalDamageBonus: 0.35,
+});
+assert.equal(legacySpecialSnapshot.stats.monsterDamageBonus, 0.12, 'Legacy snapshots should preserve monster damage bonuses.');
+assert.equal(legacySpecialSnapshot.stats.eliteDamageBonus, 0.08, 'Legacy snapshots should preserve elite damage bonuses.');
+assert.equal(legacySpecialSnapshot.stats.statusResist, 0.04, 'Legacy snapshots should preserve status resistance.');
+assert.equal(legacySpecialSnapshot.stats.mutationMaterialDoubleChance, 0.2, 'Legacy snapshots should preserve mutation material bonuses.');
+for (const [stat, value] of Object.entries({
+  dodgeRatePct: 0.03,
+  critRatePct: 0.07,
+  baseExpBonus: 0.11,
+  jobExpBonus: 0.13,
+  mythicWeightBonus: 0.15,
+  abyssBossDamageBonus: 0.17,
+  bossDamageReduction: 0.19,
+  offlineEfficiencyBonus: 0.21,
+  magicDamageReduction: 0.23,
+  splashTargets: 2,
+  fireBurstChance: 0.25,
+  meteorCounterChance: 0.27,
+  normalAttackDamageBonus: 0.29,
+  abyssPower: 31,
+  setPowerBonus: 0.33,
+  physicalFinalDamageBonus: 0.35,
+})) {
+  assert.equal(legacySpecialSnapshot.stats[stat], value, `Legacy snapshots should preserve ${stat}.`);
+}
+assert.equal(
+  equipmentGrowth.calculateCreationStatScale({
+    template: { source: 'progression_drop' },
+    tier: { scale: 2 },
+    itemTier: { scale: 5 },
+    quality: 1.5,
+    level: 20,
+    slotGrowth: 0.1,
+  }),
+  1.5,
+  'Progression growth should use quality only for creation stat scaling.',
+);
+for (const [rarity, range] of Object.entries({
+  normal: [0.96, 1.04],
+  fine: [0.98, 1.06],
+  rare: [1.00, 1.08],
+  epic: [1.03, 1.12],
+  ancient: [1.06, 1.15],
+  legend: [1.08, 1.18],
+  darkGold: [1.10, 1.22],
+  mythic: [1.14, 1.28],
+})) {
+  assert.deepEqual(
+    equipmentGrowth.getProgressionRarityQualityRange(rarity),
+    range,
+    `Progression ${rarity} quality should use the configured light base-stat modifier.`,
+  );
+}
+assert.deepEqual(
+  equipmentGrowth.getProgressionRarityQualityRange('unknown'),
+  [0.96, 1.04],
+  'Unknown progression rarity quality should fall back to normal.',
+);
+const progressionQualityRangeCopy = equipmentGrowth.getProgressionRarityQualityRange('rare');
+progressionQualityRangeCopy[0] = 9;
+assert.deepEqual(
+  equipmentGrowth.getProgressionRarityQualityRange('rare'),
+  [1.00, 1.08],
+  'Progression quality ranges should be returned as copies.',
+);
+assert.equal(
+  equipmentGrowth.rollProgressionQuality({ id: 'legend' }, (min, max) => max),
+  1.18,
+  'Progression legend quality should use the configured max roll.',
+);
+assert.equal(
+  equipmentGrowth.rollProgressionQuality({ rarity: 'epic' }, (min, max) => min),
+  1.03,
+  'Progression quality rolls should use tier.rarity when tier.id is absent.',
+);
+assert.equal(
+  equipmentGrowth.rollProgressionQuality({ id: 'epic' }, () => 1.12345),
+  1.123,
+  'Progression quality rolls should round to 3 decimal places.',
+);
+assert.equal(
+  equipmentGrowth.calculateCreationStatScale({
+    template: { source: 'progression_drop', series: 'os', growthTier: 'T3' },
+    context: {},
+    tier: { id: 'legend', scale: 2.94 },
+    itemTier: { id: 'tier9', scale: 12 },
+    quality: 1.18,
+    level: 150,
+    slotGrowth: 0.045,
+  }),
+  1.18,
+  'Progression equipment creation should not multiply base stats by rarity scale, item tier, or level growth.',
+);
+assert.equal(
+  Number(equipmentGrowth.calculateCreationStatScale({
+    template: { source: 'monster_drop' },
+    context: {},
+    tier: { id: 'legend', scale: 2.94 },
+    itemTier: { id: 'tier3', scale: 2.1 },
+    quality: 1.2,
+    level: 20,
+    slotGrowth: 0.045,
+  }).toFixed(3)),
+  14.077,
+  'Legacy equipment creation should keep the old rarity/item-tier/level growth formula.',
+);
+assert.equal(
+  equipmentGrowth.calculateCreationStatScale({
+    template: { source: 'monster_drop' },
+    tier: { scale: 2 },
+    itemTier: { scale: 5 },
+    quality: 1.5,
+    level: 20,
+    slotGrowth: 0.1,
+  }),
+  45,
+  'Legacy growth should preserve item tier and level scaling.',
+);
+const rebuiltGrowthStats = equipmentGrowth.rebuildGrowthStatsFromTemplate(
+  {
+    atk: 120,
+    magicDamageReduction: 0.4,
+    affixDetails: [{ type: 'flat', stat: 'atk', value: 5 }],
+    rarityPerk: { id: 'epic-life', type: 'specialAffix', stat: 'lifeSteal', value: 0.05 },
+    rarityPerks: { epic: { id: 'epic-life', type: 'specialAffix', stat: 'lifeSteal', value: 0.05 } },
+  },
+  { atk: 10 },
+  { scale: 2 },
+  1.5,
+);
+assert.equal(rebuiltGrowthStats.atk, 35, 'Progression rebuild should scale template stats and replay flat affix bonuses.');
+assert.equal(rebuiltGrowthStats.lifeSteal, 0.05, 'Progression rebuild should replay existing rarity perk bonuses once.');
+assert.equal(rebuiltGrowthStats.magicDamageReduction, 0, 'Progression rebuild should clear absent old stats.');
+assert.equal(rebuiltGrowthStats.growthModel, 'progression-v2', 'Progression rebuild should mark the growth model.');
+const cappedAffixReplay = equipmentGrowth.rebuildGrowthStatsFromTemplate(
+  {
+    blockRate: 0,
+    affixDetails: Array.from({ length: 5 }, () => ({ type: 'percent', stat: 'blockRate', value: 0.04, cap: 0.18 })),
+  },
+  {},
+  { scale: 1 },
+  1,
+);
+assert.equal(cappedAffixReplay.blockRate, 0.18, 'Progression rebuild should preserve capped percent affix totals.');
+const appliedValueReplay = equipmentGrowth.rebuildGrowthStatsFromTemplate(
+  {
+    blockRate: 0,
+    affixDetails: [{ type: 'percent', stat: 'blockRate', value: 0.04, appliedValue: 0.02, cap: 0.18 }],
+  },
+  {},
+  { scale: 1 },
+  1,
+);
+assert.equal(appliedValueReplay.blockRate, 0.02, 'Progression rebuild should prefer stored cap-aware appliedValue over raw affix value.');
+const blockedPerkUpgrade = equipmentGrowth.applyRarityUpgradeRewards(
+  { rarityPerk: { id: 'epic' }, rarityRewardHistory: ['epic'] },
+  'mythic',
+  {},
+);
+assert.deepEqual(
+  blockedPerkUpgrade.rarityRewardHistory,
+  ['epic', 'ancient'],
+  'Skipped perk rewards must not be recorded as applied.',
+);
+const rewardRuntimeCalls = { rolls: 0, perks: 0 };
+const rewardRuntime = {
+  normalizeEquipmentArchetype: (archetype) => archetype,
+  rollRandomStats: (rarity, archetype) => {
+    rewardRuntimeCalls.rolls += 1;
+    return { rarity, archetype, atk: 1 };
+  },
+  applyRarityPerk: (item, perk) => {
+    rewardRuntimeCalls.perks += 1;
+    item.rarityPerk = { id: perk.id };
+  },
+};
+const rewardedItem = equipmentGrowth.applyRarityUpgradeRewards({ archetype: 'physical', randomStats: { str: 0, dex: 0 } }, 'ancient', rewardRuntime);
+assert.deepEqual(rewardedItem.rarityRewardHistory, ['rare', 'epic', 'ancient'], 'Successful rarity rewards should be recorded.');
+assert.deepEqual(rewardedItem.cardSlots, [{ cardId: null }], 'Ancient reward should add a card slot.');
+assert.equal(rewardRuntimeCalls.rolls, 1, 'Rare reward should roll random stats once.');
+assert.equal(rewardRuntimeCalls.perks, 1, 'Epic reward should apply its perk once.');
+assert.deepEqual(rewardedItem.randomStats, { rarity: 'ancient', archetype: 'physical', atk: 1 }, 'Zero random stats should be replaced by a real rare reward roll.');
+equipmentGrowth.applyRarityUpgradeRewards(rewardedItem, 'ancient', rewardRuntime);
+assert.deepEqual(rewardedItem.rarityRewardHistory, ['rare', 'epic', 'ancient'], 'Second rarity reward pass should not duplicate history.');
+assert.equal(rewardRuntimeCalls.rolls, 1, 'Second rarity reward pass should not reroll random stats.');
+assert.equal(rewardRuntimeCalls.perks, 1, 'Second rarity reward pass should not reapply perks.');
+const higherPerkCalls = [];
+const higherPerkRuntime = {
+  applyRarityPerk: (item, perk) => {
+    higherPerkCalls.push(perk.id);
+    const values = { legend: 0.07, darkGold: 0.09, mythic: 0.11 };
+    const value = values[perk.id] || 0;
+    item.finalDamageBonus = Number(((item.finalDamageBonus || 0) + value).toFixed(3));
+    item.rarityPerk = { id: perk.id, type: 'specialAffix', stat: 'finalDamageBonus', value };
+  },
+};
+const higherPerkItem = {
+  rarityPerk: { id: 'epic', type: 'specialAffix', stat: 'lifeSteal', value: 0.03 },
+  rarityPerks: { epic: { id: 'epic', type: 'specialAffix', stat: 'lifeSteal', value: 0.03 } },
+  rarityRewardHistory: ['rare', 'epic', 'ancient'],
+  randomStats: { atk: 1 },
+  cardSlots: [{ cardId: null }],
+  lifeSteal: 0.03,
+};
+equipmentGrowth.applyRarityUpgradeRewards(higherPerkItem, 'mythic', higherPerkRuntime);
+assert.deepEqual(higherPerkCalls, ['legend', 'darkGold', 'mythic'], 'Higher rarity perks should apply even when an epic perk already exists.');
+assert.equal(higherPerkItem.rarityPerk.id, 'mythic', 'Singular rarityPerk should point at the highest applied perk for compatibility.');
+assert.equal(higherPerkItem.rarityPerks.mythic.id, 'mythic', 'Rarity perks should be recorded per rarity.');
+assert.equal(higherPerkItem.finalDamageBonus, 0.27, 'Higher rarity perk stats should be applied once.');
+assert.deepEqual(
+  higherPerkItem.rarityRewardHistory,
+  ['rare', 'epic', 'ancient', 'legend', 'darkGold', 'mythic'],
+  'Higher rarity perk history should record newly applied rewards.',
+);
+equipmentGrowth.applyRarityUpgradeRewards(higherPerkItem, 'mythic', higherPerkRuntime);
+assert.deepEqual(higherPerkCalls, ['legend', 'darkGold', 'mythic'], 'Second mythic reward pass should not reapply higher perks.');
+assert.equal(higherPerkItem.finalDamageBonus, 0.27, 'Second mythic reward pass should not duplicate perk stats.');
+let lineMasterySource = '';
+assert.doesNotThrow(() => {
+  lineMasterySource = read('src/systems/equipment/lineMastery.js');
+}, 'Equipment line mastery module must exist.');
+for (const name of [
+  'LINE_MASTERY_MAX_LEVEL',
+  'getLineMasteryCost',
+  'getLineMasteryBonus',
+  'getLineMasteryGlobalBonus',
+  'upgradeLineMastery',
+]) {
+  assert.match(lineMasterySource, new RegExp(`\\b${name}\\b`), `Line mastery module must define ${name}.`);
+}
+assert.match(equipmentIndexSource, /lineMastery/, 'Equipment index should re-export line mastery.');
+assert.match(equipmentIndexSource, /getLineMasteryGlobalBonus/, 'Equipment runtime must expose global line mastery bonuses.');
+const lineMasteryItemProgressionUrl = `data:text/javascript;base64,${Buffer.from(itemProgressionSource).toString('base64')}`;
+const withLineMasteryItemProgressionImport = (source) => source.replace(/from\s+['"]\.\/itemProgression\.js['"]/g, `from '${lineMasteryItemProgressionUrl}'`);
+const lineMastery = await importSource(withLineMasteryItemProgressionImport(lineMasterySource));
+const masteryCost1 = lineMastery.getLineMasteryCost('ancientHero', 0);
+assert.deepEqual(masteryCost1.materials, { ancientHeroShard: 6 }, 'Ancient Hero mastery Lv.1 should consume basic line material.');
+assert.equal(masteryCost1.gold, 1200, 'Ancient Hero mastery Lv.1 gold cost should be modest.');
+const masteryCost6 = lineMastery.getLineMasteryCost('ancientHero', 5);
+assert.deepEqual(masteryCost6.materials, { heroReformInscription: 2 }, 'Ancient Hero mastery Lv.6 should consume advanced line material.');
+const masteryCost11 = lineMastery.getLineMasteryCost('ancientHero', 10);
+assert.deepEqual(masteryCost11.materials, { mythicHeroCore: 1 }, 'Ancient Hero mastery Lv.11 should consume core line material.');
+const masteryCost16 = lineMastery.getLineMasteryCost('ancientHero', 15);
+assert.deepEqual(masteryCost16.materials, { mythicHeroCore: 2, abyssCore: 1 }, 'High mastery should create a long-term abyss material sink.');
+const masteryBonus10 = lineMastery.getLineMasteryBonus('ancientHero', 10);
+assert.equal(masteryBonus10.statMultiplier, 1.085, 'Lv.10 mastery should strongly strengthen matching equipment base stats.');
+assert.equal(masteryBonus10.globalStatMultiplier, 1.015, 'Lv.10 mastery should also grant permanent global base-stat legacy.');
+assert.equal(masteryBonus10.bonusStats.skillDamageBonus, 0.015, 'Lv.10 same-line mastery should grant a visible combat bonus.');
+assert.equal(masteryBonus10.globalBonusStats.skillDamageBonus, 0.003, 'Lv.10 global mastery should grant a small permanent combat bonus.');
+const globalMastery = lineMastery.getLineMasteryGlobalBonus({
+  equipmentLineMastery: {
+    ancientHero: { level: 20 },
+    os: { level: 10 },
+    oldWorld: { level: 20 },
+    unknown: { level: 20 },
+  },
+});
+assert.equal(globalMastery.totalLevel, 30, 'Global mastery should total valid non-temporary line levels.');
+assert.equal(globalMastery.statMultiplier, 1.045, 'Global mastery should convert total line levels into all-equipment base stats.');
+assert.deepEqual(globalMastery.bonusStats, {
+  bossDamageBonus: 0.006,
+  skillDamageBonus: 0.006,
+  abyssDamageBonus: 0.005,
+  highTierFind: 0.005,
+}, 'Global mastery should aggregate milestone bonuses once per line.');
+const masteryState = { equipmentLineMastery: { ancientHero: { level: 30 }, unknown: { level: 5 } } };
+assert.deepEqual(lineMastery.normalizeLineMasteryState(masteryState.equipmentLineMastery), { ancientHero: { level: 20 } }, 'Line mastery normalization should clamp levels and drop unknown lines.');
+assert.equal(lineMastery.getLineMasteryCost('oldWorld', 0), null, 'Old-world temporary gear must not have line mastery upgrades.');
+assert.match(game, /applyLineMasteryGlobalBonus/, 'Compute stats should add global line mastery combat bonuses once.');
+assert.match(game, /\u5168\u5c40\u4f20\u627f/, 'Material line mastery UI should explain global legacy.');
+assert.match(game, /\u540c\u7ebf\u5171\u9e23/, 'Material line mastery UI should explain same-line resonance.');
+const affixTierSource = game.slice(game.indexOf('const AFFIX_TIERS'), game.indexOf('const MECHANIC_AFFIXES'));
+const slotAffixPoolSource = game.slice(game.indexOf('const SLOT_AFFIX_POOLS'), game.indexOf('// [DATA->data.js] salvageRewards'));
+for (const stat of ['critRatePct', 'dodgeRatePct', 'baseExpBonus', 'jobExpBonus', 'mutationMaterialDoubleChance', 'statusResist', 'offlineEfficiencyBonus']) {
+  assert.doesNotMatch(affixTierSource, new RegExp(`\\b${stat}\\b`), `${stat} should not be in ordinary affix tiers.`);
+  assert.doesNotMatch(slotAffixPoolSource, new RegExp(`\\b${stat}\\b`), `${stat} should not be in slot affix pools.`);
+}
+assert.match(game, /getSocketCardEffects/, 'Card socket effects should remain available.');
+assert.match(game, /offlineEfficiencyBonus/, 'offlineEfficiencyBonus may remain for cards, VIP, synergy, or non-random systems.');
+assert.match(itemProgressionSource, /expBonus/, 'Progression templates should use expBonus.');
+assert.doesNotMatch(itemProgressionSource, /baseExpBonus|jobExpBonus/, 'Progression templates should not split BASE/JOB exp.');
+let itemTraitsSource = '';
+assert.doesNotThrow(() => {
+  itemTraitsSource = read('src/systems/equipment/itemTraits.js');
+}, 'Equipment trait module must exist.');
+assert.match(itemTraitsSource, /\bEQUIPMENT_LINE_TRAITS\b/, 'Equipment trait module must define EQUIPMENT_LINE_TRAITS.');
+assert.match(itemTraitsSource, /\bgetEquipmentStageTraits\b/, 'Equipment trait module must expose getEquipmentStageTraits.');
+assert.match(itemTraitsSource, /\bcollectEquippedTraitStats\b/, 'Equipment trait module must expose collectEquippedTraitStats.');
+const itemTraits = await import('./../src/systems/equipment/itemTraits.js');
+const osCoreTraits = itemTraits.getEquipmentStageTraits({ series: 'os', upgradeStage: 2 });
+assert.equal(osCoreTraits.label, 'OS / 幻象', 'OS trait preview should keep the line label.');
+assert.equal(osCoreTraits.stageLabel, '核心阶', 'Upgrade stage 2 should be core tier.');
+assert.equal(osCoreTraits.stats.skillDamageBonus, 0.10, 'OS core should grant skill damage.');
+assert.equal(osCoreTraits.effects.activeSkillExtraCastChance, 0.06, 'OS core should grant extra active cast chance.');
+const fidesReformTraits = itemTraits.getEquipmentStageTraits({ series: 'fides', upgradeStage: 1 });
+assert.equal(fidesReformTraits.stats.hpPct, 0.08, 'Fides reform should grant HP percent.');
+assert.equal(fidesReformTraits.stats.damageReductionPct, 0.02, 'Fides reform should grant damage reduction.');
+const traitTotals = itemTraits.collectEquippedTraitStats({
+  weapon: { series: 'os', upgradeStage: 2 },
+  armor: { series: 'fides', upgradeStage: 1 },
+});
+assert.equal(traitTotals.stats.skillDamageBonus, 0.10, 'Equipped OS core should add skill damage once.');
+assert.equal(traitTotals.stats.hpPct, 0.08, 'Equipped Fides reform should add HP percent.');
+assert.equal(traitTotals.effects.activeSkillExtraCastChance, 0.06, 'Equipped OS core should expose extra cast effect.');
+assert.match(game, /collectEquippedTraitStats/, 'computeStats or its helper context must apply equipment trait stats.');
+assert.match(skillMechanicsSource, /activeSkillExtraCastChance/, 'V3 skill runtime must read equipment active extra cast trait.');
+assert.match(game, /renderEquipmentTraitPreview/, 'Equipment UI must render a trait preview block.');
+assert.match(game, /装备线特性/, 'Equipment UI should label the trait section in Chinese.');
+assert.match(styles, /\.equipment-trait-preview/, 'Styles must include equipment trait preview block.');
+assert.doesNotMatch(game, /data-skill-spec/, 'No legacy skill specialization action should remain.');
+assert.match(game, /装备线特性/, 'Equipment trait UI text should remain wired.');
+assert.match(characterPageSource, /技能回路/, 'Skill circuit UI text should remain wired.');
+assert.match(skillMechanicsSource, /v3FinalCircuitBoost|finalCircuitBoost/, 'Final V3 circuit boost should remain wired.');
+const itemSynergy = await import('./../src/systems/equipment/itemSynergy.js');
+assert.equal(Object.keys(itemSynergy.EQUIPMENT_SYNERGY_LINES).length, 10, 'Equipment synergy must define one rule for every progression equipment line.');
+assert.ok(itemSynergy.EQUIPMENT_SYNERGY_LINES.ancientHero, 'Ancient Hero synergy line must exist.');
+assert.equal(itemSynergy.EQUIPMENT_SYNERGY_LINES.ancientHero.thresholds.refine10.routeTier, 1, 'Refine +10 must unlock first-job route enhancement.');
+assert.equal(itemSynergy.EQUIPMENT_SYNERGY_LINES.ancientHero.thresholds.refine20.routeTier, 2, 'Refine +20 must unlock second-job route enhancement.');
+assert.equal(itemSynergy.EQUIPMENT_SYNERGY_LINES.ancientHero.thresholds.refine30.routeTier, 3, 'Refine +30 must unlock third-job route enhancement.');
+const synergyState = {
+  inventory: [
+    { id: 'w', series: 'ancientHero', refine: 99, enhanceLevel: 8, upgradeStage: 2 },
+    { id: 'a', series: 'ancientHero', refine: 99, enhanceLevel: 7, upgradeStage: 2 },
+    { id: 'h', series: 'ancientHero', refine: 99, enhanceLevel: 6, upgradeStage: 2 },
+    { id: 's', series: 'ancientHero', refine: 99, enhanceLevel: 5, upgradeStage: 2 },
+    { id: 't', series: 'ancientHero', refine: 99, enhanceLevel: 4, upgradeStage: 2 },
+    { id: 'x', series: 'os', refine: 20 },
+  ],
+  equipped: { weapon: 'w', armor: 'a', headgear: 'h', shoes: 's', trinket: 't' },
+  hero: { jobId: 'runeKnight', jobHistory: ['novice', 'swordman', 'knight', 'runeKnight'] },
+};
+const synergy = itemSynergy.computeEquipmentSynergies(synergyState);
+assert.equal(synergy.activeLines[0].series, 'ancientHero', 'Synergy should use the equipped same-line group.');
+assert.equal(synergy.activeLines[0].pieceCount, 5, 'Synergy should count equipped same-line pieces.');
+assert.equal(synergy.activeLines[0].enhanceTotal, 30, 'Synergy should sum same-line enhance levels.');
+assert.notEqual(synergy.activeLines[0].enhanceTotal, 495, 'Synergy must not use star refine values as its threshold total.');
+assert.equal(synergy.activeLines[0].averageUpgradeStage, 2, 'Synergy should expose average upgrade stage for active lines.');
+assert.ok(synergy.activeLines[0].activeMechanisms.some((entry) => entry.id === 'heroBurst'), 'Four-piece core mechanism should activate.');
+assert.ok(synergy.activeLines[0].activeMechanisms.some((entry) => entry.id === 'heroBurstUpgrade'), 'Five-piece mechanism upgrade should activate.');
+assert.deepEqual(synergy.activeLines[0].routeEnhancements.map((entry) => entry.routeTier), [1, 2, 3], 'Refine milestones should unlock route tiers 1/2/3.');
+assert.ok(itemSynergy.getEquipmentSynergySummary(synergy).includes('Hero Resonance'), 'Synergy summary should be readable for UI.');
+const lowStageHeroSynergy = itemSynergy.computeEquipmentSynergies({
+  inventory: [
+    { id: 'lw', series: 'ancientHero', refine: 1, upgradeStage: 0 },
+    { id: 'la', series: 'ancientHero', refine: 1, upgradeStage: 0 },
+    { id: 'lh', series: 'ancientHero', refine: 1, upgradeStage: 0 },
+    { id: 'ls', series: 'ancientHero', refine: 1, upgradeStage: 0 },
+    { id: 'lt', series: 'ancientHero', refine: 1, upgradeStage: 0 },
+  ],
+  equipped: { weapon: 'lw', armor: 'la', headgear: 'lh', shoes: 'ls', trinket: 'lt' },
+  hero: { jobId: 'runeKnight' },
+});
+const lowStageHeroLine = lowStageHeroSynergy.activeLines[0];
+assert.equal(lowStageHeroLine.averageUpgradeStage, 0, 'Low-stage Ancient Hero synergy should report average upgrade stage 0.');
+assert.ok(lowStageHeroLine.activeMechanisms.some((entry) => entry.id === 'heroBurst'), 'Low-stage Ancient Hero should keep the basic hero burst.');
+assert.ok(!lowStageHeroLine.activeMechanisms.some((entry) => entry.id === 'heroBurstUpgrade'), 'Low-stage Ancient Hero should not unlock the upgrade burst early.');
+assert.ok(!lowStageHeroLine.activeMechanisms.some((entry) => entry.unlockPieces >= 5), 'Low-stage Ancient Hero should not unlock five-piece mechanisms early.');
+assert.match(equipmentIndexSource, /computeEquipmentSynergies/, 'Equipment runtime must expose synergy computation.');
+assert.match(game, /function computeEquipmentSynergyState\(\)/, 'game.js must wrap equipment synergy computation for classic runtime use.');
+assert.match(game, /computeEquipmentSynergies\?\.\(state\)/, 'Equipment synergy computation should read the current game state.');
+assert.match(game, /Object\.entries\(equipmentSynergies\.stats \|\| \{\}\)/, 'computeStats should merge equipment synergy stats into equipment totals.');
+assert.match(game, /equipmentSynergies,/, 'computeStats should expose active equipment synergy details.');
+assert.match(game, /function renderEquipmentSynergyPanel\(\)/, 'Equipment page should render a synergy summary panel.');
+assert.match(game, /renderEquipmentSynergyPanel\(\)/, 'Equipment page should include the synergy panel in its main material column.');
+const nebulaSynergy = itemSynergy.computeEquipmentSynergies({
+  inventory: [
+    { id: 'n1', series: 'nebula', refine: 8 },
+    { id: 'n2', series: 'nebula', refine: 8 },
+    { id: 'n3', series: 'nebula', refine: 8 },
+    { id: 'n4', series: 'nebula', refine: 8 },
+  ],
+  equipped: { weapon: 'n1', armor: 'n2', headgear: 'n3', shoes: 'n4' },
+  hero: { jobId: 'wizard' },
+});
+assert.ok(nebulaSynergy.dropEffects.dropChainBonus > 0, 'Nebula four-piece synergy should expose a drop-chain bonus.');
+const osSynergy = itemSynergy.computeEquipmentSynergies({
+  inventory: [
+    { id: 'o1', series: 'os', refine: 5 },
+    { id: 'o2', series: 'os', refine: 5 },
+    { id: 'o3', series: 'os', refine: 5 },
+    { id: 'o4', series: 'os', refine: 5 },
+  ],
+  equipped: { weapon: 'o1', armor: 'o2', headgear: 'o3', shoes: 'o4' },
+  hero: { jobId: 'blacksmith' },
+});
+assert.ok(osSynergy.combatEffects.autoStrikePct > 0, 'OS four-piece synergy should expose a combat/offline pace bonus.');
+assert.match(equipmentDropsSource, /equipmentSynergyDropEffects/, 'Equipment drop rates must consume equipment synergy drop effects.');
+assert.match(lootRollSource, /noteEquipmentSynergyKill/, 'Loot roll should notify synergy kill-chain hooks.');
+assert.match(offlineSource, /equipmentSynergyCombatEffects/, 'Offline settlement should consume equipment synergy combat effects.');
+assert.match(game, /equipmentSynergyDropEffects:/, 'computeStats should expose equipment synergy drop effects.');
+assert.match(game, /equipmentSynergyCombatEffects:/, 'computeStats should expose equipment synergy combat effects.');
+assert.match(styles, /\.equipment-synergy-panel\s*\{/, 'Equipment synergy panel styles must exist.');
+assert.doesNotMatch(game, /data-synergy-action/, 'Equipment synergy UI must not add new action buttons.');
+assert.match(game, /heroReformInscription:\s*"\u82f1\u96c4\u6539\u826f\u94ed\u6587"/, 'Classic material names must expose Hero Reform Inscription.');
+assert.match(game, /const EQUIPMENT_SYSTEM_VERSION\s*=\s*4/, 'Equipment V4 must define a save-breaking system version.');
+assert.match(game, /equipmentSystemVersion:\s*EQUIPMENT_SYSTEM_VERSION/, 'Fresh saves must mark the active equipment system version.');
+assert.match(game, /saved\.equipmentSystemVersion\s*!==\s*EQUIPMENT_SYSTEM_VERSION[\s\S]*createDefaultState\(\)/, 'Old saves must be reset at the Equipment V4 version gate.');
+assert.match(game, /getProgressionEquipmentDropTable/, 'Classic runtime must route map equipment drops through the progression equipment pool.');
+assert.doesNotMatch(
+  equipmentDropsSource,
+  /progressionRows\.length\s*\?\s*progressionRows\s*:\s*context\.getEquipmentDropTable/,
+  'Normal equipment drops must not fall back to legacy equipmentDropTables.',
+);
+assert.doesNotMatch(
+  offlineSource,
+  /progressionRows\.length\s*\?\s*progressionRows\s*:\s*table/,
+  'Offline equipment drops must not fall back to legacy equipmentDropTables.',
+);
+assert.doesNotMatch(
+  game,
+  /progressionRows\.length\s*\?\s*progressionRows\s*:\s*equipmentDropTables/,
+  'Legacy offline equipment bridge must not fall back to old equipmentDropTables.',
+);
+assert.match(
+  equipmentDropsSource,
+  /const rows = progressionRows;/,
+  'Normal equipment drops should use progression rows directly.',
+);
+assert.doesNotMatch(
+  game,
+  /getEquipmentDropTable\(tableId\)\s*\{[\s\S]*return equipmentDropTables\[tableId\]/,
+  'Active drops context should not expose legacy equipmentDropTables as a normal fallback.',
+);
+const mutationEquipmentSource = game.slice(game.indexOf('function createMutationEquipment'), game.indexOf('function weightedChoice'));
+assert.match(mutationEquipmentSource, /pickProgressionEquipmentTemplate/, 'Mutation equipment must pick from the current progression equipment pool.');
+assert.doesNotMatch(mutationEquipmentSource, /equipmentDropTables|allEquipmentTemplates/, 'Mutation equipment must not use legacy equipment pools.');
+const darkGoldExchangeSource = game.slice(game.indexOf('function createDarkGoldExchangeItem'), game.indexOf('function isZodiacSetId'));
+assert.match(darkGoldExchangeSource, /pickProgressionEquipmentTemplate/, 'Dark-gold exchange must pick from the current progression equipment pool.');
+assert.doesNotMatch(darkGoldExchangeSource, /equipmentDropTables|allEquipmentTemplates/, 'Dark-gold exchange must not use legacy equipment pools.');
+assert.match(game, /grass:\s*0\.08,\s*\n\s*forest:\s*0\.065,\s*\n\s*sewer:\s*0\.055,/, 'Early maps should have boosted online equipment drop budgets.');
+assert.match(game, /sky:\s*0\.04,/, 'Late-map online equipment drop budget should stay at the existing cap.');
+assert.match(game, /EARLY_EQUIPMENT_PITY_KILL_LIMIT\s*=\s*20/, 'Early equipment pity should only cover the first 20 kills.');
+assert.match(game, /EARLY_EQUIPMENT_PITY_THRESHOLD\s*=\s*5/, 'Early equipment pity should guarantee a short first-session window.');
+assert.match(game, /state\.totalKills\s*<=\s*EARLY_EQUIPMENT_PITY_KILL_LIMIT[\s\S]*return EARLY_EQUIPMENT_PITY_THRESHOLD/, 'Early equipment pity must override the normal map pity threshold.');
+assert.doesNotMatch(game, /查看完整属性|收起完整属性/, 'Equipment cards should not expose full stats as a prominent primary action.');
+assert.match(game, /equipment-primary-actions/, 'Equipment cards should render a compact primary action row.');
+assert.match(game, /equipment-more-actions/, 'Equipment cards should move low-frequency actions into a More section.');
+assert.match(game, /equipment-detail-summary[^>]*>明细</, 'Equipment stat details should be a lightweight detail entry, not a large primary CTA.');
+const equipmentFilterBarSource = game.slice(game.indexOf('function renderEquipmentFilterBar'), game.indexOf('function filterEquipmentList'));
+const compactSortSource = game.slice(game.indexOf('function getEquipmentCompactSortOptions'), game.indexOf('function normalizeEquipmentSort'));
+const equipmentSortListSource = game.slice(game.indexOf('function sortEquipmentList'), game.indexOf('function renderEquipmentBatchPanel'));
+const equipmentStatSectionsSource = game.slice(game.indexOf('function renderEquipmentStatSections'), game.indexOf('function renderSalvagePreviewSection'));
+assert.match(equipmentFilterBarSource, /equipment-filter-primary/, 'Equipment filters should keep common filters in a primary row.');
+assert.match(equipmentFilterBarSource, /equipment-filter-more/, 'Equipment filters should collapse low-frequency filters behind a More control.');
+assert.doesNotMatch(compactSortSource, /physicalScore|magicScore|generalScore|sockets|abyss/, 'Equipment sort options should stay compact and avoid specialist score tabs.');
+assert.doesNotMatch(compactSortSource, /\["level",\s*"\u7b49\u7ea7"\]/, 'Equipment compact sort should not label internal source strength as level.');
+assert.match(compactSortSource, /\["level",\s*"\u6765\u6e90\u5f3a\u5ea6"\]/, 'Equipment compact sort should label level sort as source strength.');
+assert.match(
+  equipmentSortListSource,
+  /\(b\.item\.dropLevel\s*\|\|\s*b\.item\.level\s*\|\|\s*0\)\s*-\s*\(a\.item\.dropLevel\s*\|\|\s*a\.item\.level\s*\|\|\s*0\)/,
+  'Equipment compact level sort should prefer dropLevel with level fallback.',
+);
+assert.doesNotMatch(equipmentStatSectionsSource, /renderEquipmentScores\(item\)/, 'Equipment detail sections should not render the full equipment score block.');
+assert.match(equipmentStatSectionsSource, /equipment-stat-group-compact/, 'Equipment detail stats should use compact collapsible groups.');
+assert.match(equipmentStyles, /equipment-filter-more/, 'Equipment filter More control should have dedicated styles.');
+assert.match(equipmentStyles, /equipment-stat-group-compact/, 'Compact equipment stat groups should have dedicated styles.');
+assert.match(game, /renderMaterialGoalPanel/, 'Smithy material tab should render a goal-oriented material panel.');
+assert.match(game, /getAllEquipmentLineMaterialOverviews/, 'Material page should use equipment line overview runtime.');
+assert.match(game, /data-upgrade-line-mastery/, 'Material page should offer line mastery upgrades.');
+assert.match(game, /data-temper-abyss-item/, 'Material page should offer abyss tempering actions.');
+assert.match(game, /material-goal-layout/, 'Material goal page should have dedicated layout classes.');
+const materialGroupsSource = game.slice(game.indexOf('function renderMaterialGroups'), game.indexOf('function renderEquipmentLineMaterialBoard'));
+assert.match(materialGroupsSource, /renderOwnedMaterialBag/, 'Equipment material page should render an owned-only material bag.');
+assert.match(game, /collectOwnedMaterialBagItems/, 'Material bag should collect only owned materials.');
+assert.match(game, /data-material-bag-item/, 'Material bag items should be selectable.');
+assert.match(game, /data-material-bag-filter/, 'Material bag should keep compact category filters.');
+assert.match(game, /material-bag-grid/, 'Material page should use a bag-grid layout.');
+assert.match(game, /material-detail-panel/, 'Material page should show selected material details.');
+assert.match(game, /material-empty-slot/, 'Material page should render empty bag slots instead of unowned materials.');
+assert.doesNotMatch(materialGroupsSource, /renderEquipmentLineMaterialBoard\(\)/, 'Equipment material page should not render long equipment-line boards.');
+assert.doesNotMatch(materialGroupsSource, /renderGeneralMaterialBoard\(\)/, 'Equipment material page should not render the old general material board.');
+assert.match(styles, /\.material-bag-grid\s*\{/, 'Material bag grid styles must exist.');
+assert.match(styles, /\.material-detail-panel\s*\{/, 'Material detail panel styles must exist.');
+
+assert.match(
+  itemFactorySource,
+  /from\s+['"]\.\/itemArchetype\.js['"]|\b(?:rollEquipmentArchetype|normalizeEquipmentArchetype|inferEquipmentArchetype)\b/,
+  'Item factory must depend on equipment archetype logic.'
+);
+
+const itemArchetypeModuleUrl = `data:text/javascript;base64,${Buffer.from(itemArchetypeSource).toString('base64')}`;
+const withItemArchetypeImport = (source) => source.replace(/from\s+['"]\.\/itemArchetype\.js['"]/g, `from '${itemArchetypeModuleUrl}'`);
+const equipmentGrowthModuleUrl = `data:text/javascript;base64,${Buffer.from(equipmentGrowthSource).toString('base64')}`;
+const withEquipmentGrowthImports = (source) => source
+  .replace(/from\s+['"]\.\/equipmentGrowth\.js['"]/g, `from '${equipmentGrowthModuleUrl}'`);
+const itemProgressionModuleUrl = `data:text/javascript;base64,${Buffer.from(itemProgressionSource).toString('base64')}`;
+const withEquipmentProgressionImports = (source) => withEquipmentGrowthImports(withStatCatalogImport(withItemArchetypeImport(source)))
+  .replace(/from\s+['"]\.\/itemProgression\.js['"]/g, `from '${itemProgressionModuleUrl}'`);
+
+let progressionUpgradeSource = '';
+assert.doesNotThrow(() => {
+  progressionUpgradeSource = read('src/systems/equipment/progressionUpgrade.js');
+}, 'Equipment progression upgrade module must exist.');
+assert.match(progressionUpgradeSource, /\bupgradeEquipmentProgression\b/, 'Progression upgrade module must expose upgradeEquipmentProgression.');
+const progressionUpgrade = await importSource(
+  withEquipmentGrowthImports(progressionUpgradeSource.replace(/from\s+['"]\.\/itemProgression\.js['"]/g, `from '${itemProgressionModuleUrl}'`))
+);
+const upgradeState = {
+  gold: 10000,
+  materials: { heroReformInscription: 4 },
+  inventory: [{ id: 'upgrade-me', name: 'Hero Blade', slot: 'weapon', series: 'ancientHero', growthTier: 'T2', upgradeStage: 0, rarity: 'rare', level: 30, dropLevel: 30 }],
+};
+let upgradeSaved = 0;
+let upgradeRendered = 0;
+const upgradeResult = progressionUpgrade.upgradeEquipmentProgression('upgrade-me', {
+  getState: () => upgradeState,
+  save: () => { upgradeSaved += 1; },
+  renderAll: () => { upgradeRendered += 1; },
+  showToast: () => {},
+});
+assert.equal(upgradeResult.ok, true, 'Progression upgrade should complete when enough materials exist.');
+assert.equal(upgradeState.inventory[0].upgradeStage, 1, 'Progression upgrade should advance the item stage.');
+assert.ok(upgradeState.materials.heroReformInscription < 4, 'Progression upgrade should consume line-specific material.');
+assert.equal(upgradeSaved, 1, 'Progression upgrade should save state once.');
+assert.equal(upgradeRendered, 1, 'Progression upgrade should rerender once.');
+const recompositionState = {
+  gold: 10000,
+  materials: { heroReformInscription: 4 },
+  inventory: [{
+    id: 'legacy-upgrade',
+    name: 'Legacy Hero Blade',
+    slot: 'weapon',
+    archetype: 'physical',
+    series: 'ancientHero',
+    growthTier: 'T2',
+    upgradeStage: 0,
+    rarity: 'rare',
+    level: 120,
+    dropLevel: 120,
+    atk: 9999,
+    refine: 7,
+    empower: 3,
+    locked: true,
+    cardSlots: [{ cardId: 'card-a' }],
+  }],
+};
+const recompositionResult = progressionUpgrade.upgradeEquipmentProgression('legacy-upgrade', {
+  getState: () => recompositionState,
+  getProgressionEquipmentTemplate: () => ({
+    id: 'prog_ancientHero_reform_physical_weapon',
+    name: 'Hero Reform Blade',
+    slot: 'weapon',
+    atk: 20,
+    source: 'progression_drop',
+    series: 'ancientHero',
+    growthTier: 'T2',
+    upgradeStage: 1,
+    grade: 'reform',
+    archetype: 'physical',
+  }),
+  getEquipmentTiers: () => [{ id: 'epic', scale: 2, rolls: [1, 1] }],
+  randomFloat: (min) => min,
+  applyRarityUpgradeRewards: (item, rarity) => {
+    item.rarityRewardHistory = [...(item.rarityRewardHistory || []), rarity];
+    return item;
+  },
+});
+assert.equal(recompositionResult.ok, true, 'Legacy progression upgrade should succeed.');
+assert.equal(recompositionState.inventory[0].growthModel, 'progression-v2', 'Upgraded legacy equipment should enter growth-v2.');
+assert.ok(recompositionState.inventory[0].atk > 120, 'Progression upgrade should never lower a visible growth stat and should still provide stage growth.');
+assert.equal(recompositionState.inventory[0].refine, 7, 'Upgrade should preserve refine investment.');
+assert.equal(recompositionState.inventory[0].empower, 3, 'Upgrade should preserve empower investment.');
+assert.equal(recompositionState.inventory[0].cardSlots[0].cardId, 'card-a', 'Upgrade should preserve socketed cards.');
+assert.ok(recompositionState.inventory[0].rarityRewardHistory.includes('epic'), 'Upgrade should complete target rarity rewards.');
+const progressionQualityRebuildState = {
+  gold: 10000,
+  materials: { heroReformInscription: 4 },
+  inventory: [{
+    id: 'quality-rebuild',
+    name: 'Quality Hero Blade',
+    slot: 'weapon',
+    archetype: 'physical',
+    series: 'ancientHero',
+    growthTier: 'T2',
+    upgradeStage: 0,
+    rarity: 'rare',
+    level: 30,
+    dropLevel: 30,
+    atk: 1,
+  }],
+};
+const progressionQualityRebuildResult = progressionUpgrade.upgradeEquipmentProgression('quality-rebuild', {
+  getState: () => progressionQualityRebuildState,
+  getProgressionEquipmentTemplate: () => ({
+    id: 'prog_ancientHero_reform_physical_weapon',
+    name: 'Quality Reform Blade',
+    slot: 'weapon',
+    atk: 100,
+    source: 'progression_drop',
+    series: 'ancientHero',
+    growthTier: 'T2',
+    upgradeStage: 1,
+    grade: 'reform',
+    archetype: 'physical',
+  }),
+  getEquipmentTiers: () => [{ id: 'epic', scale: 2, rolls: [7, 9] }],
+  randomFloat: (min, max) => max,
+  applyRarityUpgradeRewards: () => {},
+});
+assert.equal(progressionQualityRebuildResult.ok, true, 'Progression upgrade quality rebuild should succeed.');
+assert.equal(progressionQualityRebuildState.inventory[0].quality, 112, 'Progression upgrade rebuild should roll quality from the light rarity range.');
+assert.equal(progressionQualityRebuildState.inventory[0].atk, 224, 'Progression upgrade rebuild should not use the legacy tier.rolls quality multiplier.');
+const ancientRarityUpgradeState = {
+  gold: 10000,
+  materials: { heroReformInscription: 4 },
+  inventory: [{
+    id: 'ancient-upgrade',
+    name: 'Ancient Hero Blade',
+    slot: 'weapon',
+    archetype: 'physical',
+    series: 'ancientHero',
+    growthTier: 'T2',
+    upgradeStage: 0,
+    rarity: 'ancient',
+    tier: 'ancient',
+    level: 80,
+    dropLevel: 80,
+    atk: 40,
+  }],
+};
+const ancientRarityUpgradeResult = progressionUpgrade.upgradeEquipmentProgression('ancient-upgrade', {
+  getState: () => ancientRarityUpgradeState,
+  getProgressionEquipmentTemplate: () => null,
+  applyRarityUpgradeRewards: () => {},
+});
+assert.equal(ancientRarityUpgradeResult.ok, true, 'Ancient rarity progression upgrade should succeed.');
+assert.equal(ancientRarityUpgradeState.inventory[0].rarity, 'ancient', 'Progression upgrade must not downgrade ancient rarity to an epic target.');
+let abyssTemperingSource = '';
+assert.doesNotThrow(() => {
+  abyssTemperingSource = read('src/systems/equipment/abyssTempering.js');
+}, 'Abyss tempering module must exist.');
+for (const name of [
+  'ABYSS_TEMPERING_MAX_LEVEL',
+  'canTemperAbyssItem',
+  'getAbyssTemperingCost',
+  'getAbyssTemperingBonus',
+  'temperAbyssItem',
+]) {
+  assert.match(abyssTemperingSource, new RegExp(`\\b${name}\\b`), `Abyss tempering module must define ${name}.`);
+}
+assert.match(equipmentIndexSource, /abyssTempering/, 'Equipment index should re-export abyss tempering.');
+assert.match(game, /rollAbyssAffixes,/, 'Equipment runtime context must expose abyss affix rolling.');
+const abyssTempering = await importSource(withEquipmentProgressionImports(abyssTemperingSource));
+const ancientHeroItem = { id: 'a1', series: 'ancientHero', growthTier: 'T2', upgradeStage: 0, rarity: 'rare' };
+assert.equal(abyssTempering.canTemperAbyssItem(ancientHeroItem), true, 'T2+ progression equipment should be temperable.');
+assert.equal(abyssTempering.canTemperAbyssItem({ series: 'oldWorld', growthTier: 'T1' }), false, 'T1 old-world equipment should not be abyss-temperable.');
+assert.deepEqual(
+  abyssTempering.getAbyssTemperingCost(ancientHeroItem, 'infuse').materials,
+  { heroReformInscription: 1, abyssShard: 8 },
+  'Infuse should consume line advanced material and abyss shards.',
+);
+assert.deepEqual(
+  abyssTempering.getAbyssTemperingCost({ ...ancientHeroItem, abyssTemperingLevel: 4 }, 'empower').materials,
+  { mythicHeroCore: 1, abyssCore: 1 },
+  'Higher temper levels should consume line core material and abyss core.',
+);
+assert.deepEqual(
+  abyssTempering.getAbyssTemperingBonus({ series: 'ancientHero', growthTier: 'T2', abyssTemperingLevel: 2 }),
+  { abyssDamageBonus: 0.012, abyssDamageReduction: 0.003 },
+  'Abyss tempering levels should grant abyss combat bonuses.',
+);
+assert.deepEqual(
+  abyssTempering.getAbyssTemperingBonus({ series: 'oldWorld', growthTier: 'T1', abyssTemperingLevel: 2 }),
+  {},
+  'Old-world equipment should not receive abyss tempering bonuses.',
+);
+const temperState = {
+  gold: 50000,
+  materials: { heroReformInscription: 2, abyssShard: 20 },
+  inventory: [{ ...ancientHeroItem, name: 'Hero Blade' }],
+};
+let temperSaved = 0;
+let temperRendered = 0;
+const temperResult = abyssTempering.temperAbyssItem('a1', 'infuse', {
+  getState: () => temperState,
+  rollAbyssAffixes: () => [{ id: 'abyss-test', effects: { bossDamageBonus: 0.05 } }],
+  save: () => { temperSaved += 1; },
+  renderAll: () => { temperRendered += 1; },
+  showToast: () => {},
+});
+assert.equal(temperResult.ok, true, 'Abyss tempering should complete when enough materials exist.');
+assert.equal(temperState.inventory[0].abyssTempered, true, 'Abyss tempering should mark the item.');
+assert.equal(temperState.inventory[0].prefix, '深渊', 'Abyss tempering should make display naming use the abyss prefix.');
+assert.notEqual(temperState.inventory[0].abyssForged, true, 'Abyss tempering should not mark a normal progression item as an original abyss drop.');
+assert.equal(temperState.inventory[0].sourceDifficulty, 'abyss-tempered', 'Abyss tempering should use a distinct source marker.');
+assert.equal(temperState.inventory[0].abyssAffixes[0].id, 'abyss-test', 'Abyss tempering should roll abyss affixes.');
+assert.equal(temperSaved, 1, 'Abyss tempering should save state once.');
+assert.equal(temperRendered, 1, 'Abyss tempering should rerender once.');
+
+const itemFactory = await importSource(withEquipmentProgressionImports(itemFactorySource));
 const factoryContext = {
   getEquipmentTiers: () => [{ id: 'normal', scale: 1, rolls: [1, 1] }],
   getItemTierForLevel: () => ({ id: 'starter', scale: 1 }),
@@ -356,12 +1880,356 @@ const factoryContext = {
   applyAbyssEquipmentBonus: () => {},
   canCreateMythic: () => true,
 };
-const generated = itemFactory.createItem({ name: 'Blade', slot: 'weapon', atk: 10 }, 1, 'normal', {}, factoryContext);
+const generated = itemFactory.createItem({ name: 'Blade', slot: 'weapon', atk: 10 }, 1, 'normal', { currentJobId: 'swordman', rng: () => 0 }, factoryContext);
 assert.equal(generated.id, 'generated-item', 'Module-owned item creation did not run.');
 assert.equal(generated.atk, 10, 'Module-owned item creation changed base equipment output.');
 assert.deepEqual(generated.cardSlots, [], 'New equipment must retain the existing empty socket behavior.');
+assert.equal(generated.archetype, 'physical', 'Created equipment must record its archetype.');
+const normalizedTemperedItem = itemFactory.normalizeItem({
+  id: 'tempered',
+  name: 'Tempered Hero Blade',
+  slot: 'weapon',
+  atk: 100,
+  prefix: '深渊',
+  sourceDifficulty: 'abyss-tempered',
+  series: 'ancientHero',
+  growthTier: 'T2',
+}, factoryContext);
+assert.equal(normalizedTemperedItem.abyssForged, false, 'Prefix-only tempered items must not normalize into original abyss drops.');
+assert.equal(normalizedTemperedItem.sourceDifficulty, 'abyss-tempered', 'Tempered source marker should survive normalization.');
+const progressedItem = itemFactory.createItem(
+  { name: 'Hero Blade', slot: 'weapon', atk: 10 },
+  20,
+  'normal',
+  { currentJobId: 'swordman', dropMapId: 'sewer', difficulty: 'normal', rng: () => 0 },
+  {
+    ...factoryContext,
+    resolveItemProgression: () => ({
+      growthTier: 'T2',
+      series: 'ancientHero',
+      upgradeStage: 0,
+      grade: 'base',
+      upgradePathId: 'ancientHero',
+    }),
+  },
+);
+assert.equal(progressedItem.growthTier, 'T2', 'Created equipment must record its progression tier.');
+assert.equal(progressedItem.series, 'ancientHero', 'Created equipment must record its progression series.');
+assert.equal(progressedItem.upgradeStage, 0, 'Created equipment must record its upgrade stage.');
+assert.equal(progressedItem.upgradePathId, 'ancientHero', 'Created equipment must record its upgrade path id.');
+const levelSensitiveContext = {
+  ...factoryContext,
+  getEquipmentTiers: () => [{ id: 'rare', scale: 2, rolls: [1, 1] }],
+  getItemTierForLevel: (level) => ({ id: `tier-${level}`, scale: level >= 100 ? 20 : 1 }),
+  getSlotLevelGrowth: () => 0.25,
+  resolveItemProgression: () => ({
+    growthTier: 'T2',
+    series: 'ancientHero',
+    upgradeStage: 0,
+    grade: 'base',
+    upgradePathId: 'ancientHero',
+  }),
+};
+const progressionTemplateForLevelTest = {
+  name: 'Hero Blade',
+  source: 'progression_drop',
+  slot: 'weapon',
+  atk: 10,
+  aspd: 0.02,
+  crit: 0.03,
+  drop: 0.04,
+  dodgeRate: 0.05,
+  gold: 1,
+  growthTier: 'T2',
+  series: 'ancientHero',
+  upgradeStage: 0,
+  grade: 'base',
+};
+const lowLevelProgressionItem = itemFactory.createItem(progressionTemplateForLevelTest, 20, 'rare', { dropLevel: 20, rng: () => 0 }, levelSensitiveContext);
+const highLevelProgressionItem = itemFactory.createItem(progressionTemplateForLevelTest, 120, 'rare', { dropLevel: 120, rng: () => 0 }, levelSensitiveContext);
+assert.equal(lowLevelProgressionItem.atk, highLevelProgressionItem.atk, 'Progression-v2 drops must not scale core stats from hidden item level.');
+assert.equal(lowLevelProgressionItem.aspd, highLevelProgressionItem.aspd, 'Progression-v2 drops must not scale ASPD from hidden item level.');
+assert.equal(lowLevelProgressionItem.crit, highLevelProgressionItem.crit, 'Progression-v2 drops must not scale crit from hidden item level.');
+assert.equal(lowLevelProgressionItem.drop, highLevelProgressionItem.drop, 'Progression-v2 drops must not scale drop from hidden item level.');
+assert.equal(lowLevelProgressionItem.dodgeRate, highLevelProgressionItem.dodgeRate, 'Progression-v2 drops must not scale dodge from hidden item level.');
+assert.equal(lowLevelProgressionItem.gold, highLevelProgressionItem.gold, 'Progression-v2 drops must not scale gold from hidden item level.');
+assert.equal(highLevelProgressionItem.growthModel, 'progression-v2', 'Progression drops should record the new growth model.');
+assert.equal(highLevelProgressionItem.progressionBalanceVersion, 2, 'New progression drops should record the current balance version.');
+const qualityRollContext = {
+  ...factoryContext,
+  getEquipmentTiers: () => [{ id: 'rare', scale: 2, rolls: [7, 9] }],
+  randomFloat: (min, max) => max,
+};
+const progressionQualityRollItem = itemFactory.createItem(
+  { name: 'Quality Hero Blade', source: 'progression_drop', slot: 'weapon', atk: 100, growthTier: 'T2', series: 'ancientHero' },
+  20,
+  'rare',
+  { dropLevel: 20, rng: () => 0 },
+  qualityRollContext,
+);
+assert.equal(progressionQualityRollItem.quality, 108, 'Progression createItem should use the light rarity quality range.');
+assert.equal(progressionQualityRollItem.atk, 108, 'Progression createItem should not use legacy tier.rolls for base stats.');
+const legacyQualityRollItem = itemFactory.createItem(
+  { name: 'Legacy Quality Blade', source: 'monster_drop', slot: 'weapon', atk: 10 },
+  1,
+  'rare',
+  { dropLevel: 1, rng: () => 0 },
+  qualityRollContext,
+);
+assert.equal(legacyQualityRollItem.quality, 900, 'Legacy createItem should keep using tier.rolls quality.');
+assert.equal(legacyQualityRollItem.atk, 180, 'Legacy createItem should keep old rarity scale and tier.rolls base stat scaling.');
+const scalingFactoryContext = {
+  ...factoryContext,
+  getEquipmentTiers: () => [
+    { id: 'rare', scale: 1.42, rolls: [0.98, 1.16], affixes: 2 },
+    { id: 'legend', scale: 2.94, rolls: [1.12, 1.42], affixes: 5 },
+  ],
+  randomFloat: (min, max) => min,
+  applyRandomAffixes: () => {},
+  applyRarityPerk: () => {},
+};
+const createdT2 = itemFactory.createItem(ancientHeroPhysicalWeapon, 100, 'rare', { dropLevel: 100 }, scalingFactoryContext);
+const createdT3 = itemFactory.createItem(osPhysicalWeapon, 130, 'rare', { dropLevel: 130 }, scalingFactoryContext);
+const createdT3Legend = itemFactory.createItem(osPhysicalWeapon, 130, 'legend', { dropLevel: 130 }, scalingFactoryContext);
+assert.ok(createdT3.atk > createdT2.atk, 'New T3 rare progression equipment should beat same-slot T2 rare progression equipment.');
+assert.ok(createdT3Legend.atk < createdT3.atk * 1.25, 'Legend rarity should not multiply progression base stats by several times.');
+const scalingProbeCalls = [];
+const scalingProbeContext = {
+  ...factoryContext,
+  getEquipmentTiers: () => [{ id: 'rare', scale: 2, rolls: [1, 1] }],
+  getItemTierForLevel: (level) => ({ id: `tier-${level}`, scale: level >= 100 ? 20 : 3 }),
+  resolveItemProgression: () => ({
+    growthTier: 'T2',
+    series: 'ancientHero',
+    upgradeStage: 0,
+    grade: 'base',
+    upgradePathId: 'ancientHero',
+  }),
+  addBaseRanges: (item, template, tier, callLevel, callItemTier) => {
+    scalingProbeCalls.push({ hook: 'range', level: callLevel, scale: callItemTier.scale });
+  },
+  applyRandomAffixes: (item, tier, callLevel, callItemTier) => {
+    scalingProbeCalls.push({ hook: 'affix', level: callLevel, scale: callItemTier.scale });
+    item.atk += callLevel * callItemTier.scale;
+    item.affixDetails.push({ type: 'flat', stat: 'atk', value: callLevel * callItemTier.scale });
+  },
+};
+const lowAffixProgressionItem = itemFactory.createItem(progressionTemplateForLevelTest, 20, 'rare', { dropLevel: 20, rng: () => 0 }, scalingProbeContext);
+const highAffixProgressionItem = itemFactory.createItem(progressionTemplateForLevelTest, 120, 'rare', { dropLevel: 120, rng: () => 0 }, scalingProbeContext);
+assert.equal(lowAffixProgressionItem.atk, highAffixProgressionItem.atk, 'Progression-v2 random affixes must not scale from hidden item level or item tier.');
+assert.deepEqual(
+  scalingProbeCalls,
+  [
+    { hook: 'range', level: 1, scale: 1 },
+    { hook: 'affix', level: 1, scale: 1 },
+    { hook: 'range', level: 1, scale: 1 },
+    { hook: 'affix', level: 1, scale: 1 },
+  ],
+  'Progression-v2 range and affix hooks should receive neutral level and item-tier scale.',
+);
+const legacyScalingProbeCalls = [];
+itemFactory.createItem(
+  { name: 'Legacy Blade', source: 'monster_drop', slot: 'weapon', atk: 10 },
+  80,
+  'rare',
+  { dropLevel: 80, rng: () => 0 },
+  {
+    ...scalingProbeContext,
+    resolveItemProgression: undefined,
+    addBaseRanges: (item, template, tier, callLevel, callItemTier) => {
+      legacyScalingProbeCalls.push({ hook: 'range', level: callLevel, scale: callItemTier.scale });
+    },
+    applyRandomAffixes: (item, tier, callLevel, callItemTier) => {
+      legacyScalingProbeCalls.push({ hook: 'affix', level: callLevel, scale: callItemTier.scale });
+    },
+  },
+);
+assert.deepEqual(
+  legacyScalingProbeCalls,
+  [
+    { hook: 'range', level: 80, scale: 3 },
+    { hook: 'affix', level: 80, scale: 3 },
+  ],
+  'Legacy items should keep real level and item-tier scaling for range and affix hooks.',
+);
+const normalizedLegacyGrowth = itemFactory.normalizeItem({ id: 'legacy-a', atk: 100, level: 90, rarity: 'legend' }, factoryContext);
+assert.equal(normalizedLegacyGrowth.growthModel, 'legacy-level', 'Normalized old equipment should keep legacy growth mode.');
+assert.equal(normalizedLegacyGrowth.legacyPowerSnapshot.stats.atk, 100, 'Legacy normalization should snapshot existing stat values.');
+const normalizedOldWorldLegacy = itemFactory.normalizeItem({
+  id: 'legacy-oldworld',
+  atk: 77,
+  level: 50,
+  series: 'oldWorld',
+  growthTier: 'T1',
+  upgradePathId: 'oldWorld',
+  rarity: 'rare',
+}, factoryContext);
+assert.equal(normalizedOldWorldLegacy.growthModel, 'legacy-level', 'Old-world default progression fields should not mark legacy equipment as progression-v2.');
+assert.equal(normalizedOldWorldLegacy.legacyPowerSnapshot.stats.atk, 77, 'Old-world legacy equipment should still snapshot current stats.');
+const rebalancedSavedProgressionItem = itemFactory.normalizeItem({
+  id: 'saved-dimensional',
+  templateId: 'prog_dimensional_base_physical_weapon',
+  name: 'Saved Dimensional Blade',
+  slot: 'weapon',
+  source: 'progression_drop',
+  growthModel: 'progression-v2',
+  progressionBalanceVersion: 0,
+  series: 'dimensional',
+  growthTier: 'T10',
+  upgradeStage: 0,
+  grade: 'base',
+  upgradePathId: 'dimensional',
+  archetype: 'physical',
+  rarity: 'legend',
+  tier: 'legend',
+  quality: 120,
+  atk: 198,
+  atkPct: 0.238,
+  affixDetails: [{ type: 'flat', stat: 'atk', value: 5 }],
+}, {
+  ...factoryContext,
+  getEquipmentTemplate: (id) => itemProgression.getProgressionEquipmentTemplate(id),
+});
+assert.equal(rebalancedSavedProgressionItem.atk, 413, 'Saved progression gear should be rebuilt onto the current output curve.');
+assert.equal(rebalancedSavedProgressionItem.atkPct, 0.288, 'Saved progression gear percentage stats should use the current support curve.');
+assert.equal(rebalancedSavedProgressionItem.progressionBalanceVersion, 2, 'Saved progression gear should be marked as updated to the current balance.');
+assert.equal(itemFactory.createItem({ name: 'Rod', slot: 'weapon', matk: 10 }, 1, 'normal', { currentJobId: 'mage', rng: () => 0 }, factoryContext).archetype, 'magic', 'Created mage equipment must record magic archetype.');
+assert.equal(itemFactory.createItem({ name: 'Blade', slot: 'weapon', atk: 10 }, 1, 'normal', { targetArchetype: undefined, archetype: 'physical', currentJobId: 'mage', rng: () => 0 }, factoryContext).archetype, 'physical', 'Undefined directed archetype must not override the explicit item archetype.');
+assert.equal(itemFactory.normalizeItem({ atk: 100 }, factoryContext).archetype, 'physical', 'Legacy ATK equipment normalization must infer physical archetype.');
+assert.equal(itemFactory.normalizeItem({ matk: 100 }, factoryContext).archetype, 'magic', 'Legacy MATK equipment normalization must infer magic archetype.');
+assert.equal(itemFactory.normalizeItem({ atk: 100, matk: 100 }, factoryContext).archetype, 'general', 'Mixed legacy equipment normalization must infer general archetype.');
+assert.equal(itemFactory.normalizeItem({}, factoryContext).archetype, 'general', 'Empty legacy equipment normalization must infer general archetype.');
+assert.equal(itemFactory.normalizeItem({ archetype: 'unknown' }, factoryContext).archetype, 'general', 'Unknown legacy archetypes must normalize to general.');
+assert.equal(itemFactory.normalizeItem({ growthTier: 'T3', series: 'os', upgradeStage: 1 }, factoryContext).growthTier, 'T3', 'Normalization must preserve progression tier.');
+assert.equal(itemFactory.normalizeItem({ growthTier: 'T3', series: 'os', upgradeStage: 1 }, factoryContext).series, 'os', 'Normalization must preserve progression series.');
+assert.equal(itemFactory.normalizeItem({ growthTier: 'T3', series: 'os', upgradeStage: 1 }, factoryContext).upgradeStage, 1, 'Normalization must preserve progression stage.');
+const rerolledV2 = itemFactory.resetItemForStatV2({
+  id: 'legacy-gear',
+  templateId: 'blade',
+  slot: 'weapon',
+  archetype: 'magic',
+  rarity: 'legend',
+  level: 42,
+  refine: 12,
+  empower: 4,
+  locked: true,
+  antiCrit: 0.5,
+  cardSlots: [{ cardId: 'card-a' }],
+}, {
+  ...factoryContext,
+  getEquipmentTemplate: () => ({ id: 'blade', name: 'Blade', slot: 'weapon', atk: 10, source: 'monster_drop' }),
+  createItemId: () => 'new-id',
+  randomFloat: (min) => min,
+});
+assert.equal(rerolledV2.id, 'legacy-gear', 'V2 reroll must preserve technical item id so equipped slots stay valid.');
+assert.equal(rerolledV2.rarity, 'legend', 'V2 reroll must preserve rarity.');
+assert.equal(rerolledV2.level, 42, 'V2 reroll must preserve level.');
+assert.equal(rerolledV2.refine, 0, 'V2 reroll must reset star refine.');
+assert.equal(rerolledV2.empower, 0, 'V2 reroll must reset empower.');
+assert.deepEqual(rerolledV2.cardSlots, [], 'V2 reroll must clear socketed cards.');
+assert.equal(rerolledV2.locked, false, 'V2 reroll must clear lock state.');
+assert.equal(rerolledV2.antiCrit || 0, 0, 'V2 reroll must remove antiCrit.');
+assert.equal(rerolledV2.archetype, 'magic', 'V2 reroll must preserve the existing equipment archetype.');
+assert.equal(itemFactory.resetItemForStatV2({
+  id: 'legacy-gear-implicit',
+  templateId: 'blade',
+  slot: 'weapon',
+  targetArchetype: undefined,
+  archetype: 'magic',
+  rarity: 'normal',
+  level: 12,
+}, {
+  ...factoryContext,
+  getEquipmentTemplate: () => ({ id: 'blade', name: 'Blade', slot: 'weapon', atk: 10, source: 'monster_drop' }),
+  createItemId: () => 'new-id-implicit',
+}).archetype, 'magic', 'V2 reroll must ignore undefined targetArchetype and keep the existing archetype.');
+
+assert.match(equipmentPageSource, /equipmentArchetype|archetypeFilter|data-equipment-archetype|data-archetype-filter/, 'Equipment page must expose archetype filtering.');
+for (const key of ['physical', 'magic', 'general']) {
+  assert.match(equipmentPageSource, new RegExp(`['"]${key}['"]|\\b${key}\\b`), `Equipment page must expose ${key} filter entry.`);
+}
+assert.doesNotMatch(
+  game,
+  /data-reforge-archetype|data-archetype-reforge|reforgeArchetype/i,
+  'Directed reforge buttons should be removed from the equipment UI.'
+);
+assert.match(game, /inferEquipmentArchetype/, 'Equipment runtime must still infer archetype for scoring and filtering.');
+for (const marker of ['getArchetypeStatPools', 'equipmentAutoEquipScore', 'shouldProtectEquipment']) {
+  assert.match(game, new RegExp(marker), `Equipment V3 game runtime must expose ${marker}.`);
+}
+const equipmentCardScoreSource = game.slice(game.indexOf('function renderEquipmentCardScore'), game.indexOf('function renderEquipmentStateBadges'));
+assert.match(equipmentCardScoreSource, /physicalScore/, 'Equipment card score must still read physical archetype scores.');
+assert.match(equipmentCardScoreSource, /magicScore/, 'Equipment card score must still read magic archetype scores.');
+assert.match(equipmentCardScoreSource, /generalScore/, 'Equipment card score must still read general archetype scores.');
+assert.match(game, /可打造成胚子/, 'Equipment UI must expose craft-base fit tags.');
+assert.match(game, /适合当前职业/, 'Equipment UI must expose current-job fit tags.');
+assert.match(game, /renderEquipmentProgressionTags/, 'Equipment UI must display progression-line tags.');
+assert.match(game, /data-upgrade-progression-item/, 'Equipment progression upgrades must have a clickable action.');
+assert.match(game, /\u88c5\u5907\u8fdb\u9636/, 'Smithy must expose the equipment progression upgrade panel.');
+assert.match(game, /function\s+isProgressionLineEquipment\s*\(/, 'Equipment UI must identify progression line gear.');
+assert.match(game, /function\s+renderEquipmentPotentialBadge\s*\(/, 'Equipment cards must render progression growth potential.');
+assert.match(game, /成长潜力/, 'Equipment cards should label progression potential in Chinese.');
+assert.match(game, /item\.series\s*!==\s*["']oldWorld["']/, 'Progression line equipment should still be protected by the shared protection helper.');
+assert.doesNotMatch(game, /function\s+equipmentPotentialScore\s*\(/, 'Unused progression potential score helper should not remain in game.js.');
+const progressionProtectionSource = game.slice(game.indexOf('function shouldProtectEquipment'), game.indexOf('function equipmentProgressionRuntime'));
+assert.match(progressionProtectionSource, /isProgressionLineEquipment\(item\)/, 'Equipment protection must keep progression-line gear out of broad salvage flows.');
+const equipmentBadgeSource = game.slice(game.indexOf('function renderEquipmentBadges'), game.indexOf('function renderMaps'));
+assert.match(equipmentBadgeSource, /renderEquipmentPotentialBadge\(item\)/, 'Equipment badge row must include progression potential.');
+const salvageAllSource = game.slice(game.indexOf('function salvageAllUnequipped'), game.indexOf('function showSalvageResultModal'));
+assert.doesNotMatch(salvageAllSource, /shouldProtectEquipment\(item\)/, 'Batch unequipped salvage must only exclude equipped and locked gear.');
+assert.doesNotMatch(salvageAllSource, /RuneFrontierEquipmentRuntime[\s\S]{0,180}salvageAllUnequipped/, 'Batch unequipped salvage must not delegate to a stale module runtime.');
+const manualSalvageSource = game.slice(game.indexOf('function salvageItem'), game.indexOf('function getSalvageRewards'));
+assert.doesNotMatch(manualSalvageSource, /isProgressionLineEquipment\(item\)|shouldProtectEquipment\(item\)/, 'Manual salvage must not hard-block progression-line gear.');
+const equipmentCardSource = game.slice(game.indexOf('data-salvage-item'), game.indexOf('function renderEquipmentFilterBar'));
+assert.doesNotMatch(equipmentCardSource, /data-salvage-item[\s\S]{0,240}isProgressionLineEquipment/, 'Manual salvage action must remain available for progression-line gear.');
+const offlineFullSalvageSource = game.slice(game.indexOf('function canOfflineFullSalvage'), game.indexOf('function processOfflineGeneratedEquipment'));
+assert.match(offlineFullSalvageSource, /shouldProtectEquipment\(item\)|isProgressionLineEquipment\(item\)/, 'Offline full-inventory salvage must protect progression-line gear.');
+const moduleBatchSalvageSource = dismantleSource.slice(dismantleSource.indexOf('export function salvageAllUnequipped'), dismantleSource.indexOf('export function equipBest'));
+assert.doesNotMatch(moduleBatchSalvageSource, /ctx\.shouldProtectEquipment\?\.\(item\)/, 'Modular batch dismantle must only exclude equipped and locked gear.');
+
+const scoreStandaloneSource = withItemArchetypeImport(itemScoreSource)
+  .replace("import { getEffectiveItemStats } from './itemStats.js';", 'const getEffectiveItemStats = (item) => item;')
+  .replace("import { isAbyssEquipment } from './itemNaming.js';", "const isAbyssEquipment = (item) => Boolean(item?.abyssForged);");
+assert.doesNotMatch(itemScoreSource, /critRatePct|dodgeRatePct|baseExpBonus|jobExpBonus|abyssBossDamageBonus|abyssMaterialDropBonus|mythicEssenceDropBonus/, 'Equipment scoring should use canonical stats only.');
+const equipmentDetailSource = game.slice(game.indexOf('function groupEquipmentStats'), game.indexOf('function renderSalvagePreviewSection'));
+assert.doesNotMatch(equipmentDetailSource, /meteorCounterChance|mutationMaterialDoubleChance|statusResist|baseExpBonus|jobExpBonus|critRatePct|dodgeRatePct/, 'Equipment detail panel should not list pruned stats as ordinary rows.');
+assert.match(equipmentDetailSource, /基础属性[\s\S]*输出属性[\s\S]*收益属性[\s\S]*特殊效果/, 'Equipment detail panel should use compact main groups and mechanism tags.');
+const battleStatsSource = game.slice(game.indexOf('function calculateBattleStats'), game.indexOf('function calculateDropBonus'));
+assert.doesNotMatch(battleStatsSource, /equip\.critRatePct|equip\.dodgeRatePct|equip\.powerPct/, 'Battle stats should consume canonical crit, dodge, and pace fields.');
+const computeStatsSource = game.slice(game.indexOf('function computeStats'), game.indexOf('function calculateBattleStats'));
+assert.match(computeStatsSource, /equip\.expBonus/, 'Character stats should use canonical equipment expBonus.');
+assert.match(computeStatsSource, /equip\.highTierFind/, 'Character stats should use canonical highTierFind.');
+const itemScore = await importSource(scoreStandaloneSource);
+const scores = itemScore.calculateEquipmentScores({
+  atk: 100,
+  hp: 200,
+  bossDamageBonus: 0.05,
+  abyssDamageBonus: 0.08,
+  abyssDamageReduction: 0.05,
+  abyssForged: true,
+});
+assert.ok(scores.output > 0 && scores.survival > 0 && scores.boss > 0 && scores.abyss > 0, 'Equipment score outputs must remain finite and positive.');
+assert.ok(['comprehensive', 'output', 'survival', 'boss', 'abyss', 'treasure'].every((key) => Number.isFinite(scores[key])), 'Equipment scores must not contain invalid numbers.');
+for (const key of ['physicalScore', 'magicScore', 'generalScore', 'currentJobScore', 'archetypeFit']) {
+  assert.ok(Object.hasOwn(scores, key), `Equipment score outputs must include ${key}.`);
+}
+const emptyScore = itemScore.calculateEquipmentScores({});
+const antiCritOnlyScore = itemScore.calculateEquipmentScores({ antiCrit: 0.5 });
+assert.equal(antiCritOnlyScore.survival, emptyScore.survival, 'Equipment V2 scoring must not reward antiCrit.');
+assert.ok(itemScore.calculateEquipmentScores({ blockRate: 0.12 }).survival > emptyScore.survival, 'Equipment V2 scoring must reward real blockRate.');
+assert.ok(itemScore.calculateEquipmentScores({ atk: 100 }).physicalScore > itemScore.calculateEquipmentScores({ atk: 100 }).magicScore, 'Equipment score must favor physical stats for physical scoring.');
+assert.ok(itemScore.calculateEquipmentScores({ matk: 100 }).magicScore > itemScore.calculateEquipmentScores({ matk: 100 }).physicalScore, 'Equipment score must favor magic stats for magic scoring.');
 
 const dismantle = await importSource(dismantleSource);
+assert.equal(
+  dismantle.getSalvageRewards(
+    { rarity: 'normal', level: 0 },
+    { preview: true },
+    { getSalvageTable: () => ({ dust: [1, 3] }), randomInt: () => 2 },
+  ).dust,
+  '1-3',
+  'Salvage preview must show ranged rewards as min-max.',
+);
 const mutationState = {
   inventory: [],
   materials: {},
@@ -391,6 +2259,32 @@ assert.equal(mutationLoot.length, 1, 'Auto-salvage must write one recent-loot re
 const protectedItem = dismantle.addEquipmentToInventory({ id: 'set', rarity: 'normal', setId: 'set-a' }, {}, mutationContext);
 assert.equal(protectedItem.added, true, 'Set equipment must remain protected from ordinary auto-salvage.');
 assert.equal(dismantle.shouldAutoSalvage({ rarity: 'normal', abyssForged: true }, mutationContext), false, 'Abyss equipment must remain protected unless explicitly enabled.');
+assert.equal(dismantle.shouldAutoSalvage({ rarity: 'normal' }, { ...mutationContext, shouldProtectEquipment: () => true }), false, 'Protected equipment must not be auto-salvaged.');
+const batchState = {
+  inventory: [
+    { id: 'keep', rarity: 'normal', level: 1 },
+    { id: 'trash', rarity: 'normal', level: 1 },
+    { id: 'equipped', rarity: 'normal', level: 1 },
+    { id: 'locked', rarity: 'normal', level: 1, locked: true },
+  ],
+  equipped: { weapon: 'equipped' },
+  materials: {},
+};
+let batchSalvageDialog = null;
+const batchMutationContext = {
+  ...mutationContext,
+  getState: () => batchState,
+  shouldProtectEquipment: (item) => item.id === 'keep',
+  addLog: () => {},
+  materialText: () => 'Dust x1',
+  showSalvageResult: (...args) => { batchSalvageDialog = args; },
+  renderAll: () => {},
+  save: () => {},
+};
+dismantle.salvageAllUnequipped(batchMutationContext);
+assert.deepEqual(batchState.inventory.map((item) => item.id), ['equipped', 'locked'], 'Batch dismantle must salvage all unlocked unequipped equipment even when auto-salvage would protect it.');
+assert.equal(batchState.materials.dust, 2, 'Batch dismantle must reward all unlocked unequipped equipment.');
+assert.deepEqual(batchSalvageDialog, ['\u6279\u91cf\u5206\u89e3\u5b8c\u6210', 2, { dust: 2 }], 'Batch dismantle dialog must count all unlocked unequipped equipment.');
 const fullInventory = dismantle.addEquipmentToInventory({ id: 'second', rarity: 'legend' }, {}, mutationContext);
 assert.equal(fullInventory.skipped, true, 'Inventory capacity behavior changed.');
 mutationState.inventory = [{ id: 'manual', rarity: 'normal', level: 1 }];
@@ -400,6 +2294,7 @@ let manualSalvageRenders = 0;
 let manualSalvageSaves = 0;
 const manualMutationContext = {
   ...mutationContext,
+  shouldProtectEquipment: () => true,
   addLog: () => {},
   materialText: () => 'Dust x1',
   getDisplayItemName: () => 'Blade',
@@ -414,6 +2309,83 @@ assert.equal(mutationState.materials.dust, 2, 'Manual dismantle must add its mat
 assert.deepEqual(manualSalvageDialog, ['\u5206\u89e3\u5b8c\u6210', 1, { dust: 1 }], 'Manual dismantle dialog must receive its reward summary.');
 assert.equal(manualSalvageRenders, 1, 'Manual dismantle must immediately rerender resource and equipment displays.');
 assert.equal(manualSalvageSaves, 1, 'Manual dismantle must save its reward changes.');
+const lineSalvageState = {
+  inventory: [],
+  materials: {},
+  autoSalvage: { enabled: true, maxRarity: 'legend', autoDismantleAbyss: true },
+};
+const lineSalvageContext = {
+  ...mutationContext,
+  getState: () => lineSalvageState,
+  getEquipmentLineMaterials: (series) => ({
+    ancientHero: {
+      basic: { id: 'ancientHeroShard' },
+      advanced: { id: 'heroReformInscription' },
+      core: { id: 'mythicHeroCore' },
+    },
+    os: {
+      basic: { id: 'osGear' },
+      advanced: { id: 'illusionModule' },
+      core: { id: 'osAdCore' },
+    },
+  })[series] || {},
+  normalizeEquipmentSeries: (series, fallback = 'oldWorld') => (
+    ['oldWorld', 'ancientHero', 'os'].includes(series) ? series : fallback
+  ),
+  getSalvageTable: () => ({ dust: [1, 1] }),
+  randomInt: (min) => min,
+};
+const ancientBaseRewards = dismantle.getSalvageRewards({
+  id: 'hero-base',
+  rarity: 'rare',
+  level: 100,
+  series: 'ancientHero',
+  growthTier: 'T2',
+  upgradeStage: 0,
+}, lineSalvageContext);
+assert.deepEqual(
+  ancientBaseRewards,
+  { dust: 9, ancientHeroShard: 3 },
+  'T2 line equipment should salvage into its own basic line material plus ordinary salvage.',
+);
+const ancientAdvancedRewards = dismantle.getSalvageRewards({
+  id: 'hero-reform',
+  rarity: 'epic',
+  level: 130,
+  series: 'ancientHero',
+  growthTier: 'T2',
+  upgradeStage: 1,
+}, lineSalvageContext);
+assert.ok(ancientAdvancedRewards.heroReformInscription >= 1, 'Upgraded line equipment should return its own advanced material.');
+assert.ok(ancientAdvancedRewards.ancientHeroShard >= 1, 'Upgraded line equipment should still return some basic line material.');
+const ancientCoreRewards = dismantle.getSalvageRewards({
+  id: 'hero-lt',
+  rarity: 'legend',
+  level: 160,
+  series: 'ancientHero',
+  growthTier: 'T3',
+  upgradeStage: 2,
+}, lineSalvageContext);
+assert.ok(ancientCoreRewards.mythicHeroCore >= 1, 'Core-stage line equipment should return its own core material.');
+const oldWorldLineRewards = dismantle.getSalvageRewards({
+  id: 'old',
+  rarity: 'rare',
+  level: 60,
+  series: 'oldWorld',
+  growthTier: 'T1',
+}, lineSalvageContext);
+assert.equal(oldWorldLineRewards.ancientHeroShard, undefined, 'Old-world temporary equipment must not return progression line materials.');
+const abyssLineRewards = dismantle.getSalvageRewards({
+  id: 'abyss-hero',
+  rarity: 'epic',
+  level: 150,
+  series: 'ancientHero',
+  growthTier: 'T3',
+  upgradeStage: 1,
+  abyssForged: true,
+}, lineSalvageContext);
+assert.ok(abyssLineRewards.heroReformInscription >= 1, 'Abyss line equipment should keep returning its own line materials.');
+assert.ok(abyssLineRewards.abyssShard > 0, 'Abyss line equipment should still return abyss salvage materials.');
 
 const taskPage = await importSource(taskPageSource);
 const cardPage = await importSource(cardPageSource);
@@ -437,6 +2409,26 @@ const taskHtml = taskRuntime.renderTaskCard({
 assert.match(taskHtml, /Correct description/, 'Task cards must use the current description field.');
 assert.match(taskHtml, /2 \/ 5/, 'Task cards must use currentCount and requiredCount.');
 assert.doesNotMatch(taskHtml, /undefined/, 'Task cards must not print missing legacy field values.');
+let taskPageHtml = '';
+globalThis.window = {
+  RuneFrontierRenderRuntime: taskRuntime,
+  questRewardText: () => 'Reward',
+  state: {
+    hideCompletedTasks: true,
+    quests: {
+      active: [
+        { id: 'main_1_grass', category: 'main', title: 'Claim me', description: 'Ready reward', currentCount: 30, requiredCount: 30, rewards: {}, completed: true, claimed: false },
+        { id: 'main_claimed', category: 'main', title: 'Already claimed', description: 'Hidden reward', currentCount: 30, requiredCount: 30, rewards: {}, completed: true, claimed: true },
+      ],
+    },
+    dailyGoals: { goals: [] },
+  },
+  els: { taskPage: { set innerHTML(value) { taskPageHtml = value; } } },
+};
+taskRuntime.renderTasks();
+assert.match(taskPageHtml, /Claim me/, 'Completed but unclaimed beginner tasks must stay visible so onboarding rewards can be claimed.');
+assert.doesNotMatch(taskPageHtml, /Already claimed/, 'Completed and claimed tasks should remain hidden when completed-task hiding is enabled.');
+assert.match(game, /\(!hideCompleted \|\| !quest\.completed \|\| !quest\.claimed\)/, 'Classic task rendering must not hide completed unclaimed rewards.');
 let cardHtml = '';
 globalThis.window = { RuneFrontierRenderRuntime: {} };
 const cardRuntime = cardPage.installCardRenderRuntime({
@@ -488,10 +2480,12 @@ assert.equal(lootState.recentLoot[0].id, 'new-loot', 'Most recent loot should be
 
 const equipmentDrops = await importSource(equipmentDropsSource);
 const accepted = [];
+let createdDropContext = null;
 const dropContext = {
   currentMap: () => ({ id: 'grass' }),
   getDropTableId: (id) => id,
-  getEquipmentDropTable: () => [{ equipmentId: 'blade', rarity: 'normal', minLevel: 1, maxLevel: 1, dropRate: 1 }],
+  getProgressionEquipmentDropTable: () => [{ equipmentId: 'blade', rarity: 'normal', minLevel: 1, maxLevel: 1, dropRate: 1 }],
+  getEquipmentDropTable: () => { throw new Error('Legacy equipment drop table fallback should not be used.'); },
   getEquipmentTemplate: () => ({ id: 'blade', name: 'Blade', rarity: 'normal' }),
   getMaxEquipmentDrops: () => 1,
   getEffectiveEquipmentDropRate: () => 1,
@@ -504,17 +2498,23 @@ const dropContext = {
   randomInt: (min) => min,
   getDarkGoldUpgradeRate: () => 0,
   currentDifficulty: () => 'normal',
-  createItem: (_template, _level, rarity) => ({ id: 'table-drop', rarity }),
+  resolveEquipmentProgressionContext: () => ({ growthTier: 'T1', series: 'oldWorld', upgradeStage: 0, grade: 'field', upgradePathId: 'oldWorld' }),
+  createItem: (_template, _level, rarity, context) => {
+    createdDropContext = context;
+    return { id: 'table-drop', rarity, growthTier: context.growthTier, series: context.series };
+  },
   addEquipmentToInventory: (item) => accepted.push(item),
 };
 assert.equal(equipmentDrops.rollEquipmentTableDrops({}, {}, dropContext), 1, 'Online equipment table drop count changed.');
 assert.equal(accepted[0].id, 'table-drop', 'Online equipment table drops must enter the module acceptance path.');
+assert.equal(createdDropContext.growthTier, 'T1', 'Equipment drops must pass map progression tier into item creation.');
+assert.equal(createdDropContext.series, 'oldWorld', 'Equipment drops must pass map progression series into item creation.');
 const hardDropContext = {
   ...dropContext,
   currentDifficulty: () => 'hard',
   getDifficultyDropLevelBonus: (difficulty) => difficulty === 'hard' ? ({ min: 20, max: 35 }) : ({ min: 0, max: 0 }),
 };
-assert.equal(equipmentDrops.resolveEquipmentDropLevel({ baseLevel: 10, difficulty: 'hard', source: 'transition-set' }, hardDropContext), 30, 'Hard special equipment must receive the configured minimum drop-level bonus.');
+assert.equal(equipmentDrops.resolveEquipmentDropLevel({ baseLevel: 10, difficulty: 'hard', source: 'zodiac-set' }, hardDropContext), 30, 'Hard special equipment must receive the configured minimum drop-level bonus.');
 const abyssDropContext = {
   ...dropContext,
   currentDifficulty: () => 'abyss',
@@ -547,6 +2547,18 @@ const materialContext = {
 };
 assert.equal(materialDrops.rollMapMaterialDrops({ dropBonus: 0 }, {}, materialContext), 2, 'Online map material quantity changed.');
 assert.equal(materialState.materials.ore, 2, 'Map material grants must update inventory once.');
+const progressionMaterialState = { currentMap: 0, materials: {} };
+const progressionMaterialContext = {
+  ...materialContext,
+  getState: () => progressionMaterialState,
+  currentDifficulty: () => 'hard',
+  getMaterialDropTable: () => [],
+  getProgressionMaterialDrops: () => [{ materialId: 'heroReformInscription', dropRate: 1, minQty: 3, maxQty: 3, rarity: 'epic' }],
+  recordSessionReward: () => {},
+  recordRecentLoot: () => {},
+};
+assert.equal(materialDrops.rollMapMaterialDrops({ dropBonus: 0 }, { boss: true }, progressionMaterialContext), 3, 'Progression material drops must be rolled even when old map materials are empty.');
+assert.equal(progressionMaterialState.materials.heroReformInscription, 3, 'Progression material grants must update inventory.');
 assert.equal(materialDrops.maybeDropDarkGoldFragments({}, { boss: true }, materialContext), 2, 'Boss dark-gold fragment quantity changed.');
 assert.equal(materialState.materials.darkGoldFragment, 2, 'Dark-gold fragments must be granted through material service.');
 assert.equal(materialDrops.maybeDropMythicEssence({}, {}, materialContext), 1, 'Abyss mythic essence routing changed.');
@@ -593,10 +2605,8 @@ const specialContext = {
   currentMap: () => ({ id: 'grass' }),
   currentDifficulty: () => 'normal',
   getZodiacSetIds: () => ['zodiac'],
-  getTransitionSetIds: () => ['transition'],
   getEquipmentSet: (id) => ({ items: [{ id: `${id}-piece`, rarity: 'rare', level: 1 }] }),
   getZodiacSetDropRates: () => ({ normal: 1, darkGoldNormal: 0 }),
-  getTransitionSetDropRates: () => ({ normal: 1 }),
   getMythicDropRates: () => ({ abyssNormal: 0 }),
   getAbyssBossMultiplier: () => ({ mythicDrop: 1, abyssSetDrop: 1 }),
   getMapLevelRange: () => ({ maxLevel: 1 }),
@@ -604,25 +2614,22 @@ const specialContext = {
   createItem: (template, level, rarity) => ({ id: template.id, level, rarity }),
   addEquipmentToInventory: (item) => acceptedSpecial.push(item),
 };
-assert.equal(bossDrops.rollZodiacSetDrops({}, {}, {}, specialContext), 1, 'Zodiac-set reward routing changed.');
-assert.equal(bossDrops.rollTransitionSetDrops({}, {}, {}, specialContext), 1, 'Transition-set reward routing changed.');
-assert.equal(acceptedSpecial[0].rarity, 'legend', 'Normal zodiac-set base rarity changed.');
-assert.equal(acceptedSpecial[1].id, 'transition-piece', 'Transition-set item must enter equipment acceptance.');
+assert.equal(bossDrops.rollZodiacSetDrops({}, {}, {}, specialContext), 0, 'Zodiac-set drops should be disabled for online normal kills.');
+assert.equal(typeof bossDrops.rollTransitionSetDrops, 'undefined', 'Transition-set drop export should be removed.');
+assert.equal(acceptedSpecial.length, 0, 'Disabled zodiac-set drops must not add special equipment.');
 const acceptedHardSpecial = [];
 const hardSpecialContext = {
   ...specialContext,
   currentDifficulty: () => 'hard',
   getZodiacSetDropRates: () => ({ hard: 1, darkGoldNormal: 0 }),
-  getTransitionSetDropRates: () => ({ hard: 1 }),
   getDifficultyDropLevelBonus: () => ({ min: 20, max: 35 }),
   clampLevel: (value) => value,
   randomInt: (min) => min,
   createItem: (template, level, rarity) => ({ id: template.id, level, rarity }),
   addEquipmentToInventory: (item) => acceptedHardSpecial.push(item),
 };
-assert.equal(bossDrops.rollZodiacSetDrops({ level: 10 }, {}, {}, hardSpecialContext), 1, 'Hard zodiac-set routing changed.');
-assert.equal(bossDrops.rollTransitionSetDrops({ level: 10 }, {}, {}, hardSpecialContext), 1, 'Hard transition-set routing changed.');
-assert.deepEqual(acceptedHardSpecial.map((item) => item.level), [30, 30], 'Hard special equipment must not retain low monster display levels.');
+assert.equal(bossDrops.rollZodiacSetDrops({ level: 10 }, {}, {}, hardSpecialContext), 0, 'Zodiac-set drops should be disabled for online hard kills.');
+assert.deepEqual(acceptedHardSpecial.map((item) => item.level), [], 'Disabled hard zodiac-set drops must not create equipment.');
 
 const abyssStandaloneSource = abyssDropsSource
   .replace("import { grantMutationMaterial } from './materialDrops.js';", 'const grantMutationMaterial = () => 0;');
@@ -646,7 +2653,32 @@ const abyssContext = {
 assert.equal(abyssDrops.rollMythicEquipmentDrop({}, {}, {}, abyssContext), 1, 'Mythic equipment reward routing changed.');
 assert.equal(abyssDrops.rollMutationExtraDrops({ mutation: { highRarityEquipmentBonus: 1, rareMaterialBonus: 1 } }, {}, 0, abyssContext), 1, 'Mutation equipment reward routing changed.');
 assert.deepEqual(abyssAccepted.map((item) => item.rarity), ['mythic', 'legend'], 'Abyss reward rarities changed.');
-assert.match(lootRollSource, /rollEquipmentTableDrops[\s\S]*rollZodiacSetDrops[\s\S]*rollTransitionSetDrops[\s\S]*rollMythicEquipmentDrop[\s\S]*rollMapMaterialDrops[\s\S]*maybeDropMythicEssence[\s\S]*maybeDropDarkGoldFragments[\s\S]*maybeDropSocketMaterials[\s\S]*rollCardDropsFromTable[\s\S]*maybeDropBossCardFragments/, 'Online reward-category ordering changed.');
+assert.match(lootRollSource, /rollEquipmentTableDrops[\s\S]*rollZodiacSetDrops[\s\S]*rollMythicEquipmentDrop[\s\S]*rollMapMaterialDrops[\s\S]*maybeDropMythicEssence[\s\S]*maybeDropDarkGoldFragments[\s\S]*maybeDropSocketMaterials[\s\S]*rollCardDropsFromTable[\s\S]*maybeDropBossCardFragments/, 'Online reward-category ordering changed.');
+assert.doesNotMatch(lootRollSource, /rollTransitionSetDrops/, 'Online drops should not roll transition sets.');
+assert.doesNotMatch(bossDropsSource, /export function rollTransitionSetDrops/, 'Transition-set drop function should be removed from boss drops.');
+const onlineZodiacDropStart = bossDropsSource.indexOf('export function rollZodiacSetDrops');
+const onlineZodiacDropEnd = bossDropsSource.indexOf('export function grantBossEssence', onlineZodiacDropStart);
+assert.ok(onlineZodiacDropStart >= 0 && onlineZodiacDropEnd > onlineZodiacDropStart, 'Online zodiac drop function boundaries changed.');
+const onlineZodiacDropSource = bossDropsSource.slice(onlineZodiacDropStart, onlineZodiacDropEnd);
+const offlineZodiacDropSource = offlineSource.slice(
+  offlineSource.indexOf('export function rollOfflineZodiacSetDrops'),
+  offlineSource.indexOf('export function rollOfflineMythicDrops'),
+);
+const equipmentSetsSourceStart = data.indexOf('var equipmentSets');
+const taurusSetSourceStart = data.indexOf('taurus_aldbaran:', equipmentSetsSourceStart);
+const taurusSetSource = data.slice(taurusSetSourceStart, data.indexOf('items:', taurusSetSourceStart));
+const abyssMapTierSource = data.slice(data.indexOf('var ABYSS_MAP_TIER_SCALE'), data.indexOf('var ABYSS_BOSS_EXTRA_MULTIPLIER'));
+assert.match(onlineZodiacDropSource, /return\s+0\s*;/, 'Online zodiac drop function should stay exported but produce no drops.');
+assert.doesNotMatch(onlineZodiacDropSource, /createItem|addEquipmentToInventory/, 'Disabled online zodiac drop function must not create equipment.');
+assert.match(offlineZodiacDropSource, /return\s+0\s*;/, 'Offline zodiac drop function should stay exported but produce no drops.');
+assert.doesNotMatch(offlineZodiacDropSource, /createItem|processGeneratedOfflineEquipment/, 'Disabled offline zodiac drop function must not create equipment.');
+assert.match(game, /ZODIAC_ITEM_STAT_MULTIPLIER\s*=\s*0\.38/, 'Generated zodiac item stats should be toned down.');
+assert.match(game, /ZODIAC_EFFECT_MULTIPLIER\s*=\s*0\.35/, 'Generated zodiac set effects should be toned down.');
+assert.match(game, /createProgressiveSetStages/, 'Zodiac piece stages should use residual bonuses instead of stacking above the advertised full effect.');
+assert.doesNotMatch(game, /monsterGoldPct:\s*0\.5/, 'Taurus partial set bonuses should not keep pre-balance gold values.');
+assert.match(taurusSetSource, /monsterGoldPct:\s*0\.35/, 'Taurus full-set gold bonus should no longer be a progression breaker.');
+assert.match(abyssMapTierSource, /sky:\s*\{\s*hp:\s*20/, 'Abyss sky HP curve should be raised for endgame checks.');
+assert.doesNotMatch(game, /transitionSetDropMap/, 'Transition sets should not remain in active drop routing.');
 
 const lootModel = await importSource(lootModelSource);
 const lootModelContext = {
@@ -673,12 +2705,22 @@ assert.equal(normalizedLoot.equipment.length, 1, 'Claimed equipment should remai
 assert.equal(normalizedLoot.pendingEquipment[0].id, 'pending', 'Legacy pending-equipment inference changed.');
 assert.equal(normalizedLoot.materials[0].materialId, 'dust', 'Legacy material-object normalization changed.');
 assert.equal(normalizedLoot.autoSalvaged, 1, 'Auto-salvage material totals must be safe in loot views.');
+assert.equal(
+  lootModel.normalizeLootRewards({ mvpInscriptionExp: 12.5 }, lootModelContext).mvpInscriptionExp,
+  12.5,
+  'MVP inscription exp should survive loot reward normalization.',
+);
 const mergedLoot = lootModel.mergeLootRewards([
   { equipment: [{ id: 'old' }], materials: [{ materialId: 'dust', qty: 1 }] },
   { pendingEquipment: [{ id: 'new-pending' }], skippedEquipment: 1, materials: [{ materialId: 'dust', qty: 2 }] },
 ], lootModelContext);
 assert.equal(mergedLoot.materials[0].qty, 3, 'Merged loot material counts changed.');
 assert.equal(mergedLoot.pendingEquipment.length, 1, 'Merged pending equipment should be preserved.');
+assert.equal(
+  lootModel.mergeLootRewards([{ mvpInscriptionExp: 2 }, { mvpInscriptionExp: 3.5 }], lootModelContext).mvpInscriptionExp,
+  5.5,
+  'Merged loot should sum MVP inscription exp.',
+);
 const recentView = lootModel.getLatestRecentLootRewards({
   recentLoot: [
     { time: 100, rewards: { equipment: [{ id: 'older' }] } },
@@ -688,12 +2730,261 @@ const recentView = lootModel.getLatestRecentLootRewards({
 }, lootModelContext);
 assert.equal(recentView.equipment[0].id, 'latest', 'Latest-loot view must not be replaced by stale batches.');
 
+const mvpDataSource = read('src/systems/mvpInscription/mvpInscriptionData.js');
+const mvpSystemSource = read('src/systems/mvpInscription/mvpInscriptionSystem.js');
+const mvpDataModuleUrl = `data:text/javascript;base64,${Buffer.from(mvpDataSource).toString('base64')}`;
+const mvpSystemStandaloneSource = mvpSystemSource.replace(/from\s+['"]\.\/mvpInscriptionData\.js['"]/g, `from '${mvpDataModuleUrl}'`);
+const mvp = await importSource(mvpSystemStandaloneSource);
+
+const defaultMark = mvp.defaultMvpInscription(() => 1234);
+assert.equal(defaultMark.level, 1, 'New MVP inscription state should start at level 1.');
+assert.equal(defaultMark.exp, 0, 'New MVP inscription state should start with no current exp.');
+assert.deepEqual(defaultMark.unlockedMarks, ['kingPoring'], 'New MVP inscription state should unlock King Poring first.');
+assert.equal(defaultMark.lastOnlineTickAt, 1234, 'New MVP inscription state should keep the provided timestamp.');
+
+const normalizedMark = mvp.normalizeMvpInscription({
+  level: 999,
+  exp: -5,
+  totalExp: -10,
+  breakthroughLevel: 999,
+  unlockedMarks: [],
+  bossFirstExpClaims: null,
+}, () => 2000);
+assert.equal(normalizedMark.level, 100, 'MVP inscription level must clamp to 100.');
+assert.equal(normalizedMark.exp, 0, 'MVP inscription exp must not be negative.');
+assert.equal(normalizedMark.totalExp, 0, 'MVP inscription total exp must not be negative.');
+assert.equal(normalizedMark.breakthroughLevel, 90, 'MVP breakthrough progress must not exceed the level band.');
+assert.deepEqual(normalizedMark.unlockedMarks, ['kingPoring'], 'MVP inscription should repair missing unlocked marks.');
+
+assert.equal(mvp.getMvpInscriptionStage(1).id, 'kingPoring', 'Lv1 should be King Poring inscription.');
+assert.equal(mvp.getMvpInscriptionStage(84).id, 'darkLord', 'Lv84 should be Dark Lord inscription.');
+assert.equal(mvp.getMvpInscriptionStage(100).id, 'baphomet', 'Lv100 should be Baphomet inscription.');
+assert.equal(mvp.getMvpInscriptionLevelRequirement(1), 120, 'Lv1 inscription requirement changed.');
+
+const blockedAtBreakthrough = mvp.normalizeMvpInscription({ level: 10, exp: 0, breakthroughLevel: 0 }, () => 0);
+const blockedGain = mvp.addMvpInscriptionExp(blockedAtBreakthrough, 999999);
+assert.equal(blockedGain.blocked, true, 'MVP inscription must block at unbroken level 10.');
+assert.equal(blockedAtBreakthrough.level, 10, 'Blocked MVP inscription must not cross level 10.');
+
+const crossesIntoBreakthrough = mvp.normalizeMvpInscription({ level: 9, exp: 0, breakthroughLevel: 0 }, () => 0);
+const crossingGain = mvp.addMvpInscriptionExp(crossesIntoBreakthrough, 999999);
+assert.equal(crossesIntoBreakthrough.level, 10, 'MVP inscription should stop on the level 10 breakthrough wall.');
+assert.equal(crossingGain.blocked, true, 'MVP inscription gain should report blocked when it stops at a breakthrough wall.');
+
+const breakthroughReady = mvp.normalizeMvpInscription({ level: 10, exp: 0, breakthroughLevel: 10 }, () => 0);
+const unblockedGain = mvp.addMvpInscriptionExp(breakthroughReady, mvp.getMvpInscriptionLevelRequirement(10));
+assert.equal(unblockedGain.blocked, false, 'Completed breakthrough should allow MVP inscription leveling.');
+assert.ok(breakthroughReady.level > 10, 'Completed breakthrough should allow crossing level 10.');
+
+assert.equal(mvp.getMvpInscriptionBreakthroughRequirement(10).label, 'BASE Lv20', 'Lv10 breakthrough should require BASE Lv20.');
+assert.equal(
+  mvp.canBreakthroughMvpInscription({ level: 10, breakthroughLevel: 0 }, { heroLevel: 19 }).ok,
+  false,
+  'Lv10 breakthrough should reject heroes below BASE Lv20.',
+);
+assert.equal(
+  mvp.canBreakthroughMvpInscription({ level: 10, breakthroughLevel: 0 }, { heroLevel: 20 }).ok,
+  true,
+  'Lv10 breakthrough should accept BASE Lv20.',
+);
+assert.equal(mvp.getMvpInscriptionBreakthroughRequirement(20).bossKey, 'forest_normal', 'Lv20 breakthrough should require the forest normal Boss.');
+assert.equal(
+  mvp.canBreakthroughMvpInscription({ level: 20, breakthroughLevel: 10 }, { bossFirstKills: {} }).ok,
+  false,
+  'Lv20 breakthrough should require the forest normal Boss first clear.',
+);
+assert.equal(
+  mvp.canBreakthroughMvpInscription({ level: 20, breakthroughLevel: 10 }, { bossFirstKills: { forest_normal: true } }).ok,
+  true,
+  'Lv20 breakthrough should pass after the forest normal Boss first clear.',
+);
+assert.equal(
+  mvp.canBreakthroughMvpInscription({ level: 40, breakthroughLevel: 30 }, { unlockedDifficulties: {} }).ok,
+  false,
+  'Lv40 breakthrough should require hard difficulty unlock.',
+);
+assert.equal(
+  mvp.canBreakthroughMvpInscription({ level: 40, breakthroughLevel: 30 }, { unlockedDifficulties: { hard: true } }).ok,
+  true,
+  'Lv40 breakthrough should pass when hard difficulty is unlocked.',
+);
+assert.equal(
+  mvp.canBreakthroughMvpInscription({ level: 90, breakthroughLevel: 80 }, { bossFirstKills: { forest_normal: true } }).ok,
+  false,
+  'Lv90 breakthrough should require a high-tier Boss first clear.',
+);
+assert.equal(
+  mvp.canBreakthroughMvpInscription({ level: 90, breakthroughLevel: 80 }, { bossFirstKills: { glast_heim_normal: true } }).ok,
+  true,
+  'Lv90 breakthrough should pass after a high-tier Boss first clear.',
+);
+
+assert.equal(
+  mvp.calculateMvpInscriptionOnlinePerMinute({ mapIndex: 2, difficulty: 'hard', rebirths: 3 }),
+  13.752,
+  'Foreground MVP inscription rate should use map, difficulty, and rebirth multipliers.',
+);
+
+assert.equal(
+  mvp.isMvpInscriptionMonsterEffective({ heroLevel: 80, monsterLevel: 55, currentMapIndex: 4, bestMapIndex: 4, isBoss: false, firstBossClear: false }),
+  true,
+  'Monster exactly 25 levels lower should still give MVP inscription exp.',
+);
+assert.equal(
+  mvp.isMvpInscriptionMonsterEffective({ heroLevel: 81, monsterLevel: 55, currentMapIndex: 4, bestMapIndex: 4, isBoss: false, firstBossClear: false }),
+  false,
+  'Monster more than 25 levels lower should not give MVP inscription exp.',
+);
+assert.equal(
+  mvp.isMvpInscriptionMonsterEffective({ heroLevel: 80, monsterLevel: 5, currentMapIndex: 1, bestMapIndex: 4, isBoss: false, firstBossClear: false }),
+  false,
+  'Normal monsters more than two maps behind best map should not give MVP inscription exp.',
+);
+assert.equal(
+  mvp.isMvpInscriptionMonsterEffective({ heroLevel: 99, monsterLevel: 1, currentMapIndex: 0, bestMapIndex: 9, isBoss: true, firstBossClear: true }),
+  true,
+  'Boss first clear should always be eligible for one MVP inscription reward.',
+);
+
+assert.equal(
+  mvp.calculateMvpInscriptionMonsterExp({
+    monster: { level: 40, type: 'normal' },
+    heroLevel: 50,
+    currentMapIndex: 3,
+    bestMapIndex: 3,
+    difficulty: 'normal',
+    isBoss: false,
+    isMutated: false,
+    firstBossClear: false,
+  }),
+  0.218,
+  'Normal monster MVP inscription exp should include map multiplier.',
+);
+assert.equal(
+  mvp.calculateMvpInscriptionMonsterExp({
+    monster: { level: 1, type: 'normal' },
+    heroLevel: 60,
+    currentMapIndex: 0,
+    bestMapIndex: 5,
+    difficulty: 'normal',
+    isBoss: false,
+    isMutated: false,
+    firstBossClear: false,
+  }),
+  0,
+  'Invalid low-level monsters should grant no MVP inscription exp.',
+);
+assert.equal(
+  mvp.calculateMvpInscriptionMonsterExp({
+    monster: {},
+    heroLevel: 1,
+    currentMapIndex: 0,
+    bestMapIndex: 0,
+  }),
+  0,
+  'Anonymous monsters without a real level must not grant MVP inscription exp.',
+);
+assert.equal(
+  mvp.calculateMvpInscriptionMonsterExp({
+    monster: {},
+    heroLevel: 99,
+    currentMapIndex: 0,
+    bestMapIndex: 9,
+    isBoss: true,
+    firstBossClear: true,
+  }),
+  30,
+  'Explicit first Boss clear should still grant MVP inscription exp even without monster level data.',
+);
+
+const darkLordBonuses = mvp.getMvpInscriptionBonuses({ level: 90, breakthroughLevel: 90 });
+assert.ok(darkLordBonuses.hpPct > 0, 'MVP inscription should grant per-level HP.');
+assert.equal(darkLordBonuses.skillDamageBonus, 0.02, 'Dark Lord breakthrough should grant skill damage.');
+assert.ok(darkLordBonuses.matkPct > 0.01, 'Dark Lord breakthrough should add magic attack beyond per-level MATK.');
+const baphometBonuses = mvp.getMvpInscriptionBonuses({ level: 100, breakthroughLevel: 90 });
+assert.equal(baphometBonuses.finalDamageBonus, 0.015, 'Lv100 MVP inscription should grant Baphomet final damage.');
+
 const offline = await importSource(offlineSource);
 assert.match(offlineSource, /claimOffline:\s*claimOfflineRewards/, 'Legacy Offline claim alias must remain available.');
 assert.match(offlineSource, /rollOfflineEquipmentDrops,/, 'Legacy Offline roll aliases must remain available.');
-assert.match(offlineSource, /rollOfflineTransitionSetDrops,/, 'Offline transition-set routing must be exported.');
+assert.doesNotMatch(offlineSource, /rollOfflineTransitionSetDrops/, 'Offline transition-set routing should be removed.');
 assert.match(offlineSource, /rollOfflineMutationExtraDrops,/, 'Offline mutation routing must be exported.');
 assert.match(game, /RuneFrontierLegacyOfflineContext[\s\S]*rollEquipmentDropsFromTable/, 'Offline LegacyContext must provide equipment drop table routing.');
+assert.match(game, /function\s+tickMvpInscription\s*\(/, 'Game runtime must expose a foreground MVP inscription tick.');
+assert.match(game, /tickMvpInscription\(elapsedDt\)/, 'Main loop must advance MVP inscription from real foreground elapsed time.');
+assert.match(game, /gainMvpInscriptionExp/, 'Game runtime must expose MVP inscription exp gain.');
+assert.match(game, /currentMapIndex:\s*payload\.currentMapIndex\s*\?\?\s*payload\.mapIndex\s*\?\?\s*state\.currentMap/, 'MVP kill exp must use the defeated map index instead of live state.currentMap.');
+assert.match(game, /grantMvpInscriptionKillExp[\s\S]*silentBlocked:\s*true/, 'Routine MVP kill grants must not spam breakthrough-blocked logs.');
+assert.match(game, /getMvpInscriptionBonuses/, 'Game stats must merge MVP inscription bonuses.');
+assert.match(game, /\["hpPct", "atkPct", "matkPct", "defPct", "attackSpeedPct", "combatPaceBonus", "hitRate", "statusResist", "physicalFinalDamageBonus", "normalAttackDamageBonus", "skillDamageBonus"\]\.forEach\(\(stat\) => \{[\s\S]*mvpInscriptionBonuses\[stat\]/, 'Game stats must merge equip-consumed MVP inscription bonuses.');
+assert.match(game, /equip\.crit[\s\S]*mvpInscriptionBonuses\.critRatePct/, 'MVP inscription crit bonuses should merge into canonical equipment crit.');
+assert.match(characterPageSource, /MVP铭刻/, 'Character page must render the MVP inscription card.');
+assert.match(characterPageSource, /当前地图.*铭刻/, 'Character page should show whether the current map grants inscription exp.');
+assert.match(characterPageSource, /下一突破/, 'Character page should show MVP inscription breakthrough guidance.');
+assert.match(characterPageSource, /Boolean\(mvpInscription\.atBreakthrough\)/, 'Character page breakthrough button must follow runtime breakthrough state.');
+assert.match(characterPageSource, /当前加成/, 'Character page should show active MVP inscription stat bonuses.');
+assert.match(characterPageSource, /mvpInscriptionBonusEntries\(mvpInscription\.bonuses \|\| \{\}\)/, 'Character page should render MVP inscription bonuses from the live view.');
+assert.match(characterPageSource, /ro-character-inscription-bonuses/, 'Character page should render MVP inscription bonus chips.');
+assert.equal(offline.shouldSettleBackgroundOffline(14999), false, 'Short background pauses should resume normal combat without offline settlement.');
+assert.equal(offline.shouldSettleBackgroundOffline(15000), true, 'Background pauses at the threshold should settle through offline rewards.');
+const backgroundOfflineState = {
+  hero: { currentHp: 100 },
+  inventory: [],
+  currentDifficulty: 'normal',
+};
+const backgroundOfflineContext = {
+  getState: () => backgroundOfflineState,
+  createEmptyRewards: () => ({ seconds: 0, gold: 0, baseExp: 0, jobExp: 0, equipments: [], cards: [], materials: [], autoSalvagedMaterials: {}, skippedEquipment: 0 }),
+  currentMap: () => ({ id: 'grass', minLevel: 1, maxLevel: 1, monsters: [{ id: 'poring', levelRange: [1, 1] }] }),
+  getMaps: () => [{ id: 'grass', minLevel: 1, maxLevel: 1, monsters: [{ id: 'poring', levelRange: [1, 1] }] }],
+  computeStats: () => ({
+    dps: 20,
+    maxHp: 100,
+    goldMultiplier: 1,
+    monsterGoldMultiplier: 1,
+    baseExpMultiplier: 1,
+    jobExpMultiplier: 1,
+    offlineEfficiencyBonus: 0,
+  }),
+  getDifficultyConfig: () => ({ cardDrop: 0, materialDrop: 0 }),
+  getVipMilestoneBonuses: () => ({}),
+  getOfflineEfficiency: () => 1,
+  getOfflineMaxKills: () => 999,
+  getMaxOfflineSeconds: () => 3600,
+  buildMonsterStats: () => ({ maxHp: 10, gold: 2, exp: 3, jobExp: 1 }),
+  pickMonsterTemplate: () => ({ id: 'poring', levelRange: [1, 1] }),
+  rollMonsterLevel: () => 1,
+  rollMonsterMutation: () => null,
+  getCardDropTable: () => [],
+  getMaterialDropTable: () => [],
+  getZodiacSetIds: () => [],
+  getMythicDropRates: () => ({ abyssNormal: 0 }),
+  getMutationExtraDrops: () => ({ materialBonusRate: 0, rareMaterialBonusRate: 0 }),
+  calculateMvpInscriptionOnlinePerMinute: () => 10,
+  calculateMvpInscriptionMonsterExp: ({ monster }) => monster.mutation ? 0.45 : 0.2,
+  gainMapExploration: () => {},
+};
+const shortBackgroundReward = offline.buildBackgroundOfflineReward(100000, 114999, backgroundOfflineContext);
+assert.equal(shortBackgroundReward.settled, false, 'Background reward builder should ignore short tab switches.');
+const settledBackgroundReward = offline.buildBackgroundOfflineReward(100000, 130000, backgroundOfflineContext);
+assert.equal(settledBackgroundReward.settled, true, 'Background reward builder should settle longer hidden time.');
+assert.equal(settledBackgroundReward.rewards.killCount, 60, 'Background settlement should reuse the offline DPS-to-kill formula.');
+assert.equal(settledBackgroundReward.rewards.gold, 120, 'Background settlement should include offline gold rewards.');
+assert.equal(settledBackgroundReward.rewards.mvpInscriptionExp, 17, 'Background settlement should include MVP inscription offline rewards.');
+assert.match(offlineSource, /mvpInscriptionExp/, 'Offline reward runtime must preserve MVP inscription exp.');
+assert.match(game, /mvpInscriptionExp/, 'Classic runtime must preserve MVP inscription exp.');
+assert.match(game, /function\s+handleBackgroundStart\s*\(/, 'Runtime must track when the page enters the background.');
+assert.match(game, /save\(\{\s*updateLastActive:\s*false\s*\}\)/, 'Background saves must preserve lastActiveAt for offline accounting.');
+assert.match(game, /function\s+handleForegroundResume\s*\(/, 'Runtime must settle hidden time when the page returns to the foreground.');
+assert.match(game, /if\s*\(backgroundStartedAt\)\s*\{[\s\S]*requestAnimationFrame\(loop\);[\s\S]*return;[\s\S]*\}/, 'The main loop must not run throttled combat frames while backgrounded.');
+assert.match(game, /function\s+simulateCombatElapsed\s*\(/, 'Visible throttled frames should be split into combat catch-up steps.');
+assert.match(game, /simulateCombatElapsed\(elapsedDt\)/, 'Main loop combat must use real elapsed time instead of the animation-capped dt.');
+assert.match(game, /else\s+if\s*\(!result\.settled\)\s*\{[\s\S]*simulateCombatElapsed\(elapsedSec\);[\s\S]*\}/, 'Short hidden tab switches should catch up online combat when returning to foreground.');
+assert.match(game, /let\s+backgroundStartedInBoss\s*=\s*false/, 'Background tracking must remember whether the hidden tab started during a Boss fight.');
+assert.match(game, /backgroundStartedInBoss\s*=\s*Boolean\(state\.enemyBoss\)/, 'Entering the background during a Boss fight must be captured before combat pauses.');
+assert.match(game, /const\s+BOSS_BACKGROUND_CATCHUP_MAX_SECONDS\s*=\s*5\s*\*\s*60/, 'Backgrounded Boss combat should have its own bounded catch-up window.');
+assert.match(game, /if\s*\(startedInBoss\)\s*\{[\s\S]*simulateCombatElapsed\(elapsedSec,\s*\{\s*maxSeconds:\s*BOSS_BACKGROUND_CATCHUP_MAX_SECONDS,\s*stopWhenBossEnds:\s*true\s*\}\);[\s\S]*\}/, 'Returning from a backgrounded Boss fight should catch up Boss combat instead of granting normal offline kills.');
+assert.match(game, /if\s*\(options\.stopWhenBossEnds\s*&&\s*!state\.enemyBoss\)\s*break/, 'Boss background catch-up should stop once the Boss encounter ends.');
 const generatedRewards = { equipments: [], materials: [] };
 const generatedMaterials = [];
 const generatedContext = {
@@ -718,6 +3009,7 @@ const offlineState = {
     gold: 7,
     baseExp: 3,
     jobExp: 2,
+    mvpInscriptionExp: 9,
     equipments: [{ id: 'accepted' }, { id: 'waiting' }],
     materials: [{ materialId: 'dust', qty: 4 }],
     cards: [{ cardId: 'card-a', qty: 1 }],
@@ -725,6 +3017,7 @@ const offlineState = {
   },
 };
 let offlineExpGranted = 0;
+let offlineMvpInscriptionGranted = 0;
 let allowWaiting = false;
 const offlineSummaries = [];
 const claimContext = {
@@ -735,6 +3028,7 @@ const claimContext = {
     gold: Number(input.gold || 0),
     baseExp: Number(input.baseExp || 0),
     jobExp: Number(input.jobExp || 0),
+    mvpInscriptionExp: Number(input.mvpInscriptionExp || 0),
     equipments: input.equipments || [],
     cards: input.cards || [],
     materials: input.materials || [],
@@ -745,6 +3039,7 @@ const claimContext = {
     addEquipmentToInventory: (item) => item.id === 'waiting' && !allowWaiting ? { skipped: true } : { added: true },
   }),
   gainExp: (base, job) => { offlineExpGranted += base + job; },
+  gainMvpInscriptionExp: (amount) => { offlineMvpInscriptionGranted += amount; },
   grantCards: (cards) => cards.forEach((card) => { offlineState.cards[card.cardId] = (offlineState.cards[card.cardId] || 0) + card.qty; }),
   grantMaterials: (materials) => materials.forEach((material) => { offlineState.materials[material.materialId] = (offlineState.materials[material.materialId] || 0) + material.qty; }),
   recordRecentLoot: (summary) => offlineSummaries.push(summary),
@@ -753,6 +3048,7 @@ const claimContext = {
 assert.equal(offline.claimOfflineRewards(claimContext), true, 'Offline reward claim should run through the module.');
 assert.equal(offlineState.gold, 7, 'Offline gold award changed.');
 assert.equal(offlineExpGranted, 5, 'Offline experience award changed.');
+assert.equal(offlineMvpInscriptionGranted, 9, 'Offline MVP inscription exp award changed.');
 assert.equal(offlineState.materials.dust, 4, 'Offline material award changed.');
 assert.equal(offlineState.offlinePending.equipments[0].id, 'waiting', 'Unclaimed equipment must remain pending.');
 assert.equal(offlineSummaries[0].equipments.length, 1, 'Claim summaries must not duplicate pending equipment after save normalization.');
@@ -761,6 +3057,7 @@ allowWaiting = true;
 assert.equal(offline.claimOfflineRewards(claimContext), true, 'Pending-only equipment should be claimable later.');
 assert.equal(offlineState.gold, 7, 'Pending equipment retries must not duplicate gold awards.');
 assert.equal(offlineExpGranted, 5, 'Pending equipment retries must not duplicate experience awards.');
+assert.equal(offlineMvpInscriptionGranted, 9, 'Pending equipment retries must not duplicate MVP inscription exp.');
 assert.equal(offlineState.materials.dust, 4, 'Pending equipment retries must not duplicate material awards.');
 assert.equal(offlineState.offlinePending.equipments.length, 0, 'Pending equipment should clear after a successful retry.');
 assert.equal(offlineSummaries.length, 2, 'Each explicit offline claim should produce a viewable summary.');
@@ -776,10 +3073,8 @@ const offlineCategoryContext = {
   getMaterialName: (id) => id,
   getMaterialRarity: () => 'normal',
   getZodiacSetIds: () => ['offline-zodiac'],
-  getTransitionSetIds: () => ['offline-transition'],
   getEquipmentSet: (id) => ({ items: [{ id: `${id}-piece`, rarity: 'rare', level: 1 }] }),
   getZodiacSetDropRates: () => ({ normal: 1, darkGoldNormal: 0 }),
-  getTransitionSetDropRates: () => ({ normal: 1 }),
   getMythicDropRates: () => ({ abyssNormal: 0 }),
   getMapLevelRange: () => ({ maxLevel: 1 }),
   getOfflineEquipmentDropRateMultiplier: () => 1,
@@ -793,25 +3088,34 @@ const offlineCategoryContext = {
   getEquipmentRuntime: () => ({ shouldAutoSalvage: () => false }),
   canOfflineFullSalvage: () => false,
 };
+const offlinePityState = { inventory: [], equipmentPityKills: 0 };
+const offlinePityRewards = { equipments: [], cards: [], materials: [] };
+offline.rollOfflineEquipmentDrops(offlinePityRewards, {}, { id: 'grass' }, 0, 3, {
+  ...offlineCategoryContext,
+  getState: () => offlinePityState,
+  getProgressionEquipmentDropTable: () => [{ equipmentId: 'offline-blade', dropRate: 1, minLevel: 1, maxLevel: 1 }],
+  getInventoryLimit: () => 5,
+  getEquipmentPityThreshold: () => 3,
+  rollEquipmentDropsFromTable: (_rows, _stats, options) => options.guaranteed ? [{ id: 'offline-blade' }] : [],
+});
+assert.deepEqual(offlinePityRewards.equipments.map((item) => item.id), ['offline-blade'], 'Offline normal kills must use equipment pity so long sessions do not show zero equipment.');
+assert.equal(offlinePityState.equipmentPityKills, 0, 'Offline equipment pity must reset after a guaranteed drop.');
 offline.rollOfflineCardDrops(offlineCategoryRewards, {}, { id: 'grass' }, 0, 1, offlineCategoryContext);
 offline.rollOfflineMaterialDrops(offlineCategoryRewards, {}, { id: 'grass' }, 1, offlineCategoryContext);
-offline.rollOfflineZodiacSetDrops(offlineCategoryRewards, {}, { id: 'grass' }, 1, 0, offlineCategoryContext);
-offline.rollOfflineTransitionSetDrops(offlineCategoryRewards, {}, { id: 'grass' }, 1, offlineCategoryContext);
+assert.equal(offline.rollOfflineZodiacSetDrops(offlineCategoryRewards, {}, { id: 'grass' }, 1, 0, offlineCategoryContext), 0, 'Offline zodiac-set drops should be disabled.');
 assert.equal(offlineCategoryRewards.cards[0].cardId, 'offline-card', 'Offline card reward routing changed.');
 assert.equal(offlineCategoryRewards.materials[0].materialId, 'ore', 'Offline material reward routing changed.');
-assert.deepEqual(offlineCategoryRewards.equipments.map((item) => item.id), ['offline-zodiac-piece', 'offline-transition-piece'], 'Offline special equipment candidates changed.');
+assert.deepEqual(offlineCategoryRewards.equipments.map((item) => item.id), [], 'Offline zodiac-set drops should be disabled.');
 const offlineHardRewards = { equipments: [], cards: [], materials: [] };
 const offlineHardContext = {
   ...offlineCategoryContext,
   currentDifficulty: () => 'hard',
   getZodiacSetDropRates: () => ({ hard: 1, darkGoldNormal: 0 }),
-  getTransitionSetDropRates: () => ({ hard: 1 }),
   getEquipmentSet: (id) => ({ items: [{ id: `${id}-piece`, rarity: 'rare', level: 8 }] }),
   resolveEquipmentDropLevel: ({ baseLevel }) => baseLevel + 20,
 };
-offline.rollOfflineZodiacSetDrops(offlineHardRewards, {}, { id: 'grass' }, 1, 0, offlineHardContext);
-offline.rollOfflineTransitionSetDrops(offlineHardRewards, {}, { id: 'grass' }, 1, offlineHardContext);
-assert.deepEqual(offlineHardRewards.equipments.map((item) => item.level), [28, 28], 'Offline hard set drops must apply the same difficulty level bonus as online drops.');
+assert.equal(offline.rollOfflineZodiacSetDrops(offlineHardRewards, {}, { id: 'grass' }, 1, 0, offlineHardContext), 0, 'Offline hard zodiac-set drops should be disabled.');
+assert.deepEqual(offlineHardRewards.equipments.map((item) => item.level), [], 'Offline hard zodiac-set drops should be disabled.');
 
 const settlement = await importSource(settlementSource);
 const killState = {
@@ -828,6 +3132,7 @@ const killState = {
   mapDifficultyProgress: {},
 };
 const killCalls = { drop: 0, next: 0, spawn: 0, daily: 0, quest: 0 };
+let killInscriptionPayload = null;
 const baseCombatContext = {
   getState: () => killState,
   currentMap: () => ({ id: 'grass', name: 'Grass' }),
@@ -846,6 +3151,7 @@ const baseCombatContext = {
   rollDrops: () => { killCalls.drop += 1; return 1; },
   rollMutationExtraDrops: () => 0,
   grantPassiveSkillKillExp: () => {},
+  grantMvpInscriptionKillExp: (payload) => { killInscriptionPayload = payload; },
   updateQuestProgress: () => { killCalls.quest += 1; },
   explorationGainForKill: () => 1,
   gainMapExploration: () => {},
@@ -864,6 +3170,9 @@ assert.equal(killState.areaKills, 1, 'Regular kill Boss gauge progress changed.'
 assert.equal(killCalls.drop, 1, 'Regular kill must invoke drops exactly once.');
 assert.equal(killCalls.next, 1, 'Regular encounter progression changed.');
 assert.equal(killCalls.spawn, 0, 'Regular encounter must not respawn while members remain.');
+assert.equal(killInscriptionPayload.monster.id, 'poring', 'Regular kill must grant MVP inscription exp for the defeated monster.');
+assert.equal(killInscriptionPayload.isBoss, false, 'Regular kill MVP inscription payload must not be flagged as Boss.');
+assert.equal(killInscriptionPayload.firstBossClear, false, 'Regular kill MVP inscription payload must not be flagged as first Boss clear.');
 
 const bossState = {
   hero: { jobId: 'knight' },
@@ -884,18 +3193,19 @@ const bossContext = {
   ...baseCombatContext,
   getState: () => bossState,
   currentMap: () => ({ id: 'grass', name: 'Grass' }),
-  currentMapIndex: () => 0,
+  currentMapIndex: () => bossState.currentMap || 0,
   getMaps: () => [{ id: 'grass', name: 'Grass' }, { id: 'forest', name: 'Forest' }],
   getBossEssenceId: () => 'grassEssence',
   getMaterialName: () => 'Grass Essence',
   getDifficultyLabel: () => 'Normal',
   applyMaterialQuantityBonus: (qty) => qty,
   getAutoBossEnabled: () => false,
-  gainVipExp: (amount) => { bossVipExp += amount; },
+  gainVipExp: (amount) => { bossVipExp += amount; bossState.currentMap = 1; },
   hasLivingEncounterMembers: () => false,
   rollDrops: () => 0,
   spawnEnemy: () => {},
 };
+killInscriptionPayload = null;
 const firstBoss = settlement.settleDefeatedEnemy({
   map: { id: 'grass', name: 'Grass' },
   monster: { id: 'boss', gold: 10, exp: 5, jobExp: 3 },
@@ -903,6 +3213,9 @@ const firstBoss = settlement.settleDefeatedEnemy({
   difficulty: 'normal',
 }, bossContext);
 assert.equal(firstBoss.firstBossClear, true, 'First Boss clear reward must be recorded once.');
+assert.equal(killInscriptionPayload.isBoss, true, 'Boss kill MVP inscription payload must be flagged as Boss.');
+assert.equal(killInscriptionPayload.firstBossClear, true, 'First Boss kill MVP inscription payload must include first-clear state.');
+assert.equal(killInscriptionPayload.currentMapIndex, 0, 'Boss kill MVP inscription payload must keep the defeated map index even if settlement advances patrol state.');
 assert.equal(bossState.materials.grassEssence, 1, 'Boss essence quantity changed.');
 assert.equal(bossState.areaKills, 0, 'Boss victory must reset Boss gauge.');
 assert.equal(bossState.mapDifficultyProgress.grass.hard.unlocked, true, 'Normal Boss victory must unlock hard difficulty.');
@@ -910,6 +3223,27 @@ assert.equal(bossState.mapDifficultyProgress.forest.normal.unlocked, true, 'Norm
 assert.equal(bossVipExp, 100, 'First Boss honor reward changed.');
 settlement.settleBossVictory({ map: { id: 'grass', name: 'Grass' }, difficulty: 'normal' }, bossContext);
 assert.equal(bossVipExp, 100, 'First Boss honor reward must not be issued twice.');
+
+const cycleGoldState = { ...bossState, gold: 0, totalKills: 0, areaKills: 10, monsterCodex: {}, materials: {}, vip: { bossFirstKills: { grass_hard: true } }, mapDifficultyProgress: {} };
+const cycleGoldResult = settlement.settleDefeatedEnemy({
+  map: { id: 'grass', name: 'Grass' },
+  monster: { id: 'boss', gold: 100, exp: 0, jobExp: 0 },
+  isBoss: true,
+  difficulty: 'hard',
+}, {
+  ...bossContext,
+  getState: () => cycleGoldState,
+  getBossCycleGoldBonus: ({ map, difficulty }) => {
+    assert.equal(map.id, 'grass', 'Boss cycle gold bonus should receive the defeated map.');
+    assert.equal(difficulty, 'hard', 'Boss cycle gold bonus should receive the defeated difficulty.');
+    return 55;
+  },
+  rollDrops: () => 0,
+});
+assert.equal(cycleGoldResult.bossCycleGoldBonus, 55, 'Boss cycle gold bonus should be reported by settlement.');
+assert.equal(cycleGoldState.gold, 255, 'Boss cycle gold bonus should add to the Boss payout once.');
+assert.equal(cycleGoldState.mapDifficultyProgress.grass.abyss.unlocked, true, 'Hard Boss victory must unlock abyss only for the cleared map.');
+assert.equal(cycleGoldState.mapDifficultyProgress.forest?.abyss?.unlocked, undefined, 'Hard Boss victory must not require or unlock every map abyss at once.');
 
 const goldPassiveWindow = globalThis.window;
 globalThis.window = {
@@ -981,6 +3315,11 @@ assert.equal(bossLogs.length, 3, 'Boss state routing must write one start log pe
 const damageStandaloneSource = damageSource
   .replace("export { calculatePower } from '../equipment/itemScore.js';", 'export const calculatePower = () => 0;');
 const damage = await importSource(damageStandaloneSource);
+assert.doesNotMatch(
+  game,
+  /finalDamageBonus:\s*\([^\n]*physicalFinalDamageBonus/,
+  'Physical final damage must stay separate from generic final damage in computed stats.',
+);
 damage.configureDamageContext({
   getState: () => ({
     hero: { baseLevel: 10 },
@@ -1005,6 +3344,22 @@ assert.equal(
   1.05,
   'Target-specific damage bonus routing changed.',
 );
+assert.equal(
+  Number(damage.getTargetDamageBonus({
+    finalDamageBonus: 0.1,
+    physicalFinalDamageBonus: 0.2,
+  }, { monster: { type: 'normal', level: 10 }, damageType: 'physical' }).toFixed(6)),
+  0.3,
+  'Physical final damage must apply to physical outgoing damage.',
+);
+assert.equal(
+  damage.getTargetDamageBonus({
+    finalDamageBonus: 0.1,
+    physicalFinalDamageBonus: 0.2,
+  }, { monster: { type: 'normal', level: 10 }, damageType: 'magic' }),
+  0.1,
+  'Physical final damage must not apply to magic outgoing damage.',
+);
 const regularHit = damage.calculatePlayerBasicHit({ stats: { dps: 100 }, attackInterval: 1, targetBonus: 0.1, monsterGuard: 0.2, isCrit: false });
 const criticalHit = damage.calculatePlayerBasicHit({ stats: { dps: 100, critDamageBonus: 0.15 }, attackInterval: 1, targetBonus: 0.1, monsterGuard: 0.2, isCrit: true });
 assert.equal(regularHit.finalDamage, 88, 'Player basic-hit formula changed.');
@@ -1012,6 +3367,9 @@ assert.equal(criticalHit.finalDamage, 176, 'Player critical-hit formula changed.
 const normalMonsterHit = damage.calculateMonsterHit({ stats: { defense: 20 }, monster: { attack: 100 }, hpRatio: 1, livingCount: 1, isCrit: false });
 const criticalMonsterHit = damage.calculateMonsterHit({ stats: { defense: 20 }, monster: { attack: 100, critDamage: 1 }, hpRatio: 1, livingCount: 1, isCrit: true });
 assert.ok(criticalMonsterHit.damage > normalMonsterHit.damage, 'Monster critical threat must remain stronger than a normal hit.');
+const blockedMonsterHit = damage.calculateMonsterHit({ stats: { defense: 20, blockRate: 0.2 }, monster: { attack: 100 }, hpRatio: 1, livingCount: 1, isCrit: false, isBlocked: true });
+assert.ok(blockedMonsterHit.damage < normalMonsterHit.damage, 'Blocked monster hits must deal less damage.');
+assert.equal(blockedMonsterHit.isBlocked, true, 'Blocked monster hit metadata must be returned.');
 
 const skillsStandaloneSource = skillsSource.replace(
   "import { getTargetDamageBonus, normalizeDamage } from './damage.js';",
@@ -1026,7 +3384,7 @@ skills.configureSkillsContext({
   random: () => 0,
   currentMonsterStats: () => ({ type: 'normal', damageReduction: 0 }),
   getUnlockedSkills: () => [{ name: 'Strike', active: { chance: 1, stat: 'atk', multiplier: 2 } }],
-  getSkillGrowthEntry: () => ({ specialization: '' }),
+  getSkillGrowthEntry: () => ({ level: 1 }),
   getSkillMilestoneBonuses: () => ({}),
   getSkillLevelMultiplier: () => 1,
   showDamageNumber: (_target, amount) => { skillDamageShown = amount; },
@@ -1074,6 +3432,87 @@ assert.equal(mageSkillState.enemyHp, 765, 'Mage single-hit spell must deal its V
 assert.equal(mageSkillState.skillCooldowns.mage_fire_bolt, 5, 'Mage spell must enter cooldown after casting.');
 assert.equal(mageSkillState.enemyMarks.burn, 5, 'Fire Bolt must apply its burn mark.');
 assert.equal(mageSkillFeedback, '火箭术', 'Mage single-hit spells must show cast feedback.');
+
+const synergyFireSkill = { id: 'synergy_fire', name: '火箭术', kind: '主动', cooldown: 10, mechanism: { type: 'singleHit', multiplier: 1, stat: 'matk' } };
+const synergySkillState = { hero: { currentHp: 100 }, enemyHp: 1000, enemyMaxHp: 1000, skillCooldowns: {}, activeZones: [], activeBuffs: [], enemyMarks: {} };
+globalThis.window = { ...(priorSkillWindow || {}), v3JobSkills: { mage: [synergyFireSkill] } };
+skillMechanics.configureSkillMechanicsContext({
+  getState: () => synergySkillState,
+  currentJob: () => ({ id: 'mage' }),
+  currentMonsterStats: () => ({ damageReduction: 0 }),
+  normalizeDamage: Math.round,
+  random: () => 0.5,
+});
+skillMechanics.tickSkillSystem(0, {
+  matkPower: 100,
+  atkPower: 0,
+  crit: 0,
+  maxHp: 100,
+  equipmentSynergies: { skillEnhancements: [{ skillNames: ['火箭术'], multiplierBonus: 0.2, cooldownMultiplier: 0.5 }] },
+});
+assert.equal(synergySkillState.enemyHp, 880, 'Equipment synergy should increase matching V3 skill damage.');
+assert.equal(synergySkillState.skillCooldowns.synergy_fire, 5, 'Equipment synergy should reduce matching V3 skill cooldown.');
+
+const floorSkill = {
+  id: 'floor_skill',
+  name: 'Floor Skill',
+  kind: mageSkill.kind,
+  cooldown: 3,
+  levelScaling: { cooldownPerLevel: 0.25 },
+  mechanism: { type: 'singleHit', multiplier: 1, stat: 'matk' },
+};
+const floorSkillState = { hero: { currentHp: 100 }, enemyHp: 1000, enemyMaxHp: 1000, skillCooldowns: {}, activeZones: [], activeBuffs: [], enemyMarks: {} };
+globalThis.window = { ...(priorSkillWindow || {}), v3JobSkills: { mage: [floorSkill] } };
+skillMechanics.configureSkillMechanicsContext({
+  getState: () => floorSkillState,
+  currentJob: () => ({ id: 'mage' }),
+  getSkillGrowthEntry: () => ({ level: 20 }),
+  currentMonsterStats: () => ({ damageReduction: 0 }),
+  normalizeDamage: Math.round,
+  random: () => 0.5,
+});
+skillMechanics.tickSkillSystem(0, { matkPower: 100, atkPower: 0, crit: 0, maxHp: 100 });
+assert.ok(floorSkillState.skillCooldowns.floor_skill >= 2.2, 'V3 active skill cooldowns must keep a runtime floor after scaling.');
+
+const bonusSkill = { id: 'bonus_skill', name: 'Bonus Skill', kind: '主动', cooldown: 5, mechanism: { type: 'singleHit', multiplier: 1, stat: 'matk' } };
+const bonusSkillState = { hero: { currentHp: 100 }, enemyHp: 1000, enemyMaxHp: 1000, skillCooldowns: {}, activeZones: [], activeBuffs: [], enemyMarks: {} };
+let bonusSkillDamageType = '';
+globalThis.window = { ...(priorSkillWindow || {}), v3JobSkills: { mage: [bonusSkill] } };
+skillMechanics.configureSkillMechanicsContext({
+  getState: () => bonusSkillState,
+  currentJob: () => ({ id: 'mage' }),
+  currentMonsterStats: () => ({ type: 'normal', damageReduction: 0 }),
+  getTargetDamageBonus: (_stats, monsterContext) => {
+    bonusSkillDamageType = monsterContext.damageType;
+    return 0.25;
+  },
+  normalizeDamage: Math.round,
+  random: () => 0.5,
+});
+skillMechanics.tickSkillSystem(0, {
+  atkPower: 100,
+  matkPower: 100,
+  crit: 0,
+  maxHp: 100,
+  skillDamageBonus: 0.5,
+  physicalFinalDamageBonus: 1,
+});
+assert.equal(bonusSkillState.enemyHp, 825, 'V3 skill damage must include skill and target damage bonuses.');
+assert.equal(bonusSkillDamageType, 'magic', 'V3 magic skill target bonus must be routed as magic damage.');
+
+globalThis.window = { ...(priorSkillWindow || {}), v3JobSkills: { mage: [mageSkill] } };
+skillMechanics.configureSkillMechanicsContext({
+  getState: () => mageSkillState,
+  currentJob: () => ({ id: 'mage' }),
+  getUnlockedSkills: () => [mageSkill],
+  currentMonsterStats: () => ({ damageReduction: 0 }),
+  normalizeDamage: (value) => Math.round(value),
+  random: () => 0.5,
+  showDamageNumber: () => {},
+  showHitFeedback: () => {},
+  showSkillCastFeedback: (skill) => { mageSkillFeedback = skill.name; },
+});
+
 mageSkillState.skillCooldowns.mage_fire_bolt = 999;
 for (let i = 0; i < 32; i += 1) {
   skillMechanics.tickSkillSystem(0.16, { matkPower: 100, atkPower: 10, crit: 0, maxHp: 100 });
@@ -1102,6 +3541,26 @@ skillMechanics.tickSkillSystem(0, { atkPower: 100, matkPower: 0, crit: 0, maxHp:
 poisonState.skillCooldowns.thief_poison = 0;
 skillMechanics.tickSkillSystem(0, { atkPower: 100, matkPower: 0, crit: 0, maxHp: 100 });
 assert.equal(poisonState.enemyMarks._poisonStacks, 2, 'Poison must gain real stacks and remain bounded by the V4 stack rule.');
+
+const stormSkill = {
+  id: 'elemental_storm',
+  name: '元素风暴',
+  kind: '主动',
+  cooldown: 18,
+  mechanism: { type: 'statusExploitAll', multiplier: 3.2, perStatus: 0.55, maxMultiplier: 4.8 },
+};
+const stormState = { hero: { currentHp: 100 }, enemyHp: 1000, enemyMaxHp: 1000, skillCooldowns: {}, activeZones: [], activeBuffs: [], enemyMarks: { burn: 5, freeze: 3 } };
+globalThis.window = { ...(priorSkillWindow || {}), v3JobSkills: { warlock: [stormSkill] } };
+skillMechanics.configureSkillMechanicsContext({
+  getState: () => stormState,
+  currentJob: () => ({ id: 'warlock' }),
+  getUnlockedSkills: () => [stormSkill],
+  currentMonsterStats: () => ({ damageReduction: 0 }),
+  normalizeDamage: (value) => Math.round(value),
+  random: () => 0.5,
+});
+skillMechanics.tickSkillSystem(0, { atkPower: 10, matkPower: 100, crit: 0, maxHp: 100 });
+assert.equal(stormState.enemyHp, 570, 'Status exploit all must honor perStatus as the per-status multiplier field.');
 
 const layeredStatusState = {
   hero: { currentHp: 100 },
@@ -1145,6 +3604,28 @@ skillMechanics.configureSkillMechanicsContext({
 });
 skillMechanics.tickSkillSystem(0, { atkPower: 100, matkPower: 0, crit: 0, maxHp: 100 });
 assert.equal(finisherState.skillCooldowns.rune_burst, 10, 'Finisher kill cooldown refund must apply after cooldown assignment.');
+
+const delayedBurstSkill = {
+  id: 'self_destruct',
+  name: '自爆装置',
+  kind: '主动',
+  cooldown: 16,
+  mechanism: { type: 'delayedBurst', delay: 0.1, multiplier: 4.0, killRefundPct: 0.25, stat: 'atk' },
+};
+const delayedBurstState = { hero: { currentHp: 100 }, enemyHp: 300, enemyMaxHp: 300, skillCooldowns: {}, activeZones: [], activeBuffs: [], enemyMarks: {} };
+globalThis.window = { ...(priorSkillWindow || {}), v3JobSkills: { mechanic: [delayedBurstSkill] } };
+skillMechanics.configureSkillMechanicsContext({
+  getState: () => delayedBurstState,
+  currentJob: () => ({ id: 'mechanic' }),
+  getUnlockedSkills: () => [delayedBurstSkill],
+  currentMonsterStats: () => ({ damageReduction: 0 }),
+  normalizeDamage: (value) => Math.round(value),
+  random: () => 0.5,
+});
+skillMechanics.tickSkillSystem(0, { atkPower: 100, matkPower: 0, crit: 0, maxHp: 100 });
+skillMechanics.tickSkillSystem(0.2, { atkPower: 100, matkPower: 0, crit: 0, maxHp: 100 });
+assert.equal(delayedBurstState.enemyHp, -100, 'Delayed burst must explode after its delay.');
+assert.ok(Math.abs(delayedBurstState.skillCooldowns.self_destruct - 11.85) < 1e-9, 'Delayed burst must honor killRefundPct for cooldown refunds.');
 
 const criticalSkill = {
   id: 'critical_multihit',
@@ -1351,7 +3832,7 @@ assert.equal(resonanceState.skillCooldowns.ice, 7, 'Elemental resonance must not
 assert.equal(resonanceState.cooldownReductionNextSkill, true, 'Magic Amplification must arm the following skill cooldown reduction.');
 resonanceState.skillCooldowns.fire = 0;
 skillMechanics.tickSkillSystem(0, { atkPower: 0, matkPower: 100, crit: 0, maxHp: 100 });
-assert.equal(resonanceState.skillCooldowns.fire, 3, 'Magic Amplification must reduce the next skill cooldown by 35%.');
+assert.equal(resonanceState.skillCooldowns.fire, 3.6, 'Magic Amplification must reduce the next skill cooldown while respecting the active skill floor.');
 
 const guardPassive = { id: 'angel_guard', name: '天使之护', kind: '被动', cooldown: 60, mechanism: { type: 'hpThreshold', low: { hpPct: 0.4, bonus: { damageReductionPct: 0.3 }, duration: 6 } } };
 const healedGuardState = { hero: { currentHp: 90 }, angelGuardActiveTimer: 3, enemyMarks: {} };
@@ -1367,10 +3848,46 @@ globalThis.window = priorSkillWindow;
 const normalStandaloneSource = normalCombatSource
   .replace(
     "import { calculateMonsterHit, calculatePlayerBasicHit, getTargetDamageBonus, normalizeDamage } from './damage.js';",
-    "const getTargetDamageBonus = () => 0; const normalizeDamage = (value) => Math.max(1, Math.floor(value)); const calculatePlayerBasicHit = () => ({ finalDamage: 10 }); const calculateMonsterHit = () => ({ damage: 5 });",
+    "const getTargetDamageBonus = () => 0; const normalizeDamage = (value) => Math.max(1, Math.floor(value)); const calculatePlayerBasicHit = () => ({ finalDamage: 10 }); const calculateMonsterHit = ({ isBlocked } = {}) => ({ damage: isBlocked ? 3 : 5 });",
   )
   .replace("import { resolveActiveSkillCast } from './skills.js';", 'const resolveActiveSkillCast = () => ({ cast: false });');
 const normalCombat = await importSource(normalStandaloneSource);
+const tabRecoveryState = { hero: { currentHp: 20 }, regenTimer: 0 };
+let tabRecoveryFeedback = 0;
+normalCombat.configureNormalCombatContext({
+  getState: () => tabRecoveryState,
+  computeStats: () => ({ maxHp: 100, hpRegen: 10 }),
+  getHpRegenInterval: () => 5,
+  showDamageNumber: (_target, amount, kind) => {
+    if (kind === 'heal') tabRecoveryFeedback = amount;
+  },
+  random: () => 0.9,
+});
+assert.equal(normalCombat.updateRecovery(16), true, 'Recovery must catch up after the browser throttles hidden pages.');
+assert.equal(tabRecoveryState.hero.currentHp, 50, 'Recovery catch-up must apply every elapsed regen tick.');
+assert.equal(tabRecoveryState.regenTimer, 1, 'Recovery catch-up must keep leftover partial interval time.');
+assert.equal(tabRecoveryFeedback, 30, 'Recovery catch-up feedback must show the total healed amount.');
+
+const unsafeFreshEncounterState = { enemyHp: 500, enemyMaxHp: 800, hero: { currentHp: 0 }, playerAttackTimer: 0, enemyAttackTimer: 0, currentMap: 0, paused: false };
+let unsafeEncounterResetMaxHp = 0;
+normalCombat.configureNormalCombatContext({
+  getState: () => unsafeFreshEncounterState,
+  computeStats: () => ({ attackSpeed: 1, crit: 0, dps: 1, maxHp: 120 }),
+  currentMonsterStats: () => ({ damageReduction: 0 }),
+  getPlayerCritRateCap: () => 1,
+  random: () => 0.9,
+  tryAutoChallengeBoss: () => false,
+  resetUnsafeEarlyEncounter: (stats) => {
+    unsafeEncounterResetMaxHp = stats.maxHp;
+    unsafeFreshEncounterState.hero.currentHp = 54;
+    unsafeFreshEncounterState.enemyHp = 120;
+    return true;
+  },
+});
+assert.equal(normalCombat.updateCombat(1), true, 'Unsafe opening encounters must be reset before the death pause is applied.');
+assert.equal(unsafeEncounterResetMaxHp, 120, 'Unsafe encounter reset must receive the current stat snapshot.');
+assert.equal(unsafeFreshEncounterState.paused, false, 'Unsafe opening encounter reset must not leave the player paused at 0 HP.');
+
 const roundState = { enemyHp: 10, enemyMaxHp: 10, hero: { currentHp: 100 }, playerAttackTimer: 0, enemyAttackTimer: 0, currentMap: 0 };
 let settledRounds = 0;
 normalCombat.configureNormalCombatContext({
@@ -1386,6 +3903,20 @@ normalCombat.configureNormalCombatContext({
 normalCombat.updateCombat(1);
 assert.equal(roundState.enemyHp, 0, 'Online combat round must apply the active-target hit once.');
 assert.equal(settledRounds, 1, 'Online combat round must settle a defeated target once.');
+
+const bossSplashState = { enemyHp: 100, enemyMaxHp: 100, enemyBoss: true, hero: { currentHp: 100 }, playerAttackTimer: 0, enemyAttackTimer: 0, currentMap: 0 };
+normalCombat.configureNormalCombatContext({
+  getState: () => bossSplashState,
+  computeStats: () => ({ attackSpeed: 1, crit: 0, dps: 1, maxHp: 100, splashTargets: 1, splashDamagePct: 0.5 }),
+  currentMonsterStats: () => ({ damageReduction: 0 }),
+  getPlayerCritRateCap: () => 1,
+  random: () => 0.9,
+  tryAutoChallengeBoss: () => false,
+  applySplashDamageToEncounter: () => {},
+  defeatEnemy: () => {},
+});
+normalCombat.updateCombat(1);
+assert.ok(bossSplashState.enemyHp < 90, 'Splash equipment must convert to extra single-target damage in Boss fights.');
 
 const snaredEnemyState = {
   enemyHp: 10,
@@ -1406,6 +3937,99 @@ normalCombat.configureNormalCombatContext({
 normalCombat.updateMonsterAttack(1, { maxHp: 100, dodgeRate: 1, statusResist: 0 });
 assert.equal(snaredEnemyState.hero.currentHp, 100, 'Snaring an enemy must not prevent the player from dodging its attack.');
 assert.equal(snaredAttackFeedback, 'miss', 'Player dodge feedback must remain visible while the enemy is snared.');
+
+const blockedEnemyState = {
+  enemyHp: 10,
+  enemyMaxHp: 10,
+  hero: { currentHp: 100 },
+  enemyAttackTimer: 9,
+  currentMap: 0,
+  enemyMarks: {},
+};
+let blockedAttackFeedback = '';
+normalCombat.configureNormalCombatContext({
+  getState: () => blockedEnemyState,
+  getMonsterAttackInterval: () => 1,
+  currentMonsterStats: () => ({ attack: 100, critChance: 0 }),
+  random: () => 0,
+  showDamageNumber: (_target, _amount, kind) => { blockedAttackFeedback = kind; },
+});
+normalCombat.updateMonsterAttack(1, { maxHp: 100, dodgeRate: 0, blockRate: 0.5, statusResist: 0 });
+assert.equal(blockedEnemyState.hero.currentHp, 97, 'Blocked monster attacks must use the reduced blocked damage.');
+assert.equal(blockedAttackFeedback, 'block', 'Blocked monster attacks must show block feedback.');
+
+const lethalAutoPotionState = {
+  enemyHp: 10,
+  enemyMaxHp: 10,
+  hero: { currentHp: 4 },
+  enemyAttackTimer: 9,
+  currentMap: 0,
+  enemyMarks: {},
+};
+let lethalAutoPotionStatsMaxHp = 0;
+let lethalAutoPotionFailureLogged = false;
+normalCombat.configureNormalCombatContext({
+  getState: () => lethalAutoPotionState,
+  getMonsterAttackInterval: () => 1,
+  currentMonsterStats: () => ({ attack: 100, critChance: 0 }),
+  random: () => 0.9,
+  maybeAutoUsePotion: (stats) => {
+    lethalAutoPotionStatsMaxHp = stats.maxHp;
+    if (lethalAutoPotionState.hero.currentHp > 0) return false;
+    lethalAutoPotionState.hero.currentHp = 55;
+    return true;
+  },
+  addLog: () => { lethalAutoPotionFailureLogged = true; },
+});
+normalCombat.updateMonsterAttack(1, { maxHp: 100, dodgeRate: 0, blockRate: 0, statusResist: 0 });
+assert.equal(lethalAutoPotionState.hero.currentHp, 55, 'Automatic potion usage must be allowed to rescue a lethal monster hit before combat pauses.');
+assert.equal(lethalAutoPotionState.paused, undefined, 'Automatic potion rescue must not leave combat paused.');
+assert.equal(lethalAutoPotionFailureLogged, false, 'Automatic potion rescue must not log the defeat failure message.');
+assert.equal(lethalAutoPotionStatsMaxHp, 100, 'Automatic potion rescue must receive the active stat snapshot.');
+
+const enemyWarningState = {
+  enemyHp: 10,
+  enemyMaxHp: 10,
+  hero: { currentHp: 100 },
+  enemyAttackTimer: 0.68,
+  currentMap: 0,
+  enemyMarks: {},
+};
+let enemyWarningPayload = null;
+normalCombat.configureNormalCombatContext({
+  getState: () => enemyWarningState,
+  getMonsterAttackInterval: () => 1,
+  currentMonsterStats: () => ({ attack: 100, critChance: 0 }),
+  random: () => 0.9,
+  showEnemyAttackWarning: (payload) => { enemyWarningPayload = payload; },
+  showDamageNumber: () => { throw new Error('Attack warning must not deal damage before the timer is full.'); },
+});
+assert.equal(normalCombat.updateMonsterAttack(0.05, { maxHp: 100, dodgeRate: 0, blockRate: 0, statusResist: 0 }), false, 'Enemy attack windup should not resolve before the attack timer is full.');
+assert.equal(enemyWarningPayload?.boss, false, 'Normal monster attack windup must emit a non-Boss warning payload.');
+assert.equal(enemyWarningState.hero.currentHp, 100, 'Enemy attack warning must not change player HP.');
+
+const bossImpactState = {
+  enemyHp: 10,
+  enemyMaxHp: 10,
+  enemyBoss: true,
+  hero: { currentHp: 100 },
+  enemyAttackTimer: 9,
+  currentMap: 0,
+  enemyMarks: {},
+};
+let bossImpactPayload = null;
+normalCombat.configureNormalCombatContext({
+  getState: () => bossImpactState,
+  getMonsterAttackInterval: () => 1,
+  currentMonsterStats: () => ({ attack: 100, critChance: 0 }),
+  random: () => 0.9,
+  showDamageNumber: () => {},
+  flashPlayerHp: () => {},
+  showEnemyAttackImpact: (payload) => { bossImpactPayload = payload; },
+});
+normalCombat.updateMonsterAttack(1, { maxHp: 100, dodgeRate: 0, blockRate: 0, statusResist: 0 });
+assert.equal(bossImpactPayload?.boss, true, 'Boss attacks must emit a Boss impact payload for generated VFX.');
+assert.equal(bossImpactPayload?.kind, 'boss', 'Boss impact payload should route to the Boss impact generated asset.');
 
 const angelGuardState = { enemyHp: 100, enemyMaxHp: 100, hero: { currentHp: 30 }, playerAttackTimer: 0, enemyAttackTimer: 0, shieldHp: 0 };
 const angelGuardWindow = globalThis.window;
@@ -1440,6 +4064,48 @@ assert.equal(guardedAfterHealing.damageReductionPct, 0.3, 'Angel Guard reduction
 normalCombat.updateCombat(0);
 assert.equal(angelGuardState.shieldHp, 10, 'Angel Guard must not stack repeated shields while on cooldown.');
 globalThis.window = angelGuardWindow;
+
+const monsterModuleUrl = `data:text/javascript;base64,${Buffer.from(monsterSource).toString('base64')}`;
+const monster = await importSource(monsterSource);
+const grassStarterMap = {
+  id: 'grass',
+  minLevel: 1,
+  maxLevel: 10,
+  baseHp: 120,
+  baseExp: 8,
+  jobExp: 5,
+  gold: 4,
+  monsters: [
+    { id: 'grass_poring', name: 'Poring', type: 'normal', levelRange: [1, 5], hpRange: [120, 260], attackRange: [3, 8], defenseRange: [1, 3], baseExpRange: [8, 15], jobExpRange: [5, 10], goldRange: [4, 8] },
+    { id: 'grass_lunatic', name: 'Lunatic', type: 'elite', levelRange: [5, 10], hpRange: [260, 520], attackRange: [8, 14], defenseRange: [3, 8], baseExpRange: [18, 35], jobExpRange: [12, 22], goldRange: [10, 18] },
+  ],
+};
+const freshGrassState = { currentDifficulty: 'normal', totalKills: 0, areaKills: 0, hero: { currentHp: 100, rebirths: 0 } };
+const earlyMonsterContext = {
+  getState: () => freshGrassState,
+  currentMap: () => grassStarterMap,
+  random: () => 0,
+  randomInt: (_min, max) => max,
+  getMapLevelRanges: () => ({ grass: { minLevel: 1, maxLevel: 10, attackRange: [3, 14], recommendedPower: 80 }, beginner_field: { minLevel: 1, maxLevel: 1, attackRange: [1, 10] } }),
+  getDifficultyConfigs: () => ({ normal: { hp: 1, attack: 1, defense: 1, exp: 1, jobExp: 1, gold: 1, mutationChance: 1 } }),
+  getMutations: () => [{ id: 'elite', prefix: 'Elite', hp: 2, attack: 2, defense: 1, exp: 1, jobExp: 1, gold: 1 }],
+  getMonsterDifficultyModifiers: () => ({ normal: { hp: 1, atk: 1, def: 1, critDamage: 1.5 }, elite: { hp: 1.6, atk: 1.35, def: 1.12, critDamage: 1.5 } }),
+  getDifficultyTierModifiers: () => ({ normal: {} }),
+  getDropTableAlias: (mapId) => mapId,
+};
+monster.configureMonsterContext(earlyMonsterContext);
+assert.equal(monster.pickMonsterTemplate(grassStarterMap, false).type, 'normal', 'Fresh grass encounters must not open with an elite monster.');
+
+const encounterStandaloneSource = encounterSource
+  .replace(/from\s+['"]\.\/monster\.js['"]/g, `from '${monsterModuleUrl}'`)
+  .replace("import { normalizeDamage } from './damage.js';", 'const normalizeDamage = (value) => Math.max(1, Math.round(Number(value) || 0));')
+  .replace("import { resetEnemySkillStatuses } from './skillMechanics.js';", 'const resetEnemySkillStatuses = () => {};');
+const encounter = await importSource(encounterStandaloneSource);
+encounter.configureEncounterContext(earlyMonsterContext);
+assert.equal(encounter.getEncounterSize(false), 1, 'Fresh grass encounters must stay solo during the opening kills.');
+const earlyGrassMonster = encounter.createEncounterMonster(grassStarterMap, false);
+assert.equal(earlyGrassMonster.type, 'normal', 'Fresh grass generated monsters must stay in the normal pool.');
+assert.equal(earlyGrassMonster.mutationId, '', 'Fresh grass generated monsters must not roll mutations before the player has footing.');
 
 const reviveAwakeningState = {
   enemyHp: 100,
@@ -1542,6 +4208,27 @@ const cardMap = codex.buildMonsterCardDropMap();
 assert.ok(cardMap.poring.length >= 2, 'Card drop map must collect all cards for a monster.');
 assert.equal(codex.getMonsterTypeLabel('poring'), '普通', 'Monster type label must detect normal monsters.');
 assert.ok(codex.getMonsterTypeLabel('grass_boss').includes('Boss'), 'Monster type label must detect bosses.');
+
+const codexClaimState = { monsterCodex: { poring: { killCount: 1, rewardsClaimed: {} } }, codexRewardsClaimed: { card: {} } };
+let codexClaimGranted = null;
+let codexClaimRendered = 0;
+let codexClaimSaved = 0;
+codex.claimCodexReward('monster', 'poring', '1', {
+  getState: () => codexClaimState,
+  getMapMonsterConfig: () => mockConfig,
+  getCodexKillMilestones: () => [1],
+  getCodexKillRewards: () => ({ normal: [{ items: { gold: 10 } }] }),
+  grantGenericReward: (reward) => { codexClaimGranted = reward; },
+  getMonsterName: () => 'Poring',
+  addLog: () => {},
+  showToast: () => {},
+  renderAll: () => { codexClaimRendered += 1; },
+  save: () => { codexClaimSaved += 1; },
+});
+assert.equal(codexClaimState.monsterCodex.poring.rewardsClaimed[1], true, 'Monster codex claim must accept DOM string milestones.');
+assert.deepEqual(codexClaimGranted, { gold: 10 }, 'Monster codex claim must grant the matching milestone item reward.');
+assert.equal(codexClaimRendered, 1, 'Monster codex claim must rerender once.');
+assert.equal(codexClaimSaved, 1, 'Monster codex claim must save once.');
 
 // Shop module tests
 const shopSource = read('src/systems/shop.js');

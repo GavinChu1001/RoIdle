@@ -38,7 +38,7 @@ function offlineEquipItem(item, ctx = lootCtx) {
     <span class="offline-loot-icon">${rn(item?.rarity, ctx)[0] || '装'}</span>
     <div>
       ${rnItem(item, '', ctx)}
-      <small>${rn(item?.rarity, ctx)} · 等级 ${fmtn(item?.level, ctx)}${item?.refine ? ` · +${fmtn(item.refine, ctx)}` : ''}</small>
+      <small>${rn(item?.rarity, ctx)}${item?.refine ? ` · +${fmtn(item.refine, ctx)}` : ''}</small>
       ${renderSet(item?.setName, ctx)}
     </div>
   </div>`;
@@ -60,7 +60,7 @@ export function renderLootSummaryCard(rewards, ctx = lootCtx) {
   const cardList = arr(r.cards);
   const eqpList = arr(r.equipment);
   const pendingList = arr(r.pendingEquipment);
-  const hasAny = r.seconds > 0 || r.gold > 0 || r.baseExp > 0 || r.jobExp > 0 ||
+  const hasAny = r.seconds > 0 || r.gold > 0 || r.baseExp > 0 || r.jobExp > 0 || r.mvpInscriptionExp > 0 ||
     matList.length || cardList.length || eqpList.length || pendingList.length ||
     offlineObjTotal(r.salvagedMaterials) > 0;
   if (!hasAny) {
@@ -78,6 +78,7 @@ export function renderLootSummaryCard(rewards, ctx = lootCtx) {
       ${renderLootSummaryMini('金币', r.gold, ctx)}
       ${renderLootSummaryMini('BASE经验', r.baseExp, ctx)}
       ${renderLootSummaryMini('JOB经验', r.jobExp, ctx)}
+      ${renderLootSummaryMini('铭刻经验', r.mvpInscriptionExp, ctx)}
       ${renderLootSummaryMini('材料', offlineListTotal(matList), ctx)}
       ${renderLootSummaryMini('装备', eqpList.length, ctx)}
       ${renderLootSummaryMini('待领取装备', pendingList.length, ctx)}
@@ -138,6 +139,7 @@ export function renderOfflineOverview(rewards, claimedEquipment, pendingEquipmen
     ${renderOfflineOverviewCard('金币', rewards?.gold, 'gold', ctx)}
     ${renderOfflineOverviewCard('BASE经验', rewards?.baseExp, 'base', ctx)}
     ${renderOfflineOverviewCard('JOB经验', rewards?.jobExp, 'job', ctx)}
+    ${renderOfflineOverviewCard('铭刻经验', rewards?.mvpInscriptionExp, 'mvp-inscription', ctx)}
     ${renderOfflineOverviewCard('材料', materialTotal, 'material', ctx)}
     ${renderOfflineOverviewCard('卡片', cardTotal, 'card', ctx)}
     ${renderOfflineOverviewCard('装备', arr(claimedEquipment).length, 'equipment', ctx)}
@@ -160,6 +162,7 @@ export function renderOfflineGoldExpSection(rewards, ctx = lootCtx) {
       <div class="offline-gain offline-gain-gold"><span>金币</span><strong class="offline-number">+${fmtn(r.gold, ctx)}</strong></div>
       <div class="offline-gain offline-gain-base"><span>BASE EXP</span><strong class="offline-number">+${fmtn(r.baseExp, ctx)}</strong></div>
       <div class="offline-gain offline-gain-job"><span>JOB EXP</span><strong class="offline-number">+${fmtn(r.jobExp, ctx)}</strong></div>
+      <div class="offline-gain offline-gain-mvp-inscription"><span>铭刻经验</span><strong class="offline-number">+${fmtn(r.mvpInscriptionExp, ctx)}</strong></div>
     </div>
     <p class="offline-source-note">离线效率 ${Math.round(offEff * 100)}% · 最大离线时间 ${fmtd(maxSec, ctx)} · VIP 与套装收益已计入本次真实结算</p>
   </section>`;

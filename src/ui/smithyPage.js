@@ -14,6 +14,7 @@ export function installSmithyRenderRuntime(context = {}) {
   var existing = window.RuneFrontierRenderRuntime || {};
   var fnNames = ['renderSmithyPage','renderSmithyContent','renderEnhancePanel',
     'renderSmithyMaterialGuide','renderDarkGoldExchangePanel','renderDarkGoldExchangeCard',
+    'renderEquipmentProgressionSmithyPanel',
     'renderEnhanceEffectText','renderSetTalentStatus','renderRefineStatDelta',
     'renderRefineResultModal','renderSmithy','renderStarRefineSmithyPanel',
     'renderCardSocketSmithyPanel','renderMaterialGroups','renderZodiacCollectionPanel',

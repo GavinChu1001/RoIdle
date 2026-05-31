@@ -105,18 +105,25 @@ export function settleDefeatedEnemy(payload = {}, context = runtimeContext) {
   const monster = payload.monster || context.currentMonsterStats?.() || {};
   const isBoss = payload.isBoss ?? Boolean(state.enemyBoss);
   const difficulty = payload.difficulty || state.currentDifficulty || 'normal';
+  const maps = context.getMaps?.() || [];
+  const mapIndexFromList = map.id ? maps.findIndex((entry) => entry?.id === map.id) : -1;
+  const defeatedMapIndex = finite(payload.currentMapIndex ?? payload.mapIndex ?? (mapIndexFromList >= 0 ? mapIndexFromList : context.currentMapIndex?.()));
   context.updateActiveEnemyHpInGroup?.();
   const stats = payload.stats || context.computeStats?.() || {};
   const bossBonus = isBoss ? 2 : 1;
   const goldGain = Math.round(finite(monster.gold) * bossBonus * finite(stats.goldMultiplier || 1) * finite(stats.monsterGoldMultiplier || 1));
+  const bossCycleGoldBonus = isBoss
+    ? Math.max(0, Math.round(finite(context.getBossCycleGoldBonus?.({ map, difficulty, stats, monster }))))
+    : 0;
+  const baseGoldReward = goldGain + bossCycleGoldBonus;
   // V3 议价被动：击杀额外金币
   let goldBonus = 0;
   if (typeof window !== 'undefined' && window.RuneFrontierCombatRuntime?.getPassiveMechanismEffects) {
     const passive = window.RuneFrontierCombatRuntime.getPassiveMechanismEffects(state, stats);
     const bonusRate = isBoss ? finite(passive.bossGoldBonus) : finite(passive.killGoldBonus);
-    if (bonusRate > 0) goldBonus = Math.round(goldGain * bonusRate);
+    if (bonusRate > 0) goldBonus = Math.round(baseGoldReward * bonusRate);
   }
-  const totalGold = goldGain + goldBonus;
+  const totalGold = baseGoldReward + goldBonus;
   const baseExpGain = Math.round(finite(monster.exp) * finite(stats.baseExpMultiplier || 1));
   const jobExpGain = Math.round(finite(monster.jobExp) * (state.hero?.jobId === 'novice' ? 1.12 : 1) * finite(stats.jobExpMultiplier || 1));
 
@@ -133,7 +140,7 @@ export function settleDefeatedEnemy(payload = {}, context = runtimeContext) {
     jobExp: jobExpGain,
   });
   context.recordRecentLoot?.(
-    { gold: goldGain, baseExp: baseExpGain, jobExp: jobExpGain, killCount: 1 },
+    { gold: totalGold, baseExp: baseExpGain, jobExp: jobExpGain, killCount: 1 },
     isBoss ? 'Boss战利品' : difficulty === 'abyss' ? '深渊战利品' : '战斗战利品',
   );
   context.updateDailyGoalProgress?.('daily_kills', 1);
@@ -151,6 +158,17 @@ export function settleDefeatedEnemy(payload = {}, context = runtimeContext) {
   } else {
     state.areaKills = Math.min(finite(context.bossRequirement?.()), finite(state.areaKills) + 1);
   }
+  context.grantMvpInscriptionKillExp?.({
+    monster,
+    map,
+    currentMapIndex: defeatedMapIndex,
+    mapIndex: defeatedMapIndex,
+    difficulty,
+    isBoss,
+    isMutated: Boolean(monster.mutation),
+    isElite: Boolean(monster.type === 'elite' || monster.mutation),
+    firstBossClear: Boolean(bossResult.firstBossClear),
+  });
 
   const groupHasMoreMonsters = !isBoss && Boolean(context.hasLivingEncounterMembers?.());
   const shouldAutoBossAfterKill = !isBoss && !groupHasMoreMonsters && Boolean(context.isBossChallengeReady?.()) && Boolean(context.getAutoBossEnabled?.());
@@ -241,6 +259,7 @@ export function settleDefeatedEnemy(payload = {}, context = runtimeContext) {
   context.render?.();
   return {
     goldGain,
+    bossCycleGoldBonus,
     baseExpGain,
     jobExpGain,
     equipmentDropCount,

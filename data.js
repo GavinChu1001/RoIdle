@@ -5,10 +5,17 @@ var API_BASE = "";
 var MAX_OFFLINE_SECONDS = 12 * 60 * 60;
 function v3SkillId(name) { return `v3_skill_${String(name).replace(/\s+/g, "_")}`; }
 function mech(type, params) { return { type: type || '', ...(params || {}) }; }
+function circuit(level, id, label, config) {
+  return { level, id, label, ...(config || {}) };
+}
+function withCircuits(skill, circuits) {
+  skill.circuits = circuits || [];
+  return skill;
+}
 function v3Skill(name, kind, cooldown, mechanism, description) {
   var skill = { id: v3SkillId(name), name, kind, cooldown: cooldown || 0, mechanism: mechanism || null, description };
   if (kind === '主动') {
-    skill.levelScaling = { cooldownPerLevel: 0.94, multiplierPerLevel: 1.12 };
+    skill.levelScaling = { cooldownPerLevel: 0.97, multiplierPerLevel: 1.06 };
   } else if (kind === '被动') {
     skill.levelScaling = { cooldownPerLevel: 0.96, multiplierPerLevel: 1.50 };
   }
@@ -31,7 +38,7 @@ var v3JobSkills = {
   ],
   runeKnight: [
     v3Skill("龙息", "主动", 14, mech("zone", { duration: 5, perSecond: 1.15, mark: "burn" }), "5s ×1.15/s = 5.75x 物理伤害，附加灼烧。"),
-    v3Skill("符文爆发", "主动", 20, mech("finisher", { hpThreshold: 0.25, multiplier: 5.0, finisherMultiplier: 7.5, killRefundPct: 0.5 }), "HP<25% 7.5x 物理伤害，击杀返还 50% 冷却。"),
+    v3Skill("符文爆发", "主动", 20, mech("finisher", { hpThreshold: 0.25, multiplier: 5.0, finisherMultiplier: 5.5, killRefundPct: 0.3 }), "HP<25% 5.5x 物理伤害，击杀返还 30% 冷却。"),
     v3Skill("龙族血统", "被动", 0, mech("enhanceSkill", { baseSkill: "霸体", extra: { invincible: 3, nextCrit: { guaranteed: true, multiplier: 1.5 } } }), "霸体触发后 3s 无敌，下次技能必暴且暴伤 ×1.5。"),
   ],
   mage: [
@@ -46,7 +53,7 @@ var v3JobSkills = {
   ],
   warlock: [
     v3Skill("连锁闪电", "主动", 8, mech("multihit", { hits: 4, perHit: 0.75, bounce: 2, bounceMultiplier: 0.45, stat: "matk" }), "4段 ×0.75 = 3.0x + 弹射 2段 ×0.45 魔法伤害。"),
-    v3Skill("元素风暴", "主动", 18, mech("statusExploitAll", { multiplier: 4.5, perStatus: 1.0, maxMultiplier: 7.5 }), "对所有异常敌人 4.5x + 每种状态 +1.0x（上限 7.5x）魔法伤害。"),
+    v3Skill("元素风暴", "主动", 18, mech("statusExploitAll", { multiplier: 3.2, perStatus: 0.55, maxMultiplier: 4.8 }), "对所有异常敌人 3.2x + 每种状态 +0.55x（上限 4.8x）魔法伤害。"),
     v3Skill("元素主宰", "被动", 0, mech("markDuration", { burn: 1.75, freeze: 1.75, allowBoth: true }), "灼烧/冰冻时长 ×1.75，可共存。"),
   ],
   archer: [
@@ -76,7 +83,7 @@ var v3JobSkills = {
   ],
   archbishop: [
     v3Skill("圣堂庇护", "主动", 15, mech("shield", { duration: 8, perHitReduction: 0.35 }), "8s 内受伤 -35%。"),
-    v3Skill("天罚", "主动", 14, mech("finisher", { hpThreshold: 0.2, multiplier: 5.5, instantKill: true, bossMultiplier: 5.5, stat: "matk" }), "HP<20% 即死（精英 10.0x，Boss 5.5x）魔法伤害。"),
+    v3Skill("天罚", "主动", 14, mech("finisher", { hpThreshold: 0.2, multiplier: 5.5, instantKill: true, bossMultiplier: 3.8, stat: "matk" }), "HP<20% 即死（精英 10.0x，Boss 3.8x）魔法伤害。"),
     v3Skill("圣者降临", "被动", 100, mech("revive", { hpPct: 0.4 }), "死亡时以 40% 生命复活，冷却 100s。"),
   ],
   merchant: [
@@ -90,7 +97,7 @@ var v3JobSkills = {
     v3Skill("大地之击", "被动", 0, mech("stackTrigger", { stack: "破甲", threshold: 3, effect: { skill: "手推车强击", crit: { guaranteed: true, multiplier: 1.4 } } }), "破甲 3 层时手推车必暴，暴伤 ×1.4。"),
   ],
   mechanic: [
-    v3Skill("自爆装置", "主动", 16, mech("delayedBurst", { delay: 6, multiplier: 5.8, aoe: true, killRefundPct: 0.5 }), "6s 后爆炸 5.8x 全敌伤害，击杀返还 50% 冷却。"),
+    v3Skill("自爆装置", "主动", 16, mech("delayedBurst", { delay: 6, multiplier: 4.0, aoe: true, killRefundPct: 0.25 }), "6s 后爆炸 4.0x 全敌伤害，击杀返还 25% 冷却。"),
     v3Skill("金币风暴", "主动", 10, mech("goldGenerate", { multiplier: 2.6, goldPerDamage: 0.25 }), "2.6x 伤害，25% 转金币。"),
     v3Skill("机械大师", "被动", 0, mech("enhanceSkill", { baseSkill: "自爆装置", extra: { resetOnKill: true, nextBonus: 0.35 } }), "自爆击杀重置冷却，下次伤害 +35%。"),
   ],
@@ -145,6 +152,126 @@ var V3_SKILL_ROUTE_BY_JOB = {
   assassinCross: ["thief", "assassin"],
   guillotineCross: ["thief", "assassin", "guillotineCross"],
 };
+
+var V3_CIRCUIT_PROFILE_BY_JOB = {
+  novice: "balanced",
+  swordman: "bossBreaker",
+  knight: "bossBreaker",
+  lordKnight: "bossBreaker",
+  runeKnight: "bossBreaker",
+  mage: "elemental",
+  wizard: "elemental",
+  highWizard: "elemental",
+  warlock: "elemental",
+  archer: "marksman",
+  hunter: "marksman",
+  sniper: "marksman",
+  ranger: "marksman",
+  acolyte: "sanctuary",
+  priest: "sanctuary",
+  highPriest: "sanctuary",
+  archbishop: "sanctuary",
+  merchant: "forge",
+  blacksmith: "forge",
+  whiteSmith: "forge",
+  mechanic: "forge",
+  thief: "shadow",
+  assassin: "shadow",
+  assassinCross: "shadow",
+  guillotineCross: "shadow",
+};
+
+var V3_CIRCUIT_PROFILES = {
+  balanced: {
+    base: { skillDamageBonus: 0.02 },
+    identity: { finalDamageBonus: 0.02 },
+    long: { bossDamageBonus: 0.03 },
+    final: { type: "finalCircuitBoost", multiplier: 0.10 },
+  },
+  bossBreaker: {
+    base: { bossDamageBonus: 0.03 },
+    identity: { damageReductionPct: 0.02 },
+    long: { bossDamageBonus: 0.05 },
+    final: { type: "armorBreak", duration: 4, ignoreDefense: 0.08 },
+  },
+  elemental: {
+    base: { skillDamageBonus: 0.03 },
+    identity: { abyssDamageBonus: 0.04 },
+    long: { skillDamageBonus: 0.05 },
+    final: { type: "finalCircuitBoost", multiplier: 0.12 },
+  },
+  marksman: {
+    base: { skillDamageBonus: 0.03 },
+    identity: { rareDropBonus: 0.02 },
+    long: { highTierFind: 0.015 },
+    final: { type: "finalCircuitBoost", multiplier: 0.12 },
+  },
+  sanctuary: {
+    base: { hpPct: 0.03 },
+    identity: { damageReductionPct: 0.02 },
+    long: { skillDamageBonus: 0.04 },
+    final: { type: "finalCircuitBoost", multiplier: 0.10 },
+  },
+  forge: {
+    base: { skillDamageBonus: 0.025 },
+    identity: { materialQuantityBonus: 0.025 },
+    long: { bossDamageBonus: 0.04 },
+    final: { type: "finalCircuitBoost", multiplier: 0.12 },
+  },
+  shadow: {
+    base: { skillDamageBonus: 0.03 },
+    identity: { critDamageBonus: 0.04 },
+    long: { rareDropBonus: 0.025 },
+    final: { type: "finalCircuitBoost", multiplier: 0.14 },
+  },
+};
+
+function getV3SkillMaxLevel(jobId) {
+  var route = V3_SKILL_ROUTE_BY_JOB[jobId] || [jobId];
+  if (route.length >= 3) return 30;
+  if (route.length >= 2) return 20;
+  return 10;
+}
+
+function getV3CircuitProfile(jobId) {
+  return V3_CIRCUIT_PROFILES[V3_CIRCUIT_PROFILE_BY_JOB[jobId] || "balanced"] || V3_CIRCUIT_PROFILES.balanced;
+}
+
+function activeSkillCircuitsFor(jobId, skill) {
+  var profile = getV3CircuitProfile(jobId);
+  return [
+    circuit(5, "base_identity", "基础强化", { stats: profile.base }),
+    circuit(10, "auto_trigger", "自动触发强化", { effect: { type: "extraHit", chance: 0.06, multiplier: 0.40 } }),
+    circuit(15, "job_identity", "职业机制", { stats: profile.identity }),
+    circuit(20, "state_link", "状态联动", { effect: { type: "cooldownRefund", ratio: 0.08 } }),
+    circuit(25, "long_goal", "长期目标", { stats: profile.long }),
+    circuit(30, "final_mutation", "最终回路", { effect: profile.final }),
+  ];
+}
+
+function passiveSkillCircuitsFor(jobId, skill) {
+  var profile = getV3CircuitProfile(jobId);
+  return [
+    circuit(5, "passive_base", "被动强化", { stats: profile.base }),
+    circuit(10, "passive_reliable", "稳定生效", { effect: { type: "passiveStatBoost", multiplier: 0.05 } }),
+    circuit(15, "passive_identity", "职业被动", { stats: profile.identity }),
+    circuit(20, "passive_state", "状态联动", { effect: { type: "passiveStatBoost", multiplier: 0.08 } }),
+    circuit(25, "passive_long_goal", "长期收益", { stats: profile.long }),
+    circuit(30, "passive_final", "最终回路", { effect: { type: "finalCircuitBoost", multiplier: 0.10 } }),
+  ];
+}
+
+function applyV3SkillCircuits() {
+  Object.entries(v3JobSkills).forEach(([jobId, skills]) => {
+    skills.forEach((skill) => {
+      if (Array.isArray(skill.circuits) && skill.circuits.length) return;
+      withCircuits(skill, skill.kind === "主动" ? activeSkillCircuitsFor(jobId, skill) : passiveSkillCircuitsFor(jobId, skill));
+    });
+  });
+}
+
+applyV3SkillCircuits();
+
 function getV3CombatSkills(jobId) {
   return (V3_SKILL_ROUTE_BY_JOB[jobId] || [jobId])
     .flatMap((routeJobId) => v3JobSkills[routeJobId] || []);
@@ -177,8 +304,13 @@ var JOB_EXP_GLOBAL_MULTIPLIER = 1;
 var BOSS_EXP_MULTIPLIER = 1;
 var DIFFICULTY_CONFIG = {
   normal: { label: "普通", power: 1, hp: 1, attack: 1, defense: 1, exp: 1, jobExp: 1, gold: 1, equipmentDrop: 1, materialDrop: 1, cardDrop: 1, mutationChance: 0.05 },
-  hard: { label: "困难", power: 2.65, hp: 2.35, attack: 2.05, defense: 1.85, exp: 1.9, jobExp: 1.9, gold: 1.8, equipmentDrop: 1.45, materialDrop: 1.45, cardDrop: 1.25, mutationChance: 0.12 },
-  abyss: { label: "深渊", power: 5.4, hp: 6.2, attack: 4.9, defense: 3.7, exp: 3.4, jobExp: 3.4, gold: 2.9, equipmentDrop: 2.1, materialDrop: 2.05, cardDrop: 1.65, mutationChance: 0.2, mythicDrop: 1 },
+  hard: { label: "困难", power: 2.65, hp: 2.35, attack: 2.05, defense: 1.85, exp: 1.9, jobExp: 1.9, gold: 2.05, equipmentDrop: 1.45, materialDrop: 1.45, cardDrop: 1.25, mutationChance: 0.12 },
+  abyss: { label: "深渊", power: 5.4, hp: 6.2, attack: 4.9, defense: 3.7, exp: 3.4, jobExp: 3.4, gold: 3.25, equipmentDrop: 2.1, materialDrop: 2.05, cardDrop: 1.65, mutationChance: 0.2, mythicDrop: 1 },
+};
+var BOSS_CYCLE_GOLD_BONUS_RATE = {
+  normal: 0.35,
+  hard: 0.55,
+  abyss: 0.75,
 };
 
 var MAX_EQUIPMENT_LEVEL = 220;
@@ -289,46 +421,46 @@ var ABYSS_EQUIPMENT_BONUS = {
   },
 };
 var ABYSS_BASELINE = {
-  minLevel: 150,
-  hp: 1500000,
-  attack: 3000,
-  defense: 2200,
-  baseExp: 6800,
-  jobExp: 5900,
-  gold: 4200,
+  minLevel: 40,
+  hp: 38000,
+  attack: 170,
+  defense: 120,
+  baseExp: 520,
+  jobExp: 460,
+  gold: 330,
 };
 var HARD_BASELINE = {
-  minLevel: 120,
-  hp: 420000,
-  attack: 900,
-  defense: 650,
-  baseExp: 2600,
-  jobExp: 2200,
-  gold: 1700,
+  minLevel: 18,
+  hp: 9000,
+  attack: 65,
+  defense: 45,
+  baseExp: 260,
+  jobExp: 220,
+  gold: 165,
 };
 var HARD_MAP_TIER_SCALE = {
-  grass: { hp: 1, attack: 1, defense: 1, exp: 1, gold: 1, recommendedPower: 130000 },
-  forest: { hp: 1.12, attack: 1.1, defense: 1.1, exp: 1.08, gold: 1.08, recommendedPower: 145000 },
-  sewer: { hp: 1.26, attack: 1.22, defense: 1.2, exp: 1.16, gold: 1.16, recommendedPower: 160000 },
-  desert: { hp: 1.42, attack: 1.36, defense: 1.32, exp: 1.26, gold: 1.26, recommendedPower: 178000 },
-  orc_village: { hp: 1.62, attack: 1.54, defense: 1.48, exp: 1.38, gold: 1.38, recommendedPower: 198000 },
-  mine: { hp: 1.86, attack: 1.74, defense: 1.65, exp: 1.52, gold: 1.52, recommendedPower: 220000 },
-  clock: { hp: 2.15, attack: 1.98, defense: 1.86, exp: 1.68, gold: 1.68, recommendedPower: 244000 },
-  glast_heim: { hp: 2.48, attack: 2.25, defense: 2.1, exp: 1.86, gold: 1.86, recommendedPower: 270000 },
-  abyss_lake: { hp: 2.86, attack: 2.55, defense: 2.36, exp: 2.06, gold: 2.06, recommendedPower: 300000 },
-  sky: { hp: 3.3, attack: 2.9, defense: 2.65, exp: 2.3, gold: 2.3, recommendedPower: 335000 },
+  grass: { hp: 1, attack: 1, defense: 1, exp: 1, gold: 1, recommendedPower: 600 },
+  forest: { hp: 1.25, attack: 1.2, defense: 1.18, exp: 1.08, gold: 1.08, recommendedPower: 1100 },
+  sewer: { hp: 1.6, attack: 1.45, defense: 1.38, exp: 1.18, gold: 1.18, recommendedPower: 2100 },
+  desert: { hp: 2.1, attack: 1.75, defense: 1.65, exp: 1.3, gold: 1.3, recommendedPower: 3200 },
+  orc_village: { hp: 2.8, attack: 2.2, defense: 2, exp: 1.45, gold: 1.45, recommendedPower: 5200 },
+  mine: { hp: 3.7, attack: 2.8, defense: 2.5, exp: 1.62, gold: 1.62, recommendedPower: 7800 },
+  clock: { hp: 5.8, attack: 3.7, defense: 3.6, exp: 1.88, gold: 1.88, recommendedPower: 14000 },
+  glast_heim: { hp: 8.2, attack: 4.8, defense: 4.8, exp: 2.18, gold: 2.18, recommendedPower: 22000 },
+  abyss_lake: { hp: 12.5, attack: 6.3, defense: 6.5, exp: 2.55, gold: 2.55, recommendedPower: 42000 },
+  sky: { hp: 18, attack: 8.2, defense: 8.4, exp: 3.0, gold: 3.0, recommendedPower: 75000 },
 };
 var ABYSS_MAP_TIER_SCALE = {
-  grass: { hp: 1.25, attack: 1.2, defense: 1.2, exp: 1, gold: 1, recommendedPower: 350000 },
-  forest: { hp: 1.65, attack: 1.55, defense: 1.5, exp: 1.15, gold: 1.15, recommendedPower: 480000 },
-  sewer: { hp: 2.25, attack: 2.05, defense: 1.95, exp: 1.35, gold: 1.35, recommendedPower: 660000 },
-  desert: { hp: 3.05, attack: 2.7, defense: 2.45, exp: 1.6, gold: 1.6, recommendedPower: 900000 },
-  orc_village: { hp: 4.1, attack: 3.5, defense: 3.1, exp: 1.9, gold: 1.9, recommendedPower: 1250000 },
-  mine: { hp: 5.45, attack: 4.45, defense: 3.9, exp: 2.25, gold: 2.25, recommendedPower: 1700000 },
-  clock: { hp: 7.2, attack: 5.75, defense: 5, exp: 2.7, gold: 2.7, recommendedPower: 2300000 },
-  glast_heim: { hp: 9.4, attack: 7.35, defense: 6.4, exp: 3.25, gold: 3.25, recommendedPower: 3100000 },
-  abyss_lake: { hp: 12.2, attack: 9.4, defense: 8.1, exp: 3.9, gold: 3.9, recommendedPower: 4100000 },
-  sky: { hp: 16, attack: 12.5, defense: 10.5, exp: 4.8, gold: 4.8, recommendedPower: 5400000 },
+  grass: { hp: 1, attack: 1, defense: 1, exp: 1, gold: 1, recommendedPower: 2100 },
+  forest: { hp: 1.25, attack: 1.2, defense: 1.16, exp: 1.1, gold: 1.1, recommendedPower: 3200 },
+  sewer: { hp: 1.6, attack: 1.5, defense: 1.42, exp: 1.24, gold: 1.24, recommendedPower: 5200 },
+  desert: { hp: 2.1, attack: 1.9, defense: 1.78, exp: 1.42, gold: 1.42, recommendedPower: 7800 },
+  orc_village: { hp: 2.8, attack: 2.4, defense: 2.22, exp: 1.64, gold: 1.64, recommendedPower: 11500 },
+  mine: { hp: 3.7, attack: 3.1, defense: 2.82, exp: 1.9, gold: 1.9, recommendedPower: 16500 },
+  clock: { hp: 6.4, attack: 4.3, defense: 4.3, exp: 2.32, gold: 2.32, recommendedPower: 42000 },
+  glast_heim: { hp: 9.5, attack: 5.9, defense: 6.0, exp: 2.85, gold: 2.85, recommendedPower: 75000 },
+  abyss_lake: { hp: 14, attack: 7.8, defense: 8.0, exp: 3.35, gold: 3.35, recommendedPower: 120000 },
+  sky: { hp: 20, attack: 10.8, defense: 10.5, exp: 3.95, gold: 3.95, recommendedPower: 190000 },
 };
 var ABYSS_BOSS_EXTRA_MULTIPLIER = {
   hp: 2.8,
@@ -358,31 +490,30 @@ var ABYSS_SET_STAGES = {
 var ABYSS_AFFIX_POOL = [
   { id: "abyss_slayer", name: "深渊破敌", desc: "对深渊怪物伤害 +8%", effects: { abyssDamageBonus: 0.08 } },
   { id: "abyss_guard", name: "深渊守护", desc: "受到深渊怪物伤害 -5%", effects: { abyssDamageReduction: 0.05 } },
-  { id: "abyss_boss_hunter", name: "深渊猎首", desc: "对深渊 Boss 伤害 +10%", effects: { abyssBossDamageBonus: 0.1 } },
-  { id: "abyss_looter", name: "深渊掠夺", desc: "深渊难度下材料掉率 +8%", effects: { abyssMaterialDropBonus: 0.08 } },
+  { id: "abyss_boss_hunter", name: "深渊猎首", desc: "对深渊怪物伤害 +10%", effects: { abyssDamageBonus: 0.1 } },
+  { id: "abyss_looter", name: "深渊掠夺", desc: "材料数量 +8%", effects: { materialQuantityBonus: 0.08 } },
   { id: "abyss_revelation", name: "深渊启示", desc: "神话装备品质权重小幅提高", effects: { mythicWeightBonus: 0.01 } },
-  { id: "abyss_echo", name: "深渊回响", desc: "深渊难度下主动技能伤害 +8%", effects: { abyssSkillDamageBonus: 0.08 } },
-  { id: "abyss_essence", name: "神话精华", desc: "深渊难度下神话精粹掉率 +6%", effects: { mythicEssenceDropBonus: 0.06 } },
-  { id: "abyss_prestige", name: "轮回共鸣", desc: "转生声望品质权重 +6%", effects: { rebirthPrestigeWeightBonus: 0.06 } },
-  { id: "abyss_execute", name: "深渊斩杀", desc: "深渊怪物生命低于 20% 时伤害 +10%", effects: { abyssExecuteDamageBonus: 0.1 } },
+  { id: "abyss_echo", name: "深渊回响", desc: "主动技能伤害 +8%", effects: { skillDamageBonus: 0.08 } },
+  { id: "abyss_essence", name: "神话精华", desc: "高阶发现 +6%", effects: { highTierFind: 0.06 } },
+  { id: "abyss_prestige", name: "轮回共鸣", desc: "高阶发现 +6%", effects: { highTierFind: 0.06 } },
   { id: "abyss_shield", name: "护盾转化", desc: "深渊减伤 +4%，生命 +4%", effects: { abyssDamageReduction: 0.04, hpPct: 0.04 } },
   { id: "abyss_final", name: "终末锋芒", desc: "最终伤害 +8%", effects: { finalDamageBonus: 0.08 } },
   { id: "abyss_elite_hunter", name: "首领猎杀", desc: "对精英/首领伤害 +12%", effects: { eliteDamageBonus: 0.12 } },
   { id: "abyss_rare_finder", name: "稀有嗅觉", desc: "稀有装备品质权重 +10%", effects: { rareDropBonus: 0.1 } },
 ];
 var ABYSS_ZODIAC_SET_EFFECTS = {
-  aries_mu: { abyssDamageBonus: 0.15, abyssBossDamageBonus: 0.08 },
-  taurus_aldbaran: { abyssGoldPct: 0.8, abyssBaseExpPct: 0.3, abyssJobExpPct: 0.3 },
-  gemini_saga: { abyssSkillDamageBonus: 0.12, abyssSkillChanceBonus: 0.05 },
-  cancer_deathmask: { abyssMaterialDropBonus: 0.2, abyssDefenseReduction: 0.05 },
-  leo_aiolia: { abyssAttackSpeedPct: 0.08, abyssCritRatePct: 0.05 },
-  virgo_shaka: { abyssMagicDamageBonus: 0.15, abyssDamageReduction: 0.05 },
-  libra_dohko: { abyssAttrPct: 0.08, abyssPowerPct: 0.08 },
-  scorpio_milo: { abyssCritDamageBonus: 0.18, abyssEliteDamageBonus: 0.12 },
-  sagittarius_aiolos: { abyssBossDamageBonus: 0.15, abyssDexPct: 0.08 },
-  capricorn_shura: { abyssIgnoreDefense: 0.08, abyssSkillDamageBonus: 0.1 },
-  aquarius_camue: { abyssMagicDamageBonus: 0.15, abyssBossDamageReduction: 0.05 },
-  pisces_aphrodite: { abyssCardDropBonus: 0.2, abyssItemDropBonus: 0.12 },
+  aries_mu: { abyssDamageBonus: 0.05, abyssBossDamageBonus: 0.03 },
+  taurus_aldbaran: { abyssGoldPct: 0.25, abyssBaseExpPct: 0.1, abyssJobExpPct: 0.1 },
+  gemini_saga: { abyssSkillDamageBonus: 0.04, abyssSkillChanceBonus: 0.02 },
+  cancer_deathmask: { abyssMaterialDropBonus: 0.07, abyssDefenseReduction: 0.02 },
+  leo_aiolia: { abyssAttackSpeedPct: 0.03, abyssCritRatePct: 0.02 },
+  virgo_shaka: { abyssMagicDamageBonus: 0.05, abyssDamageReduction: 0.02 },
+  libra_dohko: { abyssAttrPct: 0.03, abyssPowerPct: 0.03 },
+  scorpio_milo: { abyssCritDamageBonus: 0.06, abyssEliteDamageBonus: 0.04 },
+  sagittarius_aiolos: { abyssBossDamageBonus: 0.05, abyssDexPct: 0.03 },
+  capricorn_shura: { abyssIgnoreDefense: 0.03, abyssSkillDamageBonus: 0.04 },
+  aquarius_camue: { abyssMagicDamageBonus: 0.05, abyssBossDamageReduction: 0.02 },
+  pisces_aphrodite: { abyssCardDropBonus: 0.07, abyssItemDropBonus: 0.04 },
 };
 var MAP_EXPLORATION_REQUIREMENTS = [0, 100, 300, 800, 1500, 3000, 6000, 10000, 16000, 24000, 36000];
 var ACHIEVEMENT_DB = [
@@ -405,18 +536,6 @@ var TITLE_DB = {
   abyss_breaker: { id: "abyss_breaker", name: "深渊踏破者", source: "击败 1 个深渊 Boss", rarity: "darkGold", effects: { abyssDamageBonus: 0.03 } },
   mythic_witness: { id: "mythic_witness", name: "神话见证者", source: "获得 1 件神话装备", rarity: "mythic", effects: { powerPct: 0.01 } },
   forge_star: { id: "forge_star", name: "锻造新星", source: "任意装备星炼 +10", rarity: "epic", effects: { powerPct: 0.01 } },
-};
-var ACTIVE_SKILL_SPECIALIZATIONS = {
-  power: { id: "power", name: "猛攻", description: "该技能伤害 +20%" },
-  boss_damage: { id: "boss_damage", name: "首领杀手", description: "该技能对 Boss 伤害 +25%" },
-  frequency: { id: "frequency", name: "迅捷", description: "触发率 +20%，伤害 -8%" },
-  pierce: { id: "pierce", name: "破甲", description: "该技能无视怪物防御 +10%" },
-};
-var PASSIVE_SKILL_SPECIALIZATIONS = {
-  enhance: { id: "enhance", name: "强化", description: "该被动效果 +15%" },
-  utility: { id: "utility", name: "收益", description: "收益类被动额外 +10%" },
-  survival: { id: "survival", name: "生存", description: "生存类被动额外 +10%" },
-  combat: { id: "combat", name: "战斗", description: "战斗类被动额外 +10%" },
 };
 var ZODIAC_CARD_BY_SET = {
   aries_mu: "aries_card",
@@ -1169,17 +1288,17 @@ var equipmentSets = {
     id: "taurus_aldbaran",
     name: "金牛座-阿鲁迪巴套装",
     talentName: "金牛座的天赋",
-    talentDescription: "金币收益 +500%，BASE经验 +100%，JOB经验 +100%，材料数量 +50%",
+    talentDescription: "金币收益 +35%，BASE经验 +12%，JOB经验 +12%，材料数量 +10%",
     effects: {
-      full: { monsterGoldPct: 5, baseExpPct: 1, jobExpPct: 1, materialQuantityPct: 0.5 },
+      full: { monsterGoldPct: 0.35, baseExpPct: 0.12, jobExpPct: 0.12, materialQuantityPct: 0.1 },
       pieces: {},
     },
     items: [
-      { id: "taurus_aldbaran_helmet", name: "金牛座-阿鲁迪巴之盔", slot: "headgear", rarity: "legend", level: 30, requiredLevel: 30, atk: 16, matk: 4, def: 48, hp: 220, str: 4, vit: 8, gold: 0.08, materials: { ancientCore: 2, starShard: 1 }, goldCost: 1800, description: "金牛座-阿鲁迪巴套装部件。"},
-      { id: "taurus_aldbaran_armor", name: "金牛座-阿鲁迪巴之铠", slot: "armor", rarity: "legend", level: 30, requiredLevel: 30, atk: 12, matk: 0, def: 82, hp: 520, str: 6, vit: 12, gold: 0.12, materials: { ancientCore: 3, rune: 6 }, goldCost: 2400, description: "金牛座-阿鲁迪巴套装部件。"},
-      { id: "taurus_aldbaran_boots", name: "金牛座-阿鲁迪巴之靴", slot: "shoes", rarity: "epic", level: 30, requiredLevel: 30, atk: 10, matk: 0, def: 36, hp: 180, agi: 4, vit: 6, gold: 0.06, materials: { crystal: 8, rune: 4 }, goldCost: 1500, description: "金牛座-阿鲁迪巴套装部件。"},
-      { id: "taurus_aldbaran_ring", name: "金牛座-阿鲁迪巴之戒", slot: "trinket", rarity: "legend", level: 30, requiredLevel: 30, atk: 28, matk: 12, def: 12, hp: 120, str: 8, luk: 4, gold: 0.16, materials: { ancientCore: 2, starShard: 1 }, goldCost: 2000, description: "金牛座-阿鲁迪巴套装部件。"},
-      { id: "taurus_aldbaran_weapon", name: "金牛座-阿鲁迪巴之斧", slot: "weapon", rarity: "legend", level: 30, requiredLevel: 30, weaponType: "axe", equipType: "axe", atk: 260, matk: 0, def: 16, hp: 160, str: 16, vit: 8, crit: 0.04, gold: 0.18, materials: { ancientCore: 4, starShard: 2 }, goldCost: 3200, description: "金牛座-阿鲁迪巴套装部件。"},
+      { id: "taurus_aldbaran_helmet", name: "金牛座-阿鲁迪巴之盔", slot: "headgear", rarity: "legend", level: 30, requiredLevel: 30, atk: 6, matk: 2, def: 19, hp: 90, str: 2, vit: 3, gold: 0.03, materials: { ancientCore: 2, starShard: 1 }, goldCost: 1800, description: "金牛座-阿鲁迪巴套装部件。"},
+      { id: "taurus_aldbaran_armor", name: "金牛座-阿鲁迪巴之铠", slot: "armor", rarity: "legend", level: 30, requiredLevel: 30, atk: 5, matk: 0, def: 33, hp: 210, str: 2, vit: 5, gold: 0.05, materials: { ancientCore: 3, rune: 6 }, goldCost: 2400, description: "金牛座-阿鲁迪巴套装部件。"},
+      { id: "taurus_aldbaran_boots", name: "金牛座-阿鲁迪巴之靴", slot: "shoes", rarity: "epic", level: 30, requiredLevel: 30, atk: 4, matk: 0, def: 14, hp: 72, agi: 2, vit: 2, gold: 0.02, materials: { crystal: 8, rune: 4 }, goldCost: 1500, description: "金牛座-阿鲁迪巴套装部件。"},
+      { id: "taurus_aldbaran_ring", name: "金牛座-阿鲁迪巴之戒", slot: "trinket", rarity: "legend", level: 30, requiredLevel: 30, atk: 11, matk: 5, def: 5, hp: 48, str: 3, luk: 2, gold: 0.06, materials: { ancientCore: 2, starShard: 1 }, goldCost: 2000, description: "金牛座-阿鲁迪巴套装部件。"},
+      { id: "taurus_aldbaran_weapon", name: "金牛座-阿鲁迪巴之斧", slot: "weapon", rarity: "legend", level: 30, requiredLevel: 30, weaponType: "axe", equipType: "axe", atk: 104, matk: 0, def: 6, hp: 64, str: 6, vit: 3, crit: 0.015, gold: 0.07, materials: { ancientCore: 4, starShard: 2 }, goldCost: 3200, description: "金牛座-阿鲁迪巴套装部件。"},
     ],
   },
 };
@@ -1188,24 +1307,32 @@ var materialDropTables = {
   grass: [
     { materialId: "dust", dropRate: 0.08, minQty: 1, maxQty: 3 },
     { materialId: "ore", dropRate: 0.018, minQty: 1, maxQty: 1 },
+    { materialId: "oridecon", dropRate: 0.001, minQty: 1, maxQty: 1 },
+    { materialId: "elunium", dropRate: 0.001, minQty: 1, maxQty: 1 },
     { materialId: "enhanceProtect", dropRate: 0.0003, minQty: 1, maxQty: 1 },
   ],
   forest: [
     { materialId: "dust", dropRate: 0.06, minQty: 1, maxQty: 3 },
     { materialId: "ore", dropRate: 0.035, minQty: 1, maxQty: 2 },
     { materialId: "crystal", dropRate: 0.01, minQty: 1, maxQty: 1 },
+    { materialId: "oridecon", dropRate: 0.0015, minQty: 1, maxQty: 1 },
+    { materialId: "elunium", dropRate: 0.0015, minQty: 1, maxQty: 1 },
     { materialId: "enhanceProtect", dropRate: 0.0004, minQty: 1, maxQty: 1 },
   ],
   sewer: [
     { materialId: "dust", dropRate: 0.05, minQty: 1, maxQty: 3 },
     { materialId: "ore", dropRate: 0.045, minQty: 1, maxQty: 2 },
     { materialId: "crystal", dropRate: 0.018, minQty: 1, maxQty: 1 },
+    { materialId: "oridecon", dropRate: 0.002, minQty: 1, maxQty: 1 },
+    { materialId: "elunium", dropRate: 0.002, minQty: 1, maxQty: 1 },
     { materialId: "enhanceProtect", dropRate: 0.00055, minQty: 1, maxQty: 1 },
   ],
   desert: [
     { materialId: "ore", dropRate: 0.055, minQty: 1, maxQty: 3 },
     { materialId: "crystal", dropRate: 0.024, minQty: 1, maxQty: 2 },
     { materialId: "rune", dropRate: 0.006, minQty: 1, maxQty: 1 },
+    { materialId: "oridecon", dropRate: 0.003, minQty: 1, maxQty: 1 },
+    { materialId: "elunium", dropRate: 0.003, minQty: 1, maxQty: 1 },
     { materialId: "enhanceProtect", dropRate: 0.0007, minQty: 1, maxQty: 1 },
   ],
   orc_village: [

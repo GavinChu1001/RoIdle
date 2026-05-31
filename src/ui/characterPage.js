@@ -6,6 +6,41 @@ function fmtn(v) { return charCtx.formatNumber ? charCtx.formatNumber(v) : Strin
 function pct(v) { return charCtx.percent ? charCtx.percent(v) : String(Math.round((v || 0) * 100)) + '%'; }
 function fsv(stat, v) { return charCtx.formatStatValue ? charCtx.formatStatValue(stat, v) : String(v); }
 
+const MVP_INSCRIPTION_BONUS_LABELS = [
+  ['hpPct', '生命'],
+  ['atkPct', '物攻'],
+  ['matkPct', '魔攻'],
+  ['defPct', '防御'],
+  ['baseExpBonus', 'BASE经验'],
+  ['jobExpBonus', 'JOB经验'],
+  ['goldBonus', '金币'],
+  ['attackSpeedPct', '攻速'],
+  ['combatPaceBonus', '战斗节奏'],
+  ['bossDamageBonus', 'Boss伤害'],
+  ['hitRate', '命中'],
+  ['critRatePct', '暴击'],
+  ['statusResist', '状态抗性'],
+  ['physicalFinalDamageBonus', '物理最终'],
+  ['normalAttackDamageBonus', '普攻伤害'],
+  ['skillDamageBonus', '技能伤害'],
+  ['finalDamageBonus', '最终伤害'],
+];
+
+function fmtInscriptionPercent(value) {
+  const safe = F(value);
+  const percentValue = safe * 100;
+  const digits = Math.abs(percentValue) < 1 ? 2 : Math.abs(percentValue) < 10 ? 1 : 0;
+  const text = percentValue.toFixed(digits).replace(/\.0+$/, '').replace(/(\.\d*[1-9])0$/, '$1');
+  return `${safe >= 0 ? '+' : ''}${text}%`;
+}
+
+function mvpInscriptionBonusEntries(bonuses = {}) {
+  return MVP_INSCRIPTION_BONUS_LABELS
+    .map(([key, label]) => ({ key, label, value: F(bonuses[key]) }))
+    .filter((entry) => entry.value !== 0)
+    .map((entry) => ({ ...entry, valueText: fmtInscriptionPercent(entry.value) }));
+}
+
 export function configureCharacterRenderContext(ctx = {}) { charCtx = ctx || {}; }
 
 export function renderHeroes(ctx = charCtx) {
@@ -23,47 +58,116 @@ export function renderHeroes(ctx = charCtx) {
   const prestigeBonus = ctx.getRebirthPrestigeBonuses?.() || {};
   const ratingScores = ctx.calculatePlayerRatingScores?.(stats) || {};
   const critSummary = ctx.formatCritRateSummary?.(stats) || '';
+  const attrKeys = ctx.getAttributeKeys?.() || [];
+  const jobProgress = Math.min(1, F(state.hero?.jobExp) / jobExpCost) * 100;
+  const nextSkillText = nextSkill ? `\u4e0b\u4e2a Job ${nextSkill.level}` : '\u6280\u80fd\u5b8c\u6210';
+  const portraitBg = ctx.imageBackgroundList?.(ctx.classImageCandidates?.(job.id)) || '';
+  const mvpInscription = ctx.getMvpInscriptionView?.() || {};
+  const inscriptionProgress = Math.round(F(mvpInscription.progress) * 1000) / 10;
+  const inscriptionMapEffective = ctx.canGainMvpInscriptionOnCurrentMap?.() !== false;
+  const inscriptionStageName = mvpInscription.stageName || '波利王铭刻';
+  const nextStageName = mvpInscription.nextStage?.name || inscriptionStageName;
+  const canBreakthroughMvpInscription = Boolean(mvpInscription.atBreakthrough);
+  const inscriptionBonusEntries = mvpInscriptionBonusEntries(mvpInscription.bonuses || {});
+  const rebirthModeHtml = F(state.hero?.rebirths) > 0 ? `
+        <div class="rebirth-mode-section ro-character-mode">
+          <label class="rebirth-toggle">
+            <input type="checkbox" data-rebirth-mode ${state.rebirthMode ? 'checked' : ''} />
+            <span>\u8f6e\u56de\u6a21\u5f0f</span>
+          </label>
+          <span class="rebirth-seal-count">\u8f6e\u56de\u5370\u8bb0\uff1a${fmtn(state.rebirthSeals || 0)}</span>
+        </div>` : '';
 
-  els.heroList.innerHTML = `<article class="hero-card">
-    <div class="hero-portrait" style="background-image:${ctx.imageBackgroundList?.(ctx.classImageCandidates?.(job.id)) || ''}">
-      <div class="avatar ${job.id}" aria-hidden="true"></div>
-    </div>
-    <div class="hero-info">
-      <div class="hero-title">
+  els.heroList.innerHTML = `<article class="hero-card ro-character-workbench">
+    <section class="ro-character-identity">
+      <div class="hero-portrait ro-character-portrait-card" style="background-image:${portraitBg}">
+        <div class="avatar ${job.id || 'novice'}" aria-hidden="true"></div>
+      </div>
+      <div class="hero-title ro-character-nameplate">
         <strong>${esc(state.hero?.name || '')} \xb7 ${esc(job.name || '')} ${!state.hero?.renameUsed ? '<button class="rename-icon" type="button" data-rename-hero title="\u4fee\u6539\u540d\u5b57">&#9998;</button>' : ''}</strong>
-        <span>BASE ${fmtn(state.hero?.baseLevel || 0)}/${fmtn(maxLevel)} / JOB ${fmtn(state.hero?.jobLevel || 0)} / \u8f6c\u751f ${fmtn(state.hero?.rebirths || 0)}</span>
+        <span>BASE ${fmtn(state.hero?.baseLevel || 0)}/${fmtn(maxLevel)} \xb7 JOB ${fmtn(state.hero?.jobLevel || 0)} \xb7 \u8f6c\u751f ${fmtn(state.hero?.rebirths || 0)}</span>
       </div>
-      <div class="hero-stats">
-        <span>\u6218\u529b ${fmtn(stats.power)}</span><span>\u8f93\u51fa ${fmtn(stats.dps)}</span>
-        <span>\u751f\u547d ${fmtn(state.hero?.currentHp || 0)}/${fmtn(stats.maxHp)}</span><span>\u9632\u5fa1 ${fmtn(stats.defense)}</span>
+      <div class="hero-stats ro-character-stat-strip">
+        <span><small>\u6218\u529b</small>${fmtn(stats.power)}</span>
+        <span><small>\u8f93\u51fa</small>${fmtn(stats.dps)}</span>
+        <span><small>\u751f\u547d</small>${fmtn(state.hero?.currentHp || 0)}/${fmtn(stats.maxHp)}</span>
+        <span><small>\u9632\u5fa1</small>${fmtn(stats.defense)}</span>
       </div>
-      <div class="stat-grid">
+      <div class="ro-character-job-progress">
+        <div class="ro-character-job-meta">
+          <span>JOB EXP</span>
+          <strong>${fmtn(F(state.hero?.jobExp))}/${fmtn(jobExpCost)}</strong>
+        </div>
+        <div class="meter ro-character-job-meter"><div style="width:${jobProgress}%"></div></div>
+      </div>
+    </section>
+
+    <section class="ro-character-growth">
+      <div class="ro-character-section-title">
+        <strong>\u6210\u957f\u5de5\u4f5c\u53f0</strong>
+        <span>${nextSkillText}</span>
+      </div>
+      <div class="hero-actions-inline ro-character-actions">
+        <button class="ro-wood-button" type="button" data-upgrade="base" ${atBaseCap ? 'disabled' : ''}>\u8bad\u7ec3 ${fmtn(ctx.heroTrainCost?.() || 0)}</button>
+        <button class="ro-light-control" type="button" data-batch-upgrade="base" ${atBaseCap ? 'disabled' : ''}>\u6279\u91cf\u8bad\u7ec3</button>
+        <button class="ghost ro-light-control" type="button" data-rebirth ${atBaseCap ? '' : 'disabled'}>\u8f6c\u751f</button>
+      </div>
+      ${rebirthModeHtml}
+      <p class="ro-character-growth-note">${ctx.describeJobGrowth?.() || ''}</p>
+      <div class="ro-character-section-title">
+        <strong>MVP铭刻</strong>
+        <span>${esc(inscriptionStageName)} Lv.${fmtn(F(mvpInscription.level) || 1)}</span>
+      </div>
+      <div class="ro-character-job-progress">
+        <div class="ro-character-job-meta">
+          <span>铭刻经验</span>
+          <strong>${fmtn(F(mvpInscription.exp))}/${fmtn(F(mvpInscription.nextRequirement))}</strong>
+        </div>
+        <div class="meter ro-character-job-meter"><div style="width:${Math.max(0, Math.min(100, inscriptionProgress))}%"></div></div>
+      </div>
+      <p class="ro-character-growth-note">前台修行 ${fmtn(F(mvpInscription.onlinePerMinute))} / 分钟 · ${inscriptionMapEffective ? '当前地图可获得铭刻经验' : '当前地图过低，不获得铭刻经验'}</p>
+      <div class="ro-character-section-title">
+        <strong>当前加成</strong>
+        <span>${inscriptionBonusEntries.length ? `${fmtn(inscriptionBonusEntries.length)} 项生效` : '暂无加成'}</span>
+      </div>
+      <div class="stat-grid ro-character-inscription-bonuses">
+        ${inscriptionBonusEntries.length
+          ? inscriptionBonusEntries.map((entry) => `<span><small>${esc(entry.label)}</small>${esc(entry.valueText)}</span>`).join('')
+          : '<span><small>当前加成</small>待激活</span>'}
+      </div>
+      <div class="hero-actions-inline ro-character-actions">
+        <button class="ro-light-control" type="button" data-mvp-inscription-breakthrough ${canBreakthroughMvpInscription ? '' : 'disabled'}>下一突破：${esc(nextStageName)}</button>
+      </div>
+    </section>
+
+    <section class="ro-character-stats-panel">
+      <div class="ro-character-section-title">
+        <strong>\u6218\u6597\u8bfb\u6570</strong>
+        <span>\u6838\u5fc3\u8bc4\u5206</span>
+      </div>
+      <div class="stat-grid ro-character-combat-grid">
         <span>\u653b\u901f ${F(stats.aspd).toFixed(2)}</span><span>\u7269\u653b ${fmtn(stats.atkPower)}</span>
         <span>\u9b54\u653b ${fmtn(stats.matkPower)}</span><span>\u751f\u547d\u6062\u590d \u6bcf ${ctx.getHpRegenInterval?.() || 5} \u79d2 +${fmtn(stats.hpRegen)}</span>
         <span>\u95ea\u907f ${pct(stats.dodgeRate)}</span><span>${critSummary}</span>
-        <span>\u66b4\u51fb\u4f24\u5bb3 ${pct(stats.critDamage || (1.85 + F(stats.critDamageBonus)))}</span>
-        <span>${nextSkill ? `\u4e0b\u4e2a Job ${nextSkill.level}` : '\u6280\u80fd\u5b8c\u6210'}</span>
+        <span>\u66b4\u51fb\u4f24\u5bb3 ${pct(stats.critDamage || (1.85 + F(stats.critDamageBonus)))}</span><span>${nextSkillText}</span>
       </div>
-      <div class="hero-stat-section"><strong>\u6838\u5fc3\u8bc4\u5206</strong><div class="stat-grid">
+      <div class="stat-grid ro-character-rating-grid">
         <span>\u7efc\u5408 ${fmtn(stats.power)}</span><span>\u8f93\u51fa ${fmtn(ratingScores.output)}</span>
         <span>\u751f\u5b58 ${fmtn(ratingScores.survival)}</span><span>Boss ${fmtn(ratingScores.boss)}</span>
         <span>\u6df1\u6e0a ${fmtn(ratingScores.abyss)}</span><span>\u6253\u5b9d ${fmtn(ratingScores.treasure || 0)}</span>
-      </div></div>
-      <div class="attribute-grid">${(ctx.getAttributeKeys?.() || []).map((stat) => `<span>${stat.toUpperCase()} ${attrs[stat]} (${stats.baseAttrs?.[stat] || 0} +${F(attrs[stat]) - F(stats.baseAttrs?.[stat])})<small>\u8bad\u7ec3 ${fsv(stat+'Pct', stats.trainingPct?.[stat] || 0)}</small></span>`).join('')}</div>
-      <div class="hero-actions-inline">
-        <button type="button" data-upgrade="base" ${atBaseCap ? 'disabled' : ''}>\u8bad\u7ec3 ${fmtn(ctx.heroTrainCost?.() || 0)}</button>
-        <button type="button" data-batch-upgrade="base" ${atBaseCap ? 'disabled' : ''}>\u6279\u91cf\u8bad\u7ec3</button>
-        <button class="ghost" type="button" data-rebirth ${atBaseCap ? '' : 'disabled'}>\u8f6c\u751f</button>
       </div>
-      ${F(state.hero?.rebirths) > 0 ? `
-      <div class="rebirth-mode-section">
-        <label class="rebirth-toggle">
-          <input type="checkbox" data-rebirth-mode ${state.rebirthMode ? 'checked' : ''} />
-          <span>\u8f6e\u56de\u6a21\u5f0f</span>
-        </label>
-        <span class="rebirth-seal-count">\u26a1 \u8f6e\u56de\u5370\u8bb0\uff1a${fmtn(state.rebirthSeals || 0)}</span>
-      </div>` : ''}
-      <details class="hero-details" ${state.heroDetailsOpen !== false ? 'open' : ''}>
+      <div class="attribute-grid ro-character-attribute-grid">${attrKeys.map((stat) => `<span>${stat.toUpperCase()} ${attrs[stat]} (${stats.baseAttrs?.[stat] || 0} +${F(attrs[stat]) - F(stats.baseAttrs?.[stat])})<small>\u8bad\u7ec3 ${fsv(stat+'Pct', stats.trainingPct?.[stat] || 0)}</small></span>`).join('')}</div>
+    </section>
+
+    <section class="ro-character-skill-board">
+      <div class="ro-character-section-title">
+        <strong>\u6280\u80fd\u724c\u7ec4</strong>
+        <span>\u788e\u7247\u5347\u7ea7\u4e0e\u88ab\u52a8\u673a\u5236</span>
+      </div>
+      <section class="skill-panel">${ctx.renderSkillPanel?.() || ''}</section>
+    </section>
+
+    <details class="hero-details ro-character-detail-drawer" ${state.heroDetailsOpen !== false ? 'open' : ''}>
         <summary>\u5c5e\u6027\u6765\u6e90 \xb7 \u5957\u88c5 \xb7 \u79f0\u53f7</summary>
         ${ctx.renderCharacterStatSections?.(stats) || ''}
         ${ctx.renderCharacterStatBreakdown?.(stats) || ''}
@@ -76,11 +180,7 @@ export function renderHeroes(ctx = charCtx) {
           <small>\u7a00\u6709+ +${pct(prestigeBonus.rarePlusWeightBonus)} \xb7 \u53f2\u8bd7+ +${pct(prestigeBonus.epicPlusWeightBonus)} \xb7 \u4f20\u8bf4+ +${pct(prestigeBonus.legendPlusWeightBonus)} \xb7 \u6697\u91d1+ +${pct(prestigeBonus.darkGoldPlusWeightBonus)} \xb7 \u795e\u8bdd +${pct(prestigeBonus.mythicWeightBonus)}</small>
         </section>
         ${renderRebirthResearchPanel(state, fmtn)}
-        <p class="job-growth">${ctx.describeJobGrowth?.() || ''}</p>
       </details>
-      <section class="skill-panel">${ctx.renderSkillPanel?.() || ''}</section>
-      <div class="meter"><div style="width:${Math.min(1, F(state.hero?.jobExp) / jobExpCost) * 100}%"></div></div>
-    </div>
   </article>`;
 }
 
@@ -246,7 +346,6 @@ export function renderCharacterStatSections(stats, ctx = charCtx) {
       statLineFn('\u751f\u547d\u6062\u590d', stats.hpRegen || 0, 'hpRegen'),
       statLineFn('\u95ea\u907f\u7387', stats.dodgeRate || 0, 'dodgeRate', { note: '\u6700\u9ad8 80%' }),
       statLineFn('\u683c\u6321\u7387', stats.blockRate || 0, 'blockRate'),
-      statLineFn('\u6297\u66b4\u7387', stats.antiCrit || 0, 'antiCrit'),
     ]) +
     panel('abyss', 'Boss / \u6df1\u6e0a\u5c5e\u6027', [
       statLineFn('Boss\u4f24\u5bb3', stats.bossDamageBonus || 0, 'bossDamageBonus'),
@@ -283,15 +382,16 @@ export function renderCharacterStatBreakdown(stats, ctx = charCtx) {
 
 export function renderSkillPanel(ctx = charCtx) {
   var state = ctx.getState?.() || {};
-  var v3Skills = (typeof getV3CombatSkills === 'function' ? getV3CombatSkills(state.hero.jobId) : []);
-  var maxLevel = (typeof getSkillMaxLevel === 'function' ? getSkillMaxLevel(state.hero.jobId) : 5);
+  var v3Skills = ctx.getV3CombatSkills?.(state.hero?.jobId) || (typeof getV3CombatSkills === 'function' ? getV3CombatSkills(state.hero.jobId) : []);
+  var maxLevel = ctx.getSkillMaxLevel?.(state.hero?.jobId) || (typeof getSkillMaxLevel === 'function' ? getSkillMaxLevel(state.hero.jobId) : 5);
   var fragments = (state.materials && state.materials.skillFragment) || 0;
   var activeV3 = v3Skills.filter(function (s) { return s.kind === '主动'; });
   var passiveV3 = v3Skills.filter(function (s) { return s.kind === '被动'; });
   var levelMap = state.hero.skillLevels || {};
+  var growthFn = ctx.getSkillGrowthEntry || ((skill) => ({ level: levelMap[skill.id] || 1 }));
   function skillLevelRow(skill) {
-    var lvl = levelMap[skill.id] || 1;
-    var cost = (typeof getSkillFragmentCost === 'function' ? getSkillFragmentCost(skill) : Infinity);
+    var lvl = growthFn(skill)?.level || levelMap[skill.id] || 1;
+    var cost = ctx.getSkillFragmentCost?.(skill) || (typeof getSkillFragmentCost === 'function' ? getSkillFragmentCost(skill) : Infinity);
     var canUpgrade = lvl < maxLevel && fragments >= cost;
     return '<div class="skill-level-row"><span class="skill-level-name">' + esc(skill.name) + '</span><span class="skill-level-badge">Lv.' + lvl + '</span>' + (canUpgrade ? '<button class="skill-upgrade-btn" data-skill-upgrade="' + esc(skill.id) + '" type="button">' + cost + ' 碎片</button>' : lvl >= maxLevel ? '<span class="skill-max-tag">MAX</span>' : '<span class="skill-locked-tag">' + cost + ' 碎片</span>') + '</div>';
   }
@@ -350,7 +450,7 @@ export function renderJobSkills(ctx = charCtx) {
   if (v3Skills.length) {
     return `<section class="job-skills-section skill-v3-section"><strong>技能机制</strong>
       <p class="codex-desc">技能伤害 = ATK/MATK × 总倍率 × 暴击期望修正 × 怪物减伤修正</p>
-      <div class="stat-grid">${v3Skills.map((entry) => renderV3SkillEntry(entry, job, cds)).join('')}</div>
+      <div class="stat-grid">${v3Skills.map((entry) => renderV3SkillEntry(entry, job, cds, growthFn, ctx)).join('')}</div>
     </section>`;
   }
 
@@ -360,20 +460,36 @@ export function renderJobSkills(ctx = charCtx) {
       const unlocked = skills.find((s) => s.name === entry.name);
       const growth = growthFn(entry);
       const lvl = growth?.level || 0;
-      const spec = growth?.specialization || '';
       return `<div class="skill-entry"><strong>${esc(entry.name)} Lv.${lvl}</strong>
         ${unlocked ? `<p class="codex-desc">${ctx.skillTooltip?.(entry) || ''}</p>
         ${entry.active ? `<p class="codex-desc">${ctx.formatSkillMultiplier?.(entry.active.multiplier || 0) || ''}</p>` : ''}
         ${renderSkillMilestonePanel(entry, !!unlocked, ctx)}
-        ${renderSkillSpecialization(entry, !!unlocked, growth, ctx)}
         <p class="codex-desc">${descFn(milestoneFn(entry))}</p>` : '<p class="codex-desc">\u672a\u89e3\u9501</p>'}
       </div>`;
     }).join('')}</div>
   </section>`;
 }
 
-function renderV3SkillEntry(entry, job, cooldowns) {
+function renderSkillCircuitNodes(entry, growth, ctx = charCtx) {
+  const circuits = entry.circuits || [];
+  if (!circuits.length) return '';
+  const active = new Set((ctx.getUnlockedSkillCircuits?.(entry) || []).map((node) => node.id));
+  return `<div class="skill-circuit-list" aria-label="技能回路">
+    <strong>技能回路</strong>
+    ${circuits.map((node) => {
+      const unlocked = active.has(node.id) || Number(growth?.level || 1) >= Number(node.level || 0);
+      return `<span class="skill-circuit-node ${unlocked ? 'active' : 'locked'}">
+        <small>Lv.${fmtn(node.level)}</small>
+        <b>${esc(node.label || node.id)}</b>
+      </span>`;
+    }).join('')}
+  </div>`;
+}
+
+function renderV3SkillEntry(entry, job, cooldowns, growthFn, ctx = charCtx) {
   const isPassive = entry.kind === '被动';
+  const growth = growthFn?.(entry) || {};
+  const level = Math.max(1, F(growth.level || 1));
   const cooldown = Math.max(0, F(entry.cooldown));
   const remaining = Math.max(0, F(cooldowns?.[entry.id]));
   const progress = cooldown > 0 ? Math.max(0, Math.min(100, (1 - remaining / cooldown) * 100)) : 100;
@@ -389,7 +505,7 @@ function renderV3SkillEntry(entry, job, cooldowns) {
 
   return `<article class="skill-entry skill-v3-entry ${isPassive ? 'is-passive' : 'is-active'}">
     <div class="skill-title-row">
-      <strong>${esc(entry.name)}</strong>
+      <strong>${esc(entry.name)} <span class="skill-level-badge">Lv.${fmtn(level)}</span></strong>
       <small class="skill-kind">${typeText}</small>
     </div>
     <p class="codex-desc">${esc(entry.description || '暂无技能说明')}</p>
@@ -397,6 +513,7 @@ function renderV3SkillEntry(entry, job, cooldowns) {
       <span>机制：${esc(mechanismText)} · ${attackTypeText}</span>
       <span class="skill-status ${statusClass}">${statusText}</span>
     </div>
+    ${renderSkillCircuitNodes(entry, growth, ctx)}
     ${!isPassive && cooldown > 0 ? `<div class="skill-cd-bar" aria-label="冷却状态"><div style="width:${progress}%"></div></div>` : ''}
     ${awakeningText}
   </article>`;
@@ -449,22 +566,13 @@ export function renderSkillMilestonePanel(entry, unlocked, ctx = charCtx) {
   return `<div class="skill-milestones">${milestones.map((ms) => `<span class="skill-milestone"><small>Lv.${fmtn(ms.level)}</small><strong>${esc(ms.label || '')}</strong></span>`).join('')}</div>`;
 }
 
-export function renderSkillSpecialization(entry, unlocked, growth, ctx = charCtx) {
-  if (!unlocked) return '';
-  const opts = ctx.getSkillSpecializationOptions?.(entry) || [];
-  if (!opts.length) return '';
-  return `<div class="skill-spec"><strong>\u4e13\u7cbe</strong>
-    ${opts.map((opt) => `<button type="button" data-skill-id="${entry.id}" data-skill-spec="${opt.id}" class="${growth?.specialization === opt.id ? 'active' : ''}">${esc(opt.name || opt.id)}</button>`).join('')}
-  </div>`;
-}
-
 export function installCharacterRenderRuntime(context = {}) {
   configureCharacterRenderContext(context);
   const existing = window.RuneFrontierRenderRuntime || {};
   window.RuneFrontierRenderRuntime = typeof existing === 'object' ? Object.assign(existing, {
     renderHeroes, renderTown, renderCharacterStatSections, renderCharacterStatBreakdown,
     renderPowerSourcePanel, renderSkillPanel, renderTitlePanel, renderSkillSummaryCard,
-    renderJobSkills, renderSkillMilestonePanel, renderSkillSpecialization,
-  }) : { renderHeroes, renderTown, renderCharacterStatSections, renderCharacterStatBreakdown, renderPowerSourcePanel, renderSkillPanel, renderTitlePanel, renderSkillSummaryCard, renderJobSkills, renderSkillMilestonePanel, renderSkillSpecialization };
+    renderJobSkills, renderSkillMilestonePanel,
+  }) : { renderHeroes, renderTown, renderCharacterStatSections, renderCharacterStatBreakdown, renderPowerSourcePanel, renderSkillPanel, renderTitlePanel, renderSkillSummaryCard, renderJobSkills, renderSkillMilestonePanel };
   return window.RuneFrontierRenderRuntime;
 }

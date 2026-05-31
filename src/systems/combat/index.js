@@ -5,6 +5,7 @@ export * from './abyssCombat.js';
 export * from './damage.js';
 export * from './hit.js';
 export * from './skills.js';
+export * from './skillDps.js';
 export * from './skillMechanics.js';
 export * from './passives.js';
 export * from './statusEffects.js';
@@ -27,6 +28,7 @@ import {
 } from './damage.js';
 import { configureNormalCombatContext, updateCombat, updateMonsterAttack, updateRecovery } from './normalCombat.js';
 import { configureSkillsContext, resolveActiveSkillCast, rollActiveSkill, skillAttributeMultiplier } from './skills.js';
+import { createSkillDpsTracker } from './skillDps.js';
 import { configureSkillMechanicsContext, tickSkillSystem, getPassiveMechanismEffects, getSkillBuffMultipliers, applyShieldReduction, resetEnemySkillStatuses, getEnemyStatusDisplayState } from './skillMechanics.js';
 import {
   canHeroFight,
@@ -44,16 +46,31 @@ import { applySkillSplashDamageToEncounter, applySplashDamageToEncounter, config
 import { configureFailureReasonContext, getDifficultyFailureHint } from './failureReason.js';
 
 export function installCombatRuntime(context = {}) {
+  const skillDpsTracker = createSkillDpsTracker();
+  const recordSkillDamage = (...args) => skillDpsTracker.recordSkillDamage(...args);
   configureCombatSettlementContext(context);
   configureBossCombatContext(context);
   configureDamageContext(context);
   configureSkillsContext(context);
-  configureNormalCombatContext(context);
+  configureNormalCombatContext({
+    ...context,
+    recordSkillDamage,
+  });
   configureMonsterContext(context);
-  configureEncounterContext(context);
-  configureSkillMechanicsContext(context);
+  configureEncounterContext({
+    ...context,
+    recordSkillDamage,
+  });
+  configureSkillMechanicsContext({
+    ...context,
+    getTargetDamageBonus,
+    recordSkillDamage,
+  });
   configureFailureReasonContext(context);
   const runtime = Object.freeze({
+    recordSkillDamage: skillDpsTracker.recordSkillDamage,
+    getSkillDpsRows: skillDpsTracker.getSkillDpsRows,
+    clearSkillDpsStats: skillDpsTracker.clearSkillDpsStats,
     grantBossEssence,
     settleBossVictory,
     settleDefeatedEnemy,

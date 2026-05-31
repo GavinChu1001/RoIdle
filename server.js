@@ -31,11 +31,20 @@ function getStaticCacheControl(ext) {
   return "public, max-age=300";
 }
 
+function normalizeDb(db = {}) {
+  const source = db && typeof db === "object" && !Array.isArray(db) ? db : {};
+  return {
+    ...source,
+    users: source.users && typeof source.users === "object" && !Array.isArray(source.users) ? source.users : {},
+    sessions: source.sessions && typeof source.sessions === "object" && !Array.isArray(source.sessions) ? source.sessions : {},
+  };
+}
+
 function readDb() {
   try {
-    return JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
+    return normalizeDb(JSON.parse(fs.readFileSync(DB_FILE, "utf8")));
   } catch {
-    return { users: {}, sessions: {} };
+    return normalizeDb();
   }
 }
 
@@ -225,6 +234,12 @@ const server = http.createServer((req, res) => {
   serveStatic(req, res);
 });
 
-server.listen(PORT, () => {
-  console.log(`Rune Frontier Idle server running at http://127.0.0.1:${PORT}`);
-});
+if (require.main === module) {
+  server.listen(PORT, () => {
+    console.log(`Rune Frontier Idle server running at http://127.0.0.1:${PORT}`);
+  });
+}
+
+module.exports = {
+  normalizeDb,
+};

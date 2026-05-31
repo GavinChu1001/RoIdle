@@ -26,10 +26,12 @@ import { installDropsRuntime } from './systems/drops/index.js';
 import { installCombatRuntime } from './systems/combat/index.js';
 import { installRebirthRuntime } from './systems/rebirth.js';
 import { installOfflineRuntime } from './systems/offline.js';
+import { installMvpInscriptionRuntime } from './systems/mvpInscription/mvpInscriptionSystem.js';
 import { installVipRuntime } from './systems/vip.js';
 import { installCodexRuntime } from './systems/codex.js';
 import { installShopRuntime } from './systems/shop.js';
 import { installOnboardingRuntime } from './systems/onboarding.js';
+import { installDungeonRuntime } from './systems/dungeons.js';
 
 // UI layer (delegates to game.js via window)
 import './ui/index.js';
@@ -43,7 +45,9 @@ import { installSmithyRenderRuntime } from './ui/smithyPage.js';
 import { installMapRenderRuntime } from './ui/mapPage.js';
 import { installCardRenderRuntime } from './ui/cardPage.js';
 import { installOnboardingGuideRuntime } from './ui/onboardingGuide.js';
+import { installAdventureRenderRuntime } from './ui/adventurePage.js';
 import { installTaskRenderRuntime } from './ui/taskPage.js';
+import { installDungeonRenderRuntime } from './ui/dungeonPage.js';
 import { installLogRenderRuntime } from './ui/logPanel.js';
 import { installAdviceRenderRuntime } from './ui/components/actionButton.js';
 
@@ -75,6 +79,7 @@ const rebirthContext = typeof window.RuneFrontierLegacyRebirthContext === 'funct
   ? window.RuneFrontierLegacyRebirthContext()
   : {};
 installRebirthRuntime(rebirthContext);
+installMvpInscriptionRuntime(window);
 const combatContext = typeof window.RuneFrontierLegacyCombatContext === 'function'
   ? window.RuneFrontierLegacyCombatContext()
   : {};
@@ -94,6 +99,11 @@ const shopContext = typeof window.RuneFrontierLegacyShopContext === 'function'
 installShopRuntime(shopContext);
 installOnboardingRuntime();
 document.documentElement.dataset.runeModuleStatus = 'onboarding-ready';
+const dungeonContext = typeof window.RuneFrontierLegacyDungeonContext === 'function'
+  ? window.RuneFrontierLegacyDungeonContext()
+  : {};
+installDungeonRuntime(dungeonContext);
+document.documentElement.dataset.runeModuleStatus = 'dungeon-system-ready';
 document.documentElement.dataset.runeModuleStatus = 'systems-ready';
 
 const lootContext = {
@@ -208,6 +218,8 @@ const characterRenderContext = {
   getTitleEffects: window.getTitleEffects,
   getVipBonuses: window.getVipBonuses,
   getMapExplorationBonuses: window.getMapExplorationBonuses,
+  getMvpInscriptionView: window.getMvpInscriptionView,
+  canGainMvpInscriptionOnCurrentMap: window.canGainMvpInscriptionOnCurrentMap,
   getNextJobId: window.getNextJobId,
   getFirstJobs() { return window.firstJobs || []; },
   getJobTemplates() { return window.jobTemplates || {}; },
@@ -217,12 +229,14 @@ const characterRenderContext = {
   titleEffectText: window.titleEffectText,
   getUnlockedSkills: window.getUnlockedSkills,
   getV3CombatSkills: window.getV3CombatSkills,
+  getSkillMaxLevel: window.getSkillMaxLevel,
+  getSkillFragmentCost: window.getSkillFragmentCost,
   getPassiveSkillTotals: window.getPassiveSkillTotals,
   getSkillGrowthEntry: window.getSkillGrowthEntry,
+  getUnlockedSkillCircuits: window.getUnlockedSkillCircuits,
   getSkillMilestoneBonuses: window.getSkillMilestoneBonuses,
   describeSkillMilestone: window.describeSkillMilestone,
   getSkillMilestoneEntries: window.getSkillMilestoneEntries,
-  getSkillSpecializationOptions: window.getSkillSpecializationOptions,
   skillTooltip: window.skillTooltip,
   formatSkillMultiplier: window.formatSkillMultiplier,
   statLabelName: window.statLabelName,
@@ -332,7 +346,7 @@ const smithyRenderContext = {
 installSmithyRenderRuntime(smithyRenderContext);
 document.documentElement.dataset.runeModuleStatus = 'smithy-render-ready';
 
-const mapRenderContext = { getState() { return window.state || {}; }, getEls() { return window.els || {}; }, escapeHtml: window.escapeHtml, escapeAttr: window.escapeAttr, formatNumber: window.formatNumber, percent: window.percent, getMaps() { return window.maps || []; }, progressText: window.progressText, getDifficultyConfigs() { return window.DIFFICULTY_CONFIG || {}; }, getMapLevelRange: window.getMapLevelRange, getMapPreviewStats: window.getMapPreviewStats, getRecommendedScoresForMap: window.getRecommendedScoresForMap, getAbyssMapTierScales() { return window.ABYSS_MAP_TIER_SCALE || {}; }, getHardMapTierScales() { return window.HARD_MAP_TIER_SCALE || {}; }, bossDisplayName: window.bossDisplayName, getMapExplorationEntry: window.getMapExplorationEntry, getMapExplorationRequirements() { return window.MAP_EXPLORATION_REQUIREMENTS || []; }, getMapExplorationBonuses: window.getMapExplorationBonuses, formatRangeNumber: window.formatRangeNumber, mapDropTooltip: window.mapDropTooltip, };
+const mapRenderContext = { getState() { return window.state || {}; }, getEls() { return window.els || {}; }, escapeHtml: window.escapeHtml, escapeAttr: window.escapeAttr, formatNumber: window.formatNumber, percent: window.percent, getMaps() { return window.maps || []; }, progressText: window.progressText, getDifficultyConfigs() { return window.DIFFICULTY_CONFIG || {}; }, getMapLevelRange: window.getMapLevelRange, getMapPreviewStats: window.getMapPreviewStats, getRecommendedScoresForMap: window.getRecommendedScoresForMap, getAbyssMapTierScales() { return window.ABYSS_MAP_TIER_SCALE || {}; }, getHardMapTierScales() { return window.HARD_MAP_TIER_SCALE || {}; }, bossDisplayName: window.bossDisplayName, getMapExplorationEntry: window.getMapExplorationEntry, getMapExplorationRequirements() { return window.MAP_EXPLORATION_REQUIREMENTS || []; }, getMapExplorationBonuses: window.getMapExplorationBonuses, formatRangeNumber: window.formatRangeNumber, mapDropTooltip: window.mapDropTooltip, formatEquipmentProgressionSummary: window.formatMapEquipmentProgression };
 installMapRenderRuntime(mapRenderContext);
 document.documentElement.dataset.runeModuleStatus = 'map-render-ready';
 
@@ -367,6 +381,35 @@ const onboardingGuideContext = {
 };
 installOnboardingGuideRuntime(onboardingGuideContext);
 document.documentElement.dataset.runeModuleStatus = 'onboarding-render-ready';
+
+installAdventureRenderRuntime({
+  getState() { return window.state || {}; },
+  getEls() { return window.els || {}; },
+  escapeHtml: window.escapeHtml,
+  formatNumber: window.formatNumber,
+  computeStats: window.computeStats,
+  currentJob: window.currentJob,
+  jobSummary: window.jobSummary,
+  renderAdvicePanel: window.renderAdvicePanel,
+  renderSessionRewardPanel: window.renderSessionRewardPanel,
+  getSkillDpsRows(limit) { return window.RuneFrontierCombatRuntime?.getSkillDpsRows?.(limit) || []; },
+});
+document.documentElement.dataset.runeModuleStatus = 'adventure-render-ready';
+
+installDungeonRenderRuntime({
+  getState() { return window.state || {}; },
+  getEls() { return window.els || {}; },
+  escapeHtml: window.escapeHtml,
+  formatNumber: window.formatNumber,
+  getMaterialName: (id) => {
+    const legacyContext = typeof window.RuneFrontierLegacyDungeonContext === 'function'
+      ? window.RuneFrontierLegacyDungeonContext()
+      : null;
+    return legacyContext?.getMaterialName?.(id) || (window.materialNames || {})[id] || id;
+  },
+  getDungeonCards() { return window.RuneFrontierDungeonRuntime?.getDungeonCards?.(window.state || {}) || []; },
+});
+document.documentElement.dataset.runeModuleStatus = 'dungeon-render-ready';
 
 const taskRenderContext = { getState() { return window.state || {}; }, getEls() { return window.els || {}; }, escapeHtml: window.escapeHtml, formatNumber: window.formatNumber, normalizeDailyGoals: window.normalizeDailyGoals, achievementRewardText: window.achievementRewardText, questRewardText: window.questRewardText, getAchievementDb() { return window.ACHIEVEMENT_DB || []; }, getAchievementEntry: window.getAchievementEntry, };
 installTaskRenderRuntime(taskRenderContext);
