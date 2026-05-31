@@ -131,6 +131,13 @@ function findGoal(goalId) {
   return null;
 }
 
+function materialSources(materialId, context = handbookCtx) {
+  const ctx = context && typeof context === 'object' ? context : {};
+  const craftingSources = ctx.getCraftingMaterialSources?.(materialId);
+  if (Array.isArray(craftingSources) && craftingSources.length) return craftingSources;
+  return ctx.getMaterialDropSources?.(materialId) || [];
+}
+
 export function defaultAdventureHandbookState(date = localDateKey(), weekKey = localWeekKey()) {
   return {
     version: 1,
@@ -223,7 +230,7 @@ function materialRecommendations(state = {}, context = handbookCtx) {
         name: ctx.getMaterialName?.(target.id) || target.id,
         owned,
         missing: Math.max(0, target.target - owned),
-        sources: ctx.getMaterialDropSources?.(target.id) || [],
+        sources: materialSources(target.id, ctx),
       };
     })
     .filter((target) => target.missing > 0)

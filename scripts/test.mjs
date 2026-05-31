@@ -45,6 +45,7 @@ const dismantleSource = read('src/systems/equipment/dismantle.js');
 const equipmentGrowthSource = read('src/systems/equipment/equipmentGrowth.js');
 const equipmentDropsSource = read('src/systems/drops/equipmentDrops.js');
 const materialDropsSource = read('src/systems/drops/materialDrops.js');
+const materialsDataSource = read('src/data/materials.js');
 const cardDropsSource = read('src/systems/drops/cardDrops.js');
 const bossDropsSource = read('src/systems/drops/bossDrops.js');
 const abyssDropsSource = read('src/systems/drops/abyssDrops.js');
@@ -428,6 +429,9 @@ assert.match(adventureHandbookSource, /export function buildAdventureHandbookMod
 assert.match(adventureHandbookSource, /export function recordAdventureHandbookProgress/, 'Adventure handbook system should expose progress tracking.');
 assert.match(adventureHandbookSource, /export function claimAdventureHandbookGoal/, 'Adventure handbook system should expose reward claims.');
 assert.match(adventureHandbookSource, /export function installAdventureHandbookRuntime/, 'Adventure handbook system should expose runtime installation.');
+assert.match(materialsDataSource, /tierOre/, 'Materials data should register tier ore.');
+assert.match(materialsDataSource, /weaponEmbryo/, 'Materials data should register weapon embryo.');
+assert.match(materialsDataSource, /masterCraftVoucher/, 'Materials data should register master craft voucher.');
 assert.match(game, /adventureHandbook:\s*defaultAdventureHandbookState\(\)/, 'Default state should include adventure handbook.');
 assert.match(game, /adventureHandbook:\s*normalizeAdventureHandbookState\(saved\.adventureHandbook\s*\|\|\s*base\.adventureHandbook\)/, 'Saved state merge should normalize adventure handbook.');
 assert.match(game, /state\.adventureHandbook\s*=\s*normalizeAdventureHandbookState\(state\.adventureHandbook\)/, 'Sanitize should keep adventure handbook normalized.');
@@ -446,6 +450,8 @@ assert.match(dismantleSource, /recordAdventureHandbookProgress\?\.\('daily_salva
 assert.match(dismantleSource, /recordAdventureHandbookProgress\?\.\('weekly_equipment'/, 'Salvage should feed handbook weekly equipment progress.');
 assert.match(main, /installAdventureHandbookRuntime/, 'Main should install Adventure Handbook runtime.');
 assert.match(game, /RuneFrontierLegacyAdventureHandbookContext/, 'Classic runtime should expose Adventure Handbook legacy context.');
+assert.match(game, /getCraftingMaterialSources/, 'Classic runtime should expose crafting material source hints.');
+assert.match(adventureHandbookSource, /getCraftingMaterialSources/, 'Adventure handbook should use crafting material source hints.');
 assert.match(adventureHandbookPageSource, /export function renderAdventureHandbookPage/, 'Adventure handbook page renderer should exist.');
 assert.match(adventureHandbookPageSource, /data-claim-handbook-goal/, 'Adventure handbook goals should expose claim buttons.');
 assert.match(adventureHandbookPageSource, /handbook-section/, 'Adventure handbook renderer should use handbook sections.');
@@ -546,6 +552,19 @@ assert.match(styles, /\.handbook-goal-card/, 'Styles should include Adventure Ha
   assert.equal(failedRewardState.adventureHandbook.daily.daily_kills.claimed, false, 'Reward failures should not mark goals as claimed.');
   assert.equal(failedRewardState.adventureHandbook.researchPoints, 0, 'Reward failures should not grant research points.');
   assert.doesNotThrow(() => handbook.buildAdventureHandbookModel(null, null), 'Handbook model should tolerate null state and context.');
+  const craftingSourceModel = handbook.buildAdventureHandbookModel({
+    materials: { ore: 0 },
+    production: { mining: {}, artisan: {}, crafting: {} },
+    adventureHandbook: progressState.adventureHandbook,
+  }, {
+    date: '2026-05-31',
+    weekKey: '2026-W23',
+    computeStats: () => ({}),
+    getMaterialName: (id) => id,
+    getCraftingMaterialSources: () => [{ mapId: 'mining', mapName: 'Mining', difficulty: 'production' }],
+    getMaterialDropSources: () => [{ mapId: 'drop', mapName: 'Drop', difficulty: 'normal' }],
+  });
+  assert.deepEqual(craftingSourceModel.materials[0].sources, [{ mapId: 'mining', mapName: 'Mining', difficulty: 'production' }], 'Handbook material recommendations should prefer crafting source hints.');
 
   const model = handbook.buildAdventureHandbookModel({
     hero: { baseLevel: 12, jobLevel: 5 },

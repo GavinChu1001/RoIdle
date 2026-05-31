@@ -416,8 +416,16 @@ salvageRewards.mythic = { ancientCore: [8, 12], starShard: [4, 8], mythicEssence
 const materialNames = {
   dust: "研磨粉",
   ore: "精炼矿",
+  tierOre: "阶级矿",
+  refinedOre: "精炼矿",
+  rareOre: "稀有矿",
   crystal: "蓝晶碎片",
   rune: "露恩石",
+  weaponEmbryo: "武器胚子",
+  armorEmbryo: "防具胚子",
+  accessoryEmbryo: "饰品胚子",
+  craftingComponent: "打造组件",
+  masterCraftVoucher: "大师打造凭证",
   ancientCore: "古代核心",
   starShard: "星界碎片",
   mythicEssence: "神话精粹",
@@ -486,13 +494,17 @@ const materialNames = {
   dimensionalCrownCore: "次元冠冕核心",
 };
 
+const legendMaterials = ["ancientCore", "starShard", "abyssCore", "mythicEssence", "masterCraftVoucher"];
+const epicMaterials = ["crystal", "rune", "abyssShard", "rareOre", "craftingComponent"];
+const rareMaterials = ["ore", "tierOre", "refinedOre", "weaponEmbryo", "armorEmbryo", "accessoryEmbryo"];
+
 const MATERIAL_DB = Object.fromEntries(
   Object.entries(materialNames).map(([id, name]) => [
     id,
     {
       id,
       name,
-      rarity: ["ancientCore", "starShard", "abyssCore", "mythicEssence"].includes(id) ? "legend" : ["crystal", "rune", "abyssShard"].includes(id) ? "epic" : ["ore"].includes(id) ? "rare" : "normal",
+      rarity: legendMaterials.includes(id) ? "legend" : epicMaterials.includes(id) ? "epic" : rareMaterials.includes(id) ? "rare" : "normal",
       type: "material",
       description: "装备分解、精造、赋能和套装打造材料。",
     },
@@ -15546,6 +15558,45 @@ window.RuneFrontierLegacyDungeonContext = () => Object.freeze({
   getMaterialName(materialId) { return materialNames[materialId] || materialId; },
 });
 
+function getMaterialDropSources(materialId) {
+  const ordinarySources = Object.entries(materialDropTables || {}).flatMap(([mapId, rows]) => {
+    const map = maps.find((entry) => entry.id === mapId);
+    return (rows || [])
+      .filter((row) => row.materialId === materialId)
+      .map(() => ({ mapId, mapName: map?.name || mapId, difficulty: "normal" }));
+  });
+  const dungeonSources = (window.RuneFrontierDungeonRuntime?.getDungeonDefinitions?.() || [])
+    .filter((dungeon) => Number(dungeon.rewards?.materials?.[materialId] || 0) > 0)
+    .map((dungeon) => ({ mapId: dungeon.id, mapName: dungeon.name, difficulty: "副本" }));
+  const progressionSources = maps.flatMap((map) => ["normal", "hard", "abyss"].flatMap((difficulty) => {
+    const drops = window.RuneFrontierEquipmentRuntime?.getProgressionMaterialDrops?.(map.id, difficulty, {}) || [];
+    return drops
+      .filter((row) => row.materialId === materialId)
+      .map(() => ({ mapId: map.id, mapName: map.name, difficulty }));
+  }));
+  const seen = new Set();
+  return [...ordinarySources, ...dungeonSources, ...progressionSources].filter((source) => {
+    const key = `${source.mapId}:${source.difficulty}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 3);
+}
+
+function getCraftingMaterialSources(materialId) {
+  const craftingSources = {
+    tierOre: [{ mapId: "mining", mapName: "采矿", difficulty: "生产 / 采矿长期产出" }],
+    refinedOre: [{ mapId: "mining", mapName: "采矿", difficulty: "生产 / 采矿长期产出" }],
+    rareOre: [{ mapId: "abyss_mining", mapName: "深渊矿脉", difficulty: "生产 / 高等级采矿产出" }],
+    weaponEmbryo: [{ mapId: "artisan", mapName: "工匠", difficulty: "加工 / 消耗矿石加工" }],
+    armorEmbryo: [{ mapId: "artisan", mapName: "工匠", difficulty: "加工 / 消耗矿石加工" }],
+    accessoryEmbryo: [{ mapId: "artisan", mapName: "工匠", difficulty: "加工 / 消耗矿石加工" }],
+    craftingComponent: [{ mapId: "artisan", mapName: "工匠", difficulty: "加工 / 消耗稀有矿加工" }],
+    masterCraftVoucher: [{ mapId: "master_craft", mapName: "大师打造", difficulty: "高阶 / 分解暗金/神话或图鉴奖励" }],
+  }[materialId];
+  return craftingSources || getMaterialDropSources(materialId);
+}
+
 // [AUTHORITY] adventure-handbook-runtime: handbook state, progress, claims, and model bridge.
 window.RuneFrontierLegacyAdventureHandbookContext = () => Object.freeze({
   getState() { return state; },
@@ -15556,30 +15607,8 @@ window.RuneFrontierLegacyAdventureHandbookContext = () => Object.freeze({
   currentMap,
   isBossChallengeReady,
   getMaterialName(materialId) { return materialNames[materialId] || materialId; },
-  getMaterialDropSources(materialId) {
-    const ordinarySources = Object.entries(materialDropTables || {}).flatMap(([mapId, rows]) => {
-      const map = maps.find((entry) => entry.id === mapId);
-      return (rows || [])
-        .filter((row) => row.materialId === materialId)
-        .map(() => ({ mapId, mapName: map?.name || mapId, difficulty: "normal" }));
-    });
-    const dungeonSources = (window.RuneFrontierDungeonRuntime?.getDungeonDefinitions?.() || [])
-      .filter((dungeon) => Number(dungeon.rewards?.materials?.[materialId] || 0) > 0)
-      .map((dungeon) => ({ mapId: dungeon.id, mapName: dungeon.name, difficulty: "副本" }));
-    const progressionSources = maps.flatMap((map) => ["normal", "hard", "abyss"].flatMap((difficulty) => {
-      const drops = window.RuneFrontierEquipmentRuntime?.getProgressionMaterialDrops?.(map.id, difficulty, {}) || [];
-      return drops
-        .filter((row) => row.materialId === materialId)
-        .map(() => ({ mapId: map.id, mapName: map.name, difficulty }));
-    }));
-    const seen = new Set();
-    return [...ordinarySources, ...dungeonSources, ...progressionSources].filter((source) => {
-      const key = `${source.mapId}:${source.difficulty}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    }).slice(0, 3);
-  },
+  getMaterialDropSources,
+  getCraftingMaterialSources,
   getDungeonCards(stateArg = state) {
     return window.RuneFrontierDungeonRuntime?.getDungeonCards?.(stateArg) || [];
   },

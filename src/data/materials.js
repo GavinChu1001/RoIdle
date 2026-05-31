@@ -1,8 +1,16 @@
 export const materialNames = {
   dust: "研磨粉",
   ore: "精炼矿",
+  tierOre: "阶级矿",
+  refinedOre: "精炼矿",
+  rareOre: "稀有矿",
   crystal: "蓝晶碎片",
   rune: "露恩石",
+  weaponEmbryo: "武器胚子",
+  armorEmbryo: "防具胚子",
+  accessoryEmbryo: "饰品胚子",
+  craftingComponent: "打造组件",
+  masterCraftVoucher: "大师打造凭证",
   ancientCore: "古代核心",
   starShard: "星界碎片",
   mythicEssence: "神话精粹",
@@ -43,13 +51,17 @@ export const materialNames = {
   cardRemover: "卡片拆除器",
 };
 
+const legendMaterials = ["ancientCore", "starShard", "abyssCore", "mythicEssence", "masterCraftVoucher"];
+const epicMaterials = ["crystal", "rune", "abyssShard", "rareOre", "craftingComponent"];
+const rareMaterials = ["ore", "tierOre", "refinedOre", "weaponEmbryo", "armorEmbryo", "accessoryEmbryo"];
+
 export const MATERIAL_DB = Object.fromEntries(
   Object.entries(materialNames).map(([id, name]) => [
     id,
     {
       id,
       name,
-      rarity: ["ancientCore", "starShard", "abyssCore", "mythicEssence"].includes(id) ? "legend" : ["crystal", "rune", "abyssShard"].includes(id) ? "epic" : ["ore"].includes(id) ? "rare" : "normal",
+      rarity: legendMaterials.includes(id) ? "legend" : epicMaterials.includes(id) ? "epic" : rareMaterials.includes(id) ? "rare" : "normal",
       type: "material",
       description: "装备分解、精造、赋能和套装打造材料。",
     },
