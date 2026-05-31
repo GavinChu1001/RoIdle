@@ -380,41 +380,7 @@ export function rollOfflineMaterialDrops(rewards, stats, map, killCount, context
 }
 
 export function rollOfflineZodiacSetDrops(rewards, stats, map, killCount, mutationKills = 0, context = runtimeContext) {
-  const setIds = context.getZodiacSetIds?.(map?.id) || [];
-  if (!setIds.length) return 0;
-  const rates = context.getZodiacSetDropRates?.() || {};
-  const mythicRates = context.getMythicDropRates?.() || {};
-  const difficulty = context.currentDifficulty?.() || 'normal';
-  const isHard = difficulty === 'hard';
-  const isAbyss = difficulty === 'abyss';
-  const offlineRate = finite(context.getOfflineEquipmentDropRateMultiplier?.());
-  const baseRate = (isAbyss ? finite(rates.hard) * 1.2 : isHard ? finite(rates.hard) : finite(rates.normal)) * offlineRate;
-  const mutationRate = (isAbyss ? finite(rates.hardMutation) * 1.25 : isHard ? finite(rates.hardMutation) : finite(rates.mutation)) * offlineRate;
-  const dropBonus = 1 + Math.min(1.5, finite(stats?.equipmentDropBonus));
-  const capacity = freeEquipmentSlots(rewards, context);
-  let count = 0;
-  for (let kill = 0; kill < Math.min(finite(killCount), finite(context.getOfflineMaxKills?.())); kill += 1) {
-    if (random(context) >= (baseRate + (kill < mutationKills ? mutationRate : 0)) * dropBonus) continue;
-    const set = context.getEquipmentSet?.(setIds[Math.floor(random(context) * setIds.length)]);
-    if (!set?.items?.length) continue;
-    const darkRate = finite(rates.darkGoldNormal) * offlineRate * (isAbyss ? 1.5 : isHard ? 1.25 : 1) * dropBonus;
-    const mythicRate = isAbyss ? finite(mythicRates.abyssNormal) * offlineRate * 0.5 * dropBonus : 0;
-    const rarity = random(context) < mythicRate ? 'mythic' : random(context) < darkRate ? 'darkGold' : 'legend';
-    const template = set.items[Math.floor(random(context) * set.items.length)];
-    const range = context.getMapLevelRange?.(map) || { maxLevel: 1 };
-    const baseLevel = template.level || range.maxLevel;
-    const dropLevel = context.resolveEquipmentDropLevel?.({
-      baseLevel,
-      mapId: map.id,
-      difficulty,
-      source: 'offline-zodiac-set',
-    }) ?? baseLevel;
-    const item = context.createItem?.(template, dropLevel, rarity, { dropMapId: map.id, dropLevel, difficulty, allowMythic: rarity === 'mythic' });
-    if (!item) continue;
-    processGeneratedOfflineEquipment(rewards, [item], capacity, {}, context);
-    count += 1;
-  }
-  return count;
+  return 0;
 }
 
 export function rollOfflineMythicDrops(rewards, stats, map, killCount, mutationKills = 0, context = runtimeContext) {
