@@ -281,8 +281,14 @@ assert.match(productionArtisanSource, /export\s+function\s+claimArtisanJob/, 'Pr
   assert.ok(defaultState.crafting.level > 1, 'Crafting experience must increase crafting level.');
 
   const miningState = { production: productionState.defaultProductionState(), materials: {} };
-  miningState.production.mining.lastClaimedAt = 0;
-  const miningClaim = productionMining.claimMiningProduction(miningState, { now: () => 120000, randomInt: (min) => min });
+  const firstMiningClaim = productionMining.claimMiningProduction(miningState, { now: () => 120000, randomInt: (min) => min });
+  assert.equal(firstMiningClaim.ok, false, 'First mining claim should initialize the claim timestamp only.');
+  assert.equal(firstMiningClaim.reason, 'initialized', 'First mining claim should report initialized.');
+  assert.equal(miningState.production.mining.lastClaimedAt, 120000, 'First mining claim should store the current timestamp.');
+  assert.equal(miningState.materials.tierOre, undefined, 'First mining claim should not grant materials.');
+  assert.equal(miningState.production.mining.exp, 0, 'First mining claim should not grant experience.');
+  miningState.production.mining.lastClaimedAt = 60000;
+  const miningClaim = productionMining.claimMiningProduction(miningState, { now: () => 180000, randomInt: (min) => min });
   assert.equal(miningClaim.ok, true, 'Mining claim should succeed after elapsed intervals.');
   assert.equal(miningState.materials.tierOre, 6, 'Mining claim should grant deterministic tier ore rewards.');
   assert.ok(miningState.production.mining.exp > 0, 'Mining claim should increase mining experience.');
@@ -313,6 +319,16 @@ assert.match(productionArtisanSource, /export\s+function\s+claimArtisanJob/, 'Pr
   missingActiveState.production.artisan.activeJob = { id: 'missingJob', startedAt: 0, finishAt: 1 };
   assert.equal(productionArtisan.claimArtisanJob(missingActiveState, { now: () => 2 }).reason, 'job_missing', 'Unknown active artisan job should report job_missing.');
   assert.equal(missingActiveState.production.artisan.activeJob, null, 'Unknown active artisan job should be cleared.');
+  const malformedClaimState = { production: productionState.defaultProductionState(), materials: {} };
+  malformedClaimState.production.artisan.activeJob = { id: 'weaponEmbryo' };
+  assert.equal(productionArtisan.claimArtisanJob(malformedClaimState, { now: () => 999999 }).reason, 'invalid_job', 'Malformed active artisan job should not be claimable.');
+  assert.equal(malformedClaimState.materials.weaponEmbryo, undefined, 'Malformed active artisan job should not grant output.');
+  assert.equal(malformedClaimState.production.artisan.activeJob, null, 'Malformed active artisan job should be cleared on claim.');
+  const malformedStartState = { production: productionState.defaultProductionState(), materials: { tierOre: 12, refinedOre: 3 } };
+  malformedStartState.production.artisan.activeJob = { id: 'weaponEmbryo' };
+  assert.equal(productionArtisan.startArtisanJob(malformedStartState, 'weaponEmbryo', { now: () => 1000 }).ok, true, 'Malformed active artisan job should be cleared before starting a new job.');
+  assert.equal(malformedStartState.production.artisan.activeJob.id, 'weaponEmbryo', 'New artisan job should replace the malformed active job.');
+  assert.equal(malformedStartState.production.artisan.activeJob.startedAt, 1000, 'New artisan job should use the requested start timestamp.');
 }
 assert.match(adventureHandbookSource, /export function defaultAdventureHandbookState/, 'Adventure handbook system should expose default state.');
 assert.match(adventureHandbookSource, /export function normalizeAdventureHandbookState/, 'Adventure handbook system should normalize saved state.');

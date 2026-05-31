@@ -55,6 +55,10 @@ export function claimMiningProduction(state = {}, context = {}) {
   const mining = production.mining;
   const current = nowMs(context);
   const lastClaimedAt = nonNegativeInt(mining.lastClaimedAt);
+  if (lastClaimedAt <= 0 && current > 0) {
+    mining.lastClaimedAt = current;
+    return { ok: false, reason: 'initialized', rewards: {}, exp: 0 };
+  }
   const elapsedSec = Math.max(0, Math.floor((current - lastClaimedAt) / 1000));
   if (elapsedSec <= 0) {
     mining.lastClaimedAt = current;

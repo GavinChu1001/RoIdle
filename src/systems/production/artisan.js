@@ -47,13 +47,52 @@ function canAfford(materials, cost = {}) {
   return Object.entries(cost).every(([id, amount]) => nonNegativeInt(materials[id]) >= nonNegativeInt(amount));
 }
 
+function validateActiveJob(activeJob) {
+  if (!activeJob || typeof activeJob !== 'object' || Array.isArray(activeJob)) {
+    return { ok: false, reason: 'invalid_job' };
+  }
+  const job = ARTISAN_JOBS[activeJob.id];
+  if (!job) return { ok: false, reason: 'job_missing' };
+  const startedAt = Number(activeJob.startedAt);
+  const finishAt = Number(activeJob.finishAt);
+  if (
+    !Number.isFinite(startedAt)
+    || !Number.isFinite(finishAt)
+    || startedAt < 0
+    || finishAt < 0
+    || finishAt < startedAt
+  ) {
+    return { ok: false, reason: 'invalid_job' };
+  }
+  return {
+    ok: true,
+    job,
+    activeJob: {
+      id: activeJob.id,
+      startedAt: Math.floor(startedAt),
+      finishAt: Math.floor(finishAt),
+    },
+  };
+}
+
+function clearInvalidActiveJob(artisan) {
+  if (!artisan.activeJob) return true;
+  const active = validateActiveJob(artisan.activeJob);
+  if (active.ok) {
+    artisan.activeJob = active.activeJob;
+    return false;
+  }
+  artisan.activeJob = null;
+  return true;
+}
+
 export function startArtisanJob(state = {}, jobId = '', context = {}) {
   const job = ARTISAN_JOBS[jobId];
   if (!job) return { ok: false, reason: 'job_missing' };
 
   const target = normalizeTargetState(state);
   const artisan = target.production.artisan;
-  if (artisan.activeJob) return { ok: false, reason: 'busy' };
+  if (!clearInvalidActiveJob(artisan)) return { ok: false, reason: 'busy' };
   if (!canAfford(target.materials, job.cost)) return { ok: false, reason: 'not_affordable' };
 
   for (const [materialId, amount] of Object.entries(job.cost || {})) {
@@ -72,14 +111,16 @@ export function claimArtisanJob(state = {}, context = {}) {
   const activeJob = artisan.activeJob;
   if (!activeJob) return { ok: false, reason: 'no_job' };
 
-  const job = ARTISAN_JOBS[activeJob.id];
-  if (!job) {
+  const active = validateActiveJob(activeJob);
+  if (!active.ok) {
     artisan.activeJob = null;
-    return { ok: false, reason: 'job_missing' };
+    return { ok: false, reason: active.reason };
   }
 
   const current = nowMs(context);
-  const finishAt = nonNegativeInt(activeJob.finishAt);
+  const { job } = active;
+  const { finishAt } = active.activeJob;
+  artisan.activeJob = active.activeJob;
   if (current < finishAt) {
     return { ok: false, reason: 'in_progress', finishAt };
   }
