@@ -2074,6 +2074,15 @@ assert.ok(itemScore.calculateEquipmentScores({ atk: 100 }).physicalScore > itemS
 assert.ok(itemScore.calculateEquipmentScores({ matk: 100 }).magicScore > itemScore.calculateEquipmentScores({ matk: 100 }).physicalScore, 'Equipment score must favor magic stats for magic scoring.');
 
 const dismantle = await importSource(dismantleSource);
+assert.equal(
+  dismantle.getSalvageRewards(
+    { rarity: 'normal', level: 0 },
+    { preview: true },
+    { getSalvageTable: () => ({ dust: [1, 3] }), randomInt: () => 2 },
+  ).dust,
+  '1-3',
+  'Salvage preview must show ranged rewards as min-max.',
+);
 const mutationState = {
   inventory: [],
   materials: {},

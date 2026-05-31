@@ -98,8 +98,13 @@ export function getSalvageRewards(item, options = {}, ctx = mutationCtx) {
   const rewards = {};
   Object.entries(tbl).forEach(([material, range]) => {
     const r = Array.isArray(range) ? range : [1, 1];
+    const levelBonus = Math.floor(finite(item.level) / 12);
+    if (options.preview && r[0] !== r[1]) {
+      rewards[material] = `${finite(r[0]) + levelBonus}-${finite(r[1]) + levelBonus}`;
+      return;
+    }
     const base = options.preview ? r[0] : ctx.randomInt?.(r[0], r[1]);
-    rewards[material] = finite(base || r[0]) + Math.floor(finite(item.level) / 12);
+    rewards[material] = finite(base || r[0]) + levelBonus;
   });
   mergeRewards(rewards, getProgressionSalvageRewards(item, ctx));
   if (ctx.isAbyssEquipment?.(item)) {
