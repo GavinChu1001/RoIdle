@@ -67,6 +67,7 @@ const mapPageSource = read('src/ui/mapPage.js');
 const onboardingSource = read('src/systems/onboarding.js');
 const onboardingGuideSource = read('src/ui/onboardingGuide.js');
 const adventurePageSource = read('src/ui/adventurePage.js');
+const adventureHandbookSource = read('src/systems/adventureHandbook.js');
 const dungeonSystemSource = read('src/systems/dungeons.js');
 const dungeonPageSource = read('src/ui/dungeonPage.js');
 
@@ -200,6 +201,89 @@ assert.equal(rolledDungeonState.entries.daily_material.bestClearPower, 5000, 'Du
   assert.equal(rewardState.dungeons.entries.daily_material.used, 1, 'Successful dungeon entry must consume one attempt.');
   assert.equal(rewardState.gold, 5000, 'Successful dungeon entry must grant gold through grantGenericReward.');
   assert.equal(rewardState.materials.ancientHeroShard, 3, 'Successful dungeon entry must grant material rewards through grantGenericReward.');
+}
+assert.match(adventureHandbookSource, /export function defaultAdventureHandbookState/, 'Adventure handbook system should expose default state.');
+assert.match(adventureHandbookSource, /export function normalizeAdventureHandbookState/, 'Adventure handbook system should normalize saved state.');
+assert.match(adventureHandbookSource, /export function buildAdventureHandbookModel/, 'Adventure handbook system should build a UI model.');
+assert.match(adventureHandbookSource, /export function recordAdventureHandbookProgress/, 'Adventure handbook system should expose progress tracking.');
+assert.match(adventureHandbookSource, /export function claimAdventureHandbookGoal/, 'Adventure handbook system should expose reward claims.');
+assert.match(adventureHandbookSource, /export function installAdventureHandbookRuntime/, 'Adventure handbook system should expose runtime installation.');
+{
+  const handbook = await importSource(adventureHandbookSource);
+  const fresh = handbook.defaultAdventureHandbookState('2026-05-31', '2026-W23');
+  assert.equal(fresh.date, '2026-05-31', 'Adventure handbook default date should be explicit.');
+  assert.equal(fresh.weekKey, '2026-W23', 'Adventure handbook default week key should be explicit.');
+  assert.equal(fresh.researchPoints, 0, 'Adventure handbook research points should start at zero.');
+  assert.ok(fresh.daily.daily_kills, 'Adventure handbook should include daily kill goal state.');
+  assert.ok(fresh.weekly.weekly_dungeons, 'Adventure handbook should include weekly dungeon goal state.');
+
+  const rolledDaily = handbook.normalizeAdventureHandbookState({
+    date: '2026-05-30',
+    weekKey: '2026-W23',
+    researchPoints: 7,
+    daily: { daily_kills: { progress: 12, claimed: true } },
+    weekly: { weekly_dungeons: { progress: 2, claimed: false } },
+  }, '2026-05-31', '2026-W23');
+  assert.equal(rolledDaily.researchPoints, 7, 'Daily reset should preserve research points.');
+  assert.equal(rolledDaily.daily.daily_kills.progress, 0, 'Daily reset should clear daily progress.');
+  assert.equal(rolledDaily.weekly.weekly_dungeons.progress, 2, 'Daily reset should preserve same-week weekly progress.');
+
+  const rolledWeekly = handbook.normalizeAdventureHandbookState({
+    date: '2026-05-30',
+    weekKey: '2026-W22',
+    researchPoints: 9,
+    weekly: { weekly_dungeons: { progress: 4, claimed: true } },
+  }, '2026-05-31', '2026-W23');
+  assert.equal(rolledWeekly.weekly.weekly_dungeons.progress, 0, 'Weekly reset should clear weekly progress.');
+  assert.equal(rolledWeekly.weekly.weekly_dungeons.claimed, false, 'Weekly reset should clear weekly claimed flags.');
+
+  const progressState = { adventureHandbook: handbook.defaultAdventureHandbookState('2026-05-31', '2026-W23') };
+  handbook.recordAdventureHandbookProgress(progressState, 'daily_kills', 3, {
+    date: '2026-05-31',
+    weekKey: '2026-W23',
+  });
+  assert.equal(progressState.adventureHandbook.daily.daily_kills.progress, 3, 'Daily progress should increase.');
+  handbook.recordAdventureHandbookProgress(progressState, 'weekly_dungeons', 2, {
+    date: '2026-05-31',
+    weekKey: '2026-W23',
+  });
+  assert.equal(progressState.adventureHandbook.weekly.weekly_dungeons.progress, 2, 'Weekly progress should increase.');
+
+  progressState.adventureHandbook.daily.daily_kills.progress = 30;
+  let grantedReward = null;
+  const claimResult = handbook.claimAdventureHandbookGoal(progressState, 'daily_kills', {
+    date: '2026-05-31',
+    weekKey: '2026-W23',
+    grantReward: (reward) => { grantedReward = reward; },
+  });
+  assert.equal(claimResult.ok, true, 'Completed handbook goal should be claimable.');
+  assert.equal(progressState.adventureHandbook.daily.daily_kills.claimed, true, 'Claimed handbook goal should set claimed flag.');
+  assert.equal(progressState.adventureHandbook.researchPoints, 1, 'Claim should grant adventure research points.');
+  assert.equal(grantedReward.gold, 1200, 'Claim should pass configured reward to grantReward.');
+
+  const model = handbook.buildAdventureHandbookModel({
+    hero: { baseLevel: 12, jobLevel: 5 },
+    materials: { ore: 4 },
+    currentMap: 0,
+    currentDifficulty: 'normal',
+    adventureHandbook: progressState.adventureHandbook,
+    dungeons: { entries: { daily_material: { used: 1 } } },
+    equipped: {},
+    inventory: [],
+  }, {
+    date: '2026-05-31',
+    weekKey: '2026-W23',
+    computeStats: () => ({ power: 800, dps: 12, maxHp: 300, defense: 4 }),
+    getMaps: () => [{ id: 'grass', name: 'South Gate Grassland' }, { id: 'sewer', name: 'Sewer' }],
+    getMaterialName: (id) => ({ ore: 'Refined Ore' })[id] || id,
+    getMaterialDropSources: () => [{ mapId: 'grass', mapName: 'South Gate Grassland', difficulty: 'normal' }],
+    getDungeonCards: () => [{ id: 'daily_material', name: 'Daily Material Dungeon', remaining: 1, recommendedPower: 1200 }],
+    getEquipmentTarget: () => ({ title: 'Fill Weapon Slot', desc: 'Current weapon slot is empty.' }),
+  });
+  assert.equal(model.researchPoints, 1, 'Handbook model should expose research points.');
+  assert.ok(model.materials.length > 0, 'Handbook model should include material recommendations.');
+  assert.ok(model.dungeons.length > 0, 'Handbook model should include dungeon recommendations.');
+  assert.equal(model.equipmentTarget.title, 'Fill Weapon Slot', 'Handbook model should expose equipment target.');
 }
 assert.match(game, /getBossCycleGoldBonus/, 'Combat settlement context should provide Boss cycle gold bonuses.');
 assert.match(mapPageSource, /周回挑战/, 'Map difficulty UI should explain hard mode as a repeat challenge.');
