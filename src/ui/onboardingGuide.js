@@ -31,17 +31,11 @@ export function renderQuestList() {
   const currentGoal = runtime.getCurrentOnboardingGoal?.(state);
   const tutorialStep = runtime.getActiveTutorialStep?.(state);
   const progressText = guideCtx.progressText?.() || '';
-  const bossName = guideCtx.bossDisplayName?.(guideCtx.currentMap?.()) || '';
-  const bossSkill = guideCtx.currentMap?.()?.bossSkill || '';
   const tutorialHtml = tutorialStep ? renderTutorialHint(tutorialStep) : '';
   const currentGoalHtml = currentGoal ? renderCurrentGoal(currentGoal) : '';
   els.questList.innerHTML = `
     ${tutorialHtml}
     ${currentGoalHtml}
-    <div class="quest-item">
-      <span class="quest-name">当前首领</span>
-      <p class="quest-meta">${esc(bossName)} · ${esc(bossSkill)}</p>
-    </div>
     <div class="quest-item">
       <span class="quest-name">首领进度</span>
       <p class="quest-meta">${esc(state.enemyBoss ? progressText : `${progressText} 后可挑战本地图首领`)}</p>

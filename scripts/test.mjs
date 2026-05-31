@@ -471,6 +471,9 @@ assert.match(onboardingGuideSource, /renderOnboardingTaskSection/, 'Onboarding U
 assert.match(main, /installOnboardingGuideRuntime\(onboardingGuideContext\)/, 'Onboarding guide render runtime must be installed before startup.');
 assert.match(taskPageSource, /renderOnboardingTaskSection/, 'Task page must render the beginner goal section.');
 assert.match(onboardingGuideSource, /renderQuestList/, 'Onboarding UI must own the adventure current-goal renderer.');
+assert.doesNotMatch(onboardingGuideSource, /<span class="quest-name">当前首领<\/span>/, 'Adventure current target should no longer show the current boss row.');
+assert.match(onboardingGuideSource, /<span class="quest-name">首领进度<\/span>/, 'Adventure current target should keep Boss progress visible.');
+assert.match(onboardingGuideSource, /renderCurrentGoal\(currentGoal\)/, 'Onboarding current goal hints should remain available.');
 assert.match(game, /handleOnboardingAction/, 'Classic runtime must handle onboarding action buttons.');
 assert.match(game, /completeOnboardingAction/, 'Onboarding action clicks must be able to complete click-only goals.');
 assert.match(styles, /\.onboarding-current-goal/, 'Onboarding current-goal styles must exist.');
