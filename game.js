@@ -1641,13 +1641,30 @@ function defaultDailyGoals() {
 function defaultDungeonState() {
   const runtime = window.RuneFrontierDungeonRuntime;
   if (runtime && typeof runtime.defaultDungeonState === "function") return runtime.defaultDungeonState();
-  return { date: todayKey(), entries: {} };
+  return { date: dungeonDateKey(), entries: {} };
+}
+
+function dungeonDateKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function normalizeDungeonState(dungeons = {}) {
   const runtime = window.RuneFrontierDungeonRuntime;
   if (runtime && typeof runtime.normalizeDungeonState === "function") return runtime.normalizeDungeonState(dungeons);
-  if (!dungeons || typeof dungeons !== "object" || dungeons.date !== todayKey()) return defaultDungeonState();
+  if (!dungeons || typeof dungeons !== "object") return defaultDungeonState();
+  const date = dungeonDateKey();
+  if (dungeons.date !== date) {
+    const savedEntries = dungeons.entries && typeof dungeons.entries === "object" ? dungeons.entries : {};
+    const entries = Object.fromEntries(Object.entries(savedEntries).map(([id, entry]) => [id, {
+      ...(entry && typeof entry === "object" ? entry : {}),
+      used: 0,
+      bestClearPower: Math.max(0, Math.floor(Number(entry?.bestClearPower || 0))),
+    }]));
+    return { date, entries };
+  }
   return { date: dungeons.date, entries: dungeons.entries || {} };
 }
 

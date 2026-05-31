@@ -162,6 +162,45 @@ assert.match(dungeonSystemSource, /boss_trial/, 'Dungeon definitions should incl
 assert.match(dungeonSystemSource, /enterDungeon/, 'Dungeon runtime should expose dungeon entry settlement.');
 assert.match(dungeonPageSource, /renderDungeonPage/, 'Dungeon page renderer should exist.');
 assert.match(styles, /\.dungeon-page/, 'Styles should include dungeon page layout.');
+const dungeonSystem = await importSource(dungeonSystemSource);
+const rolledDungeonState = dungeonSystem.normalizeDungeonState(
+  { date: '2026-05-30', entries: { daily_material: { used: 2, bestClearPower: 5000 } } },
+  '2026-05-31',
+);
+assert.equal(rolledDungeonState.entries.daily_material.used, 0, 'Dungeon daily reset must clear used attempts.');
+assert.equal(rolledDungeonState.entries.daily_material.bestClearPower, 5000, 'Dungeon daily reset must preserve historical best clear power.');
+{
+  const lowPowerState = { dungeons: dungeonSystem.defaultDungeonState() };
+  const lowPowerResult = dungeonSystem.enterDungeon('daily_material', {
+    getState: () => lowPowerState,
+    computeStats: () => ({ power: 1199 }),
+    formatNumber: String,
+    showToast: () => {},
+  });
+  assert.equal(lowPowerResult, false, 'Low power dungeon entry must be rejected.');
+  assert.equal(lowPowerState.dungeons.entries.daily_material.used, 0, 'Rejected dungeon entry must not consume attempts.');
+}
+{
+  const rewardState = { dungeons: dungeonSystem.defaultDungeonState(), gold: 0, materials: {} };
+  const rewardResult = dungeonSystem.enterDungeon('daily_material', {
+    getState: () => rewardState,
+    computeStats: () => ({ power: 1500 }),
+    grantGenericReward: (reward = {}) => {
+      rewardState.gold += reward.gold || 0;
+      Object.entries(reward.materials || {}).forEach(([id, amount]) => {
+        rewardState.materials[id] = (rewardState.materials[id] || 0) + amount;
+      });
+    },
+    addLog: () => {},
+    showToast: () => {},
+    save: () => {},
+    renderAll: () => {},
+  });
+  assert.equal(rewardResult, true, 'Sufficient power dungeon entry must settle successfully.');
+  assert.equal(rewardState.dungeons.entries.daily_material.used, 1, 'Successful dungeon entry must consume one attempt.');
+  assert.equal(rewardState.gold, 5000, 'Successful dungeon entry must grant gold through grantGenericReward.');
+  assert.equal(rewardState.materials.ancientHeroShard, 3, 'Successful dungeon entry must grant material rewards through grantGenericReward.');
+}
 assert.match(game, /getBossCycleGoldBonus/, 'Combat settlement context should provide Boss cycle gold bonuses.');
 assert.match(mapPageSource, /周回挑战/, 'Map difficulty UI should explain hard mode as a repeat challenge.');
 assert.match(mapPageSource, /终局挑战/, 'Map difficulty UI should explain abyss mode as an endgame challenge.');
