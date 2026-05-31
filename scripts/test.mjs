@@ -2571,6 +2571,9 @@ taskRuntime.renderTasks();
 assert.match(taskPageHtml, /Claim me/, 'Completed but unclaimed beginner tasks must stay visible so onboarding rewards can be claimed.');
 assert.doesNotMatch(taskPageHtml, /Already claimed/, 'Completed and claimed tasks should remain hidden when completed-task hiding is enabled.');
 assert.match(game, /\(!hideCompleted \|\| !quest\.completed \|\| !quest\.claimed\)/, 'Classic task rendering must not hide completed unclaimed rewards.');
+assert.match(game, /getQuestRewardEquipmentRows/, 'Quest equipment rewards should use a dedicated progression-row picker.');
+assert.match(game, /RuneFrontierEquipmentRuntime\?\.getProgressionEquipmentDropTable\?\.\(mapId,\s*difficulty\)/, 'Quest equipment rewards must use progression equipment tables instead of legacy tables.');
+assert.doesNotMatch(game, /function createQuestRewardEquipment[\s\S]*?equipmentDropTables\[/, 'Quest equipment rewards must not read legacy equipmentDropTables.');
 let cardHtml = '';
 globalThis.window = { RuneFrontierRenderRuntime: {} };
 const cardRuntime = cardPage.installCardRenderRuntime({

@@ -3603,7 +3603,7 @@ function generateDailyQuests() {
       title: "困难试炼",
       targetDifficulty: "hard",
       requiredCount: 50,
-      rewards: { vipExp: 50, materials: { crystal: 2 }, randomEquipment: { mapId: highestMap.id, rarityRange: ["rare", "epic"] } },
+      rewards: { vipExp: 50, materials: { crystal: 2 }, randomEquipment: { mapId: highestMap.id, difficulty: "hard", rarityRange: ["rare", "epic"] } },
     }),
     createQuest({
       id: `daily_mutation_${todayKey()}`,
@@ -3792,14 +3792,58 @@ function claimQuestReward(questId) {
 }
 
 function createQuestRewardEquipment(config) {
-  const tableId = mapDropTableAlias[config.mapId] || config.mapId || mapDropTableAlias[currentMap().id] || currentMap().id;
-  const allowed = config.rarityRange || ["normal", "rare"];
-  const rows = (equipmentDropTables[tableId] || []).filter((drop) => allowed.includes(drop.rarity));
+  const mapId = config.mapId || currentMap().id;
+  const difficulty = config.difficulty || state.currentDifficulty || "normal";
+  const allowed = getQuestRewardRarityRange(config);
+  const rows = getQuestRewardEquipmentRows(config, mapId, difficulty);
   const pick = rows.length ? weightedChoice(rows, (drop) => Math.max(0.0001, drop.dropRate)) : null;
-  const template = pick ? equipmentTemplateDb[pick.equipmentId] : allEquipmentTemplates.find((item) => allowed.includes(item.rarity)) || itemPool[0];
-  const rarity = pick?.rarity || (allowed.includes("darkGold") ? "darkGold" : template.rarity || allowed[0] || "normal");
-  const dropLevel = pick ? randomInt(pick.minLevel, pick.maxLevel) : Math.max(1, state.hero.baseLevel);
-  return createItem(template, dropLevel, rarity, { dropMapId: config.mapId || currentMap().id, dropLevel });
+  const template = pick ? resolveProgressionDropTemplate(pick) : getQuestRewardFallbackTemplate(allowed);
+  if (!template) return null;
+  const rarity = getQuestRewardRarity(allowed, pick, template);
+  const minLevel = Math.max(1, Number(pick?.minLevel || template.requiredLevel || state.hero.baseLevel || 1));
+  const maxLevel = Math.max(minLevel, Number(pick?.maxLevel || minLevel));
+  const dropLevel = pick ? randomInt(minLevel, maxLevel) : minLevel;
+  const progression = window.RuneFrontierEquipmentRuntime?.resolveEquipmentProgressionContext?.({
+    mapId,
+    difficulty,
+    template,
+    drop: pick || {},
+    random: Math.random,
+  }) || {};
+  return createItem(template, dropLevel, rarity, {
+    dropMapId: mapId,
+    dropLevel,
+    difficulty,
+    allowMythic: rarity === "mythic",
+    ...progression,
+  });
+}
+
+function getQuestRewardRarityRange(config = {}) {
+  const values = Array.isArray(config.rarityRange) ? config.rarityRange.filter(Boolean) : [];
+  return values.length ? values : ["normal", "rare"];
+}
+
+function getQuestRewardEquipmentRows(config = {}, mapId = currentMap().id, difficulty = state.currentDifficulty || "normal") {
+  const allowed = getQuestRewardRarityRange(config);
+  const rows = window.RuneFrontierEquipmentRuntime?.getProgressionEquipmentDropTable?.(mapId, difficulty) || [];
+  const usable = rows.filter((drop) => resolveProgressionDropTemplate(drop));
+  const exact = usable.filter((drop) => allowed.includes(drop.rarity));
+  return exact.length ? exact : usable;
+}
+
+function getQuestRewardFallbackTemplate(allowed = []) {
+  const templates = window.RuneFrontierEquipmentRuntime?.getProgressionEquipmentTemplates?.() || [];
+  return templates.find((item) => allowed.includes(item.rarity) && item.series !== "oldWorld") ||
+    templates.find((item) => item.series !== "oldWorld") ||
+    templates[0] ||
+    null;
+}
+
+function getQuestRewardRarity(allowed = [], row = null, template = {}) {
+  if (row?.rarity && allowed.includes(row.rarity)) return row.rarity;
+  const ranked = [...allowed].sort((a, b) => rarityRank(a) - rarityRank(b));
+  return ranked[ranked.length - 1] || row?.rarity || template.rarity || "normal";
 }
 
 function gainVipExp(amount) {
