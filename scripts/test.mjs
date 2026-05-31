@@ -74,6 +74,8 @@ const dungeonPageSource = read('src/ui/dungeonPage.js');
 const productionCatalogSource = read('src/systems/production/catalog.js');
 const productionStateSource = read('src/systems/production/state.js');
 const productionIndexSource = read('src/systems/production/index.js');
+const productionMiningSource = read('src/systems/production/mining.js');
+const productionArtisanSource = read('src/systems/production/artisan.js');
 
 const classicDataContext = { console };
 createContext(classicDataContext);
@@ -215,6 +217,9 @@ assert.match(productionStateSource, /export\s+function\s+normalizeProductionStat
 assert.match(productionStateSource, /export\s+function\s+addCraftingExperience/, 'Production state must export addCraftingExperience.');
 assert.match(productionIndexSource, /export\s+function\s+installProductionRuntime/, 'Production index must expose installProductionRuntime.');
 assert.doesNotMatch(productionIndexSource, /\bcontext\s*,/, 'Production runtime must not expose the installer context.');
+assert.match(productionMiningSource, /export\s+function\s+claimMiningProduction/, 'Production mining must export claimMiningProduction.');
+assert.match(productionArtisanSource, /export\s+function\s+startArtisanJob/, 'Production artisan must export startArtisanJob.');
+assert.match(productionArtisanSource, /export\s+function\s+claimArtisanJob/, 'Production artisan must export claimArtisanJob.');
 {
   const productionCatalog = await importSource(productionCatalogSource);
   const productionStateTestSource = productionStateSource.replace(
@@ -222,6 +227,16 @@ assert.doesNotMatch(productionIndexSource, /\bcontext\s*,/, 'Production runtime 
     `const CRAFTING_MASTERY_MAX_LEVEL = ${productionCatalog.CRAFTING_MASTERY_MAX_LEVEL};\nconst MINING_NODES = ${JSON.stringify(productionCatalog.MINING_NODES)};\n`,
   );
   const productionState = await importSource(productionStateTestSource);
+  const productionMiningTestSource = productionMiningSource
+    .replace(/import\s+\{\s*MINING_NODES,?\s*\}\s+from\s+['"]\.\/catalog\.js['"];\s*/, `const MINING_NODES = ${JSON.stringify(productionCatalog.MINING_NODES)};\n`)
+    .replace(/import\s+\{\s*normalizeProductionState,?\s*\}\s+from\s+['"]\.\/state\.js['"];\s*/, 'const normalizeProductionState = globalThis.__productionState.normalizeProductionState;\n');
+  const productionArtisanTestSource = productionArtisanSource
+    .replace(/import\s+\{\s*ARTISAN_JOBS,?\s*\}\s+from\s+['"]\.\/catalog\.js['"];\s*/, `const ARTISAN_JOBS = ${JSON.stringify(productionCatalog.ARTISAN_JOBS)};\n`)
+    .replace(/import\s+\{\s*normalizeProductionState,?\s*\}\s+from\s+['"]\.\/state\.js['"];\s*/, 'const normalizeProductionState = globalThis.__productionState.normalizeProductionState;\n');
+  globalThis.__productionState = productionState;
+  const productionMining = await importSource(productionMiningTestSource);
+  const productionArtisan = await importSource(productionArtisanTestSource);
+  delete globalThis.__productionState;
   const defaultState = productionState.defaultProductionState();
   assert.equal(defaultState.crafting.level, 1, 'Default crafting level must start at Lv.1.');
   assert.equal(defaultState.crafting.exp, 0, 'Default crafting exp must start at zero.');
@@ -264,6 +279,40 @@ assert.doesNotMatch(productionIndexSource, /\bcontext\s*,/, 'Production runtime 
   assert.equal(maxCraftingState.crafting.totalCrafts, 8, 'Max-level crafting should still count a completed craft.');
   productionState.addCraftingExperience(defaultState, 5000);
   assert.ok(defaultState.crafting.level > 1, 'Crafting experience must increase crafting level.');
+
+  const miningState = { production: productionState.defaultProductionState(), materials: {} };
+  miningState.production.mining.lastClaimedAt = 0;
+  const miningClaim = productionMining.claimMiningProduction(miningState, { now: () => 120000, randomInt: (min) => min });
+  assert.equal(miningClaim.ok, true, 'Mining claim should succeed after elapsed intervals.');
+  assert.equal(miningState.materials.tierOre, 6, 'Mining claim should grant deterministic tier ore rewards.');
+  assert.ok(miningState.production.mining.exp > 0, 'Mining claim should increase mining experience.');
+
+  const artisanState = {
+    production: productionState.defaultProductionState(),
+    materials: { tierOre: 12, refinedOre: 3 },
+  };
+  const startedJob = productionArtisan.startArtisanJob(artisanState, 'weaponEmbryo', { now: () => 1000 });
+  assert.equal(startedJob.ok, true, 'Affordable artisan job should start.');
+  assert.equal(artisanState.materials.tierOre, 0, 'Starting artisan job should consume tier ore.');
+  assert.equal(artisanState.materials.refinedOre, 0, 'Starting artisan job should consume refined ore.');
+  assert.equal(productionArtisan.claimArtisanJob(artisanState, { now: () => 1000 }).reason, 'in_progress', 'Unfinished artisan job should remain in progress.');
+  const claimedJob = productionArtisan.claimArtisanJob(artisanState, { now: () => 181000 });
+  assert.equal(claimedJob.ok, true, 'Finished artisan job should claim successfully.');
+  assert.equal(artisanState.materials.weaponEmbryo, 1, 'Finished artisan job should grant its output.');
+
+  assert.equal(
+    productionArtisan.startArtisanJob({ production: productionState.defaultProductionState(), materials: {} }, 'weaponEmbryo', { now: () => 0 }).reason,
+    'not_affordable',
+    'Artisan job without materials should be rejected.',
+  );
+  const busyState = { production: productionState.defaultProductionState(), materials: { tierOre: 24, refinedOre: 6 } };
+  assert.equal(productionArtisan.startArtisanJob(busyState, 'weaponEmbryo', { now: () => 0 }).ok, true, 'First artisan job should start at timestamp zero.');
+  assert.equal(productionArtisan.startArtisanJob(busyState, 'weaponEmbryo', { now: () => 0 }).reason, 'busy', 'Active artisan job should block a second job.');
+  assert.equal(productionArtisan.startArtisanJob({ production: productionState.defaultProductionState(), materials: {} }, 'missingJob', { now: () => 0 }).reason, 'job_missing', 'Unknown artisan job should be rejected.');
+  const missingActiveState = { production: productionState.defaultProductionState(), materials: {} };
+  missingActiveState.production.artisan.activeJob = { id: 'missingJob', startedAt: 0, finishAt: 1 };
+  assert.equal(productionArtisan.claimArtisanJob(missingActiveState, { now: () => 2 }).reason, 'job_missing', 'Unknown active artisan job should report job_missing.');
+  assert.equal(missingActiveState.production.artisan.activeJob, null, 'Unknown active artisan job should be cleared.');
 }
 assert.match(adventureHandbookSource, /export function defaultAdventureHandbookState/, 'Adventure handbook system should expose default state.');
 assert.match(adventureHandbookSource, /export function normalizeAdventureHandbookState/, 'Adventure handbook system should normalize saved state.');

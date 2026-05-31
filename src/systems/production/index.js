@@ -11,16 +11,23 @@ import {
   defaultProductionState,
   normalizeProductionState,
 } from './state.js';
+import { claimMiningProduction } from './mining.js';
+import { claimArtisanJob, startArtisanJob } from './artisan.js';
 
 export * from './catalog.js';
 export * from './state.js';
+export * from './mining.js';
+export * from './artisan.js';
 
-export function installProductionRuntime(_context = {}) {
+export function installProductionRuntime(context = {}) {
   const runtime = Object.freeze({
     defaultProductionState,
     normalizeProductionState,
     addCraftingExperience,
     craftingExpForLevel,
+    claimMiningProduction: () => claimMiningProduction(context.getState?.() || {}, context),
+    startArtisanJob: (jobId) => startArtisanJob(context.getState?.() || {}, jobId, context),
+    claimArtisanJob: () => claimArtisanJob(context.getState?.() || {}, context),
     getCraftingMasteryBand,
     PRODUCTION_MATERIALS,
     MINING_NODES,
