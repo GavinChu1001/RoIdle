@@ -401,6 +401,8 @@ assert.match(game, /function\s+claimAdventureHandbookGoal\s*\(/, 'Classic runtim
 assert.match(game, /function\s+recordMapMasteryMaterial\s*\(/, 'Classic runtime should expose map mastery material helper.');
 assert.match(game, /function\s+recordMapMasteryEquipment\s*\(/, 'Classic runtime should expose map mastery equipment helper.');
 assert.match(game, /result\?\.added\)\s*recordMapMasteryEquipment\(item\)/, 'Successful equipment inventory adds should record map mastery.');
+assert.match(game, /Number\.isFinite\(rawAmount\)/, 'Map mastery material records should reject non-finite amounts.');
+assert.match(game, /Math\.min\(1000,\s*Math\.floor\(rawAmount\)\)/, 'Map mastery material records should cap abnormal material amounts.');
 assert.match(settlementSource, /recordAdventureHandbookProgress\?\.\('daily_kills'/, 'Combat settlement should feed handbook kill progress.');
 assert.match(settlementSource, /recordAdventureHandbookProgress\?\.\('weekly_bosses'/, 'Combat settlement should feed handbook weekly boss progress.');
 assert.match(dungeonSystemSource, /recordAdventureHandbookProgress\?\.\('daily_dungeon'/, 'Dungeon completion should feed handbook daily dungeon progress.');
@@ -3820,6 +3822,7 @@ const offlineState = {
     baseExp: 3,
     jobExp: 2,
     mvpInscriptionExp: 9,
+    mapId: 'grass',
     equipments: [{ id: 'accepted' }, { id: 'waiting' }],
     materials: [{ materialId: 'dust', qty: 4 }],
     cards: [{ cardId: 'card-a', qty: 1 }],
@@ -3830,6 +3833,7 @@ let offlineExpGranted = 0;
 let offlineMvpInscriptionGranted = 0;
 let allowWaiting = false;
 const offlineSummaries = [];
+const offlineMaterialMasteryCalls = [];
 const claimContext = {
   getState: () => offlineState,
   createEmptyRewards: () => ({ seconds: 0, gold: 0, baseExp: 0, jobExp: 0, equipments: [], cards: [], materials: [], autoSalvagedMaterials: {}, skippedEquipment: 0 }),
@@ -3842,6 +3846,7 @@ const claimContext = {
     equipments: input.equipments || [],
     cards: input.cards || [],
     materials: input.materials || [],
+    mapId: input.mapId || '',
     autoSalvagedMaterials: input.autoSalvagedMaterials || {},
   }),
   objectTotal: () => 0,
@@ -3851,7 +3856,10 @@ const claimContext = {
   gainExp: (base, job) => { offlineExpGranted += base + job; },
   gainMvpInscriptionExp: (amount) => { offlineMvpInscriptionGranted += amount; },
   grantCards: (cards) => cards.forEach((card) => { offlineState.cards[card.cardId] = (offlineState.cards[card.cardId] || 0) + card.qty; }),
-  grantMaterials: (materials) => materials.forEach((material) => { offlineState.materials[material.materialId] = (offlineState.materials[material.materialId] || 0) + material.qty; }),
+  grantMaterials: (materials) => materials.forEach((material) => {
+    offlineState.materials[material.materialId] = (offlineState.materials[material.materialId] || 0) + material.qty;
+    offlineMaterialMasteryCalls.push({ mapId: material.mapId || material.dropMapId || 'fallback-current-map', amount: material.qty });
+  }),
   recordRecentLoot: (summary) => offlineSummaries.push(summary),
   afterClaim: () => {},
 };
@@ -3860,6 +3868,7 @@ assert.equal(offlineState.gold, 7, 'Offline gold award changed.');
 assert.equal(offlineExpGranted, 5, 'Offline experience award changed.');
 assert.equal(offlineMvpInscriptionGranted, 9, 'Offline MVP inscription exp award changed.');
 assert.equal(offlineState.materials.dust, 4, 'Offline material award changed.');
+assert.deepEqual(offlineMaterialMasteryCalls, [{ mapId: 'grass', amount: 4 }], 'Offline material claim should preserve pending map id for map mastery.');
 assert.equal(offlineState.offlinePending.equipments[0].id, 'waiting', 'Unclaimed equipment must remain pending.');
 assert.equal(offlineSummaries[0].equipments.length, 1, 'Claim summaries must not duplicate pending equipment after save normalization.');
 assert.equal(offlineSummaries[0].pendingEquipment[0].id, 'waiting', 'Claim summaries must preserve pending equipment separately.');
@@ -3915,6 +3924,7 @@ offline.rollOfflineMaterialDrops(offlineCategoryRewards, {}, { id: 'grass' }, 1,
 assert.equal(offline.rollOfflineZodiacSetDrops(offlineCategoryRewards, {}, { id: 'grass' }, 1, 0, offlineCategoryContext), 0, 'Offline zodiac-set drops should be disabled.');
 assert.equal(offlineCategoryRewards.cards[0].cardId, 'offline-card', 'Offline card reward routing changed.');
 assert.equal(offlineCategoryRewards.materials[0].materialId, 'ore', 'Offline material reward routing changed.');
+assert.equal(offlineCategoryRewards.materials[0].mapId, 'grass', 'Offline material rewards should keep their generating map id.');
 assert.deepEqual(offlineCategoryRewards.equipments.map((item) => item.id), [], 'Offline zodiac-set drops should be disabled.');
 const offlineHardRewards = { equipments: [], cards: [], materials: [] };
 const offlineHardContext = {

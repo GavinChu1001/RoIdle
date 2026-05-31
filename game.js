@@ -3834,7 +3834,9 @@ function gainMapExploration(mapId, amount, { offline = false } = {}) {
 
 function recordMapMasteryMaterial(mapId, amount = 1) {
   const targetMapId = mapId || currentMap()?.id;
-  const qty = Math.max(0, Math.floor(Number(amount || 0)));
+  const rawAmount = Number(amount);
+  if (!Number.isFinite(rawAmount)) return;
+  const qty = Math.max(0, Math.min(1000, Math.floor(rawAmount)));
   if (!targetMapId || qty <= 0) return;
   gainMapExploration(targetMapId, Math.max(1, Math.floor(Math.sqrt(qty))));
 }

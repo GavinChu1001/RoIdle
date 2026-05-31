@@ -34,6 +34,15 @@ function mergeCountEntries(entries, idKey) {
   return [...merged.values()].filter((entry) => entry.qty > 0);
 }
 
+function materialMapId(entry = {}, fallbackMapId = '') {
+  return entry.dropMapId || entry.mapId || fallbackMapId || '';
+}
+
+function withMaterialMapId(entry = {}, fallbackMapId = '') {
+  const mapId = materialMapId(entry, fallbackMapId);
+  return mapId ? { ...entry, mapId } : { ...entry };
+}
+
 function freeEquipmentSlots(rewards, context = runtimeContext) {
   const state = context.getState?.() || {};
   const limit = finite(context.getInventoryLimit?.());
@@ -284,10 +293,12 @@ export function claimOfflineRewards(context = runtimeContext) {
   });
 
   context.grantCards?.(list(pending.cards));
-  context.grantMaterials?.(list(pending.materials));
+  const claimedMaterials = list(pending.materials).map((entry) => withMaterialMapId(entry, pending.mapId || pending.dropMapId));
+  context.grantMaterials?.(claimedMaterials);
 
   const summary = {
     ...pending,
+    materials: claimedMaterials,
     equipment: claimedEquipment,
     equipments: claimedEquipment,
     pendingEquipment: unclaimedEquipment,
@@ -370,12 +381,14 @@ export function rollOfflineMaterialDrops(rewards, stats, map, killCount, context
         materialId: drop.materialId,
         name: context.getMaterialName?.(drop.materialId) || drop.materialId,
         rarity: context.getMaterialRarity?.(drop.materialId) || 'normal',
+        mapId: map?.id || '',
         qty: 0,
       };
       found[drop.materialId].qty += finite(qty);
     });
   }
-  rewards.materials = mergeCountEntries([...list(rewards.materials), ...Object.values(found)], 'materialId');
+  const mapId = map?.id || rewards.mapId || '';
+  rewards.materials = mergeCountEntries([...list(rewards.materials), ...Object.values(found)].map((entry) => withMaterialMapId(entry, mapId)), 'materialId');
   return rewards.materials;
 }
 
