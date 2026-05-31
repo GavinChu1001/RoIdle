@@ -1418,6 +1418,8 @@ for (const name of [
 }
 assert.match(equipmentIndexSource, /export\s+\*\s+from\s+['"]\.\/crafting\.js['"]/, 'Equipment index must re-export equipment crafting.');
 assert.match(equipmentIndexSource, /createItem:\s*\(template,\s*level,\s*rarity,\s*itemContext\)\s*=>\s*createItem\(template,\s*level,\s*rarity,\s*itemContext,\s*context\)/, 'Equipment runtime crafting context must bridge module createItem.');
+assert.match(equipmentIndexSource, /typeof\s+context\.addCraftingExperience\s*===\s*['"]function['"]/, 'Equipment runtime crafting context should prefer a legacy addCraftingExperience delegate when provided.');
+assert.match(equipmentIndexSource, /else\s+if\s*\(\s*typeof\s+productionRuntime\(\)\?\.addCraftingExperience\s*===\s*['"]function['"]\s*\)/, 'Equipment runtime crafting context should only attach the production runtime delegate when it exists.');
 assert.match(equipmentIndexSource, /canCraftEquipment:\s*\(request\)\s*=>\s*canCraftEquipment\(request,\s*craftingContext\)/, 'Equipment runtime must validate crafting through enhanced crafting context.');
 assert.match(equipmentIndexSource, /craftEquipment:\s*\(request\)\s*=>\s*craftEquipment\(request,\s*craftingContext\)/, 'Equipment runtime must craft through enhanced crafting context.');
 const equipmentCraftingItemProgressionUrl = `data:text/javascript;base64,${Buffer.from(itemProgressionSource).toString('base64')}`;
@@ -1591,6 +1593,8 @@ const assertCraftBlockedWithoutConsumption = (label, state, context, expectedRea
     assert.equal(globalThis.__equipmentRuntimeCreateItemCalls[0]?.itemContext.series, 'os', 'Runtime crafting should pass series into the module createItem bridge.');
     assert.equal(globalThis.__equipmentRuntimeCreateItemCalls[0]?.itemContext.growthTier, 'T3', 'Runtime crafting should pass growth tier into the module createItem bridge.');
     assert.equal(runtimeState.inventory[0], result.item, 'Runtime crafting should add the crafted item to inventory.');
+    assert.equal(runtimeState.production.crafting.totalCrafts, 1, 'Runtime crafting without an experience delegate should use craftEquipment totalCrafts fallback.');
+    assert.ok(runtimeState.production.crafting.exp > 0, 'Runtime crafting without an experience delegate should use craftEquipment exp fallback.');
   } finally {
     if (previousWindow === undefined) {
       delete globalThis.window;

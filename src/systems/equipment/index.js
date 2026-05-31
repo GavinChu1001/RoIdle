@@ -66,8 +66,12 @@ export function installEquipmentRuntime(context = {}) {
     getProgressionEquipmentTemplates,
     getEquipmentLineMaterials,
     normalizeEquipmentSeries,
-    addCraftingExperience: (production, amount) => productionRuntime()?.addCraftingExperience?.(production, amount),
   };
+  if (typeof context.addCraftingExperience === 'function') {
+    craftingContext.addCraftingExperience = (production, amount) => context.addCraftingExperience(production, amount);
+  } else if (typeof productionRuntime()?.addCraftingExperience === 'function') {
+    craftingContext.addCraftingExperience = (production, amount) => productionRuntime().addCraftingExperience(production, amount);
+  }
   const runtime = Object.freeze({
     getEquipmentDisplayName,
     getEffectiveItemStats,
