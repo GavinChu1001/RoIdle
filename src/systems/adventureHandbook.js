@@ -265,6 +265,93 @@ function defaultEquipmentTarget(state = {}, context = handbookCtx) {
   return { title: '提升装备质量', desc: '寻找更高阶级或更适合当前职业的装备。' };
 }
 
+export function productionSuggestions(state = {}, context = handbookCtx) {
+  const safeState = state && typeof state === 'object' ? state : {};
+  const ctx = context && typeof context === 'object' ? context : {};
+  const production = safeState.production || {};
+  const mining = production.mining || {};
+  const artisan = production.artisan || {};
+  const crafting = production.crafting || {};
+  const craftingLevel = Math.max(1, Math.floor(finite(crafting.level) || 1));
+  const band = ctx.getCraftingMasteryBand?.(craftingLevel);
+  const activeJob = artisan.activeJob && typeof artisan.activeJob === 'object' ? artisan.activeJob : null;
+  return [
+    {
+      id: 'mining',
+      title: '\u91c7\u77ff\u719f\u7ec3\u5ea6',
+      desc: `Lv.${Math.max(1, Math.floor(finite(mining.level) || 1))} / EXP ${Math.max(0, Math.floor(finite(mining.exp)))}`,
+      reason: '\u5b9a\u671f\u9886\u53d6\u77ff\u70b9\uff0c\u4f18\u5148\u50a8\u5907\u6253\u9020\u80da\u5b50\u6240\u9700\u7684\u77ff\u77f3\u3002',
+    },
+    {
+      id: 'artisan',
+      title: '\u5de5\u5320\u59d4\u6258',
+      desc: activeJob ? '\u5df2\u6709\u59d4\u6258\u8fdb\u884c\u4e2d' : `Lv.${Math.max(1, Math.floor(finite(artisan.level) || 1))}`,
+      reason: activeJob
+        ? '\u7b49\u5f85\u5f53\u524d\u59d4\u6258\u5b8c\u6210\uff0c\u518d\u8865\u5145\u88c5\u5907\u80da\u5b50\u3002'
+        : '\u5f00\u59cb\u6b66\u5668\u6216\u9632\u5177\u80da\u5b50\u59d4\u6258\uff0c\u4e3a\u4e0b\u4e00\u6b21\u6253\u9020\u505a\u51c6\u5907\u3002',
+    },
+    {
+      id: 'crafting',
+      title: '\u6253\u9020\u719f\u7ec3\u5ea6',
+      desc: band?.label ? `Lv.${craftingLevel} / ${band.label}` : `Lv.${craftingLevel}`,
+      reason: '\u7528\u4f4e\u9636\u914d\u65b9\u7a33\u5b9a\u5347\u7ea7\uff0c\u89e3\u9501\u66f4\u9ad8\u7a00\u6709\u5ea6\u7684\u88c5\u5907\u6253\u9020\u3002',
+    },
+  ];
+}
+
+function craftingRarityForLevel(level) {
+  if (level >= 81) return 'mythic';
+  if (level >= 61) return 'darkGold';
+  if (level >= 41) return 'legend';
+  if (level >= 21) return 'epic';
+  return 'rare';
+}
+
+function craftReason(result = {}) {
+  if (result.ok) return '\u6750\u6599\u5df2\u5c31\u7eea\uff0c\u53ef\u76f4\u63a5\u524d\u5f80\u94c1\u5320\u94fa\u6253\u9020\u3002';
+  if (result.reason === 'level_too_low') return '\u6253\u9020\u719f\u7ec3\u5ea6\u4e0d\u8db3\uff0c\u5148\u901a\u8fc7\u4f4e\u9636\u88c5\u5907\u7ec3\u7ea7\u3002';
+  if (result.reason === 'blueprint_missing') return '\u9700\u8981\u5148\u89e3\u9501\u5bf9\u5e94\u84dd\u56fe\u3002';
+  if (result.reason === 'not_affordable') return '\u91d1\u5e01\u6216\u6750\u6599\u5c1a\u6709\u7f3a\u53e3\uff0c\u53ef\u5148\u8865\u91c7\u77ff\u548c\u6750\u6599\u6389\u843d\u3002';
+  return '\u7ee7\u7eed\u8865\u9f50\u6253\u9020\u6761\u4ef6\u3002';
+}
+
+export function craftingTargets(state = {}, context = handbookCtx) {
+  const safeState = state && typeof state === 'object' ? state : {};
+  const ctx = context && typeof context === 'object' ? context : {};
+  const runtime = ctx.getEquipmentRuntime?.() || (typeof window !== 'undefined' ? window.RuneFrontierEquipmentRuntime : null);
+  const seriesMap = runtime?.EQUIPMENT_SERIES || ctx.EQUIPMENT_SERIES || {};
+  const getRecipe = runtime?.getEquipmentCraftingRecipe || ctx.getEquipmentCraftingRecipe;
+  const canCraft = runtime?.canCraftEquipment || ctx.canCraftEquipment;
+  if (!getRecipe || !canCraft) return [];
+
+  const craftingLevel = Math.max(1, Math.floor(finite(safeState.production?.crafting?.level) || 1));
+  const rarity = craftingRarityForLevel(craftingLevel);
+  const slots = ['weapon', 'armor', 'shoes', 'trinket'];
+  return Object.values(seriesMap)
+    .filter((series) => series?.id && series.id !== 'oldWorld')
+    .slice(0, 5)
+    .map((series, index) => {
+      const request = {
+        series: series.id,
+        growthTier: series.defaultTier,
+        slot: slots[index % slots.length],
+        archetype: 'general',
+        rarity,
+      };
+      const result = canCraft(request, ctx) || {};
+      const recipe = result.recipe || getRecipe(request);
+      const materialCount = Object.values(recipe?.materials || {}).reduce((sum, amount) => sum + Math.max(0, Math.floor(finite(amount))), 0);
+      return {
+        id: recipe?.id || `${series.id}_${request.slot}_${rarity}`,
+        title: `${series.label || series.id} ${request.slot}`,
+        desc: `${rarity} / Lv.${recipe?.level || 1} / ${materialCount}\u4ef6\u6750\u6599`,
+        reason: craftReason(result),
+        craftable: Boolean(result.ok),
+      };
+    })
+    .slice(0, 5);
+}
+
 export function buildAdventureHandbookModel(state = handbookCtx.getState?.() || {}, context = handbookCtx) {
   const safeState = state && typeof state === 'object' ? state : {};
   const ctx = context && typeof context === 'object' ? context : {};
@@ -286,6 +373,8 @@ export function buildAdventureHandbookModel(state = handbookCtx.getState?.() || 
       .filter((entry) => finite(entry.remaining) > 0)
       .slice(0, 3),
     equipmentTarget: ctx.getEquipmentTarget?.(safeState, stats) || defaultEquipmentTarget(safeState, ctx),
+    productionSuggestions: productionSuggestions(safeState, ctx),
+    craftingTargets: craftingTargets(safeState, ctx),
   };
 }
 

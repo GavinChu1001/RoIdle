@@ -364,6 +364,8 @@ assert.match(game, /adventureHandbook:\s*normalizeAdventureHandbookState\(saved\
 assert.match(game, /state\.adventureHandbook\s*=\s*normalizeAdventureHandbookState\(state\.adventureHandbook\)/, 'Sanitize should keep adventure handbook normalized.');
 assert.match(game, /function\s+recordAdventureHandbookProgress\s*\(/, 'Classic runtime should expose handbook progress helper.');
 assert.match(game, /function\s+claimAdventureHandbookGoal\s*\(/, 'Classic runtime should expose handbook claim helper.');
+assert.match(game, /function\s+recordMapMasteryMaterial\s*\(/, 'Classic runtime should expose map mastery material helper.');
+assert.match(game, /function\s+recordMapMasteryEquipment\s*\(/, 'Classic runtime should expose map mastery equipment helper.');
 assert.match(settlementSource, /recordAdventureHandbookProgress\?\.\('daily_kills'/, 'Combat settlement should feed handbook kill progress.');
 assert.match(settlementSource, /recordAdventureHandbookProgress\?\.\('weekly_bosses'/, 'Combat settlement should feed handbook weekly boss progress.');
 assert.match(dungeonSystemSource, /recordAdventureHandbookProgress\?\.\('daily_dungeon'/, 'Dungeon completion should feed handbook daily dungeon progress.');
@@ -375,6 +377,10 @@ assert.match(game, /RuneFrontierLegacyAdventureHandbookContext/, 'Classic runtim
 assert.match(adventureHandbookPageSource, /export function renderAdventureHandbookPage/, 'Adventure handbook page renderer should exist.');
 assert.match(adventureHandbookPageSource, /data-claim-handbook-goal/, 'Adventure handbook goals should expose claim buttons.');
 assert.match(adventureHandbookPageSource, /handbook-section/, 'Adventure handbook renderer should use handbook sections.');
+assert.match(adventureHandbookSource, /craftingTargets/, 'Adventure handbook model should include crafting targets.');
+assert.match(adventureHandbookSource, /productionSuggestions/, 'Adventure handbook model should include production suggestions.');
+assert.match(adventureHandbookPageSource, /craftingTargets/, 'Adventure handbook page should render crafting targets.');
+assert.match(adventureHandbookPageSource, /productionSuggestions/, 'Adventure handbook page should render production suggestions.');
 assert.doesNotMatch(adventurePageSource, /renderAdvicePanel/, 'Adventure page should no longer render current advice.');
 assert.doesNotMatch(game, /renderAdvicePanel\(stats\)[\s\S]{0,120}<div class="party-item">/, 'Classic adventure fallback should no longer render advice before party status.');
 assert.match(game, /function\s+renderAdventureHandbook\s*\(/, 'Classic runtime should expose adventure handbook render function.');
@@ -492,6 +498,8 @@ assert.match(styles, /\.handbook-goal-card/, 'Styles should include Adventure Ha
   assert.ok(model.materials.length > 0, 'Handbook model should include material recommendations.');
   assert.ok(model.dungeons.length > 0, 'Handbook model should include dungeon recommendations.');
   assert.equal(model.equipmentTarget.title, 'Fill Weapon Slot', 'Handbook model should expose equipment target.');
+  assert.ok(Array.isArray(model.productionSuggestions), 'Handbook model should expose production suggestions.');
+  assert.ok(Array.isArray(model.craftingTargets), 'Handbook model should expose crafting targets.');
 }
 assert.match(game, /getBossCycleGoldBonus/, 'Combat settlement context should provide Boss cycle gold bonuses.');
 assert.match(mapPageSource, /周回挑战/, 'Map difficulty UI should explain hard mode as a repeat challenge.');

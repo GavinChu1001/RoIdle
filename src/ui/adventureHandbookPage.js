@@ -12,6 +12,10 @@ const TEXT = {
   defaultEquipmentDesc: "\u5bfb\u627e\u66f4\u9002\u5408\u5f53\u524d\u9636\u6bb5\u7684\u88c5\u5907\u3002",
   recommendedMaterials: "\u63a8\u8350\u6750\u6599",
   noMaterials: "\u5f53\u524d\u6ca1\u6709\u660e\u663e\u6750\u6599\u7f3a\u53e3\u3002",
+  productionSuggestions: "\u751f\u4ea7\u5efa\u8bae",
+  noProductionSuggestions: "\u6682\u65e0\u751f\u4ea7\u5efa\u8bae\u3002",
+  craftingTargets: "\u6253\u9020\u76ee\u6807",
+  noCraftingTargets: "\u6682\u65e0\u53ef\u63a8\u8350\u7684\u6253\u9020\u76ee\u6807\u3002",
   recommendedDungeons: "\u63a8\u8350\u526f\u672c",
   noDungeons: "\u4eca\u65e5\u526f\u672c\u6b21\u6570\u5df2\u7528\u5b8c\u3002",
   dailyGoals: "\u6bcf\u65e5\u76ee\u6807",
@@ -99,6 +103,13 @@ function renderDungeonRow(row) {
   </div>`;
 }
 
+function renderSuggestionRow(row) {
+  return `<div class="handbook-rec-row">
+    <div><strong>${esc(row.title || row.name || row.id)}</strong><small>${esc(row.desc || "")}</small></div>
+    <span>${esc(row.reason || "")}</span>
+  </div>`;
+}
+
 export function configureAdventureHandbookRenderContext(ctx = {}) {
   handbookRenderCtx = ctx || {};
 }
@@ -114,6 +125,8 @@ export function renderAdventureHandbookPage() {
   const equipment = model.equipmentTarget || {};
   const materials = model.materials || [];
   const dungeons = model.dungeons || [];
+  const productionSuggestions = model.productionSuggestions || [];
+  const craftingTargets = model.craftingTargets || [];
   const dailyGoals = model.dailyGoals || [];
   const weeklyGoals = model.weeklyGoals || [];
 
@@ -127,6 +140,8 @@ export function renderAdventureHandbookPage() {
       <article><span>${TEXT.equipmentTarget}</span><strong>${esc(equipment.title || TEXT.defaultEquipmentTitle)}</strong><p>${esc(equipment.desc || TEXT.defaultEquipmentDesc)}</p></article>
     </section>
     <section class="handbook-section"><h3>${TEXT.recommendedMaterials}</h3><div class="handbook-rec-list">${materials.map(renderMaterialRow).join("") || `<p class="quest-desc">${TEXT.noMaterials}</p>`}</div></section>
+    <section class="handbook-section"><h3>${TEXT.productionSuggestions}</h3><div class="handbook-rec-list">${productionSuggestions.map(renderSuggestionRow).join("") || `<p class="quest-desc">${TEXT.noProductionSuggestions}</p>`}</div></section>
+    <section class="handbook-section"><h3>${TEXT.craftingTargets}</h3><div class="handbook-rec-list">${craftingTargets.map(renderSuggestionRow).join("") || `<p class="quest-desc">${TEXT.noCraftingTargets}</p>`}</div></section>
     <section class="handbook-section"><h3>${TEXT.recommendedDungeons}</h3><div class="handbook-rec-list">${dungeons.map(renderDungeonRow).join("") || `<p class="quest-desc">${TEXT.noDungeons}</p>`}</div></section>
     <section class="handbook-section"><h3>${TEXT.dailyGoals}</h3><div class="handbook-goal-grid">${dailyGoals.map(renderGoalCard).join("")}</div></section>
     <section class="handbook-section"><h3>${TEXT.weeklyGoals}</h3><div class="handbook-goal-grid">${weeklyGoals.map(renderGoalCard).join("")}</div></section>

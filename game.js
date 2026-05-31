@@ -3832,6 +3832,21 @@ function gainMapExploration(mapId, amount, { offline = false } = {}) {
   if (entry.level > before) addLog(`${mapNameById(mapId)} 探索度提升至 Lv.${entry.level}。`);
 }
 
+function recordMapMasteryMaterial(mapId, amount = 1) {
+  const targetMapId = mapId || currentMap()?.id;
+  const qty = Math.max(0, Math.floor(Number(amount || 0)));
+  if (!targetMapId || qty <= 0) return;
+  gainMapExploration(targetMapId, Math.max(1, Math.floor(Math.sqrt(qty))));
+}
+
+function recordMapMasteryEquipment(item = {}) {
+  const targetMapId = item?.dropMapId || currentMap()?.id;
+  if (!targetMapId) return;
+  const rarity = item?.rarity || "";
+  const amount = rarity === "mythic" ? 8 : rarity === "darkGold" ? 5 : 2;
+  gainMapExploration(targetMapId, amount);
+}
+
 function getMapExplorationLevelFromPoints(points) {
   let level = 0;
   MAP_EXPLORATION_REQUIREMENTS.forEach((need, index) => {
@@ -14939,6 +14954,7 @@ window.RuneFrontierLegacyEquipmentContext = () => Object.freeze({
   },
   getInventoryLimit,
   addMaterials,
+  recordMapMasteryEquipment,
   recordEquipmentResearch,
   recordEquipmentCollection,
   recordAdventureHandbookProgress,
@@ -15039,6 +15055,8 @@ window.RuneFrontierLegacyDropsContext = () => Object.freeze({
   computeStats,
   getEquipmentSynergyEffects,
   noteEquipmentSynergyKill,
+  recordMapMasteryMaterial,
+  recordMapMasteryEquipment,
   getMaterialDropTable(mapId) {
     return materialDropTables[mapId] || [];
   },
@@ -15138,9 +15156,11 @@ window.RuneFrontierLegacyDropsContext = () => Object.freeze({
   },
   addEquipmentToInventory(item, options) {
     const runtime = window.RuneFrontierEquipmentRuntime;
-    return runtime?.addEquipmentToInventory
+    const result = runtime?.addEquipmentToInventory
       ? runtime.addEquipmentToInventory(item, options)
       : legacyAddEquipmentToInventory(item, options);
+    if (result?.added) recordMapMasteryEquipment(item);
+    return result;
   },
 });
 
@@ -15243,6 +15263,8 @@ window.RuneFrontierLegacyOfflineContext = () => Object.freeze({
   buildMonsterStats,
   rollEquipmentDropsFromTable,
   gainMapExploration,
+  recordMapMasteryMaterial,
+  recordMapMasteryEquipment,
   getEquipmentRuntime() {
     return window.RuneFrontierEquipmentRuntime;
   },
@@ -15262,6 +15284,7 @@ window.RuneFrontierLegacyOfflineContext = () => Object.freeze({
   grantMaterials(materials) {
     (materials || []).forEach((material) => {
       state.materials[material.materialId] = (state.materials[material.materialId] || 0) + (material.qty || 0);
+      recordMapMasteryMaterial(material.dropMapId || material.mapId, material.qty || 0);
     });
   },
   recordRecentLoot,
@@ -15428,6 +15451,8 @@ window.RuneFrontierLegacyCombatContext = () => Object.freeze({
   updateQuestProgress,
   explorationGainForKill,
   gainMapExploration,
+  recordMapMasteryMaterial,
+  recordMapMasteryEquipment,
   trackKillAchievements,
   getEquipmentPityThreshold,
   rollGuaranteedEquipmentDrop() {
@@ -15547,6 +15572,12 @@ window.RuneFrontierLegacyAdventureHandbookContext = () => Object.freeze({
   },
   getDungeonCards(stateArg = state) {
     return window.RuneFrontierDungeonRuntime?.getDungeonCards?.(stateArg) || [];
+  },
+  getEquipmentRuntime() {
+    return window.RuneFrontierEquipmentRuntime;
+  },
+  getCraftingMasteryBand(level) {
+    return window.RuneFrontierProductionRuntime?.getCraftingMasteryBand?.(level);
   },
   getNextEquipmentUpgrade,
   grantReward: grantGenericReward,
