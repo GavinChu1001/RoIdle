@@ -229,6 +229,7 @@ assert.match(game, /function\s+defaultProductionState\s*\(/, 'game.js must expos
 assert.match(game, /production:\s*defaultProductionState\(\)/, 'Default state should include production state.');
 assert.match(game, /production:\s*normalizeProductionState\(saved\.production\s*\|\|\s*base\.production\)/, 'Saved state merge should normalize production state.');
 assert.match(game, /state\.production\s*=\s*normalizeProductionState\(state\.production\)/, 'Sanitize should keep production state normalized.');
+assert.match(game, /function\s+normalizeProductionState\s*\(\s*value\s*\)[\s\S]*const\s+base\s*=\s*defaultProductionState\(\)[\s\S]*\.\.\.base\.crafting[\s\S]*\.\.\.crafting[\s\S]*blueprints\.known[\s\S]*blueprints\.fragments/, 'Production fallback normalization must preserve saved production progress.');
 assert.match(game, /data-claim-mining-production/, 'Smithy runtime must handle mining production claims.');
 assert.match(game, /data-start-artisan-job/, 'Smithy runtime must handle artisan job starts.');
 assert.match(game, /data-craft-equipment/, 'Smithy runtime must handle equipment crafting.');

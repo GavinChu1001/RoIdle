@@ -1723,7 +1723,66 @@ function defaultProductionState() {
 function normalizeProductionState(value) {
   const runtime = window.RuneFrontierProductionRuntime;
   if (runtime && typeof runtime.normalizeProductionState === "function") return runtime.normalizeProductionState(value);
-  return defaultProductionState();
+  const base = defaultProductionState();
+  if (!value || typeof value !== "object" || Array.isArray(value)) return base;
+  const nonNegativeInt = (input) => {
+    const number = Number(input);
+    return Number.isFinite(number) ? Math.max(0, Math.floor(number)) : 0;
+  };
+  const clampLevel = (input) => Math.max(1, Math.min(100, nonNegativeInt(input) || 1));
+  const mining = value.mining && typeof value.mining === "object" && !Array.isArray(value.mining) ? value.mining : {};
+  const miningNodes = mining.nodes && typeof mining.nodes === "object" && !Array.isArray(mining.nodes) ? mining.nodes : {};
+  const artisan = value.artisan && typeof value.artisan === "object" && !Array.isArray(value.artisan) ? value.artisan : {};
+  const crafting = value.crafting && typeof value.crafting === "object" && !Array.isArray(value.crafting) ? value.crafting : {};
+  const blueprints = value.blueprints && typeof value.blueprints === "object" && !Array.isArray(value.blueprints) ? value.blueprints : {};
+  return {
+    ...base,
+    version: nonNegativeInt(value.version) || base.version,
+    mining: {
+      ...base.mining,
+      ...mining,
+      level: clampLevel(mining.level ?? base.mining.level),
+      exp: nonNegativeInt(mining.exp),
+      lastClaimedAt: nonNegativeInt(mining.lastClaimedAt),
+      nodes: Object.fromEntries(Object.entries(base.mining.nodes).map(([id, node]) => {
+        const saved = miningNodes[id] && typeof miningNodes[id] === "object" && !Array.isArray(miningNodes[id]) ? miningNodes[id] : {};
+        return [id, {
+          ...node,
+          ...saved,
+          unlocked: id === "grass" ? true : Boolean(saved.unlocked ?? node.unlocked),
+          exp: nonNegativeInt(saved.exp),
+          lastClaimedAt: nonNegativeInt(saved.lastClaimedAt),
+        }];
+      })),
+    },
+    artisan: {
+      ...base.artisan,
+      ...artisan,
+      level: clampLevel(artisan.level ?? base.artisan.level),
+      exp: nonNegativeInt(artisan.exp),
+      jobsCompleted: nonNegativeInt(artisan.jobsCompleted),
+      activeJob: artisan.activeJob && typeof artisan.activeJob === "object" && !Array.isArray(artisan.activeJob) ? { ...artisan.activeJob } : null,
+    },
+    crafting: {
+      ...base.crafting,
+      ...crafting,
+      level: clampLevel(crafting.level ?? base.crafting.level),
+      exp: nonNegativeInt(crafting.exp),
+      totalCrafts: nonNegativeInt(crafting.totalCrafts),
+      masterCrafts: nonNegativeInt(crafting.masterCrafts),
+    },
+    blueprints: {
+      ...base.blueprints,
+      ...blueprints,
+      known: Array.isArray(blueprints.known) ? [...new Set(blueprints.known.filter((id) => typeof id === "string" && id.trim()).map((id) => id.trim()))] : [],
+      fragments: blueprints.fragments && typeof blueprints.fragments === "object" && !Array.isArray(blueprints.fragments)
+        ? Object.fromEntries(Object.entries(blueprints.fragments)
+          .filter(([id]) => typeof id === "string" && id.trim())
+          .map(([id, amount]) => [id.trim(), nonNegativeInt(amount)])
+          .filter(([, amount]) => amount > 0))
+        : {},
+    },
+  };
 }
 
 function recordAdventureHandbookProgress(goalId, amount = 1) {
