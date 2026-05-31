@@ -44,6 +44,7 @@ import { installSmithyRenderRuntime } from './ui/smithyPage.js';
 import { installMapRenderRuntime } from './ui/mapPage.js';
 import { installCardRenderRuntime } from './ui/cardPage.js';
 import { installOnboardingGuideRuntime } from './ui/onboardingGuide.js';
+import { installAdventureRenderRuntime } from './ui/adventurePage.js';
 import { installTaskRenderRuntime } from './ui/taskPage.js';
 import { installLogRenderRuntime } from './ui/logPanel.js';
 import { installAdviceRenderRuntime } from './ui/components/actionButton.js';
@@ -373,6 +374,19 @@ const onboardingGuideContext = {
 };
 installOnboardingGuideRuntime(onboardingGuideContext);
 document.documentElement.dataset.runeModuleStatus = 'onboarding-render-ready';
+
+installAdventureRenderRuntime({
+  getState() { return window.state || {}; },
+  getEls() { return window.els || {}; },
+  escapeHtml: window.escapeHtml,
+  formatNumber: window.formatNumber,
+  computeStats: window.computeStats,
+  jobSummary: window.jobSummary,
+  renderAdvicePanel: window.renderAdvicePanel,
+  renderSessionRewardPanel: window.renderSessionRewardPanel,
+  getSkillDpsRows(limit) { return window.RuneFrontierCombatRuntime?.getSkillDpsRows?.(limit) || []; },
+});
+document.documentElement.dataset.runeModuleStatus = 'adventure-render-ready';
 
 const taskRenderContext = { getState() { return window.state || {}; }, getEls() { return window.els || {}; }, escapeHtml: window.escapeHtml, formatNumber: window.formatNumber, normalizeDailyGoals: window.normalizeDailyGoals, achievementRewardText: window.achievementRewardText, questRewardText: window.questRewardText, getAchievementDb() { return window.ACHIEVEMENT_DB || []; }, getAchievementEntry: window.getAchievementEntry, };
 installTaskRenderRuntime(taskRenderContext);

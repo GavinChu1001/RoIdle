@@ -66,6 +66,7 @@ const characterPageSource = read('src/ui/characterPage.js');
 const mapPageSource = read('src/ui/mapPage.js');
 const onboardingSource = read('src/systems/onboarding.js');
 const onboardingGuideSource = read('src/ui/onboardingGuide.js');
+const adventurePageSource = read('src/ui/adventurePage.js');
 
 const classicDataContext = { console };
 createContext(classicDataContext);
@@ -481,6 +482,12 @@ assert.doesNotMatch(game, /percent:\s*\[[^\]]*"powerPct"/s, 'Equipment V2 random
 assert.doesNotMatch(game, /percent:\s*\[[^\]]*"patrolEfficiency"/s, 'Equipment V2 random pools must not roll patrolEfficiency as a separate equipment stat.');
 assert.match(onboardingGuideSource, /renderOnboardingTaskSection/, 'Onboarding UI must expose a task-page section renderer.');
 assert.match(main, /installOnboardingGuideRuntime\(onboardingGuideContext\)/, 'Onboarding guide render runtime must be installed before startup.');
+assert.match(main, /installAdventureRenderRuntime/, 'Main module should install the adventure render runtime.');
+assert.match(adventurePageSource, /renderSkillDpsPanel/, 'Adventure page should render a Skill DPS panel.');
+assert.match(adventurePageSource, /getSkillDpsRows\?\.\(5\)/, 'Adventure Skill DPS panel should request the top five skills.');
+assert.match(adventurePageSource, /data-page="dungeons"/, 'Adventure sidebar should expose a dungeon page entry.');
+assert.match(styles, /\.skill-dps-panel/, 'Styles should include the Skill DPS panel.');
+assert.match(styles, /\.dungeon-entry-panel/, 'Styles should include the adventure dungeon entry panel.');
 assert.match(taskPageSource, /renderOnboardingTaskSection/, 'Task page must render the beginner goal section.');
 assert.match(onboardingGuideSource, /renderQuestList/, 'Onboarding UI must own the adventure current-goal renderer.');
 assert.doesNotMatch(onboardingGuideSource, /<span class="quest-name">当前首领<\/span>/, 'Adventure current target should no longer show the current boss row.');

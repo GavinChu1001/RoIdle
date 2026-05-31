@@ -13560,3 +13560,55 @@ button[data-map]:disabled {
   -webkit-text-stroke: 0 !important;
   text-shadow: 0 1px 0 rgba(38, 22, 12, 0.9) !important;
 }
+
+.skill-dps-panel,
+.dungeon-entry-panel {
+  border: 1px solid rgba(126, 85, 38, 0.28);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(255, 248, 222, 0.72);
+}
+
+.skill-dps-list {
+  display: grid;
+  gap: 8px;
+}
+
+.skill-dps-row {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 34px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.skill-dps-row > * {
+  position: relative;
+  z-index: 1;
+}
+
+.skill-dps-row strong,
+.skill-dps-row small {
+  display: block;
+}
+
+.skill-dps-row small {
+  color: #75542f;
+}
+
+.skill-dps-row i {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 3px;
+  transform-origin: left center;
+  background: linear-gradient(90deg, #b86a2e, #e0b15f);
+}
+
+.dungeon-entry-panel button {
+  width: 100%;
+}

@@ -2199,6 +2199,11 @@ function bindEvents() {
       renderFast(true);
     });
   });
+  document.body.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-page]");
+    if (!button || button.closest(".page-tabs")) return;
+    goToPage(button.dataset.page);
+  });
 
   els.pauseButton.addEventListener("click", () => {
     state.paused = !state.paused;
