@@ -6294,11 +6294,10 @@ function getSalvageRewards(item) {
 }
 
 function salvageAllUnequipped() {
-  const equippedIds = new Set(Object.values(state.equipped).filter(Boolean));
-  const hasProtectedTargets = state.inventory.some((item) => !equippedIds.has(item.id) && !item.locked && shouldProtectEquipment(item));
   const runtime = window.RuneFrontierEquipmentRuntime;
-  if (runtime && typeof runtime.salvageAllUnequipped === "function" && !hasProtectedTargets) return runtime.salvageAllUnequipped();
-  const targets = state.inventory.filter((item) => !equippedIds.has(item.id) && !item.locked && !shouldProtectEquipment(item));
+  if (runtime && typeof runtime.salvageAllUnequipped === "function") return runtime.salvageAllUnequipped();
+  const equippedIds = new Set(Object.values(state.equipped).filter(Boolean));
+  const targets = state.inventory.filter((item) => !equippedIds.has(item.id) && !item.locked);
   if (!targets.length) {
     showToast("没有可分解的未穿戴装备");
     return;
