@@ -2200,9 +2200,9 @@ function bindEvents() {
     });
   });
   document.body.addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-page]");
+    const button = event.target.closest("button[data-adventure-page]");
     if (!button || button.closest(".page-tabs")) return;
-    goToPage(button.dataset.page);
+    goToPage(button.dataset.adventurePage);
   });
 
   els.pauseButton.addEventListener("click", () => {

@@ -165,7 +165,7 @@ assert.match(html, /class="summary-panel[^"]*ro-command-sidebar/, 'sidebar shoul
 for (const id of [
   "pauseButton", "sceneCanvas", "playerHpBar", "enemyHpBar", "enemyStatusBar",
   "skillCastBanner", "skillBarV3", "autoBossToggle", "potionButton", "autoPotionToggle", "claimButton",
-  "offlineViewButton", "combatSidebar", "questList", "townTips"
+  "offlineViewButton", "combatSidebar", "questList", "partyList"
 ]) {
   assert.match(html, new RegExp(`id="${id}"`), `${id} must remain available to the active runtime`);
 }
@@ -483,11 +483,19 @@ assert.doesNotMatch(game, /percent:\s*\[[^\]]*"patrolEfficiency"/s, 'Equipment V
 assert.match(onboardingGuideSource, /renderOnboardingTaskSection/, 'Onboarding UI must expose a task-page section renderer.');
 assert.match(main, /installOnboardingGuideRuntime\(onboardingGuideContext\)/, 'Onboarding guide render runtime must be installed before startup.');
 assert.match(main, /installAdventureRenderRuntime/, 'Main module should install the adventure render runtime.');
+assert.match(main, /installAdventureRenderRuntime\(\{[\s\S]*currentJob:\s*window\.currentJob/, 'Adventure render runtime should receive the current job resolver.');
 assert.match(adventurePageSource, /renderSkillDpsPanel/, 'Adventure page should render a Skill DPS panel.');
 assert.match(adventurePageSource, /getSkillDpsRows\?\.\(5\)/, 'Adventure Skill DPS panel should request the top five skills.');
 assert.match(adventurePageSource, /data-page="dungeons"/, 'Adventure sidebar should expose a dungeon page entry.');
+assert.match(adventurePageSource, /data-adventure-page="dungeons"/, 'Adventure dungeon entry should use a scoped page navigation marker.');
+assert.match(adventurePageSource, /currentJob\?\.\(\)\s*\|\|\s*\{\}/, 'Adventure party panel should resolve the current job before rendering job text.');
+assert.match(adventurePageSource, /jobSummary\?\.\(job\)/, 'Adventure party panel should pass the current job into jobSummary.');
+assert.match(adventurePageSource, /BASE\s+\$\{state\.hero\.baseLevel\}[\s\S]*JOB\s+\$\{state\.hero\.jobLevel\}[\s\S]*fmtn\(stats\.dps\)/, 'Adventure party panel should retain BASE/JOB/output summary.');
+assert.match(game, /button\[data-adventure-page\]/, 'Adventure delegated page navigation should be scoped to adventure page buttons.');
+assert.match(game, /button\.dataset\.adventurePage/, 'Adventure delegated page navigation should read the scoped page target.');
 assert.match(styles, /\.skill-dps-panel/, 'Styles should include the Skill DPS panel.');
 assert.match(styles, /\.dungeon-entry-panel/, 'Styles should include the adventure dungeon entry panel.');
+assert.match(styles, /\.skill-dps-row\s*>\s*div\s*\{[\s\S]*min-width:\s*0/, 'Skill DPS row text column should be allowed to shrink.');
 assert.match(taskPageSource, /renderOnboardingTaskSection/, 'Task page must render the beginner goal section.');
 assert.match(onboardingGuideSource, /renderQuestList/, 'Onboarding UI must own the adventure current-goal renderer.');
 assert.doesNotMatch(onboardingGuideSource, /<span class="quest-name">当前首领<\/span>/, 'Adventure current target should no longer show the current boss row.');

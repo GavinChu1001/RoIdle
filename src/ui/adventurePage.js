@@ -20,7 +20,7 @@ export function renderSkillDpsPanel() {
 }
 
 function renderDungeonEntryPanel() {
-  return `<section class="dungeon-entry-panel"><div class="panel-heading compact"><div><p class="eyebrow">副本</p><h2>每日挑战</h2></div></div><p class="quest-meta">材料副本与 Boss 试炼已开放。</p><button class="ro-light-control" data-page="dungeons" type="button">进入副本</button></section>`;
+  return `<section class="dungeon-entry-panel"><div class="panel-heading compact"><div><p class="eyebrow">副本</p><h2>每日挑战</h2></div></div><p class="quest-meta">材料副本与 Boss 试炼已开放。</p><button class="ro-light-control" data-page="dungeons" data-adventure-page="dungeons" type="button">进入副本</button></section>`;
 }
 
 export function renderPartyList() {
@@ -28,13 +28,16 @@ export function renderPartyList() {
   if (!els.partyList) return;
   const state = adventureCtx.getState?.() || window.state || {};
   const stats = adventureCtx.computeStats?.() || {};
+  const job = adventureCtx.currentJob?.() || {};
+  const growthSummary = job.growth ? adventureCtx.jobSummary?.(job) || '' : '';
   const advice = adventureCtx.renderAdvicePanel?.(stats) || '';
   const sessionRewards = adventureCtx.renderSessionRewardPanel?.() || '';
   els.partyList.innerHTML = `
     ${advice}
     <div class="party-item">
-      <span class="party-name">角色状态</span>
-      <p class="party-meta">${esc(adventureCtx.jobSummary?.() || '')}</p>
+      <span class="party-name">主角 · ${esc(job.name || '')}</span>
+      <p class="party-meta">BASE ${state.hero.baseLevel} · JOB ${state.hero.jobLevel} · 输出 ${fmtn(stats.dps)}</p>
+      ${growthSummary ? `<p class="party-meta">${esc(growthSummary)}</p>` : ''}
     </div>
     <div class="party-item">
       <span class="party-name">技能记录</span>

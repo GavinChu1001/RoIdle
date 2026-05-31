@@ -13592,9 +13592,16 @@ button[data-map]:disabled {
   z-index: 1;
 }
 
+.skill-dps-row > div {
+  min-width: 0;
+}
+
 .skill-dps-row strong,
 .skill-dps-row small {
   display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .skill-dps-row small {

@@ -381,6 +381,7 @@ installAdventureRenderRuntime({
   escapeHtml: window.escapeHtml,
   formatNumber: window.formatNumber,
   computeStats: window.computeStats,
+  currentJob: window.currentJob,
   jobSummary: window.jobSummary,
   renderAdvicePanel: window.renderAdvicePanel,
   renderSessionRewardPanel: window.renderSessionRewardPanel,
