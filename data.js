@@ -445,10 +445,10 @@ var HARD_MAP_TIER_SCALE = {
   desert: { hp: 2.1, attack: 1.75, defense: 1.65, exp: 1.3, gold: 1.3, recommendedPower: 3200 },
   orc_village: { hp: 2.8, attack: 2.2, defense: 2, exp: 1.45, gold: 1.45, recommendedPower: 5200 },
   mine: { hp: 3.7, attack: 2.8, defense: 2.5, exp: 1.62, gold: 1.62, recommendedPower: 7800 },
-  clock: { hp: 4.9, attack: 3.5, defense: 3.1, exp: 1.82, gold: 1.82, recommendedPower: 11500 },
-  glast_heim: { hp: 6.4, attack: 4.4, defense: 3.9, exp: 2.05, gold: 2.05, recommendedPower: 16500 },
-  abyss_lake: { hp: 9, attack: 5.8, defense: 5.2, exp: 2.35, gold: 2.35, recommendedPower: 30000 },
-  sky: { hp: 13, attack: 7.3, defense: 6.5, exp: 2.7, gold: 2.7, recommendedPower: 50000 },
+  clock: { hp: 5.8, attack: 3.7, defense: 3.6, exp: 1.88, gold: 1.88, recommendedPower: 14000 },
+  glast_heim: { hp: 8.2, attack: 4.8, defense: 4.8, exp: 2.18, gold: 2.18, recommendedPower: 22000 },
+  abyss_lake: { hp: 12.5, attack: 6.3, defense: 6.5, exp: 2.55, gold: 2.55, recommendedPower: 42000 },
+  sky: { hp: 18, attack: 8.2, defense: 8.4, exp: 3.0, gold: 3.0, recommendedPower: 75000 },
 };
 var ABYSS_MAP_TIER_SCALE = {
   grass: { hp: 1, attack: 1, defense: 1, exp: 1, gold: 1, recommendedPower: 2100 },
@@ -457,10 +457,10 @@ var ABYSS_MAP_TIER_SCALE = {
   desert: { hp: 2.1, attack: 1.9, defense: 1.78, exp: 1.42, gold: 1.42, recommendedPower: 7800 },
   orc_village: { hp: 2.8, attack: 2.4, defense: 2.22, exp: 1.64, gold: 1.64, recommendedPower: 11500 },
   mine: { hp: 3.7, attack: 3.1, defense: 2.82, exp: 1.9, gold: 1.9, recommendedPower: 16500 },
-  clock: { hp: 5.1, attack: 4.1, defense: 3.65, exp: 2.22, gold: 2.22, recommendedPower: 30000 },
-  glast_heim: { hp: 7, attack: 5.5, defense: 4.8, exp: 2.6, gold: 2.6, recommendedPower: 50000 },
-  abyss_lake: { hp: 9.5, attack: 7.2, defense: 6.2, exp: 3.05, gold: 3.05, recommendedPower: 80000 },
-  sky: { hp: 13, attack: 9.5, defense: 8.2, exp: 3.6, gold: 3.6, recommendedPower: 120000 },
+  clock: { hp: 6.4, attack: 4.3, defense: 4.3, exp: 2.32, gold: 2.32, recommendedPower: 42000 },
+  glast_heim: { hp: 9.5, attack: 5.9, defense: 6.0, exp: 2.85, gold: 2.85, recommendedPower: 75000 },
+  abyss_lake: { hp: 14, attack: 7.8, defense: 8.0, exp: 3.35, gold: 3.35, recommendedPower: 120000 },
+  sky: { hp: 20, attack: 10.8, defense: 10.5, exp: 3.95, gold: 3.95, recommendedPower: 190000 },
 };
 var ABYSS_BOSS_EXTRA_MULTIPLIER = {
   hp: 2.8,

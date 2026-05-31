@@ -972,7 +972,7 @@ const ancientHeroPhysicalWeapon = itemProgression.getProgressionEquipmentTemplat
 const osPhysicalWeapon = itemProgression.getProgressionEquipmentTemplate('prog_os_os_physical_weapon');
 const osAdPhysicalWeapon = itemProgression.getProgressionEquipmentTemplate('prog_os_osAd_physical_weapon');
 assert.equal(ancientHeroPhysicalWeapon.atk, 18, 'T2 Ancient Hero physical weapon base ATK should use the new T2 tier power.');
-assert.equal(osPhysicalWeapon.atk, 27, 'T3 OS physical weapon base ATK should use the new T3 tier power.');
+assert.equal(osPhysicalWeapon.atk, 32, 'T3 OS physical weapon base ATK should use the new T3 tier power.');
 assert.ok(osPhysicalWeapon.atk >= ancientHeroPhysicalWeapon.atk * 1.35, 'T3 base weapon should clearly beat T2 base weapon before rarity/affixes.');
 assert.match(itemProgressionSource, /T3:\s*3\.15/, 'T3 equipment tier power should clearly exceed T2.');
 assert.match(itemProgressionSource, /T10:\s*19\.8/, 'T10 equipment tier power should provide a visible endgame chase.');
@@ -2528,7 +2528,7 @@ assert.doesNotMatch(offlineZodiacDropSource, /createItem|processGeneratedOffline
 assert.match(game, /ZODIAC_ITEM_STAT_MULTIPLIER\s*=\s*0\.38/, 'Generated zodiac item stats should be toned down.');
 assert.match(game, /ZODIAC_EFFECT_MULTIPLIER\s*=\s*0\.35/, 'Generated zodiac set effects should be toned down.');
 assert.match(taurusSetSource, /monsterGoldPct:\s*0\.35/, 'Taurus full-set gold bonus should no longer be a progression breaker.');
-assert.match(abyssMapTierSource, /sky:\s*\{\s*hp:\s*18/, 'Abyss sky HP curve should be raised for endgame checks.');
+assert.match(abyssMapTierSource, /sky:\s*\{\s*hp:\s*20/, 'Abyss sky HP curve should be raised for endgame checks.');
 assert.doesNotMatch(game, /transitionSetDropMap/, 'Transition sets should not remain in active drop routing.');
 
 const lootModel = await importSource(lootModelSource);
