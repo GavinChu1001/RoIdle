@@ -66,6 +66,8 @@ function selectedCraftingRequest(state = {}, seriesList = [], equipmentRuntime =
   ];
   const rarityOptions = [
     { id: 'rare', label: 'rare' },
+    { id: 'epic', label: 'epic' },
+    { id: 'legend', label: 'legend' },
     { id: 'darkGold', label: 'darkGold' },
     { id: 'mythic', label: 'mythic' },
   ];

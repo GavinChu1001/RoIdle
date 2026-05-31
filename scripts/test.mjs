@@ -326,7 +326,7 @@ assert.match(game, /data-smithy-craft-select[\s\S]*smithyCraftSelection/, 'Smith
   const canCraftRequests = [];
   const targetedCraftHtml = smithyCraftingPanel.renderEquipmentCraftingSmithyPanel({
     getState: () => ({
-      smithyCraftSelection: { series: 'os', growthTier: 'T4', slot: 'trinket', archetype: 'magical', rarity: 'darkGold' },
+      smithyCraftSelection: { series: 'os', growthTier: 'T4', slot: 'trinket', archetype: 'magical', rarity: 'legend' },
       production: { crafting: { level: 99, exp: 0, totalCrafts: 0, masterCrafts: 0 }, blueprints: { known: [], fragments: {} } },
     }),
     escapeHtml: String,
@@ -350,8 +350,12 @@ assert.match(game, /data-smithy-craft-select[\s\S]*smithyCraftSelection/, 'Smith
   assert.match(targetedCraftHtml, /data-smithy-craft-select="slot"/, 'Equipment crafting panel should render a slot selector.');
   assert.match(targetedCraftHtml, /data-smithy-craft-select="archetype"/, 'Equipment crafting panel should render an archetype selector.');
   assert.match(targetedCraftHtml, /data-smithy-craft-select="rarity"/, 'Equipment crafting panel should render a rarity selector.');
-  assert.match(targetedCraftHtml, /data-craft-equipment="os:T4:trinket:magical:darkGold"/, 'Equipment crafting button should encode the selected targeted crafting token.');
-  assert.deepEqual(canCraftRequests[0], { series: 'os', growthTier: 'T4', slot: 'trinket', archetype: 'magical', rarity: 'darkGold' }, 'Equipment crafting panel should validate the selected request rather than a hard-coded default.');
+  assert.match(targetedCraftHtml, /<option value="epic"/, 'Equipment crafting panel should expose epic crafting.');
+  assert.match(targetedCraftHtml, /<option value="legend" selected>/, 'Equipment crafting panel should expose and select legend crafting.');
+  assert.match(targetedCraftHtml, /<option value="darkGold"/, 'Equipment crafting panel should expose dark gold crafting.');
+  assert.match(targetedCraftHtml, /<option value="mythic"/, 'Equipment crafting panel should expose mythic crafting.');
+  assert.match(targetedCraftHtml, /data-craft-equipment="os:T4:trinket:magical:legend"/, 'Equipment crafting button should encode the selected targeted crafting token.');
+  assert.deepEqual(canCraftRequests[0], { series: 'os', growthTier: 'T4', slot: 'trinket', archetype: 'magical', rarity: 'legend' }, 'Equipment crafting panel should validate the selected request rather than a hard-coded default.');
 }
 {
   const productionCatalog = await importSource(productionCatalogSource);
@@ -1701,8 +1705,8 @@ const legacySummary = equipmentCollection.buildCollectionSummary({
     maps: {},
   },
   cardCodex: { poringCard: { count: 3 }, lunaticCard: { owned: 1 }, emptyCard: { count: 0 } },
-  cards: { fabreCard: { owned: true } },
-  mapExploration: { grass: { kills: 5 }, empty: { kills: 0 } },
+  cards: { fabreCard: 1, emptyNumberCard: 0 },
+  mapExploration: { grass: { points: 5, level: 0 }, empty: { points: 0, level: 0 } },
   mapDifficultyProgress: { forest: { normal: { unlocked: true } } },
   monsterCodex: {
     poring: { killCount: 12, type: 'normal' },

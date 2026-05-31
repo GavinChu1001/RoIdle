@@ -96,8 +96,9 @@ function normalizeRewardEntries(entries = {}) {
 
 function entryHasCount(entry = {}) {
   if (typeof entry === 'boolean') return entry;
+  if (typeof entry === 'number') return safeInteger(entry) > 0;
   if (!entry || typeof entry !== 'object') return false;
-  for (const key of ['count', 'owned', 'quantity', 'kills', 'killCount', 'bossKills', 'clears', 'materials', 'equipment']) {
+  for (const key of ['count', 'owned', 'quantity', 'kills', 'killCount', 'bossKills', 'clears', 'materials', 'equipment', 'points', 'level']) {
     if (safeInteger(entry[key]) > 0) return true;
   }
   return entry.unlocked === true || entry.obtained === true || entry.discovered === true;
