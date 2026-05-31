@@ -353,6 +353,40 @@ assert.match(smithyCraftingPanelSource, /export\s+function\s+renderEquipmentCraf
   assert.equal(malformedStartState.production.artisan.activeJob.id, 'weaponEmbryo', 'New artisan job should replace the malformed active job.');
   assert.equal(malformedStartState.production.artisan.activeJob.startedAt, 1000, 'New artisan job should use the requested start timestamp.');
 }
+{
+  const materialDrops = await importSource(materialDropsSource);
+  const dropState = { materials: {} };
+  const masteryCalls = [];
+  const granted = materialDrops.grantMaterialDrop('ore', 3, 'test drop', { mapId: 'mine', recordRecent: false }, {
+    getState: () => dropState,
+    recordMapMasteryMaterial: (mapId, amount) => masteryCalls.push({ mapId, amount }),
+  });
+  assert.equal(granted, 3, 'Material grant should return the granted quantity.');
+  assert.equal(dropState.materials.ore, 3, 'Material grant should add materials to state.');
+  assert.deepEqual(masteryCalls, [{ mapId: 'mine', amount: 3 }], 'Material grant should record map mastery with granted quantity.');
+  materialDrops.grantMaterialDrop('ore', 0, 'test drop', { mapId: 'mine', recordRecent: false }, {
+    getState: () => dropState,
+    recordMapMasteryMaterial: (mapId, amount) => masteryCalls.push({ mapId, amount }),
+  });
+  assert.equal(masteryCalls.length, 1, 'Zero material grants should not record map mastery.');
+
+  const rolledCalls = [];
+  const rolledState = { materials: {} };
+  const rolled = materialDrops.rollMapMaterialDrops({ dropBonus: 0 }, {}, {
+    getState: () => rolledState,
+    currentMap: () => ({ id: 'grass' }),
+    currentDifficulty: () => 'normal',
+    getMaterialDropTable: () => [{ materialId: 'crystal', dropRate: 1, minQty: 2, maxQty: 2 }],
+    getProgressionMaterialDrops: () => [],
+    getDifficultyConfig: () => ({ materialDrop: 1 }),
+    random: () => 0,
+    randomInt: () => 2,
+    applyMaterialQuantityBonus: (amount) => amount,
+    recordMapMasteryMaterial: (mapId, amount) => rolledCalls.push({ mapId, amount }),
+  });
+  assert.equal(rolled, 2, 'Rolled material drops should return granted quantity.');
+  assert.deepEqual(rolledCalls, [{ mapId: 'grass', amount: 2 }], 'Rolled material drops should record mastery for the current map.');
+}
 assert.match(adventureHandbookSource, /export function defaultAdventureHandbookState/, 'Adventure handbook system should expose default state.');
 assert.match(adventureHandbookSource, /export function normalizeAdventureHandbookState/, 'Adventure handbook system should normalize saved state.');
 assert.match(adventureHandbookSource, /export function buildAdventureHandbookModel/, 'Adventure handbook system should build a UI model.');
@@ -366,6 +400,7 @@ assert.match(game, /function\s+recordAdventureHandbookProgress\s*\(/, 'Classic r
 assert.match(game, /function\s+claimAdventureHandbookGoal\s*\(/, 'Classic runtime should expose handbook claim helper.');
 assert.match(game, /function\s+recordMapMasteryMaterial\s*\(/, 'Classic runtime should expose map mastery material helper.');
 assert.match(game, /function\s+recordMapMasteryEquipment\s*\(/, 'Classic runtime should expose map mastery equipment helper.');
+assert.match(game, /result\?\.added\)\s*recordMapMasteryEquipment\(item\)/, 'Successful equipment inventory adds should record map mastery.');
 assert.match(settlementSource, /recordAdventureHandbookProgress\?\.\('daily_kills'/, 'Combat settlement should feed handbook kill progress.');
 assert.match(settlementSource, /recordAdventureHandbookProgress\?\.\('weekly_bosses'/, 'Combat settlement should feed handbook weekly boss progress.');
 assert.match(dungeonSystemSource, /recordAdventureHandbookProgress\?\.\('daily_dungeon'/, 'Dungeon completion should feed handbook daily dungeon progress.');
@@ -480,6 +515,7 @@ assert.match(styles, /\.handbook-goal-card/, 'Styles should include Adventure Ha
     materials: { ore: 4 },
     currentMap: 0,
     currentDifficulty: 'normal',
+    production: { mining: { level: 2, exp: 12 }, artisan: { level: 1, exp: 0, activeJob: null }, crafting: { level: 1, exp: 0 } },
     adventureHandbook: progressState.adventureHandbook,
     dungeons: { entries: { daily_material: { used: 1 } } },
     equipped: {},
@@ -493,6 +529,12 @@ assert.match(styles, /\.handbook-goal-card/, 'Styles should include Adventure Ha
     getMaterialDropSources: () => [{ mapId: 'grass', mapName: 'South Gate Grassland', difficulty: 'normal' }],
     getDungeonCards: () => [{ id: 'daily_material', name: 'Daily Material Dungeon', remaining: 1, recommendedPower: 1200 }],
     getEquipmentTarget: () => ({ title: 'Fill Weapon Slot', desc: 'Current weapon slot is empty.' }),
+    getCraftingMasteryBand: () => ({ label: 'Apprentice' }),
+    getEquipmentRuntime: () => ({
+      EQUIPMENT_SERIES: { ancientHero: { id: 'ancientHero', label: 'Ancient Hero', defaultTier: 'T2' } },
+      getEquipmentCraftingRecipe: (request) => ({ id: `${request.series}_${request.slot}_${request.rarity}`, level: 1, materials: { ore: 2 } }),
+      canCraftEquipment: (request) => ({ ok: true, reason: 'ok', recipe: { id: `${request.series}_${request.slot}_${request.rarity}`, level: 1, materials: { ore: 2 } } }),
+    }),
   });
   assert.equal(model.researchPoints, 1, 'Handbook model should expose research points.');
   assert.ok(model.materials.length > 0, 'Handbook model should include material recommendations.');
@@ -500,6 +542,8 @@ assert.match(styles, /\.handbook-goal-card/, 'Styles should include Adventure Ha
   assert.equal(model.equipmentTarget.title, 'Fill Weapon Slot', 'Handbook model should expose equipment target.');
   assert.ok(Array.isArray(model.productionSuggestions), 'Handbook model should expose production suggestions.');
   assert.ok(Array.isArray(model.craftingTargets), 'Handbook model should expose crafting targets.');
+  assert.ok(model.productionSuggestions.some((row) => row.title && row.desc), 'Production suggestions should include displayable title and desc.');
+  assert.ok(model.craftingTargets.some((row) => row.title && row.desc), 'Crafting targets should include displayable title and desc.');
 }
 assert.match(game, /getBossCycleGoldBonus/, 'Combat settlement context should provide Boss cycle gold bonuses.');
 assert.match(mapPageSource, /周回挑战/, 'Map difficulty UI should explain hard mode as a repeat challenge.');

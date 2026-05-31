@@ -27,6 +27,8 @@ export function grantMaterialDrop(materialId, quantity, source, options = {}, co
   if (!state || !materialId || qty <= 0) return 0;
   state.materials = state.materials || {};
   state.materials[materialId] = finite(state.materials[materialId]) + qty;
+  const mapId = options.mapId || options.map?.id || context.currentMap?.()?.id || '';
+  context.recordMapMasteryMaterial?.(mapId, qty);
   if (options.recordSession !== false) context.recordSessionReward?.({ materials: qty });
   if (options.recordRecent !== false) {
     const item = { materialId, name: materialName(materialId, context), qty };
@@ -60,6 +62,7 @@ export function rollMapMaterialDrops(stats = {}, options = {}, context = runtime
       ? (isBoss ? '\u0042\u006f\u0073\u0073\u88c5\u5907\u6750\u6599' : '\u88c5\u5907\u8fdb\u9636\u6750\u6599')
       : (isBoss ? '\u0042\u006f\u0073\u0073\u6750\u6599' : '\u6750\u6599\u6389\u843d');
     total += grantMaterialDrop(drop.materialId, qty, source, {
+      mapId: map.id,
       rarity: drop.rarity,
       logText: `\u83b7\u5f97\u6750\u6599\uff1a${materialName(drop.materialId, context)} \u00d7 ${qty}\u3002`,
     }, context);
