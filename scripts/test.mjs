@@ -230,6 +230,8 @@ assert.match(game, /production:\s*defaultProductionState\(\)/, 'Default state sh
 assert.match(game, /production:\s*normalizeProductionState\(saved\.production\s*\|\|\s*base\.production\)/, 'Saved state merge should normalize production state.');
 assert.match(game, /state\.production\s*=\s*normalizeProductionState\(state\.production\)/, 'Sanitize should keep production state normalized.');
 assert.match(game, /function\s+normalizeProductionState\s*\(\s*value\s*\)[\s\S]*const\s+base\s*=\s*defaultProductionState\(\)[\s\S]*\.\.\.base\.crafting[\s\S]*\.\.\.crafting[\s\S]*blueprints\.known[\s\S]*blueprints\.fragments/, 'Production fallback normalization must preserve saved production progress.');
+assert.match(game, /function\s+normalizeProductionState\s*\(\s*value\s*\)[\s\S]*mining:\s*\{[\s\S]*\.\.\.base\.mining[\s\S]*\.\.\.mining[\s\S]*artisan:\s*\{[\s\S]*\.\.\.base\.artisan[\s\S]*\.\.\.artisan[\s\S]*crafting:\s*\{[\s\S]*\.\.\.base\.crafting[\s\S]*\.\.\.crafting[\s\S]*blueprints:\s*\{[\s\S]*\.\.\.base\.blueprints[\s\S]*\.\.\.blueprints/, 'Production fallback normalization must merge saved sections with defaults.');
+assert.match(game, /function\s+craftEquipmentFromToken\s*\([^)]*\)[\s\S]*addLogHtml\(`装备打造[\s\S]*renderAll\(\);[\s\S]*save\(\);[\s\S]*function\s+craftSetItem/, 'Equipment crafting success log must render and save after the log is added.');
 assert.match(game, /data-claim-mining-production/, 'Smithy runtime must handle mining production claims.');
 assert.match(game, /data-start-artisan-job/, 'Smithy runtime must handle artisan job starts.');
 assert.match(game, /data-craft-equipment/, 'Smithy runtime must handle equipment crafting.');

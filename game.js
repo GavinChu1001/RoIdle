@@ -9818,6 +9818,8 @@ function craftEquipmentFromToken(token = "") {
     return;
   }
   addLogHtml(`装备打造：${renderItemName(result.item)}`);
+  renderAll();
+  save();
 }
 
 function craftSetItem(itemId) {
