@@ -1119,6 +1119,9 @@ Object.keys(equipmentDropTables).forEach((mapId) => {
 
 // [DATA->data.js] equipmentSets extracted
 
+const ZODIAC_ITEM_STAT_MULTIPLIER = 0.38;
+const ZODIAC_EFFECT_MULTIPLIER = 0.35;
+
 const zodiacSetPlans = [
   ["aries_mu", "白羊座-穆套装", "白羊座的天赋", "物理爆发", "白羊座-穆", "权杖", { physicalAttackPct: 0.25, critDamagePct: 0.3, bossDamagePct: 0.15 }, { atk: 210, matk: 60, def: 180, hp: 650, str: 28, dex: 12, crit: 0.06 }],
   ["gemini_saga", "双子座-撒加套装", "双子座的天赋", "物魔双修", "双子座-撒加", "法杖", { physicalAttackPct: 0.15, magicAttackPct: 0.15, skillDamagePct: 0.2, critRatePct: 0.05 }, { atk: 180, matk: 180, def: 150, hp: 560, str: 16, int: 16, dex: 14, crit: 0.04 }],
@@ -1141,6 +1144,7 @@ Object.assign(equipmentSets, Object.fromEntries(zodiacSetPlans.map(([id, name, t
 ensureSetProgressionBonuses();
 
 function createZodiacSet(plan) {
+  const scaledEffects = scaleSetEffects(plan.effects, ZODIAC_EFFECT_MULTIPLIER);
   const slotPlan = [
     ["crown", "之冠", "headgear", 0.18],
     ["armor", "圣衣", "armor", 0.28],
@@ -1152,9 +1156,9 @@ function createZodiacSet(plan) {
     id: plan.id,
     name: plan.name,
     talentName: plan.talentName,
-    talentDescription: describeZodiacEffects(plan.effects),
+    talentDescription: describeZodiacEffects(scaledEffects),
     role: plan.role,
-    effects: { full: plan.effects, pieces: {} },
+    effects: { full: scaledEffects, pieces: {} },
     items: slotPlan.map(([key, suffix, slot, weight]) => ({
       id: `${plan.id}_${key}`,
       name: `${plan.prefix}${suffix}`,
@@ -1164,19 +1168,19 @@ function createZodiacSet(plan) {
       requiredLevel: 35,
       weaponType: slot === "weapon" ? "zodiacWeapon" : "",
       equipType: slot === "weapon" ? "zodiacWeapon" : slot,
-      atk: Math.round((plan.stats.atk || 0) * weight),
-      matk: Math.round((plan.stats.matk || 0) * weight),
-      def: Math.round((plan.stats.def || 0) * weight),
-      hp: Math.round((plan.stats.hp || 0) * weight),
-      str: Math.round((plan.stats.str || 0) * weight),
-      agi: Math.round((plan.stats.agi || 0) * weight),
-      vit: Math.round((plan.stats.vit || 0) * weight),
-      int: Math.round((plan.stats.int || 0) * weight),
-      dex: Math.round((plan.stats.dex || 0) * weight),
-      luk: Math.round((plan.stats.luk || 0) * weight),
-      aspd: Number(((plan.stats.aspd || 0) * weight).toFixed(3)),
-      crit: Number(((plan.stats.crit || 0) * weight).toFixed(3)),
-      drop: Number(((plan.stats.drop || 0) * weight).toFixed(3)),
+      atk: Math.round((plan.stats.atk || 0) * weight * ZODIAC_ITEM_STAT_MULTIPLIER),
+      matk: Math.round((plan.stats.matk || 0) * weight * ZODIAC_ITEM_STAT_MULTIPLIER),
+      def: Math.round((plan.stats.def || 0) * weight * ZODIAC_ITEM_STAT_MULTIPLIER),
+      hp: Math.round((plan.stats.hp || 0) * weight * ZODIAC_ITEM_STAT_MULTIPLIER),
+      str: Math.round((plan.stats.str || 0) * weight * ZODIAC_ITEM_STAT_MULTIPLIER),
+      agi: Math.round((plan.stats.agi || 0) * weight * ZODIAC_ITEM_STAT_MULTIPLIER),
+      vit: Math.round((plan.stats.vit || 0) * weight * ZODIAC_ITEM_STAT_MULTIPLIER),
+      int: Math.round((plan.stats.int || 0) * weight * ZODIAC_ITEM_STAT_MULTIPLIER),
+      dex: Math.round((plan.stats.dex || 0) * weight * ZODIAC_ITEM_STAT_MULTIPLIER),
+      luk: Math.round((plan.stats.luk || 0) * weight * ZODIAC_ITEM_STAT_MULTIPLIER),
+      aspd: Number(((plan.stats.aspd || 0) * weight * ZODIAC_ITEM_STAT_MULTIPLIER).toFixed(3)),
+      crit: Number(((plan.stats.crit || 0) * weight * ZODIAC_ITEM_STAT_MULTIPLIER).toFixed(3)),
+      drop: Number(((plan.stats.drop || 0) * weight * ZODIAC_ITEM_STAT_MULTIPLIER).toFixed(3)),
       craftable: false,
       source: "monster_drop",
       description: `${plan.name}部件。集齐 5 件可激活${plan.talentName}。`,
