@@ -36,6 +36,11 @@ function addMaterial(materials, id, amount) {
   materials[id] = (materials[id] || 0) + Math.ceil(amount);
 }
 
+function finite(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
 function tierNumber(growthTier) {
   return Math.max(1, Number(String(growthTier).replace(/^T/i, '')) || 1);
 }
@@ -45,7 +50,7 @@ function hasRarityAtLeast(rarity, minimum) {
 }
 
 function availableAmount(materials = {}, id) {
-  return Math.max(0, Math.floor(Number(materials[id] || 0)));
+  return Math.max(0, Math.floor(finite(materials[id], 0)));
 }
 
 const DEFAULT_PRODUCTION = Object.freeze({
@@ -184,14 +189,14 @@ export function canCraftEquipment(request = {}, context = {}) {
   }
   const recipe = getEquipmentCraftingRecipe(request);
   const production = readProduction(state);
-  const craftingLevel = Math.max(1, Math.floor(Number(production.crafting.level || 1)));
+  const craftingLevel = Math.max(1, Math.floor(finite(production.crafting.level, 1)));
   if (craftingLevel < recipe.level) {
     return { ok: false, reason: 'level_too_low', recipe };
   }
   if (['darkGold', 'mythic'].includes(recipe.rarity) && !production.blueprints.known.includes(recipe.blueprintId)) {
     return { ok: false, reason: 'blueprint_missing', recipe };
   }
-  if (Math.max(0, Number(state.gold || 0)) < recipe.gold) {
+  if (Math.max(0, finite(state.gold, 0)) < recipe.gold) {
     return { ok: false, reason: 'not_affordable', recipe };
   }
   const materials = state.materials || {};
@@ -228,7 +233,7 @@ export function craftEquipment(request = {}, context = {}) {
     return { ok: false, reason: 'creation_failed', recipe };
   }
 
-  state.gold -= recipe.gold;
+  state.gold = Math.max(0, finite(state.gold, 0)) - recipe.gold;
   state.materials = state.materials || {};
   Object.entries(recipe.materials).forEach(([id, amount]) => {
     state.materials[id] = availableAmount(state.materials, id) - amount;

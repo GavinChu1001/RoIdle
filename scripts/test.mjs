@@ -1500,6 +1500,33 @@ const makeCraftContext = (state, overrides = {}) => ({
   assert.equal(Object.hasOwn(failureState, 'production'), false, 'canCraftEquipment failure should not add production to state.');
 }
 {
+  const corruptRecipe = equipmentCrafting.getEquipmentCraftingRecipe({ series: 'ancientHero', slot: 'weapon', rarity: 'epic' });
+  const corruptState = {
+    gold: 'bad',
+    materials: Object.fromEntries(Object.keys(corruptRecipe.materials).map((id) => [id, 'bad'])),
+    inventory: [],
+    production: { crafting: { level: 'bad', exp: 0, totalCrafts: 0, masterCrafts: 0 }, blueprints: { known: [], fragments: {} } },
+  };
+  const corruptCanCraft = equipmentCrafting.canCraftEquipment({ series: 'ancientHero', slot: 'weapon', rarity: 'epic' }, { getState: () => corruptState });
+  assert.equal(corruptCanCraft.ok, false, 'Corrupted non-numeric crafting level should not pass canCraftEquipment.');
+  assert.equal(corruptCanCraft.reason, 'level_too_low', 'Corrupted crafting level should be treated as too low.');
+  const highLevelCorruptRecipe = equipmentCrafting.getEquipmentCraftingRecipe({ series: 'ancientHero', slot: 'weapon', rarity: 'rare' });
+  const highLevelCorruptState = {
+    gold: 'bad',
+    materials: Object.fromEntries(Object.keys(highLevelCorruptRecipe.materials).map((id) => [id, 'bad'])),
+    inventory: [],
+    production: { crafting: { level: 99, exp: 0, totalCrafts: 0, masterCrafts: 0 }, blueprints: { known: [], fragments: {} } },
+  };
+  const highLevelCorruptCanCraft = equipmentCrafting.canCraftEquipment({ series: 'ancientHero', slot: 'weapon', rarity: 'rare' }, { getState: () => highLevelCorruptState });
+  assert.equal(highLevelCorruptCanCraft.ok, false, 'Corrupted non-numeric resources should not pass canCraftEquipment.');
+  assert.equal(highLevelCorruptCanCraft.reason, 'not_affordable', 'Corrupted gold/materials should be treated as unaffordable.');
+  const craftResult = equipmentCrafting.craftEquipment({ series: 'ancientHero', slot: 'weapon', rarity: 'rare' }, makeCraftContext(highLevelCorruptState));
+  assert.equal(craftResult.ok, false, 'Corrupted non-numeric resources should not craft.');
+  assert.equal(highLevelCorruptState.gold, 'bad', 'Failed corrupted craft should not turn gold into NaN.');
+  assert.ok(Object.values(highLevelCorruptState.materials).every((value) => value === 'bad'), 'Failed corrupted craft should not turn materials into NaN.');
+  assert.equal(highLevelCorruptState.inventory.length, 0, 'Failed corrupted craft should not add inventory.');
+}
+{
   const osCraftRequest = { series: 'os', growthTier: 'T3', slot: 'weapon', archetype: 'physical', rarity: 'rare' };
   const osCraftRecipe = equipmentCrafting.getEquipmentCraftingRecipe(osCraftRequest);
   let createItemCall = null;
