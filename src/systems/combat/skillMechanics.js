@@ -2,7 +2,7 @@
 // Skill Mechanics Engine
 
 let mechContext = {};
-const MIN_ACTIVE_SKILL_COOLDOWN = 2.2;
+const MIN_ACTIVE_SKILL_COOLDOWN = 3.6;
 
 function finite(v) { const n = Number(v || 0); return Number.isFinite(n) ? n : 0; }
 function random(ctx = mechContext) { return ctx.random?.() ?? Math.random(); }
@@ -673,9 +673,10 @@ function executeStatusExploitAll(mechanism, skill, state, stats, monster, ctx) {
   const marks = getMarks(state);
   const statusCount = Object.keys(marks).filter((k) => !k.startsWith('_') && finite(marks[k]) > 0).length;
   const source = getSkillSource({ ...mechanism, stat: 'matk' }, stats, state);
+  const multiplierPerStatus = mechanism.multiplierPerStatus ?? mechanism.perStatus ?? 0;
   const multiplier = Math.min(
     mechanism.maxMultiplier || Infinity,
-    (mechanism.baseMultiplier || mechanism.multiplier || 2.5) + statusCount * (mechanism.multiplierPerStatus || 0)
+    (mechanism.baseMultiplier || mechanism.multiplier || 2.5) + statusCount * multiplierPerStatus
   );
   const dmg = calcSkillDamage(source, multiplier * skillEnhancement.multiplier, stats, monster, ctx, { ...mechanism, stat: 'matk' });
   applyDamage(dmg, state, ctx, skill);
@@ -744,7 +745,7 @@ function executeDelayedBurst(mechanism, skill, state, stats, ctx) {
       aoe: mechanism.aoe,
       stat: mechanism.stat || 'atk',
       guaranteedCrit: Boolean(mechanism.guaranteedCrit),
-      killCooldownRefundPct: mechanism.killCooldownRefundPct || 0,
+      killCooldownRefundPct: mechanism.killCooldownRefundPct ?? mechanism.killRefundPct ?? 0,
       damageMultiplier: skillEnhancement.multiplier,
     },
     skillId: skill.id,
@@ -1091,13 +1092,13 @@ export function tickSkillSystem(dt, stats, ctx = mechContext) {
     if (fired) {
       if (awakenedMech) spendAwakeningCharge(state, awakenConfig, ctx);
       if (traitEffects.activeSkillExtraCastChance && random(ctx) < finite(traitEffects.activeSkillExtraCastChance)) {
-        const extraMech = scaleV3MechanismDamage(activeMech, 0.45);
+        const extraMech = scaleV3MechanismDamage(activeMech, 0.30);
         executeV3ActiveMechanism(extraMech, skill, state, stats, monster, ctx);
       }
       let circuitCooldownRefund = 0;
       circuitEffects.forEach((effect) => {
         if (effect.type === 'extraHit' && random(ctx) < finite(effect.chance)) {
-          const extraMech = scaleV3MechanismDamage(activeMech, finite(effect.multiplier) || 0.4);
+          const extraMech = scaleV3MechanismDamage(activeMech, finite(effect.multiplier) || 0.28);
           executeV3ActiveMechanism(extraMech, skill, state, stats, monster, ctx);
         }
         if (effect.type === 'armorBreak') {
@@ -1109,7 +1110,7 @@ export function tickSkillSystem(dt, stats, ctx = mechContext) {
           state.v3FinalCircuitBoost = Math.max(finite(state.v3FinalCircuitBoost), finite(effect.multiplier) || 0.12);
         }
         if (effect.type === 'cooldownRefund') {
-          circuitCooldownRefund = Math.max(circuitCooldownRefund, Math.min(0.8, finite(effect.ratio)));
+          circuitCooldownRefund = Math.max(circuitCooldownRefund, Math.min(0.45, finite(effect.ratio)));
         }
       });
       let cd = Math.round((skill.cooldown || 5) * cdMult);

@@ -15,7 +15,7 @@ function withCircuits(skill, circuits) {
 function v3Skill(name, kind, cooldown, mechanism, description) {
   var skill = { id: v3SkillId(name), name, kind, cooldown: cooldown || 0, mechanism: mechanism || null, description };
   if (kind === '主动') {
-    skill.levelScaling = { cooldownPerLevel: 0.94, multiplierPerLevel: 1.12 };
+    skill.levelScaling = { cooldownPerLevel: 0.97, multiplierPerLevel: 1.06 };
   } else if (kind === '被动') {
     skill.levelScaling = { cooldownPerLevel: 0.96, multiplierPerLevel: 1.50 };
   }
@@ -38,7 +38,7 @@ var v3JobSkills = {
   ],
   runeKnight: [
     v3Skill("龙息", "主动", 14, mech("zone", { duration: 5, perSecond: 1.15, mark: "burn" }), "5s ×1.15/s = 5.75x 物理伤害，附加灼烧。"),
-    v3Skill("符文爆发", "主动", 20, mech("finisher", { hpThreshold: 0.25, multiplier: 5.0, finisherMultiplier: 7.5, killRefundPct: 0.5 }), "HP<25% 7.5x 物理伤害，击杀返还 50% 冷却。"),
+    v3Skill("符文爆发", "主动", 20, mech("finisher", { hpThreshold: 0.25, multiplier: 5.0, finisherMultiplier: 5.5, killRefundPct: 0.3 }), "HP<25% 5.5x 物理伤害，击杀返还 30% 冷却。"),
     v3Skill("龙族血统", "被动", 0, mech("enhanceSkill", { baseSkill: "霸体", extra: { invincible: 3, nextCrit: { guaranteed: true, multiplier: 1.5 } } }), "霸体触发后 3s 无敌，下次技能必暴且暴伤 ×1.5。"),
   ],
   mage: [
@@ -53,7 +53,7 @@ var v3JobSkills = {
   ],
   warlock: [
     v3Skill("连锁闪电", "主动", 8, mech("multihit", { hits: 4, perHit: 0.75, bounce: 2, bounceMultiplier: 0.45, stat: "matk" }), "4段 ×0.75 = 3.0x + 弹射 2段 ×0.45 魔法伤害。"),
-    v3Skill("元素风暴", "主动", 18, mech("statusExploitAll", { multiplier: 4.5, perStatus: 1.0, maxMultiplier: 7.5 }), "对所有异常敌人 4.5x + 每种状态 +1.0x（上限 7.5x）魔法伤害。"),
+    v3Skill("元素风暴", "主动", 18, mech("statusExploitAll", { multiplier: 3.2, perStatus: 0.55, maxMultiplier: 4.8 }), "对所有异常敌人 3.2x + 每种状态 +0.55x（上限 4.8x）魔法伤害。"),
     v3Skill("元素主宰", "被动", 0, mech("markDuration", { burn: 1.75, freeze: 1.75, allowBoth: true }), "灼烧/冰冻时长 ×1.75，可共存。"),
   ],
   archer: [
@@ -83,7 +83,7 @@ var v3JobSkills = {
   ],
   archbishop: [
     v3Skill("圣堂庇护", "主动", 15, mech("shield", { duration: 8, perHitReduction: 0.35 }), "8s 内受伤 -35%。"),
-    v3Skill("天罚", "主动", 14, mech("finisher", { hpThreshold: 0.2, multiplier: 5.5, instantKill: true, bossMultiplier: 5.5, stat: "matk" }), "HP<20% 即死（精英 10.0x，Boss 5.5x）魔法伤害。"),
+    v3Skill("天罚", "主动", 14, mech("finisher", { hpThreshold: 0.2, multiplier: 5.5, instantKill: true, bossMultiplier: 3.8, stat: "matk" }), "HP<20% 即死（精英 10.0x，Boss 3.8x）魔法伤害。"),
     v3Skill("圣者降临", "被动", 100, mech("revive", { hpPct: 0.4 }), "死亡时以 40% 生命复活，冷却 100s。"),
   ],
   merchant: [
@@ -97,7 +97,7 @@ var v3JobSkills = {
     v3Skill("大地之击", "被动", 0, mech("stackTrigger", { stack: "破甲", threshold: 3, effect: { skill: "手推车强击", crit: { guaranteed: true, multiplier: 1.4 } } }), "破甲 3 层时手推车必暴，暴伤 ×1.4。"),
   ],
   mechanic: [
-    v3Skill("自爆装置", "主动", 16, mech("delayedBurst", { delay: 6, multiplier: 5.8, aoe: true, killRefundPct: 0.5 }), "6s 后爆炸 5.8x 全敌伤害，击杀返还 50% 冷却。"),
+    v3Skill("自爆装置", "主动", 16, mech("delayedBurst", { delay: 6, multiplier: 4.0, aoe: true, killRefundPct: 0.25 }), "6s 后爆炸 4.0x 全敌伤害，击杀返还 25% 冷却。"),
     v3Skill("金币风暴", "主动", 10, mech("goldGenerate", { multiplier: 2.6, goldPerDamage: 0.25 }), "2.6x 伤害，25% 转金币。"),
     v3Skill("机械大师", "被动", 0, mech("enhanceSkill", { baseSkill: "自爆装置", extra: { resetOnKill: true, nextBonus: 0.35 } }), "自爆击杀重置冷却，下次伤害 +35%。"),
   ],

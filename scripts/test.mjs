@@ -3393,6 +3393,26 @@ poisonState.skillCooldowns.thief_poison = 0;
 skillMechanics.tickSkillSystem(0, { atkPower: 100, matkPower: 0, crit: 0, maxHp: 100 });
 assert.equal(poisonState.enemyMarks._poisonStacks, 2, 'Poison must gain real stacks and remain bounded by the V4 stack rule.');
 
+const stormSkill = {
+  id: 'elemental_storm',
+  name: '元素风暴',
+  kind: '主动',
+  cooldown: 18,
+  mechanism: { type: 'statusExploitAll', multiplier: 3.2, perStatus: 0.55, maxMultiplier: 4.8 },
+};
+const stormState = { hero: { currentHp: 100 }, enemyHp: 1000, enemyMaxHp: 1000, skillCooldowns: {}, activeZones: [], activeBuffs: [], enemyMarks: { burn: 5, freeze: 3 } };
+globalThis.window = { ...(priorSkillWindow || {}), v3JobSkills: { warlock: [stormSkill] } };
+skillMechanics.configureSkillMechanicsContext({
+  getState: () => stormState,
+  currentJob: () => ({ id: 'warlock' }),
+  getUnlockedSkills: () => [stormSkill],
+  currentMonsterStats: () => ({ damageReduction: 0 }),
+  normalizeDamage: (value) => Math.round(value),
+  random: () => 0.5,
+});
+skillMechanics.tickSkillSystem(0, { atkPower: 10, matkPower: 100, crit: 0, maxHp: 100 });
+assert.equal(stormState.enemyHp, 570, 'Status exploit all must honor perStatus as the per-status multiplier field.');
+
 const layeredStatusState = {
   hero: { currentHp: 100 },
   enemyHp: 1000,
@@ -3435,6 +3455,28 @@ skillMechanics.configureSkillMechanicsContext({
 });
 skillMechanics.tickSkillSystem(0, { atkPower: 100, matkPower: 0, crit: 0, maxHp: 100 });
 assert.equal(finisherState.skillCooldowns.rune_burst, 10, 'Finisher kill cooldown refund must apply after cooldown assignment.');
+
+const delayedBurstSkill = {
+  id: 'self_destruct',
+  name: '自爆装置',
+  kind: '主动',
+  cooldown: 16,
+  mechanism: { type: 'delayedBurst', delay: 0.1, multiplier: 4.0, killRefundPct: 0.25, stat: 'atk' },
+};
+const delayedBurstState = { hero: { currentHp: 100 }, enemyHp: 300, enemyMaxHp: 300, skillCooldowns: {}, activeZones: [], activeBuffs: [], enemyMarks: {} };
+globalThis.window = { ...(priorSkillWindow || {}), v3JobSkills: { mechanic: [delayedBurstSkill] } };
+skillMechanics.configureSkillMechanicsContext({
+  getState: () => delayedBurstState,
+  currentJob: () => ({ id: 'mechanic' }),
+  getUnlockedSkills: () => [delayedBurstSkill],
+  currentMonsterStats: () => ({ damageReduction: 0 }),
+  normalizeDamage: (value) => Math.round(value),
+  random: () => 0.5,
+});
+skillMechanics.tickSkillSystem(0, { atkPower: 100, matkPower: 0, crit: 0, maxHp: 100 });
+skillMechanics.tickSkillSystem(0.2, { atkPower: 100, matkPower: 0, crit: 0, maxHp: 100 });
+assert.equal(delayedBurstState.enemyHp, -100, 'Delayed burst must explode after its delay.');
+assert.ok(Math.abs(delayedBurstState.skillCooldowns.self_destruct - 11.85) < 1e-9, 'Delayed burst must honor killRefundPct for cooldown refunds.');
 
 const criticalSkill = {
   id: 'critical_multihit',
