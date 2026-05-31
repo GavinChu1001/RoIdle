@@ -31,6 +31,9 @@ const equipmentStyles = read('unified-equipment-ui.css');
 const main = read('src/main.js');
 const stateSurface = read('src/state/index.js');
 const equipmentIndexSource = read('src/systems/equipment/index.js');
+const equipmentResearchSource = read('src/systems/equipment/equipmentResearch.js');
+const equipmentCollectionSource = read('src/systems/collections/equipmentCollection.js');
+const collectionIndexSource = read('src/systems/collections/index.js');
 const statCatalogSource = read('src/systems/equipment/statCatalog.js');
 const itemStatsSource = read('src/systems/equipment/itemStats.js');
 const itemNamingSource = read('src/systems/equipment/itemNaming.js');
@@ -1335,6 +1338,74 @@ for (const name of [
   assert.match(itemProgressionSource, new RegExp(`\\b${name}\\b`), `Equipment progression module must define ${name}.`);
 }
 const itemProgression = await importSource(itemProgressionSource);
+const equipmentResearchItemProgressionUrl = `data:text/javascript;base64,${Buffer.from(itemProgressionSource).toString('base64')}`;
+for (const name of [
+  'recordEquipmentResearch',
+  'getEquipmentResearchBonus',
+  'normalizeEquipmentResearchState',
+]) {
+  assert.match(equipmentResearchSource, new RegExp(`export\\s+function\\s+${name}\\b`), `Equipment research module must export ${name}.`);
+}
+for (const name of [
+  'defaultCollectionState',
+  'normalizeCollectionState',
+  'recordEquipmentCollection',
+  'recordBossCollection',
+  'buildCollectionSummary',
+]) {
+  assert.match(equipmentCollectionSource, new RegExp(`export\\s+function\\s+${name}\\b`), `Equipment collection module must export ${name}.`);
+}
+assert.match(collectionIndexSource, /export\s+\*\s+from\s+['"]\.\/equipmentCollection\.js['"]/, 'Collection index must re-export equipment collection helpers.');
+assert.match(collectionIndexSource, /export\s+function\s+installCollectionRuntime\b/, 'Collection index must export installCollectionRuntime.');
+assert.match(equipmentCraftingSource, /recordEquipmentResearch\?\.\([^,)]*(?:series|recipe)[^,)]*,\s*[^)]*\)/, 'Crafting research hook should pass a series and amount.');
+assert.match(equipmentCraftingSource, /recordEquipmentCollection\?\.\(item/, 'Crafting should feed equipment collection with the crafted item.');
+assert.match(game, /equipmentResearch:\s*defaultEquipmentResearchState\(\)/, 'Default state must initialize equipment research.');
+assert.match(game, /collections:\s*defaultCollectionState\(\)/, 'Default state must initialize collections.');
+assert.match(game, /equipmentResearch:\s*normalizeEquipmentResearchState\(/, 'Saved state merge must normalize equipment research.');
+assert.match(game, /collections:\s*normalizeCollectionState\(/, 'Saved state merge must normalize collections.');
+assert.match(main, /installCollectionRuntime/, 'Main should install collection runtime.');
+assert.match(main, /recordEquipmentResearch\(series,\s*amount\)/, 'Main equipment context should expose research wrapper.');
+assert.match(main, /recordEquipmentCollection\(item,\s*meta\)/, 'Main equipment context should expose collection wrapper.');
+
+const equipmentResearch = await importSource(equipmentResearchSource.replace(/from\s+['"]\.\/itemProgression\.js['"]/g, `from '${equipmentResearchItemProgressionUrl}'`));
+const researchState = {};
+const researchEntry = equipmentResearch.recordEquipmentResearch(researchState, 'ancientHero', 320);
+assert.equal(researchEntry.exp, 320, 'Equipment research should add safe integer exp.');
+assert.equal(researchEntry.level, 2, 'Equipment research level should follow sqrt exp curve.');
+assert.equal(researchState.equipmentResearch.ancientHero.level, 2, 'Equipment research should write normalized state back.');
+assert.equal(equipmentResearch.recordEquipmentResearch(researchState, 'oldWorld', 999), null, 'Old-world equipment should not grant research.');
+const researchBonus = equipmentResearch.getEquipmentResearchBonus(researchState, 'ancientHero');
+assert.equal(researchBonus.series, 'ancientHero', 'Research bonus should preserve normalized series.');
+assert.ok(researchBonus.materialDropBonus > 0, 'Research bonus should scale with level.');
+
+const equipmentCollection = await importSource(equipmentCollectionSource);
+const collectionState = {};
+const collectionItem = { series: 'ancientHero', growthTier: 'T2', tier: 'rare', slot: 'weapon', rarity: 'rare' };
+const collectionEntry1 = equipmentCollection.recordEquipmentCollection(collectionState, collectionItem, { source: 'drop' });
+const collectionEntry2 = equipmentCollection.recordEquipmentCollection(collectionState, collectionItem, { source: 'salvage' });
+assert.equal(collectionEntry1.key, 'ancientHero:T2:weapon:rare', 'Equipment collection key should include series, tier, slot, and rarity.');
+assert.equal(collectionEntry2.count, 2, 'Equipment collection should increment repeat records.');
+assert.equal(collectionEntry2.firstSource, 'drop', 'Equipment collection should keep first source.');
+assert.deepEqual(equipmentCollection.buildCollectionSummary(collectionState), { equipmentCount: 1, cardCount: 0, bossCount: 0, mapCount: 0 }, 'Collection summary should count recorded collection buckets.');
+
+const equipmentCollectionUrl = `data:text/javascript;base64,${Buffer.from(equipmentCollectionSource).toString('base64')}`;
+const collectionRuntimeSource = collectionIndexSource.replace(/from\s+['"]\.\/equipmentCollection\.js['"]/g, `from '${equipmentCollectionUrl}'`);
+const collectionRuntimeNoWindow = await importSource(collectionRuntimeSource);
+assert.doesNotThrow(() => collectionRuntimeNoWindow.installCollectionRuntime({ getState: () => ({}) }), 'Collection runtime should install safely without window.');
+{
+  const previousWindow = globalThis.window;
+  globalThis.window = {};
+  try {
+    const runtime = collectionRuntimeNoWindow.installCollectionRuntime({ getState: () => ({ collections: {} }) });
+    assert.equal(globalThis.window.RuneFrontierCollectionRuntime, runtime, 'Collection runtime should install on window when available.');
+  } finally {
+    if (previousWindow === undefined) {
+      delete globalThis.window;
+    } else {
+      globalThis.window = previousWindow;
+    }
+  }
+}
 const grassHardProgression = itemProgression.getMapEquipmentProgression('grass', 'hard');
 assert.equal(grassHardProgression.targetMapOffset, 2, 'Hard maps should point at a +2 normal-map equipment target.');
 assert.ok((grassHardProgression.materialSeries || []).includes('ancientHero'), 'Hard grass should start dropping Ancient Hero line materials.');
@@ -2292,6 +2363,10 @@ assert.doesNotThrow(() => {
   progressionUpgradeSource = read('src/systems/equipment/progressionUpgrade.js');
 }, 'Equipment progression upgrade module must exist.');
 assert.match(progressionUpgradeSource, /\bupgradeEquipmentProgression\b/, 'Progression upgrade module must expose upgradeEquipmentProgression.');
+assert.match(dismantleSource, /recordEquipmentResearch\?\.\(/, 'Dismantle should feed equipment research.');
+assert.match(dismantleSource, /recordEquipmentCollection\?\.\(/, 'Dismantle should feed equipment collection.');
+assert.match(progressionUpgradeSource, /recordEquipmentResearch\?\.\(/, 'Progression upgrade should feed equipment research.');
+assert.match(progressionUpgradeSource, /recordEquipmentCollection\?\.\(/, 'Progression upgrade should feed equipment collection.');
 const progressionUpgrade = await importSource(
   withEquipmentGrowthImports(progressionUpgradeSource.replace(/from\s+['"]\.\/itemProgression\.js['"]/g, `from '${itemProgressionModuleUrl}'`))
 );

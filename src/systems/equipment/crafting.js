@@ -257,8 +257,8 @@ export function craftEquipment(request = {}, context = {}) {
     production.crafting.exp = Math.max(0, Math.floor(finite(production.crafting.exp, 0))) + recipe.exp;
   }
 
-  context.recordEquipmentResearch?.(item, recipe);
-  context.recordEquipmentCollection?.(item);
+  context.recordEquipmentResearch?.(recipe.series, recipe.exp);
+  context.recordEquipmentCollection?.(item, { source: 'crafting' });
   context.showToast?.(`Crafted ${item.name || recipe.rarity}`);
   context.renderAll?.();
   context.save?.();

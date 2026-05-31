@@ -2124,6 +2124,30 @@ function equipmentSlot(item) {
   return item?.equipSlot || normalizeEquipmentSlot(item?.slot || "trinket");
 }
 
+function defaultEquipmentResearchState() {
+  return {};
+}
+
+function normalizeEquipmentResearchState(value) {
+  return window.RuneFrontierEquipmentRuntime?.normalizeEquipmentResearchState?.(value) || defaultEquipmentResearchState();
+}
+
+function defaultCollectionState() {
+  return window.RuneFrontierCollectionRuntime?.defaultCollectionState?.() || { version: 1, equipment: {}, cards: {}, bosses: {}, maps: {}, rewardsClaimed: {} };
+}
+
+function normalizeCollectionState(value) {
+  return window.RuneFrontierCollectionRuntime?.normalizeCollectionState?.(value) || defaultCollectionState();
+}
+
+function recordEquipmentResearch(series, amount) {
+  return window.RuneFrontierEquipmentRuntime?.recordEquipmentResearch?.(series, amount);
+}
+
+function recordEquipmentCollection(item, meta) {
+  return window.RuneFrontierCollectionRuntime?.recordEquipmentCollection?.(item, meta);
+}
+
 function createDefaultState() {
   const runtime = window.RuneFrontierStateRuntime;
   if (runtime && typeof runtime.createDefaultState === "function") return runtime.createDefaultState();
@@ -2147,6 +2171,8 @@ function createDefaultState() {
     equipmentSystemVersion: EQUIPMENT_SYSTEM_VERSION,
     equipmentStatVersion: EQUIPMENT_STAT_VERSION,
     equipmentLineMastery: {},
+    equipmentResearch: defaultEquipmentResearchState(),
+    collections: defaultCollectionState(),
     mapDifficultyProgress: { grass: { normal: { unlocked: true, cleared: false }, hard: { unlocked: false, cleared: false }, abyss: { unlocked: false, cleared: false } } },
     paused: false,
     enemyHp: 0,
@@ -3293,6 +3319,8 @@ function mergeState(base, saved) {
     log: mergedLog.slice(0, 24),
     mapDifficultyProgress: normalizeMapDifficultyProgress(saved.mapDifficultyProgress, saved.bestMap, saved.currentDifficulty),
     equipmentLineMastery: window.RuneFrontierEquipmentRuntime?.normalizeLineMasteryState?.(saved.equipmentLineMastery) || {},
+    equipmentResearch: normalizeEquipmentResearchState(saved.equipmentResearch || base.equipmentResearch),
+    collections: normalizeCollectionState(saved.collections || base.collections),
     shopState: saved.shopState || base.shopState || { dailyPurchases: {}, weeklyPurchases: {}, totalPurchases: {}, lastDailyRefresh: "", lastWeeklyRefresh: "" },
   };
 }
@@ -3372,6 +3400,8 @@ function sanitizeProgression() {
   state.dungeons = normalizeDungeonState(state.dungeons);
   state.adventureHandbook = normalizeAdventureHandbookState(state.adventureHandbook);
   state.production = normalizeProductionState(state.production);
+  state.equipmentResearch = normalizeEquipmentResearchState(state.equipmentResearch);
+  state.collections = normalizeCollectionState(state.collections);
   ensureSettings();
   state.zodiacCollection = normalizeZodiacCollection(state.zodiacCollection);
   state.costumes = normalizeCostumes(state.costumes);
@@ -14909,6 +14939,8 @@ window.RuneFrontierLegacyEquipmentContext = () => Object.freeze({
   },
   getInventoryLimit,
   addMaterials,
+  recordEquipmentResearch,
+  recordEquipmentCollection,
   recordAdventureHandbookProgress,
   recordSessionReward,
   recordRecentLoot,

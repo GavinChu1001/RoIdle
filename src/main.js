@@ -34,6 +34,7 @@ import { installOnboardingRuntime } from './systems/onboarding.js';
 import { installDungeonRuntime } from './systems/dungeons.js';
 import { installAdventureHandbookRuntime } from './systems/adventureHandbook.js';
 import { installProductionRuntime } from './systems/production/index.js';
+import { installCollectionRuntime } from './systems/collections/index.js';
 
 // UI layer (delegates to game.js via window)
 import './ui/index.js';
@@ -67,9 +68,20 @@ window.RuneFrontierModuleStatus = Object.freeze({
   bridged: ['offline-time-and-exp-calculation', 'renderers', 'vip-render', 'codex-render', 'shop-render'],
 });
 
-const equipmentContext = typeof window.RuneFrontierLegacyEquipmentContext === 'function'
-  ? window.RuneFrontierLegacyEquipmentContext()
-  : {};
+installCollectionRuntime({
+  getState() { return window.state || {}; },
+});
+const equipmentContext = {
+  ...(typeof window.RuneFrontierLegacyEquipmentContext === 'function'
+    ? window.RuneFrontierLegacyEquipmentContext()
+    : {}),
+  recordEquipmentResearch(series, amount) {
+    return window.RuneFrontierEquipmentRuntime?.recordEquipmentResearch?.(series, amount);
+  },
+  recordEquipmentCollection(item, meta) {
+    return window.RuneFrontierCollectionRuntime?.recordEquipmentCollection?.(item, meta);
+  },
+};
 installEquipmentRuntime(equipmentContext);
 const productionRuntime = installProductionRuntime({
   getState() { return window.state || {}; },

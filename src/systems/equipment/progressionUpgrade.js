@@ -121,6 +121,8 @@ export function upgradeEquipmentProgression(itemId, context = {}) {
   }
   applyUpgradeStatFloors(item, previousGrowthStats, next.statMultiplier);
   context.applyRarityUpgradeRewards?.(item, item.rarity);
+  context.recordEquipmentResearch?.(next.series, 45 + next.upgradeStage * 20);
+  context.recordEquipmentCollection?.(item, { source: 'upgrade' });
 
   context.addLog?.(`${item.name || '装备'} 进阶为 ${next.label}。`);
   context.showToast?.(`进阶成功：${next.label}`);

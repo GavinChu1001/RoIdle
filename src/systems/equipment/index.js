@@ -16,6 +16,7 @@ import { canUpgradeEquipmentProgression, upgradeEquipmentProgression } from './p
 import { LINE_MASTERY_MAX_LEVEL, normalizeLineMasteryState, getLineMasteryLevel, getLineMasteryCost, getLineMasteryBonus, getLineMasteryGlobalBonus, canUpgradeLineMastery, upgradeLineMastery } from './lineMastery.js';
 import { ABYSS_TEMPERING_MAX_LEVEL, canTemperAbyssItem, getAbyssTemperingCost, getAbyssTemperingBonus, temperAbyssItem } from './abyssTempering.js';
 import { getEquipmentCraftingRecipe, canCraftEquipment, craftEquipment } from './crafting.js';
+import { getEquipmentResearchBonus, normalizeEquipmentResearchState, recordEquipmentResearch } from './equipmentResearch.js';
 
 export * from './itemFactory.js';
 export * from './itemStats.js';
@@ -33,6 +34,7 @@ export * from './progressionUpgrade.js';
 export * from './lineMastery.js';
 export * from './abyssTempering.js';
 export * from './crafting.js';
+export * from './equipmentResearch.js';
 export * from './refine.js';
 export * from './starRefine.js';
 export * from './socket.js';
@@ -49,8 +51,13 @@ export function installEquipmentRuntime(context = {}) {
     getAbyssTemperingBonus,
   });
   configureItemFactoryContext(context);
+  const equipmentHookContext = {
+    recordEquipmentResearch: (series, amount) => recordEquipmentResearch(context.getState?.() || {}, series, amount),
+    recordEquipmentCollection: (item, meta) => context.recordEquipmentCollection?.(item, meta),
+  };
   configureEquipmentMutationContext({
     ...context,
+    ...equipmentHookContext,
     normalizeItem: (item) => normalizeItem(item, context),
     getEquipmentLineMaterials,
     normalizeEquipmentSeries,
@@ -61,6 +68,7 @@ export function installEquipmentRuntime(context = {}) {
   const productionRuntime = () => (typeof window !== 'undefined' ? window.RuneFrontierProductionRuntime : null);
   const craftingContext = {
     ...context,
+    ...equipmentHookContext,
     createItem: (template, level, rarity, itemContext) => createItem(template, level, rarity, itemContext, context),
     getProgressionEquipmentTemplate,
     getProgressionEquipmentTemplates,
@@ -120,6 +128,9 @@ export function installEquipmentRuntime(context = {}) {
     getNextEquipmentUpgrade,
     getEquipmentUpgradeCost,
     getEquipmentProgressionTags,
+    normalizeEquipmentResearchState,
+    recordEquipmentResearch: (series, amount) => recordEquipmentResearch(context.getState?.() || {}, series, amount),
+    getEquipmentResearchBonus: (series) => getEquipmentResearchBonus(context.getState?.() || {}, series),
     LINE_MASTERY_MAX_LEVEL,
     normalizeLineMasteryState,
     getLineMasteryLevel,
@@ -155,7 +166,7 @@ export function installEquipmentRuntime(context = {}) {
     canonicalizeEquipmentStats,
     applyCanonicalEquipmentStats,
     canUpgradeEquipmentProgression,
-    upgradeEquipmentProgression: (itemId) => upgradeEquipmentProgression(itemId, context),
+    upgradeEquipmentProgression: (itemId) => upgradeEquipmentProgression(itemId, { ...context, ...equipmentHookContext }),
     createItem,
     normalizeItem,
     resetItemForStatV2,

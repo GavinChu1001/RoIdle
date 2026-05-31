@@ -41,6 +41,13 @@ function mergeRewards(target, source) {
   return target;
 }
 
+function recordSalvageProgress(item = {}, rewards = {}, ctx = mutationCtx) {
+  const amount = 20 + rarityRank(item, ctx) * 10 + Math.max(0, Math.floor(finite(item.upgradeStage))) * 15;
+  ctx.recordEquipmentResearch?.(item.series || item.upgradePathId, amount);
+  ctx.recordEquipmentCollection?.(item, { source: 'salvage' });
+  return rewards;
+}
+
 function looksLikeContext(value) {
   return Boolean(value && typeof value === 'object' && (
     typeof value.getState === 'function' ||
@@ -58,6 +65,7 @@ export function addEquipmentToInventory(item, options = {}, ctx = mutationCtx) {
   if (shouldAutoSalvage(normalized, ctx)) {
     const rewards = getSalvageRewards(normalized, {}, ctx);
     ctx.addMaterials?.(rewards);
+    recordSalvageProgress(normalized, rewards, ctx);
     if (!options.offline) {
       ctx.recordAdventureHandbookProgress?.('daily_salvage', 1);
       ctx.recordAdventureHandbookProgress?.('weekly_equipment', 1);
@@ -141,6 +149,7 @@ export function salvageItem(id, options = {}, ctx = mutationCtx) {
   if (Object.values(state.equipped || {}).includes(id)) { if (!options.silent) ctx.showToast?.('已装备的物品不能分解'); return { ok: false }; }
   const rewards = getSalvageRewards(item, {}, ctx);
   ctx.addMaterials?.(rewards);
+  recordSalvageProgress(item, rewards, ctx);
   state.inventory = (state.inventory || []).filter((e) => e.id !== id);
   ctx.recordAdventureHandbookProgress?.('daily_salvage', 1);
   ctx.recordAdventureHandbookProgress?.('weekly_equipment', 1);
@@ -162,6 +171,7 @@ export function salvageAllUnequipped(ctx = mutationCtx) {
   const totals = {};
   targets.forEach((item) => {
     const rewards = getSalvageRewards(item, {}, ctx);
+    recordSalvageProgress(item, rewards, ctx);
     Object.entries(rewards).forEach(([material, amount]) => {
       totals[material] = finite(totals[material]) + amount;
       state.materials[material] = finite(state.materials?.[material]) + amount;
