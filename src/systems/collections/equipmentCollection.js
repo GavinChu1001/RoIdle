@@ -7,12 +7,91 @@ function safeInteger(value) {
   return Number.isFinite(number) ? Math.max(0, Math.floor(number)) : 0;
 }
 
+function safePositiveInteger(value, fallback = 1) {
+  const count = safeInteger(value);
+  return count > 0 ? count : fallback;
+}
+
 function collectionKey(item = {}) {
   const series = item.series || item.upgradePathId || 'oldWorld';
   const tier = item.growthTier || item.tier || item.rarity || 'normal';
   const slot = item.slot || item.equipSlot || 'weapon';
   const rarity = item.rarity || item.tier || 'normal';
   return [series, tier, slot, rarity].map((part) => String(part || '')).join(':');
+}
+
+function splitEquipmentKey(key = '') {
+  const parts = String(key || '').split(':');
+  return parts.length >= 4
+    ? { series: parts[0], tier: parts[1], slot: parts[2], rarity: parts[3] }
+    : {};
+}
+
+function normalizeEquipmentEntries(entries = {}) {
+  return Object.entries(safeObject(entries)).reduce((result, [key, value]) => {
+    const entry = safeObject(value);
+    if (!Object.keys(entry).length) return result;
+    const fromKey = splitEquipmentKey(entry.key || key);
+    const series = entry.series || fromKey.series;
+    const tier = entry.tier || entry.growthTier || fromKey.tier;
+    const slot = entry.slot || entry.equipSlot || fromKey.slot;
+    const rarity = entry.rarity || fromKey.rarity;
+    if (!series || !tier || !slot || !rarity) return result;
+    const id = entry.id || entry.key || key || collectionKey({ series, tier, slot, rarity });
+    const normalizedKey = entry.key || collectionKey({ series, tier, slot, rarity });
+    result[normalizedKey] = {
+      ...entry,
+      id,
+      key: normalizedKey,
+      series,
+      tier,
+      slot,
+      rarity,
+      count: safePositiveInteger(entry.count),
+    };
+    return result;
+  }, {});
+}
+
+function normalizeCountedEntries(entries = {}, idField = 'id') {
+  return Object.entries(safeObject(entries)).reduce((result, [key, value]) => {
+    const entry = safeObject(value);
+    if (!Object.keys(entry).length) return result;
+    const id = entry[idField] || entry.id || key;
+    if (!id) return result;
+    result[id] = {
+      ...entry,
+      [idField]: id,
+      count: safePositiveInteger(entry.count),
+    };
+    return result;
+  }, {});
+}
+
+function normalizeBossEntries(entries = {}) {
+  return Object.entries(safeObject(entries)).reduce((result, [key, value]) => {
+    const entry = safeObject(value);
+    if (!Object.keys(entry).length) return result;
+    const id = entry.id || key;
+    if (!id) return result;
+    const fastestMs = safeInteger(entry.fastestMs);
+    result[id] = {
+      ...entry,
+      id,
+      kills: safeInteger(entry.kills),
+      fastestMs: fastestMs > 0 ? fastestMs : null,
+    };
+    return result;
+  }, {});
+}
+
+function normalizeRewardEntries(entries = {}) {
+  return Object.entries(safeObject(entries)).reduce((result, [key, value]) => {
+    const entry = safeObject(value);
+    if (!Object.keys(entry).length) return result;
+    result[key] = { ...entry };
+    return result;
+  }, {});
 }
 
 export function defaultCollectionState() {
@@ -28,14 +107,13 @@ export function defaultCollectionState() {
 
 export function normalizeCollectionState(input = {}) {
   const source = safeObject(input);
-  const base = defaultCollectionState();
   return {
     version: 1,
-    equipment: { ...base.equipment, ...safeObject(source.equipment) },
-    cards: { ...base.cards, ...safeObject(source.cards) },
-    bosses: { ...base.bosses, ...safeObject(source.bosses) },
-    maps: { ...base.maps, ...safeObject(source.maps) },
-    rewardsClaimed: { ...base.rewardsClaimed, ...safeObject(source.rewardsClaimed) },
+    equipment: normalizeEquipmentEntries(source.equipment),
+    cards: normalizeCountedEntries(source.cards),
+    bosses: normalizeBossEntries(source.bosses),
+    maps: normalizeCountedEntries(source.maps),
+    rewardsClaimed: normalizeRewardEntries(source.rewardsClaimed),
   };
 }
 
@@ -44,11 +122,17 @@ export function recordEquipmentCollection(state = {}, item = {}, meta = {}) {
   const root = state && typeof state === 'object' ? state : {};
   const collections = normalizeCollectionState(root.collections);
   const key = collectionKey(item);
+  const parts = splitEquipmentKey(key);
   const current = safeObject(collections.equipment[key]);
   const count = safeInteger(current.count) + 1;
   const entry = {
     ...current,
+    id: current.id || key,
     key,
+    series: current.series || parts.series,
+    tier: current.tier || parts.tier,
+    slot: current.slot || parts.slot,
+    rarity: current.rarity || parts.rarity,
     count,
     firstSource: current.firstSource || meta.source || item.source || '',
   };

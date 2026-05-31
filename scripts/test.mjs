@@ -1384,9 +1384,35 @@ const collectionItem = { series: 'ancientHero', growthTier: 'T2', tier: 'rare', 
 const collectionEntry1 = equipmentCollection.recordEquipmentCollection(collectionState, collectionItem, { source: 'drop' });
 const collectionEntry2 = equipmentCollection.recordEquipmentCollection(collectionState, collectionItem, { source: 'salvage' });
 assert.equal(collectionEntry1.key, 'ancientHero:T2:weapon:rare', 'Equipment collection key should include series, tier, slot, and rarity.');
+assert.equal(collectionEntry1.series, 'ancientHero', 'Equipment collection records should store series on new entries.');
+assert.equal(collectionEntry1.tier, 'T2', 'Equipment collection records should store tier on new entries.');
+assert.equal(collectionEntry1.slot, 'weapon', 'Equipment collection records should store slot on new entries.');
 assert.equal(collectionEntry2.count, 2, 'Equipment collection should increment repeat records.');
 assert.equal(collectionEntry2.firstSource, 'drop', 'Equipment collection should keep first source.');
 assert.deepEqual(equipmentCollection.buildCollectionSummary(collectionState), { equipmentCount: 1, cardCount: 0, bossCount: 0, mapCount: 0 }, 'Collection summary should count recorded collection buckets.');
+const dirtyCollection = equipmentCollection.normalizeCollectionState({
+  equipment: {
+    bad: null,
+    'ancientHero:T2:weapon:rare': { count: '2', firstSource: 'drop' },
+  },
+  bosses: {
+    bad: null,
+    poring: { kills: '3', fastestMs: '1200' },
+  },
+  cards: {
+    bad: null,
+    poringCard: { id: 'poringCard', count: '4' },
+  },
+  maps: {
+    bad: null,
+    grass: { id: 'grass', count: '1' },
+  },
+});
+assert.deepEqual(equipmentCollection.buildCollectionSummary(dirtyCollection), { equipmentCount: 1, cardCount: 1, bossCount: 1, mapCount: 1 }, 'Collection summary should ignore null dirty entries after normalization.');
+assert.equal(dirtyCollection.equipment['ancientHero:T2:weapon:rare'].series, 'ancientHero', 'Collection normalization should recover equipment series from key.');
+assert.equal(dirtyCollection.equipment['ancientHero:T2:weapon:rare'].count, 2, 'Collection normalization should preserve finite equipment counts.');
+assert.equal(dirtyCollection.bosses.poring.kills, 3, 'Collection normalization should preserve finite boss kills.');
+assert.equal(dirtyCollection.cards.poringCard.count, 4, 'Collection normalization should preserve finite card counts.');
 
 const equipmentCollectionUrl = `data:text/javascript;base64,${Buffer.from(equipmentCollectionSource).toString('base64')}`;
 const collectionRuntimeSource = collectionIndexSource.replace(/from\s+['"]\.\/equipmentCollection\.js['"]/g, `from '${equipmentCollectionUrl}'`);
@@ -1563,9 +1589,11 @@ const makeCraftContext = (state, overrides = {}) => ({
   let createItemCall = null;
   const state = makeCraftState();
   const context = makeCraftContext(state, {
+    recordEquipmentResearch: (series, amount) => equipmentResearch.recordEquipmentResearch(state, series, amount),
+    recordEquipmentCollection: (item, meta) => equipmentCollection.recordEquipmentCollection(state, item, meta),
     createItem: (template, level, rarity, createContext) => {
       createItemCall = { template, level, rarity, createContext };
-      return { id: 'crafted-weapon', templateId: template.id, rarity };
+      return { id: 'crafted-weapon', templateId: template.id, series: createContext.series, growthTier: createContext.growthTier, slot: createContext.slot, rarity };
     },
   });
   const result = equipmentCrafting.craftEquipment(mythicCraftRequest, context);
@@ -1577,6 +1605,8 @@ const makeCraftContext = (state, overrides = {}) => ({
   assert.equal(state.production.crafting.totalCrafts, 1, 'Successful crafting should count exactly one total craft through addCraftingExperience.');
   assert.equal(state.production.crafting.masterCrafts, 1, 'Mythic crafting should increment master crafts.');
   assert.equal(state.inventory[0], result.item, 'Successful crafting should add the item to the front of inventory.');
+  assert.ok(state.equipmentResearch.ancientHero.exp >= mythicCraftRecipe.exp, 'Successful crafting should record equipment research on state.');
+  assert.equal(equipmentCollection.buildCollectionSummary(state).equipmentCount, 1, 'Successful crafting should record equipment collection on state.');
 }
 {
   const state = makeCraftState({
@@ -2377,17 +2407,23 @@ const upgradeState = {
 };
 let upgradeSaved = 0;
 let upgradeRendered = 0;
+const upgradeResearchCalls = [];
+const upgradeCollectionCalls = [];
 const upgradeResult = progressionUpgrade.upgradeEquipmentProgression('upgrade-me', {
   getState: () => upgradeState,
   save: () => { upgradeSaved += 1; },
   renderAll: () => { upgradeRendered += 1; },
   showToast: () => {},
+  recordEquipmentResearch: (series, amount) => { upgradeResearchCalls.push({ series, amount }); },
+  recordEquipmentCollection: (item, meta) => { upgradeCollectionCalls.push({ item, meta }); },
 });
 assert.equal(upgradeResult.ok, true, 'Progression upgrade should complete when enough materials exist.');
 assert.equal(upgradeState.inventory[0].upgradeStage, 1, 'Progression upgrade should advance the item stage.');
 assert.ok(upgradeState.materials.heroReformInscription < 4, 'Progression upgrade should consume line-specific material.');
 assert.equal(upgradeSaved, 1, 'Progression upgrade should save state once.');
 assert.equal(upgradeRendered, 1, 'Progression upgrade should rerender once.');
+assert.deepEqual(upgradeResearchCalls, [{ series: 'ancientHero', amount: 65 }], 'Progression upgrade should record research for the upgraded series.');
+assert.equal(upgradeCollectionCalls[0]?.meta?.source, 'upgrade', 'Progression upgrade should record collection source.');
 const recompositionState = {
   gold: 10000,
   materials: { heroReformInscription: 4 },
@@ -2920,6 +2956,26 @@ assert.ok(itemScore.calculateEquipmentScores({ atk: 100 }).physicalScore > itemS
 assert.ok(itemScore.calculateEquipmentScores({ matk: 100 }).magicScore > itemScore.calculateEquipmentScores({ matk: 100 }).physicalScore, 'Equipment score must favor magic stats for magic scoring.');
 
 const dismantle = await importSource(dismantleSource);
+{
+  const offlineSalvageState = {
+    inventory: [{ id: 'offline-salvage', series: 'ancientHero', growthTier: 'T2', slot: 'weapon', rarity: 'rare', level: 30 }],
+    equipped: {},
+  };
+  const salvageResearchCalls = [];
+  const salvageCollectionCalls = [];
+  const result = dismantle.salvageItem('offline-salvage', { offline: true, silent: true }, {
+    getState: () => offlineSalvageState,
+    getSalvageTable: () => ({ rare: { dust: [1, 1] } }),
+    randomInt: () => 1,
+    addMaterials: () => {},
+    rarityRank: (rarity) => ({ rare: 2 }[rarity] || 0),
+    recordEquipmentResearch: (series, amount) => { salvageResearchCalls.push({ series, amount }); },
+    recordEquipmentCollection: (item, meta) => { salvageCollectionCalls.push({ item, meta }); },
+  });
+  assert.equal(result.ok, true, 'Offline salvage should still salvage the target item.');
+  assert.equal(salvageResearchCalls[0]?.series, 'ancientHero', 'Offline salvage should still record equipment research.');
+  assert.equal(salvageCollectionCalls[0]?.meta?.source, 'salvage', 'Offline salvage should still record equipment collection.');
+}
 assert.equal(
   dismantle.getSalvageRewards(
     { rarity: 'normal', level: 0 },
