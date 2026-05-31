@@ -103,6 +103,9 @@ assert.match(skillMechanicsSource, /armorBreak/, 'Skill mechanics must support a
 assert.match(skillMechanicsSource, /finalCircuitBoost/, 'Skill mechanics must support final circuit boost.');
 assert.match(skillMechanicsSource, /MIN_ACTIVE_SKILL_COOLDOWN/, 'V3 active skills should have a minimum effective cooldown.');
 assert.match(skillMechanicsSource, /Math\.max\(MIN_ACTIVE_SKILL_COOLDOWN,\s*cd\)/, 'V3 cooldown reductions should be floored after all refunds.');
+assert.match(data, /cooldownPerLevel:\s*0\.97/, 'V3 active cooldown scaling should be slower after balance pass.');
+assert.match(data, /multiplierPerLevel:\s*1\.06/, 'V3 active damage scaling should avoid exponential late-game burst.');
+assert.match(skillMechanicsSource, /MIN_ACTIVE_SKILL_COOLDOWN\s*=\s*3\.6/, 'V3 active skills should have a higher minimum cooldown.');
 assert.doesNotMatch(game, /\bgetSkillSpecializationOptions\b/, 'Legacy skill specialization option helper should be removed.');
 assert.doesNotMatch(game, /\bselectSkillSpecialization\b/, 'Legacy skill specialization setter should be removed.');
 assert.doesNotMatch(game, /data-skill-spec/, 'Legacy skill specialization buttons should be removed from game.js.');
@@ -971,6 +974,8 @@ const osAdPhysicalWeapon = itemProgression.getProgressionEquipmentTemplate('prog
 assert.equal(ancientHeroPhysicalWeapon.atk, 18, 'T2 Ancient Hero physical weapon base ATK should use the new T2 tier power.');
 assert.equal(osPhysicalWeapon.atk, 27, 'T3 OS physical weapon base ATK should use the new T3 tier power.');
 assert.ok(osPhysicalWeapon.atk >= ancientHeroPhysicalWeapon.atk * 1.35, 'T3 base weapon should clearly beat T2 base weapon before rarity/affixes.');
+assert.match(itemProgressionSource, /T3:\s*3\.15/, 'T3 equipment tier power should clearly exceed T2.');
+assert.match(itemProgressionSource, /T10:\s*19\.8/, 'T10 equipment tier power should provide a visible endgame chase.');
 assert.ok(osAdPhysicalWeapon.atk > osPhysicalWeapon.atk, 'T4 OS-AD should be a visible upgrade over T3 OS.');
 assert.deepEqual(
   itemProgression.getEquipmentProgressionTags({ series: 'ancientHero', growthTier: 'T3', upgradeStage: 2, grade: 'lt' }),
@@ -2453,10 +2458,9 @@ const specialContext = {
   createItem: (template, level, rarity) => ({ id: template.id, level, rarity }),
   addEquipmentToInventory: (item) => acceptedSpecial.push(item),
 };
-assert.equal(bossDrops.rollZodiacSetDrops({}, {}, {}, specialContext), 1, 'Zodiac-set reward routing changed.');
+assert.equal(bossDrops.rollZodiacSetDrops({}, {}, {}, specialContext), 0, 'Zodiac-set drops should be disabled for online normal kills.');
 assert.equal(typeof bossDrops.rollTransitionSetDrops, 'undefined', 'Transition-set drop export should be removed.');
-assert.equal(acceptedSpecial.length, 1, 'Transition-set drops must not add extra special equipment.');
-assert.equal(acceptedSpecial[0].rarity, 'legend', 'Normal zodiac-set base rarity changed.');
+assert.equal(acceptedSpecial.length, 0, 'Disabled zodiac-set drops must not add special equipment.');
 const acceptedHardSpecial = [];
 const hardSpecialContext = {
   ...specialContext,
@@ -2468,8 +2472,8 @@ const hardSpecialContext = {
   createItem: (template, level, rarity) => ({ id: template.id, level, rarity }),
   addEquipmentToInventory: (item) => acceptedHardSpecial.push(item),
 };
-assert.equal(bossDrops.rollZodiacSetDrops({ level: 10 }, {}, {}, hardSpecialContext), 1, 'Hard zodiac-set routing changed.');
-assert.deepEqual(acceptedHardSpecial.map((item) => item.level), [30], 'Hard special equipment must not retain low monster display levels.');
+assert.equal(bossDrops.rollZodiacSetDrops({ level: 10 }, {}, {}, hardSpecialContext), 0, 'Zodiac-set drops should be disabled for online hard kills.');
+assert.deepEqual(acceptedHardSpecial.map((item) => item.level), [], 'Disabled hard zodiac-set drops must not create equipment.');
 
 const abyssStandaloneSource = abyssDropsSource
   .replace("import { grantMutationMaterial } from './materialDrops.js';", 'const grantMutationMaterial = () => 0;');
@@ -2496,6 +2500,26 @@ assert.deepEqual(abyssAccepted.map((item) => item.rarity), ['mythic', 'legend'],
 assert.match(lootRollSource, /rollEquipmentTableDrops[\s\S]*rollZodiacSetDrops[\s\S]*rollMythicEquipmentDrop[\s\S]*rollMapMaterialDrops[\s\S]*maybeDropMythicEssence[\s\S]*maybeDropDarkGoldFragments[\s\S]*maybeDropSocketMaterials[\s\S]*rollCardDropsFromTable[\s\S]*maybeDropBossCardFragments/, 'Online reward-category ordering changed.');
 assert.doesNotMatch(lootRollSource, /rollTransitionSetDrops/, 'Online drops should not roll transition sets.');
 assert.doesNotMatch(bossDropsSource, /export function rollTransitionSetDrops/, 'Transition-set drop function should be removed from boss drops.');
+const onlineZodiacDropStart = bossDropsSource.indexOf('export function rollZodiacSetDrops');
+const onlineZodiacDropEnd = bossDropsSource.indexOf('export function grantBossEssence', onlineZodiacDropStart);
+assert.ok(onlineZodiacDropStart >= 0 && onlineZodiacDropEnd > onlineZodiacDropStart, 'Online zodiac drop function boundaries changed.');
+const onlineZodiacDropSource = bossDropsSource.slice(onlineZodiacDropStart, onlineZodiacDropEnd);
+const offlineZodiacDropSource = offlineSource.slice(
+  offlineSource.indexOf('export function rollOfflineZodiacSetDrops'),
+  offlineSource.indexOf('export function rollOfflineMythicDrops'),
+);
+const equipmentSetsSourceStart = data.indexOf('var equipmentSets');
+const taurusSetSourceStart = data.indexOf('taurus_aldbaran:', equipmentSetsSourceStart);
+const taurusSetSource = data.slice(taurusSetSourceStart, data.indexOf('items:', taurusSetSourceStart));
+const abyssMapTierSource = data.slice(data.indexOf('var ABYSS_MAP_TIER_SCALE'), data.indexOf('var ABYSS_BOSS_EXTRA_MULTIPLIER'));
+assert.match(onlineZodiacDropSource, /return\s+0\s*;/, 'Online zodiac drop function should stay exported but produce no drops.');
+assert.doesNotMatch(onlineZodiacDropSource, /createItem|addEquipmentToInventory/, 'Disabled online zodiac drop function must not create equipment.');
+assert.match(offlineZodiacDropSource, /return\s+0\s*;/, 'Offline zodiac drop function should stay exported but produce no drops.');
+assert.doesNotMatch(offlineZodiacDropSource, /createItem|processGeneratedOfflineEquipment/, 'Disabled offline zodiac drop function must not create equipment.');
+assert.match(game, /ZODIAC_ITEM_STAT_MULTIPLIER\s*=\s*0\.38/, 'Generated zodiac item stats should be toned down.');
+assert.match(game, /ZODIAC_EFFECT_MULTIPLIER\s*=\s*0\.35/, 'Generated zodiac set effects should be toned down.');
+assert.match(taurusSetSource, /monsterGoldPct:\s*0\.35/, 'Taurus full-set gold bonus should no longer be a progression breaker.');
+assert.match(abyssMapTierSource, /sky:\s*\{\s*hp:\s*18/, 'Abyss sky HP curve should be raised for endgame checks.');
 assert.doesNotMatch(game, /transitionSetDropMap/, 'Transition sets should not remain in active drop routing.');
 
 const lootModel = await importSource(lootModelSource);
@@ -2920,10 +2944,10 @@ assert.deepEqual(offlinePityRewards.equipments.map((item) => item.id), ['offline
 assert.equal(offlinePityState.equipmentPityKills, 0, 'Offline equipment pity must reset after a guaranteed drop.');
 offline.rollOfflineCardDrops(offlineCategoryRewards, {}, { id: 'grass' }, 0, 1, offlineCategoryContext);
 offline.rollOfflineMaterialDrops(offlineCategoryRewards, {}, { id: 'grass' }, 1, offlineCategoryContext);
-offline.rollOfflineZodiacSetDrops(offlineCategoryRewards, {}, { id: 'grass' }, 1, 0, offlineCategoryContext);
+assert.equal(offline.rollOfflineZodiacSetDrops(offlineCategoryRewards, {}, { id: 'grass' }, 1, 0, offlineCategoryContext), 0, 'Offline zodiac-set drops should be disabled.');
 assert.equal(offlineCategoryRewards.cards[0].cardId, 'offline-card', 'Offline card reward routing changed.');
 assert.equal(offlineCategoryRewards.materials[0].materialId, 'ore', 'Offline material reward routing changed.');
-assert.deepEqual(offlineCategoryRewards.equipments.map((item) => item.id), ['offline-zodiac-piece'], 'Offline special equipment candidates changed.');
+assert.deepEqual(offlineCategoryRewards.equipments.map((item) => item.id), [], 'Offline zodiac-set drops should be disabled.');
 const offlineHardRewards = { equipments: [], cards: [], materials: [] };
 const offlineHardContext = {
   ...offlineCategoryContext,
@@ -2932,8 +2956,8 @@ const offlineHardContext = {
   getEquipmentSet: (id) => ({ items: [{ id: `${id}-piece`, rarity: 'rare', level: 8 }] }),
   resolveEquipmentDropLevel: ({ baseLevel }) => baseLevel + 20,
 };
-offline.rollOfflineZodiacSetDrops(offlineHardRewards, {}, { id: 'grass' }, 1, 0, offlineHardContext);
-assert.deepEqual(offlineHardRewards.equipments.map((item) => item.level), [28], 'Offline hard set drops must apply the same difficulty level bonus as online drops.');
+assert.equal(offline.rollOfflineZodiacSetDrops(offlineHardRewards, {}, { id: 'grass' }, 1, 0, offlineHardContext), 0, 'Offline hard zodiac-set drops should be disabled.');
+assert.deepEqual(offlineHardRewards.equipments.map((item) => item.level), [], 'Offline hard zodiac-set drops should be disabled.');
 
 const settlement = await importSource(settlementSource);
 const killState = {
