@@ -1198,20 +1198,30 @@ function ensureSetProgressionBonuses() {
       return;
     }
     if (set.id === "taurus_aldbaran") {
-      set.effects.pieces = {
-        2: { monsterGoldPct: 0.5 },
-        3: { monsterGoldPct: 1, baseExpPct: 0.2, jobExpPct: 0.2 },
-        5: { ...set.effects.full },
-      };
+      set.effects.pieces = createProgressiveSetStages(set.effects.full, 5);
       return;
     }
     const maxPieces = Math.min(5, set.items?.length || 5);
-    set.effects.pieces = {
-      2: scaleSetEffects(set.effects.full, 0.2),
-      3: scaleSetEffects(set.effects.full, 0.35),
-      [maxPieces]: { ...set.effects.full },
-    };
+    set.effects.pieces = createProgressiveSetStages(set.effects.full, maxPieces);
   });
+}
+
+function createProgressiveSetStages(fullEffects = {}, maxPieces = 5) {
+  const finalStage = Math.max(2, maxPieces);
+  if (finalStage <= 2) return { [finalStage]: { ...fullEffects } };
+  const stage2 = scaleSetEffects(fullEffects, 0.15);
+  if (finalStage <= 3) {
+    return {
+      2: stage2,
+      [finalStage]: subtractSetEffects(fullEffects, stage2),
+    };
+  }
+  const stage3 = scaleSetEffects(fullEffects, 0.25);
+  return {
+    2: stage2,
+    3: stage3,
+    [finalStage]: subtractSetEffects(fullEffects, stage2, stage3),
+  };
 }
 
 function scaleSetEffects(effects = {}, scale = 1) {
@@ -1219,6 +1229,17 @@ function scaleSetEffects(effects = {}, scale = 1) {
     Object.entries(effects)
       .filter(([, value]) => typeof value === "number")
       .map(([key, value]) => [key, Number((value * scale).toFixed(3))]),
+  );
+}
+
+function subtractSetEffects(effects = {}, ...parts) {
+  return Object.fromEntries(
+    Object.entries(effects)
+      .filter(([, value]) => typeof value === "number")
+      .map(([key, value]) => {
+        const used = parts.reduce((sum, part) => sum + Number(part[key] || 0), 0);
+        return [key, Number(Math.max(0, value - used).toFixed(3))];
+      }),
   );
 }
 

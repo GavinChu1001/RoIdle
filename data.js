@@ -502,18 +502,18 @@ var ABYSS_AFFIX_POOL = [
   { id: "abyss_rare_finder", name: "稀有嗅觉", desc: "稀有装备品质权重 +10%", effects: { rareDropBonus: 0.1 } },
 ];
 var ABYSS_ZODIAC_SET_EFFECTS = {
-  aries_mu: { abyssDamageBonus: 0.15, abyssBossDamageBonus: 0.08 },
-  taurus_aldbaran: { abyssGoldPct: 0.8, abyssBaseExpPct: 0.3, abyssJobExpPct: 0.3 },
-  gemini_saga: { abyssSkillDamageBonus: 0.12, abyssSkillChanceBonus: 0.05 },
-  cancer_deathmask: { abyssMaterialDropBonus: 0.2, abyssDefenseReduction: 0.05 },
-  leo_aiolia: { abyssAttackSpeedPct: 0.08, abyssCritRatePct: 0.05 },
-  virgo_shaka: { abyssMagicDamageBonus: 0.15, abyssDamageReduction: 0.05 },
-  libra_dohko: { abyssAttrPct: 0.08, abyssPowerPct: 0.08 },
-  scorpio_milo: { abyssCritDamageBonus: 0.18, abyssEliteDamageBonus: 0.12 },
-  sagittarius_aiolos: { abyssBossDamageBonus: 0.15, abyssDexPct: 0.08 },
-  capricorn_shura: { abyssIgnoreDefense: 0.08, abyssSkillDamageBonus: 0.1 },
-  aquarius_camue: { abyssMagicDamageBonus: 0.15, abyssBossDamageReduction: 0.05 },
-  pisces_aphrodite: { abyssCardDropBonus: 0.2, abyssItemDropBonus: 0.12 },
+  aries_mu: { abyssDamageBonus: 0.05, abyssBossDamageBonus: 0.03 },
+  taurus_aldbaran: { abyssGoldPct: 0.25, abyssBaseExpPct: 0.1, abyssJobExpPct: 0.1 },
+  gemini_saga: { abyssSkillDamageBonus: 0.04, abyssSkillChanceBonus: 0.02 },
+  cancer_deathmask: { abyssMaterialDropBonus: 0.07, abyssDefenseReduction: 0.02 },
+  leo_aiolia: { abyssAttackSpeedPct: 0.03, abyssCritRatePct: 0.02 },
+  virgo_shaka: { abyssMagicDamageBonus: 0.05, abyssDamageReduction: 0.02 },
+  libra_dohko: { abyssAttrPct: 0.03, abyssPowerPct: 0.03 },
+  scorpio_milo: { abyssCritDamageBonus: 0.06, abyssEliteDamageBonus: 0.04 },
+  sagittarius_aiolos: { abyssBossDamageBonus: 0.05, abyssDexPct: 0.03 },
+  capricorn_shura: { abyssIgnoreDefense: 0.03, abyssSkillDamageBonus: 0.04 },
+  aquarius_camue: { abyssMagicDamageBonus: 0.05, abyssBossDamageReduction: 0.02 },
+  pisces_aphrodite: { abyssCardDropBonus: 0.07, abyssItemDropBonus: 0.04 },
 };
 var MAP_EXPLORATION_REQUIREMENTS = [0, 100, 300, 800, 1500, 3000, 6000, 10000, 16000, 24000, 36000];
 var ACHIEVEMENT_DB = [

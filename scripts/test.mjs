@@ -106,6 +106,8 @@ assert.match(skillMechanicsSource, /Math\.max\(MIN_ACTIVE_SKILL_COOLDOWN,\s*cd\)
 assert.match(data, /cooldownPerLevel:\s*0\.97/, 'V3 active cooldown scaling should be slower after balance pass.');
 assert.match(data, /multiplierPerLevel:\s*1\.06/, 'V3 active damage scaling should avoid exponential late-game burst.');
 assert.match(skillMechanicsSource, /MIN_ACTIVE_SKILL_COOLDOWN\s*=\s*3\.6/, 'V3 active skills should have a higher minimum cooldown.');
+assert.ok((classicDataContext.ABYSS_ZODIAC_SET_EFFECTS?.taurus_aldbaran?.abyssGoldPct || 0) <= 0.25, 'Abyss Taurus collection bonus should be toned down.');
+assert.ok((classicDataContext.ABYSS_ZODIAC_SET_EFFECTS?.aries_mu?.abyssDamageBonus || 0) <= 0.05, 'Abyss zodiac combat collection bonuses should stay lightweight.');
 assert.doesNotMatch(game, /\bgetSkillSpecializationOptions\b/, 'Legacy skill specialization option helper should be removed.');
 assert.doesNotMatch(game, /\bselectSkillSpecialization\b/, 'Legacy skill specialization setter should be removed.');
 assert.doesNotMatch(game, /data-skill-spec/, 'Legacy skill specialization buttons should be removed from game.js.');
@@ -2527,6 +2529,8 @@ assert.match(offlineZodiacDropSource, /return\s+0\s*;/, 'Offline zodiac drop fun
 assert.doesNotMatch(offlineZodiacDropSource, /createItem|processGeneratedOfflineEquipment/, 'Disabled offline zodiac drop function must not create equipment.');
 assert.match(game, /ZODIAC_ITEM_STAT_MULTIPLIER\s*=\s*0\.38/, 'Generated zodiac item stats should be toned down.');
 assert.match(game, /ZODIAC_EFFECT_MULTIPLIER\s*=\s*0\.35/, 'Generated zodiac set effects should be toned down.');
+assert.match(game, /createProgressiveSetStages/, 'Zodiac piece stages should use residual bonuses instead of stacking above the advertised full effect.');
+assert.doesNotMatch(game, /monsterGoldPct:\s*0\.5/, 'Taurus partial set bonuses should not keep pre-balance gold values.');
 assert.match(taurusSetSource, /monsterGoldPct:\s*0\.35/, 'Taurus full-set gold bonus should no longer be a progression breaker.');
 assert.match(abyssMapTierSource, /sky:\s*\{\s*hp:\s*20/, 'Abyss sky HP curve should be raised for endgame checks.');
 assert.doesNotMatch(game, /transitionSetDropMap/, 'Transition sets should not remain in active drop routing.');
