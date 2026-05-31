@@ -1422,9 +1422,10 @@ const equipmentCraftingItemProgressionUrl = `data:text/javascript;base64,${Buffe
 const equipmentCrafting = await importSource(equipmentCraftingSource.replace(/from\s+['"]\.\/itemProgression\.js['"]/g, `from '${equipmentCraftingItemProgressionUrl}'`));
 const mythicCraftRequest = { series: 'ancientHero', growthTier: 'T2', slot: 'weapon', archetype: 'physical', rarity: 'mythic' };
 const mythicCraftRecipe = equipmentCrafting.getEquipmentCraftingRecipe(mythicCraftRequest);
+const makeCraftMaterials = (recipe) => Object.fromEntries(Object.entries(recipe.materials).map(([id, amount]) => [id, amount]));
 const makeCraftState = (overrides = {}) => ({
   gold: mythicCraftRecipe.gold,
-  materials: Object.fromEntries(Object.entries(mythicCraftRecipe.materials).map(([id, amount]) => [id, amount])),
+  materials: makeCraftMaterials(mythicCraftRecipe),
   inventory: [],
   production: {
     crafting: { level: 81, exp: 0, totalCrafts: 0, masterCrafts: 0 },
@@ -1469,6 +1470,31 @@ const makeCraftContext = (state, overrides = {}) => ({
   assert.equal(state.production.crafting.totalCrafts, 1, 'Successful crafting should count exactly one total craft through addCraftingExperience.');
   assert.equal(state.production.crafting.masterCrafts, 1, 'Mythic crafting should increment master crafts.');
   assert.equal(state.inventory[0], result.item, 'Successful crafting should add the item to the front of inventory.');
+}
+{
+  const osCraftRequest = { series: 'os', growthTier: 'T3', slot: 'weapon', archetype: 'physical', rarity: 'rare' };
+  const osCraftRecipe = equipmentCrafting.getEquipmentCraftingRecipe(osCraftRequest);
+  let createItemCall = null;
+  const state = makeCraftState({
+    gold: osCraftRecipe.gold,
+    materials: makeCraftMaterials(osCraftRecipe),
+    production: { crafting: { level: 1, exp: 0, totalCrafts: 0, masterCrafts: 0 }, blueprints: { known: [], fragments: {} } },
+  });
+  const context = makeCraftContext(state, {
+    getEquipmentTemplate: () => null,
+    getProgressionEquipmentTemplate: (id) => id === 'prog_os_os_physical_weapon'
+      ? { id, series: 'os', growthTier: 'T3', slot: 'weapon', equipSlot: 'weapon', archetype: 'physical', requiredLevel: 130, source: 'progression_drop' }
+      : null,
+    createItem: (template, level, rarity, createContext) => {
+      createItemCall = { template, level, rarity, createContext };
+      return { id: 'crafted-os-weapon', templateId: template.id, rarity };
+    },
+  });
+  const result = equipmentCrafting.craftEquipment(osCraftRequest, context);
+  assert.equal(result.ok, true, 'OS crafting should resolve its non-base progression stage template.');
+  assert.equal(createItemCall.template.id, 'prog_os_os_physical_weapon', 'OS crafting should not require a prog_os_base template.');
+  assert.equal(createItemCall.createContext.series, 'os', 'OS crafting should pass series into createItem context.');
+  assert.equal(createItemCall.createContext.growthTier, 'T3', 'OS crafting should pass growth tier into createItem context.');
 }
 const assertCraftBlockedWithoutConsumption = (label, state, context, expectedReason) => {
   const beforeGold = state.gold;

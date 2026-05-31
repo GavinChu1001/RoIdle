@@ -64,6 +64,46 @@ function getProduction(state = {}) {
   return state.production;
 }
 
+function templateMatches(template = {}, recipe = {}, archetype = recipe.archetype, requireGrowthTier = false) {
+  if (!template || typeof template !== 'object') return false;
+  if (template.series !== recipe.series) return false;
+  if (template.slot !== recipe.slot && template.equipSlot !== recipe.slot) return false;
+  if ((template.archetype || 'general') !== archetype) return false;
+  return !requireGrowthTier || template.growthTier === recipe.growthTier;
+}
+
+function findTemplateFromList(recipe = {}, context = {}) {
+  const templates = context.getProgressionEquipmentTemplates?.();
+  if (!Array.isArray(templates)) return null;
+  return templates.find((template) => templateMatches(template, recipe, recipe.archetype, true))
+    || templates.find((template) => templateMatches(template, recipe, recipe.archetype, false))
+    || templates.find((template) => templateMatches(template, recipe, 'general', true))
+    || templates.find((template) => templateMatches(template, recipe, 'general', false))
+    || null;
+}
+
+function getTemplateById(context = {}, id = '') {
+  return context.getProgressionEquipmentTemplate?.(id) || context.getEquipmentTemplate?.(id) || null;
+}
+
+function resolveCraftingTemplate(recipe = {}, context = {}) {
+  const listed = findTemplateFromList(recipe, context);
+  if (listed) return listed;
+  const candidates = [
+    `prog_${recipe.series}_${recipe.series}_${recipe.archetype}_${recipe.slot}`,
+    `prog_${recipe.series}_base_${recipe.archetype}_${recipe.slot}`,
+    `prog_${recipe.series}_${recipe.growthTier}_${recipe.archetype}_${recipe.slot}`,
+    `prog_${recipe.series}_${recipe.series}_general_${recipe.slot}`,
+    `prog_${recipe.series}_base_general_${recipe.slot}`,
+    `prog_${recipe.series}_${recipe.growthTier}_general_${recipe.slot}`,
+  ];
+  for (const id of candidates) {
+    const template = getTemplateById(context, id);
+    if (template) return template;
+  }
+  return null;
+}
+
 export function getEquipmentCraftingRecipe(request = {}) {
   const series = normalizeEquipmentSeries(request.series, 'ancientHero');
   const growthTier = normalizeGrowthTier(request.growthTier, 'T1');
@@ -136,9 +176,7 @@ export function craftEquipment(request = {}, context = {}) {
 
   const state = context.getState();
   const { recipe } = craftable;
-  const templateId = `prog_${recipe.series}_base_${recipe.archetype}_${recipe.slot}`;
-  const fallbackTemplateId = `prog_${recipe.series}_base_general_${recipe.slot}`;
-  const template = context.getEquipmentTemplate?.(templateId) || context.getEquipmentTemplate?.(fallbackTemplateId);
+  const template = resolveCraftingTemplate(recipe, context);
   if (!template) {
     return { ok: false, reason: 'template_missing', recipe };
   }
