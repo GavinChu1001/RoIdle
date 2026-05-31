@@ -1,6 +1,7 @@
+import { CRAFTING_MASTERY_MAX_LEVEL, MINING_NODES } from './catalog.js';
+
 const PRODUCTION_STATE_VERSION = 1;
-const CRAFTING_MAX_LEVEL = 100;
-const DEFAULT_MINING_NODE_IDS = ['grass', 'forest', 'abyss'];
+const DEFAULT_MINING_NODE_IDS = Object.keys(MINING_NODES);
 
 function finite(value) {
   const number = Number(value || 0);
@@ -24,8 +25,8 @@ function normalizeNode(id, input = {}) {
 }
 
 export function craftingExpForLevel(level) {
-  const safeLevel = clampInt(level, 1, CRAFTING_MAX_LEVEL);
-  if (safeLevel >= CRAFTING_MAX_LEVEL) return Infinity;
+  const safeLevel = clampInt(level, 1, CRAFTING_MASTERY_MAX_LEVEL);
+  if (safeLevel >= CRAFTING_MASTERY_MAX_LEVEL) return Infinity;
   return 80 + safeLevel * 40;
 }
 
@@ -76,19 +77,19 @@ export function normalizeProductionState(input = {}) {
 
   const mining = input.mining && typeof input.mining === 'object' ? input.mining : {};
   const miningNodes = mining.nodes && typeof mining.nodes === 'object' ? mining.nodes : {};
-  base.mining.level = clampInt(mining.level ?? base.mining.level, 1, CRAFTING_MAX_LEVEL);
+  base.mining.level = clampInt(mining.level ?? base.mining.level, 1, CRAFTING_MASTERY_MAX_LEVEL);
   base.mining.exp = nonNegativeInt(mining.exp);
   base.mining.lastClaimedAt = nonNegativeInt(mining.lastClaimedAt);
   base.mining.nodes = Object.fromEntries(DEFAULT_MINING_NODE_IDS.map((id) => [id, normalizeNode(id, miningNodes[id])]));
 
   const artisan = input.artisan && typeof input.artisan === 'object' ? input.artisan : {};
-  base.artisan.level = clampInt(artisan.level ?? base.artisan.level, 1, CRAFTING_MAX_LEVEL);
+  base.artisan.level = clampInt(artisan.level ?? base.artisan.level, 1, CRAFTING_MASTERY_MAX_LEVEL);
   base.artisan.exp = nonNegativeInt(artisan.exp);
   base.artisan.jobsCompleted = nonNegativeInt(artisan.jobsCompleted);
   base.artisan.activeJob = artisan.activeJob && typeof artisan.activeJob === 'object' ? { ...artisan.activeJob } : null;
 
   const crafting = input.crafting && typeof input.crafting === 'object' ? input.crafting : {};
-  base.crafting.level = clampInt(crafting.level ?? base.crafting.level, 1, CRAFTING_MAX_LEVEL);
+  base.crafting.level = clampInt(crafting.level ?? base.crafting.level, 1, CRAFTING_MASTERY_MAX_LEVEL);
   base.crafting.exp = nonNegativeInt(crafting.exp);
   base.crafting.totalCrafts = nonNegativeInt(crafting.totalCrafts);
   base.crafting.masterCrafts = nonNegativeInt(crafting.masterCrafts);
@@ -101,25 +102,24 @@ export function normalizeProductionState(input = {}) {
 
 export function addCraftingExperience(productionState, amount) {
   const normalized = normalizeProductionState(productionState);
+  const target = productionState && typeof productionState === 'object' ? productionState : normalized;
+  if (target !== normalized) {
+    Object.assign(target, normalized);
+  }
   const gained = nonNegativeInt(amount);
-  if (gained <= 0) return normalized;
+  if (gained <= 0) return target;
 
-  normalized.crafting.exp += gained;
-  normalized.crafting.totalCrafts += 1;
-  while (normalized.crafting.level < CRAFTING_MAX_LEVEL) {
-    const required = craftingExpForLevel(normalized.crafting.level);
-    if (normalized.crafting.exp < required) break;
-    normalized.crafting.exp -= required;
-    normalized.crafting.level += 1;
+  target.crafting.exp += gained;
+  target.crafting.totalCrafts += 1;
+  while (target.crafting.level < CRAFTING_MASTERY_MAX_LEVEL) {
+    const required = craftingExpForLevel(target.crafting.level);
+    if (target.crafting.exp < required) break;
+    target.crafting.exp -= required;
+    target.crafting.level += 1;
   }
-  if (normalized.crafting.level >= CRAFTING_MAX_LEVEL) {
-    normalized.crafting.level = CRAFTING_MAX_LEVEL;
-    normalized.crafting.exp = Math.max(0, normalized.crafting.exp);
+  if (target.crafting.level >= CRAFTING_MASTERY_MAX_LEVEL) {
+    target.crafting.level = CRAFTING_MASTERY_MAX_LEVEL;
+    target.crafting.exp = Math.max(0, target.crafting.exp);
   }
-
-  if (productionState && typeof productionState === 'object') {
-    Object.assign(productionState, normalized);
-    return productionState;
-  }
-  return normalized;
+  return target;
 }

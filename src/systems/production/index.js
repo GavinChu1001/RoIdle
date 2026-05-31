@@ -15,9 +15,8 @@ import {
 export * from './catalog.js';
 export * from './state.js';
 
-export function installProductionRuntime(context = {}) {
+export function installProductionRuntime(_context = {}) {
   const runtime = Object.freeze({
-    context,
     defaultProductionState,
     normalizeProductionState,
     addCraftingExperience,
