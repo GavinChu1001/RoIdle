@@ -140,8 +140,13 @@ function mergeRuntimeEffects(target, effects = {}) {
   });
 }
 
+const DROP_RUNTIME_KEYS = new Set(['killDropWindow', 'highTierDropBonus', 'dimensionalEcho', 'materialPityBonus']);
+
 function applyMechanismRuntimeEffects(mechanism, combatEffects, dropEffects) {
   const runtime = mechanism?.runtime || {};
+  Object.entries(runtime).forEach(([key, value]) => {
+    mergeRuntimeEffects(DROP_RUNTIME_KEYS.has(key) ? dropEffects : combatEffects, { [key]: value });
+  });
   mergeRuntimeEffects(combatEffects, {
     autoStrikePct: number(runtime.cooldownHaste) + number(runtime.earlySustain) + number(runtime.offlineRamp),
     burstDamageBonus: number(runtime.burstDamage) + number(runtime.stanceBurst) + number(runtime.sanctuaryCounter),
@@ -155,9 +160,23 @@ function applyMechanismRuntimeEffects(mechanism, combatEffects, dropEffects) {
 function equippedItemsFromState(state = {}) {
   const inventory = Array.isArray(state.inventory) ? state.inventory : [];
   const byId = new Map(inventory.map((item) => [String(item?.id || ''), item]).filter(([id]) => id));
-  return Object.values(state.equipped || {})
-    .map((entry) => (entry && typeof entry === 'object' ? entry : byId.get(String(entry || ''))))
-    .filter((item) => item && typeof item === 'object');
+  const seenIds = new Set();
+  const seenObjects = new WeakSet();
+  const items = [];
+  Object.values(state.equipped || {}).forEach((entry) => {
+    const item = entry && typeof entry === 'object' ? entry : byId.get(String(entry || ''));
+    if (!item || typeof item !== 'object') return;
+    const id = String(item.id || '');
+    if (id) {
+      if (seenIds.has(id)) return;
+      seenIds.add(id);
+    } else {
+      if (seenObjects.has(item)) return;
+      seenObjects.add(item);
+    }
+    items.push(item);
+  });
+  return items;
 }
 
 function itemSeries(item = {}) {

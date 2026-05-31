@@ -2341,6 +2341,35 @@ assert.equal(lowStageHeroLine.averageUpgradeStage, 0, 'Low-stage Ancient Hero sy
 assert.ok(lowStageHeroLine.activeMechanisms.some((entry) => entry.id === 'heroBurst'), 'Low-stage Ancient Hero should keep the basic hero burst.');
 assert.ok(!lowStageHeroLine.activeMechanisms.some((entry) => entry.id === 'heroBurstUpgrade'), 'Low-stage Ancient Hero should not unlock the upgrade burst early.');
 assert.ok(!lowStageHeroLine.activeMechanisms.some((entry) => entry.unlockPieces >= 5), 'Low-stage Ancient Hero should not unlock five-piece mechanisms early.');
+const duplicateSynergy = itemSynergy.computeEquipmentSynergies({
+  inventory: [
+    { id: 'shared-hero', series: 'ancientHero', enhanceLevel: 6, upgradeStage: 2 },
+    { id: 'unique-hero', series: 'ancientHero', enhanceLevel: 4, upgradeStage: 2 },
+  ],
+  equipped: {
+    weapon: 'shared-hero',
+    armor: 'shared-hero',
+    headgear: 'shared-hero',
+    shoes: 'shared-hero',
+    trinket: 'unique-hero',
+  },
+  hero: { jobId: 'runeKnight', jobHistory: ['novice', 'swordman', 'knight', 'runeKnight'] },
+});
+assert.equal(duplicateSynergy.activeLines[0]?.pieceCount, 2, 'Repeated equipped ids must count as one physical item.');
+assert.equal(duplicateSynergy.activeLines[0]?.enhanceTotal, 10, 'Repeated equipped ids must not multiply enhance totals.');
+assert.deepEqual(duplicateSynergy.activeMechanismIds, [], 'Repeated equipped ids must not fake four-piece or five-piece mechanisms.');
+const noIdSharedObject = { series: 'ancientHero', enhanceLevel: 6, upgradeStage: 2 };
+const duplicateObjectSynergy = itemSynergy.computeEquipmentSynergies({
+  equipped: {
+    weapon: noIdSharedObject,
+    armor: noIdSharedObject,
+    headgear: noIdSharedObject,
+    shoes: noIdSharedObject,
+    trinket: noIdSharedObject,
+  },
+  hero: { jobId: 'runeKnight' },
+});
+assert.equal(duplicateObjectSynergy.activeLines.length, 0, 'The same id-less equipped object reference must not count as multiple pieces.');
 assert.match(equipmentIndexSource, /computeEquipmentSynergies/, 'Equipment runtime must expose synergy computation.');
 assert.match(game, /function computeEquipmentSynergyState\(\)/, 'game.js must wrap equipment synergy computation for classic runtime use.');
 assert.match(game, /computeEquipmentSynergies\?\.\(state\)/, 'Equipment synergy computation should read the current game state.');
@@ -2370,6 +2399,31 @@ const osSynergy = itemSynergy.computeEquipmentSynergies({
   hero: { jobId: 'blacksmith' },
 });
 assert.ok(osSynergy.combatEffects.autoStrikePct > 0, 'OS four-piece synergy should expose a combat/offline pace bonus.');
+const makeRuntimeSynergy = (series) => itemSynergy.computeEquipmentSynergies({
+  inventory: ['w', 'a', 'h', 's', 't'].map((slot) => ({ id: `${series}-${slot}`, series, enhanceLevel: 6, upgradeStage: 2 })),
+  equipped: {
+    weapon: `${series}-w`,
+    armor: `${series}-a`,
+    headgear: `${series}-h`,
+    shoes: `${series}-s`,
+    trinket: `${series}-t`,
+  },
+  hero: { jobId: 'runeKnight', jobHistory: ['novice', 'swordman', 'knight', 'runeKnight'] },
+});
+const fidesRuntimeSynergy = makeRuntimeSynergy('fides');
+assert.equal(fidesRuntimeSynergy.combatEffects.highHpDamage, 0.06, 'Fides high-HP runtime detail must be exposed to combat effects.');
+assert.equal(fidesRuntimeSynergy.combatEffects.bossGuard, 0.04, 'Fides boss guard runtime detail must be exposed to combat effects.');
+const glacierRuntimeSynergy = makeRuntimeSynergy('glacier');
+assert.equal(glacierRuntimeSynergy.combatEffects.rampSkillDamage, 0.06, 'Glacier ramp skill runtime detail must be exposed to combat effects.');
+const poenitentiaRuntimeSynergy = makeRuntimeSynergy('poenitentia');
+assert.equal(poenitentiaRuntimeSynergy.combatEffects.executeDamage, 0.06, 'Poenitentia execute runtime detail must be exposed to combat effects.');
+assert.equal(poenitentiaRuntimeSynergy.dropEffects.materialPityBonus, 0.05, 'Poenitentia material pity runtime detail must be exposed to drop effects.');
+const goodEvilRuntimeSynergy = makeRuntimeSynergy('goodEvil');
+assert.equal(goodEvilRuntimeSynergy.combatEffects.stanceCycle, 0.07, 'Good-Evil stance cycle runtime detail must be exposed to combat effects.');
+const nebulaRuntimeSynergy = makeRuntimeSynergy('nebula');
+assert.equal(nebulaRuntimeSynergy.combatEffects.multihitBonus, 0.06, 'Nebula multihit runtime detail must be exposed to combat effects.');
+assert.equal(nebulaRuntimeSynergy.dropEffects.highTierDropBonus, 0.08, 'Nebula high-tier drop runtime detail must be exposed to drop effects.');
+assert.ok(nebulaRuntimeSynergy.dropEffects.dropChainBonus > 0, 'Runtime detail exposure must preserve generic drop-chain bucket.');
 assert.match(equipmentDropsSource, /equipmentSynergyDropEffects/, 'Equipment drop rates must consume equipment synergy drop effects.');
 assert.match(lootRollSource, /noteEquipmentSynergyKill/, 'Loot roll should notify synergy kill-chain hooks.');
 assert.match(offlineSource, /equipmentSynergyCombatEffects/, 'Offline settlement should consume equipment synergy combat effects.');
