@@ -71,6 +71,9 @@ const adventureHandbookSource = read('src/systems/adventureHandbook.js');
 const adventureHandbookPageSource = read('src/ui/adventureHandbookPage.js');
 const dungeonSystemSource = read('src/systems/dungeons.js');
 const dungeonPageSource = read('src/ui/dungeonPage.js');
+const productionCatalogSource = read('src/systems/production/catalog.js');
+const productionStateSource = read('src/systems/production/state.js');
+const productionIndexSource = read('src/systems/production/index.js');
 
 const classicDataContext = { console };
 createContext(classicDataContext);
@@ -202,6 +205,30 @@ assert.equal(rolledDungeonState.entries.daily_material.bestClearPower, 5000, 'Du
   assert.equal(rewardState.dungeons.entries.daily_material.used, 1, 'Successful dungeon entry must consume one attempt.');
   assert.equal(rewardState.gold, 5000, 'Successful dungeon entry must grant gold through grantGenericReward.');
   assert.equal(rewardState.materials.ancientHeroShard, 3, 'Successful dungeon entry must grant material rewards through grantGenericReward.');
+}
+assert.match(productionCatalogSource, /export\s+const\s+PRODUCTION_MATERIALS/, 'Production catalog must export materials.');
+assert.match(productionCatalogSource, /export\s+const\s+CRAFTING_MASTERY_LEVELS/, 'Production catalog must export crafting mastery bands.');
+assert.match(productionCatalogSource, /\bdarkGold\b/, 'Production mastery must include dark gold progression.');
+assert.match(productionCatalogSource, /\bmythic\b/, 'Production mastery must include mythic progression.');
+assert.match(productionStateSource, /export\s+function\s+defaultProductionState/, 'Production state must export defaultProductionState.');
+assert.match(productionStateSource, /export\s+function\s+normalizeProductionState/, 'Production state must export normalizeProductionState.');
+assert.match(productionStateSource, /export\s+function\s+addCraftingExperience/, 'Production state must export addCraftingExperience.');
+assert.match(productionIndexSource, /export\s+function\s+installProductionRuntime/, 'Production index must expose installProductionRuntime.');
+{
+  const productionState = await importSource(productionStateSource);
+  const defaultState = productionState.defaultProductionState();
+  assert.equal(defaultState.crafting.level, 1, 'Default crafting level must start at Lv.1.');
+  assert.equal(defaultState.crafting.exp, 0, 'Default crafting exp must start at zero.');
+  assert.ok(defaultState.mining.nodes.grass, 'Default mining state must include the grass node.');
+  const normalizedProduction = productionState.normalizeProductionState({
+    crafting: { level: 999, exp: -5, totalCrafts: 3 },
+    blueprints: { known: ['hero_weapon_darkGold', '', null] },
+  });
+  assert.equal(normalizedProduction.crafting.level, 100, 'Crafting level must clamp to max level.');
+  assert.equal(normalizedProduction.crafting.exp, 0, 'Negative crafting exp must normalize to zero.');
+  assert.deepEqual(normalizedProduction.blueprints.known, ['hero_weapon_darkGold'], 'Blueprint known list must filter blank values.');
+  productionState.addCraftingExperience(defaultState, 5000);
+  assert.ok(defaultState.crafting.level > 1, 'Crafting experience must increase crafting level.');
 }
 assert.match(adventureHandbookSource, /export function defaultAdventureHandbookState/, 'Adventure handbook system should expose default state.');
 assert.match(adventureHandbookSource, /export function normalizeAdventureHandbookState/, 'Adventure handbook system should normalize saved state.');
