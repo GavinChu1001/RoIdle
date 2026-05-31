@@ -66,12 +66,19 @@ export function installEquipmentRuntime(context = {}) {
     getProgressionEquipmentTemplates,
     getEquipmentLineMaterials,
     normalizeEquipmentSeries,
+    addCraftingExperience: (production, amount) => {
+      if (typeof context.addCraftingExperience === 'function') {
+        const handled = context.addCraftingExperience(production, amount);
+        return handled === false ? false : Boolean(handled || handled === undefined);
+      }
+      const delegate = productionRuntime()?.addCraftingExperience;
+      if (typeof delegate === 'function') {
+        const handled = delegate(production, amount);
+        return handled === false ? false : Boolean(handled || handled === undefined);
+      }
+      return false;
+    },
   };
-  if (typeof context.addCraftingExperience === 'function') {
-    craftingContext.addCraftingExperience = (production, amount) => context.addCraftingExperience(production, amount);
-  } else if (typeof productionRuntime()?.addCraftingExperience === 'function') {
-    craftingContext.addCraftingExperience = (production, amount) => productionRuntime().addCraftingExperience(production, amount);
-  }
   const runtime = Object.freeze({
     getEquipmentDisplayName,
     getEffectiveItemStats,

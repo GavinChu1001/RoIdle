@@ -1419,13 +1419,24 @@ for (const name of [
 assert.match(equipmentIndexSource, /export\s+\*\s+from\s+['"]\.\/crafting\.js['"]/, 'Equipment index must re-export equipment crafting.');
 assert.match(equipmentIndexSource, /createItem:\s*\(template,\s*level,\s*rarity,\s*itemContext\)\s*=>\s*createItem\(template,\s*level,\s*rarity,\s*itemContext,\s*context\)/, 'Equipment runtime crafting context must bridge module createItem.');
 assert.match(equipmentIndexSource, /typeof\s+context\.addCraftingExperience\s*===\s*['"]function['"]/, 'Equipment runtime crafting context should prefer a legacy addCraftingExperience delegate when provided.');
-assert.match(equipmentIndexSource, /else\s+if\s*\(\s*typeof\s+productionRuntime\(\)\?\.addCraftingExperience\s*===\s*['"]function['"]\s*\)/, 'Equipment runtime crafting context should only attach the production runtime delegate when it exists.');
+assert.match(equipmentIndexSource, /const\s+delegate\s*=\s*productionRuntime\(\)\?\.addCraftingExperience/, 'Equipment runtime crafting context should dynamically look up the production runtime delegate.');
+assert.match(equipmentIndexSource, /return\s+false;/, 'Equipment runtime crafting context should return false when no experience delegate exists so craftEquipment fallback runs.');
 assert.match(equipmentIndexSource, /canCraftEquipment:\s*\(request\)\s*=>\s*canCraftEquipment\(request,\s*craftingContext\)/, 'Equipment runtime must validate crafting through enhanced crafting context.');
 assert.match(equipmentIndexSource, /craftEquipment:\s*\(request\)\s*=>\s*craftEquipment\(request,\s*craftingContext\)/, 'Equipment runtime must craft through enhanced crafting context.');
 const equipmentCraftingItemProgressionUrl = `data:text/javascript;base64,${Buffer.from(itemProgressionSource).toString('base64')}`;
 const equipmentCraftingTestSource = equipmentCraftingSource.replace(/from\s+['"]\.\/itemProgression\.js['"]/g, `from '${equipmentCraftingItemProgressionUrl}'`);
 const equipmentCraftingModuleUrl = `data:text/javascript;base64,${Buffer.from(equipmentCraftingTestSource).toString('base64')}`;
 const equipmentCrafting = await importSource(equipmentCraftingTestSource);
+assert.equal(
+  equipmentCrafting.getEquipmentCraftingRecipe({ series: 'ancientHero', slot: 'weapon' }).growthTier,
+  'T2',
+  'Ancient Hero crafting should default to the series default T2 growth tier.',
+);
+assert.equal(
+  equipmentCrafting.getEquipmentCraftingRecipe({ series: 'os', slot: 'weapon' }).growthTier,
+  'T3',
+  'OS crafting should default to the series default T3 growth tier.',
+);
 const mythicCraftRequest = { series: 'ancientHero', growthTier: 'T2', slot: 'weapon', archetype: 'physical', rarity: 'mythic' };
 const mythicCraftRecipe = equipmentCrafting.getEquipmentCraftingRecipe(mythicCraftRequest);
 const makeCraftMaterials = (recipe) => Object.fromEntries(Object.entries(recipe.materials).map(([id, amount]) => [id, amount]));
@@ -1478,6 +1489,17 @@ const makeCraftContext = (state, overrides = {}) => ({
   assert.equal(state.inventory[0], result.item, 'Successful crafting should add the item to the front of inventory.');
 }
 {
+  const rareRecipe = equipmentCrafting.getEquipmentCraftingRecipe({ series: 'ancientHero', slot: 'weapon', rarity: 'rare' });
+  const successState = { gold: rareRecipe.gold, materials: makeCraftMaterials(rareRecipe), inventory: [] };
+  const successCheck = equipmentCrafting.canCraftEquipment({ series: 'ancientHero', slot: 'weapon', rarity: 'rare' }, { getState: () => successState });
+  assert.equal(successCheck.ok, true, 'canCraftEquipment should allow affordable rare crafting with default readonly production.');
+  assert.equal(Object.hasOwn(successState, 'production'), false, 'canCraftEquipment success should not add production to state.');
+  const failureState = { gold: 0, materials: {}, inventory: [] };
+  const failureCheck = equipmentCrafting.canCraftEquipment({ series: 'ancientHero', slot: 'weapon', rarity: 'rare' }, { getState: () => failureState });
+  assert.equal(failureCheck.ok, false, 'canCraftEquipment should report failures without mutating missing production.');
+  assert.equal(Object.hasOwn(failureState, 'production'), false, 'canCraftEquipment failure should not add production to state.');
+}
+{
   const osCraftRequest = { series: 'os', growthTier: 'T3', slot: 'weapon', archetype: 'physical', rarity: 'rare' };
   const osCraftRecipe = equipmentCrafting.getEquipmentCraftingRecipe(osCraftRequest);
   let createItemCall = null;
@@ -1501,6 +1523,28 @@ const makeCraftContext = (state, overrides = {}) => ({
   assert.equal(createItemCall.template.id, 'prog_os_os_physical_weapon', 'OS crafting should not require a prog_os_base template.');
   assert.equal(createItemCall.createContext.series, 'os', 'OS crafting should pass series into createItem context.');
   assert.equal(createItemCall.createContext.growthTier, 'T3', 'OS crafting should pass growth tier into createItem context.');
+}
+{
+  const osT4Request = { series: 'os', growthTier: 'T4', slot: 'weapon', archetype: 'physical', rarity: 'rare' };
+  const osT4Recipe = equipmentCrafting.getEquipmentCraftingRecipe(osT4Request);
+  const state = makeCraftState({
+    gold: osT4Recipe.gold,
+    materials: makeCraftMaterials(osT4Recipe),
+    production: { crafting: { level: 1, exp: 0, totalCrafts: 0, masterCrafts: 0 }, blueprints: { known: [], fragments: {} } },
+  });
+  const beforeGold = state.gold;
+  const beforeMaterials = { ...state.materials };
+  const result = equipmentCrafting.craftEquipment(osT4Request, makeCraftContext(state, {
+    getEquipmentTemplate: () => null,
+    getProgressionEquipmentTemplate: (id) => id === 'prog_os_os_physical_weapon'
+      ? { id, series: 'os', growthTier: 'T3', slot: 'weapon', equipSlot: 'weapon', archetype: 'physical', requiredLevel: 130, source: 'progression_drop' }
+      : null,
+  }));
+  assert.equal(result.ok, false, 'OS T4 crafting must not reuse the T3 OS template.');
+  assert.equal(result.reason, 'template_missing', 'OS T4 crafting without a matching growth-tier template should report template_missing.');
+  assert.equal(state.gold, beforeGold, 'Template mismatch should not consume gold.');
+  assert.deepEqual(state.materials, beforeMaterials, 'Template mismatch should not consume materials.');
+  assert.equal(state.inventory.length, 0, 'Template mismatch should not add inventory.');
 }
 const assertCraftBlockedWithoutConsumption = (label, state, context, expectedReason) => {
   const beforeGold = state.gold;
@@ -1595,6 +1639,45 @@ const assertCraftBlockedWithoutConsumption = (label, state, context, expectedRea
     assert.equal(runtimeState.inventory[0], result.item, 'Runtime crafting should add the crafted item to inventory.');
     assert.equal(runtimeState.production.crafting.totalCrafts, 1, 'Runtime crafting without an experience delegate should use craftEquipment totalCrafts fallback.');
     assert.ok(runtimeState.production.crafting.exp > 0, 'Runtime crafting without an experience delegate should use craftEquipment exp fallback.');
+    const dynamicProductionState = {
+      gold: osCraftRecipe.gold,
+      materials: makeCraftMaterials(osCraftRecipe),
+      inventory: [],
+      production: { crafting: { level: 1, exp: 0, totalCrafts: 0, masterCrafts: 0 }, blueprints: { known: [], fragments: {} } },
+    };
+    const dynamicRuntime = equipmentIndexRuntime.installEquipmentRuntime({
+      getState: () => dynamicProductionState,
+      getEquipmentTemplate: () => null,
+    });
+    globalThis.window.RuneFrontierProductionRuntime = {
+      addCraftingExperience: (production, amount) => {
+        production.crafting.exp += amount + 777;
+        production.crafting.totalCrafts += 1;
+        return production;
+      },
+    };
+    const dynamicResult = dynamicRuntime.craftEquipment(osCraftRequest);
+    assert.equal(dynamicResult.ok, true, 'Runtime crafting should still succeed when production runtime appears after equipment install.');
+    assert.equal(dynamicProductionState.production.crafting.totalCrafts, 1, 'Dynamic production delegate should count exactly one craft.');
+    assert.equal(dynamicProductionState.production.crafting.exp, osCraftRecipe.exp + 777, 'Runtime crafting should dynamically call production addCraftingExperience when it appears later.');
+    const legacyDelegateState = {
+      gold: osCraftRecipe.gold,
+      materials: makeCraftMaterials(osCraftRecipe),
+      inventory: [],
+      production: { crafting: { level: 1, exp: 0, totalCrafts: 0, masterCrafts: 0 }, blueprints: { known: [], fragments: {} } },
+    };
+    const legacyDelegateRuntime = equipmentIndexRuntime.installEquipmentRuntime({
+      getState: () => legacyDelegateState,
+      getEquipmentTemplate: () => null,
+      addCraftingExperience: (production, amount) => {
+        production.crafting.exp += amount + 333;
+        production.crafting.totalCrafts += 1;
+        return production;
+      },
+    });
+    const legacyDelegateResult = legacyDelegateRuntime.craftEquipment(osCraftRequest);
+    assert.equal(legacyDelegateResult.ok, true, 'Runtime crafting should succeed with a legacy addCraftingExperience delegate.');
+    assert.equal(legacyDelegateState.production.crafting.exp, osCraftRecipe.exp + 333, 'Legacy addCraftingExperience should take priority over production runtime delegate.');
   } finally {
     if (previousWindow === undefined) {
       delete globalThis.window;

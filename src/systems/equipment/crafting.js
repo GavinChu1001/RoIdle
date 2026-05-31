@@ -1,4 +1,4 @@
-import { PROGRESSION_EQUIPMENT_SLOTS, getEquipmentLineMaterials, normalizeEquipmentSeries, normalizeGrowthTier } from './itemProgression.js';
+import { PROGRESSION_EQUIPMENT_SLOTS, getEquipmentLineMaterials, getEquipmentSeriesConfig, normalizeEquipmentSeries, normalizeGrowthTier } from './itemProgression.js';
 
 const RARITY_REQUIREMENTS = Object.freeze({
   rare: { level: 1 },
@@ -48,7 +48,26 @@ function availableAmount(materials = {}, id) {
   return Math.max(0, Math.floor(Number(materials[id] || 0)));
 }
 
-function getProduction(state = {}) {
+const DEFAULT_PRODUCTION = Object.freeze({
+  crafting: Object.freeze({ level: 1, exp: 0, totalCrafts: 0, masterCrafts: 0 }),
+  blueprints: Object.freeze({ known: Object.freeze([]), fragments: Object.freeze({}) }),
+});
+
+function readProduction(state = {}) {
+  const production = state.production && typeof state.production === 'object' ? state.production : DEFAULT_PRODUCTION;
+  const crafting = production.crafting && typeof production.crafting === 'object' ? production.crafting : DEFAULT_PRODUCTION.crafting;
+  const blueprints = production.blueprints && typeof production.blueprints === 'object' ? production.blueprints : DEFAULT_PRODUCTION.blueprints;
+  return {
+    ...production,
+    crafting,
+    blueprints: {
+      ...blueprints,
+      known: Array.isArray(blueprints.known) ? blueprints.known : [],
+    },
+  };
+}
+
+function ensureProduction(state = {}) {
   if (!state.production || typeof state.production !== 'object') {
     state.production = { crafting: { level: 1, exp: 0, totalCrafts: 0, masterCrafts: 0 }, blueprints: { known: [], fragments: {} } };
   }
@@ -72,13 +91,20 @@ function templateMatches(template = {}, recipe = {}, archetype = recipe.archetyp
   return !requireGrowthTier || template.growthTier === recipe.growthTier;
 }
 
+function stageIdsForGrowthTier(recipe = {}) {
+  const config = getEquipmentSeriesConfig(recipe.series);
+  const stageIds = (config?.stages || [])
+    .filter((stage) => normalizeGrowthTier(stage.growthTier || config.defaultTier, config.defaultTier) === recipe.growthTier)
+    .map((stage) => stage.id)
+    .filter(Boolean);
+  return [...new Set(stageIds)];
+}
+
 function findTemplateFromList(recipe = {}, context = {}) {
   const templates = context.getProgressionEquipmentTemplates?.();
   if (!Array.isArray(templates)) return null;
   return templates.find((template) => templateMatches(template, recipe, recipe.archetype, true))
-    || templates.find((template) => templateMatches(template, recipe, recipe.archetype, false))
     || templates.find((template) => templateMatches(template, recipe, 'general', true))
-    || templates.find((template) => templateMatches(template, recipe, 'general', false))
     || null;
 }
 
@@ -86,27 +112,34 @@ function getTemplateById(context = {}, id = '') {
   return context.getProgressionEquipmentTemplate?.(id) || context.getEquipmentTemplate?.(id) || null;
 }
 
+function candidateTemplateMatches(template = {}, recipe = {}, archetype = recipe.archetype) {
+  if (!template || typeof template !== 'object') return false;
+  if (template.series && template.series !== recipe.series) return false;
+  if ((template.slot || template.equipSlot) && template.slot !== recipe.slot && template.equipSlot !== recipe.slot) return false;
+  if (template.archetype && template.archetype !== archetype) return false;
+  if (template.growthTier && template.growthTier !== recipe.growthTier) return false;
+  return true;
+}
+
 function resolveCraftingTemplate(recipe = {}, context = {}) {
   const listed = findTemplateFromList(recipe, context);
   if (listed) return listed;
+  const stageIds = stageIdsForGrowthTier(recipe);
   const candidates = [
-    `prog_${recipe.series}_${recipe.series}_${recipe.archetype}_${recipe.slot}`,
-    `prog_${recipe.series}_base_${recipe.archetype}_${recipe.slot}`,
-    `prog_${recipe.series}_${recipe.growthTier}_${recipe.archetype}_${recipe.slot}`,
-    `prog_${recipe.series}_${recipe.series}_general_${recipe.slot}`,
-    `prog_${recipe.series}_base_general_${recipe.slot}`,
-    `prog_${recipe.series}_${recipe.growthTier}_general_${recipe.slot}`,
+    ...stageIds.map((stageId) => `prog_${recipe.series}_${stageId}_${recipe.archetype}_${recipe.slot}`),
+    ...stageIds.map((stageId) => `prog_${recipe.series}_${stageId}_general_${recipe.slot}`),
   ];
   for (const id of candidates) {
     const template = getTemplateById(context, id);
-    if (template) return template;
+    if (template && candidateTemplateMatches(template, recipe, id.includes('_general_') ? 'general' : recipe.archetype)) return template;
   }
   return null;
 }
 
 export function getEquipmentCraftingRecipe(request = {}) {
   const series = normalizeEquipmentSeries(request.series, 'ancientHero');
-  const growthTier = normalizeGrowthTier(request.growthTier, 'T1');
+  const defaultTier = getEquipmentSeriesConfig(series)?.defaultTier || 'T2';
+  const growthTier = normalizeGrowthTier(request.growthTier, defaultTier);
   const slot = normalizeSlot(request.slot);
   const archetype = normalizeArchetype(request.archetype);
   const rarity = normalizeRarity(request.rarity);
@@ -150,7 +183,7 @@ export function canCraftEquipment(request = {}, context = {}) {
     return { ok: false, reason: 'state_missing', recipe: getEquipmentCraftingRecipe(request) };
   }
   const recipe = getEquipmentCraftingRecipe(request);
-  const production = getProduction(state);
+  const production = readProduction(state);
   const craftingLevel = Math.max(1, Math.floor(Number(production.crafting.level || 1)));
   if (craftingLevel < recipe.level) {
     return { ok: false, reason: 'level_too_low', recipe };
@@ -207,13 +240,14 @@ export function craftEquipment(request = {}, context = {}) {
   state.inventory = Array.isArray(state.inventory) ? state.inventory : [];
   state.inventory.unshift(item);
 
-  const production = getProduction(state);
+  const production = ensureProduction(state);
   if (['darkGold', 'mythic'].includes(recipe.rarity)) {
     production.crafting.masterCrafts = Math.max(0, Math.floor(Number(production.crafting.masterCrafts || 0))) + 1;
   }
-  if (typeof context.addCraftingExperience === 'function') {
-    context.addCraftingExperience(production, recipe.exp);
-  } else {
+  const handledExperience = typeof context.addCraftingExperience === 'function'
+    ? context.addCraftingExperience(production, recipe.exp)
+    : false;
+  if (!handledExperience) {
     production.crafting.totalCrafts = Math.max(0, Math.floor(Number(production.crafting.totalCrafts || 0))) + 1;
     production.crafting.exp = Math.max(0, Math.floor(Number(production.crafting.exp || 0))) + recipe.exp;
   }
