@@ -15256,6 +15256,9 @@ window.RuneFrontierLegacyAdventureHandbookContext = () => Object.freeze({
         .filter((row) => row.materialId === materialId)
         .map(() => ({ mapId, mapName: map?.name || mapId, difficulty: "normal" }));
     });
+    const dungeonSources = (window.RuneFrontierDungeonRuntime?.getDungeonDefinitions?.() || [])
+      .filter((dungeon) => Number(dungeon.rewards?.materials?.[materialId] || 0) > 0)
+      .map((dungeon) => ({ mapId: dungeon.id, mapName: dungeon.name, difficulty: "副本" }));
     const progressionSources = maps.flatMap((map) => ["normal", "hard", "abyss"].flatMap((difficulty) => {
       const drops = window.RuneFrontierEquipmentRuntime?.getProgressionMaterialDrops?.(map.id, difficulty, {}) || [];
       return drops
@@ -15263,7 +15266,7 @@ window.RuneFrontierLegacyAdventureHandbookContext = () => Object.freeze({
         .map(() => ({ mapId: map.id, mapName: map.name, difficulty }));
     }));
     const seen = new Set();
-    return [...ordinarySources, ...progressionSources].filter((source) => {
+    return [...ordinarySources, ...dungeonSources, ...progressionSources].filter((source) => {
       const key = `${source.mapId}:${source.difficulty}`;
       if (seen.has(key)) return false;
       seen.add(key);
